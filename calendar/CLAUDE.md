@@ -38,5 +38,6 @@ matched by app id, so `cargo run` shows it only after `make install`.
 - `src/views.rs`: month, week/day time grid, mini month; return `Action`s.
 - `src/app.rs`: window, header and menus, sidebar, dialogs, shortcuts, screenshot mode.
 - `src/config.rs`: `config.toml` and the private `account.toml`.
-- `skins/calendar.toml`: the built-in Calendar skin and the starting one (ADR-0006). `bar_controls` in
-  `app.rs` colours the title bar's controls when a skin colours the bar.
+- Skins: the Calendar skin lives in Patina (`skins/calendar.toml` there, ADR-0008); this app only
+  makes it the starting one (`HOME_SKIN` in `app.rs`). Patina's `TitleBar` colours the bar's
+  controls when a skin colours the bar.

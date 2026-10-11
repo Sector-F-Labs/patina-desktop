@@ -96,41 +96,13 @@ fn local_zone() -> Tz {
     iana_time_zone::get_timezone().ok().and_then(|n| n.parse().ok()).unwrap_or(Tz::UTC)
 }
 
-/// The app's own skins, compiled in.
-const BUILT_IN: &[(&str, &str)] = &[("calendar.toml", include_str!("../skins/calendar.toml"))];
-
-/// The skin used until one is picked: the app's own.
+/// The skin used until one is picked: the app's own, built into Patina.
 const HOME_SKIN: &str = "Calendar";
 
 fn load_skins() -> (Vec<Skin>, Vec<String>) {
-    let built_in = [skin::BUILT_IN, BUILT_IN].concat();
-    skin::load_all(&built_in, &skin::shared_dir().into_iter().collect::<Vec<_>>())
+    skin::load_all(skin::BUILT_IN, &skin::shared_dir().into_iter().collect::<Vec<_>>())
 }
 
-/// Colours the title bar's own controls from the frame style when a skin
-/// gives the bar a colour of its own (Calendar's red), so menus and buttons
-/// read on it. Popups and the rest of the window keep the skin's colours.
-fn bar_controls(ui: &mut egui::Ui, style: &frame::FrameStyle) {
-    let v = ui.visuals_mut();
-    if style.title_bar == v.panel_fill {
-        return;
-    }
-    let ink = style.title_text;
-    v.override_text_color = Some(ink);
-    v.weak_text_color = Some(ink.gamma_multiply(0.75));
-    v.widgets.noninteractive.bg_stroke.color = ink.gamma_multiply(0.35);
-    for (w, fill) in [
-        (&mut v.widgets.inactive, ink.gamma_multiply(0.14)),
-        (&mut v.widgets.hovered, style.controls.hover),
-        (&mut v.widgets.active, style.controls.pressed),
-        (&mut v.widgets.open, style.controls.pressed),
-    ] {
-        w.weak_bg_fill = fill;
-        w.fg_stroke.color = ink;
-    }
-    v.selection.bg_fill = ink.gamma_multiply(0.26);
-    v.selection.stroke.color = ink;
-}
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
@@ -466,7 +438,6 @@ impl App {
         let mut left = Vec::new();
         let mut right = Vec::new();
         let view = self.config.view;
-        bar_controls(ui, style);
         TitleBar::new(&title, style).custom(custom).menu_bar(true).show(
             ui,
             |ui| self.menus(ui, &mut left),
@@ -1060,26 +1031,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_calendar_skin_is_built_in_and_parses_cleanly() {
-        let skin = Skin::parse(BUILT_IN[0].1).unwrap();
-        assert_eq!(skin.name, HOME_SKIN);
-        assert!(skin.warnings.is_empty(), "{:?}", skin.warnings);
-        let v = skin.visuals(egui::Visuals::light());
-        assert_ne!(skin.frame_style(&v).title_bar, v.panel_fill, "the bar has its own colour");
-    }
-
-    #[test]
-    fn bar_controls_only_change_a_coloured_bar() {
-        let ctx = egui::Context::default();
-        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
-            let plain = frame::FrameStyle::from_visuals(ui.visuals());
-            let before = ui.visuals().clone();
-            bar_controls(ui, &plain);
-            assert_eq!(*ui.visuals(), before, "a bar in the panel colour is left alone");
-            let red = frame::FrameStyle { title_bar: Color32::RED, title_text: Color32::WHITE, ..plain };
-            bar_controls(ui, &red);
-            assert_eq!(ui.visuals().widgets.inactive.fg_stroke.color, Color32::WHITE);
-            assert_eq!(ui.visuals().override_text_color, Some(Color32::WHITE));
-        });
+    fn the_home_skin_is_built_into_patina() {
+        let (skins, errors) = skin::load_all(skin::BUILT_IN, &[]);
+        assert!(errors.is_empty(), "{errors:?}");
+        assert!(skins.iter().any(|s| s.name == HOME_SKIN));
     }
 }
