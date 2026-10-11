@@ -1,0 +1,45 @@
+# Calendar: the app's own look, taken from its icon. A red-orange title bar
+# over paper: warm off-white panels, grey ink, and the icon's orange for
+# today and the selection. See Patina's docs/skinning.md for the format.
+
+format = 1
+name = "Calendar"
+author = "Calendar"
+base = "light"
+corner_radius = 6
+shadows = true
+
+[colors]
+background = "#F7F5F0"    # the page
+surface = "#FFFFFF"       # text fields and lists
+surface_alt = "#EFECE5"   # days outside the month
+border = "#DDD8CE"
+text = "#2E2C29"
+text_strong = "#161513"
+text_weak = "#8F8B84"     # the icon's grey days
+accent = "#D9481A"        # the icon's header
+accent_text = "#FFFFFF"
+link = "#C0400F"
+warning = "#C46A00"
+error = "#C01C28"
+
+[controls]
+background = "#EFECE5"
+hover = "#E6E2D9"
+pressed = "#DDD8CE"
+text = "#2E2C29"
+text_hover = "#161513"
+
+[window]
+title_bar = "#D9481A"
+title_text = "#FFFFFF"
+border = "#B23B13"
+corner_radius = 15
+
+[window.controls]
+icon = "#FFFFFF"
+icon_hover = "#FFFFFF"
+hover = "#E8673E"
+pressed = "#B23B13"
+close_hover = "#8F2C0C"
+close_icon_hover = "#FFFFFF"

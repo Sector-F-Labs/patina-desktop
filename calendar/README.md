@@ -21,7 +21,9 @@ it shares a window frame and skins with Notebook, Photograph and UnAmp.
     here.
 - **Works from a cache:** opens instantly with what it last saw, and syncs in the background
   every five minutes or on Ctrl+R.
-- **Skins** from Patina, including Dark Orange.
+- **Its own skin, Calendar:** a red title bar over a paper-white page, like the icon. It's the
+  starting skin. Patina's Default and Dark Orange, and any skin in `~/.config/patina/skins/`, are
+  in the Skins menu.
 
 ![Month view in Dark Orange](docs/screenshot-month.png)
 
