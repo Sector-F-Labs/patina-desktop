@@ -6,7 +6,7 @@ Date: 2026-10-11
 
 The skin itself is Accepted: the user asked for a built-in skin called Calendar, with a red title
 bar and the rest paper white, like the icon. Making it the starting skin, and the way the bar's
-controls are coloured, are Proposed.
+controls are coloured, are Proposed. The colour was changed by [ADR-0007](0007-freebsd-red.md).
 
 ## Context
 

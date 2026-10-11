@@ -47,7 +47,8 @@ mechanics of adding one.
 | [0003](0003-sync-off-the-ui-thread-with-a-cache.md) | Sync on a worker thread, refetching only changed calendars, with a disk cache | Proposed |
 | [0004](0004-icalendar-subset-and-chrono-tz.md) | Read a subset of iCalendar ourselves, resolve zones with chrono-tz, expand rules with rrule | Proposed |
 | [0005](0005-account-in-a-private-file.md) | Keep the server login in a file only the user can read | Proposed |
-| [0006](0006-own-calendar-skin-as-default.md) | Ship a built-in Calendar skin, red bar on paper, and start in it | Accepted (skin); Proposed (default, bar colouring) |
+| [0006](0006-own-calendar-skin-as-default.md) | Ship a built-in Calendar skin, red bar on paper, and start in it | Accepted (skin); Proposed (default, bar colouring); colour changed by [ADR-0007](0007-freebsd-red.md) |
+| [0007](0007-freebsd-red.md) | Use freebsd.org's deep red for the Calendar skin and the icon | Accepted |
 
 ## Decision Relationship
 
@@ -58,6 +59,7 @@ flowchart TD
     A --> D[0004: iCalendar subset, chrono-tz, rrule]
     C --> E[0005: Login in a private file]
     A --> F[0006: Calendar skin, the default]
+    F --> G[0007: freebsd.org's red]
 ```
 
 ## Revisit Triggers
