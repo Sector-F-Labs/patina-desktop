@@ -78,12 +78,15 @@ install: build ## Install Calendar and its launcher for the current user (PREFIX
 	install -d $(APPSDIR)
 	sed 's|^Exec=calendar|Exec=$(BINDIR)/calendar|' packaging/linux/$(APP_ID).desktop > $(APPSDIR)/$(APP_ID).desktop
 	-update-desktop-database -q $(APPSDIR)
+	@# GTK trusts an icon cache over the folder, so refresh one if it's there.
+	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
 	@echo "Installed $(BINDIR)/calendar and the $(APP_ID) launcher"
 
 uninstall: ## Remove what make install put in place
 	rm -f $(BINDIR)/calendar $(APPSDIR)/$(APP_ID).desktop
 	rm -f $(ICONDIR)/scalable/apps/$(APP_ID).svg $(ICONDIR)/128x128/apps/$(APP_ID).png
 	-update-desktop-database -q $(APPSDIR)
+	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
 
 clean: ## Remove build output
 	cargo clean
