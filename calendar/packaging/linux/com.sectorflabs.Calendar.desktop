@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Calendar
+GenericName=Calendar
+Comment=See and edit the calendars on your CalDAV server
+Exec=calendar
+Icon=com.sectorflabs.Calendar
+Terminal=false
+Categories=Office;Calendar;
+Keywords=calendar;events;caldav;plan;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.Calendar
