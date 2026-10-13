@@ -23,7 +23,7 @@ it shares a window frame and skins with Notebook, Photograph and UnAmp.
   every five minutes or on Ctrl+R.
 - **Its own skin, Calendar:** a deep red title bar (freebsd.org's red) over a paper-white page,
   like the icon, and the starting skin. Patina's other skins (Default, Dark Orange, Notebook,
-  Steam Classic) and any skin in `~/.config/patina/skins/` are in the Skins menu.
+  Steam Classic) and any skin in `~/.config/calendar/skins/` are in the Skins menu.
 
 ![Month view in Dark Orange](docs/screenshot-month.png)
 

@@ -14,7 +14,7 @@ egui_extras = { version = "0.35", features = ["datepicker", "serde"] }
 iana-time-zone = "0.1.65"
 image = { version = "0.25", default-features = false, features = ["png"] }
 jiff = { version = "0.2.38", default-features = false, features = ["std"] }
-patina-ui = "0.1.2"
+patina-ui = "0.1.7"
 roxmltree = "0.21.1"
 rrule = "0.14.0"
 serde = { version = "1.0.229", features = ["derive"] }

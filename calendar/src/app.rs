@@ -100,7 +100,7 @@ fn local_zone() -> Tz {
 const HOME_SKIN: &str = "Calendar";
 
 fn load_skins() -> (Vec<Skin>, Vec<String>) {
-    skin::load_all(skin::BUILT_IN, &skin::shared_dir().into_iter().collect::<Vec<_>>())
+    skin::load_all(skin::BUILT_IN, &skin::app_dir("calendar").into_iter().collect::<Vec<_>>())
 }
 
 
