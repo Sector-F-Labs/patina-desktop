@@ -55,7 +55,7 @@ A broken file falls back to the defaults.
 ## Not yet
 
 - Minimise and fullscreen.
-- Workspaces, and window titles in the bar under the compositor.
+- Workspaces.
 - Running on real hardware (DRM/KMS) and HiDPI.
 
 ## Build
