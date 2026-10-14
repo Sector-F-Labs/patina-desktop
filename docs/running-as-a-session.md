@@ -37,7 +37,8 @@ choosing it at the login screen.
   cursor where it sets one.
 - **Keys of its own:** **Ctrl+Alt+F1** to **F12** switch consoles. **Ctrl+Alt+Backspace** quits
   the compositor, the way out whatever state it's in. **Super** on its own opens the launcher,
-  **Super+Space** switches keyboard layout, and **Super+Shift+R** reloads the config file. The
+  **Super+1** to **9** bring forward the window in that tab of the bar, **Super+Space** switches
+  keyboard layout, and **Super+Shift+R** reloads the config file. The
   brightness and volume keys work, and the volume menu fades in to show the level.
 
 ## Settings

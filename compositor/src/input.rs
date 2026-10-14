@@ -30,6 +30,8 @@ pub enum KeyAction {
     Reload,
     /// A brightness or volume key.
     Media(crate::media::MediaKey),
+    /// Bring forward the window in the bar's `n`th tab (Super+1 to 9).
+    Window(usize),
 }
 
 /// The compositor's own keys; everything else goes to the focused client.
@@ -47,6 +49,13 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     }
     if modifiers.logo && sym == keysyms::KEY_space {
         return Some(KeyAction::NextLayout);
+    }
+    if modifiers.logo
+        && !modifiers.shift
+        && !modifiers.ctrl
+        && (keysyms::KEY_1..=keysyms::KEY_9).contains(&sym)
+    {
+        return Some(KeyAction::Window((sym - keysyms::KEY_1 + 1) as usize));
     }
     // With Shift held, the keysym is the capital.
     if modifiers.logo && modifiers.shift && (sym == keysyms::KEY_R || sym == keysyms::KEY_r) {
@@ -98,6 +107,12 @@ impl State {
             }
             Some(KeyAction::Reload) => {
                 self.reload_config();
+                None
+            }
+            Some(KeyAction::Window(n)) => {
+                if let Some(surface) = self.toplevels.nth(n) {
+                    self.activate_toplevel(&surface);
+                }
                 None
             }
             Some(KeyAction::Media(key)) => {
@@ -228,6 +243,24 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(key_action(&no_shift, keysyms::KEY_r), None);
+    }
+
+    #[test]
+    fn super_and_a_digit_picks_a_tab() {
+        let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            key_action(&logo, keysyms::KEY_1),
+            Some(KeyAction::Window(1))
+        );
+        assert_eq!(
+            key_action(&logo, keysyms::KEY_9),
+            Some(KeyAction::Window(9))
+        );
+        assert_eq!(key_action(&logo, keysyms::KEY_0), None);
+        assert_eq!(key_action(&mods(false, false), keysyms::KEY_1), None);
     }
 
     #[test]

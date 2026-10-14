@@ -48,6 +48,14 @@ pub struct HandleData {
 }
 
 impl ForeignToplevels {
+    /// The `n`th open window (from 1), in the order the bar's tabs show
+    /// them: the order they opened.
+    pub fn nth(&self, n: usize) -> Option<WlSurface> {
+        self.entries
+            .get(n.checked_sub(1)?)
+            .map(|e| e.surface.clone())
+    }
+
     pub fn new(dh: &DisplayHandle) -> Self {
         dh.create_global::<State, ZwlrForeignToplevelManagerV1, ()>(VERSION, ());
         Self::default()
