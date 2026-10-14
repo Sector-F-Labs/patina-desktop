@@ -14,6 +14,7 @@ mod media;
 mod nested;
 mod scale;
 mod state;
+mod tabs;
 mod toplevels;
 mod udev;
 mod winit;

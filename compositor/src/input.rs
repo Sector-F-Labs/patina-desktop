@@ -37,6 +37,9 @@ pub enum KeyAction {
     /// Maximise, restore or tile the focused window (Super with an arrow
     /// or a vim key).
     Snap(crate::maximize::Snap),
+    /// Activate the next tab of the bar (Alt+Tab), or the one before
+    /// (Alt+Shift+Tab).
+    CycleTabs { forward: bool },
     /// Grow the focused window in a direction (Super+Shift with an arrow).
     Grow(crate::maximize::Snap),
     /// Resize the focused window around its centre (Super+Shift+K/J grow
@@ -86,6 +89,16 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     }
     if modifiers.logo && sym == keysyms::KEY_space {
         return Some(KeyAction::NextLayout);
+    }
+    // Alt+Tab steps along the bar's tabs; with Shift (which makes Tab
+    // ISO_Left_Tab), backwards.
+    if modifiers.alt && !modifiers.ctrl && !modifiers.logo {
+        if sym == keysyms::KEY_Tab && !modifiers.shift {
+            return Some(KeyAction::CycleTabs { forward: true });
+        }
+        if sym == keysyms::KEY_ISO_Left_Tab || (sym == keysyms::KEY_Tab && modifiers.shift) {
+            return Some(KeyAction::CycleTabs { forward: false });
+        }
     }
     // Ctrl+Super+Q locks, as Ctrl+Cmd+Q does on a Mac.
     if modifiers.logo
@@ -222,6 +235,10 @@ impl State {
             }
             Some(KeyAction::QuitApp) => {
                 self.quit_focused_app();
+                None
+            }
+            Some(KeyAction::CycleTabs { forward }) => {
+                self.cycle_tabs(forward);
                 None
             }
             Some(KeyAction::Grow(toward)) => {
@@ -481,6 +498,25 @@ mod tests {
         ] {
             assert_eq!(key_action(&keys, sym), Some(KeyAction::Resize(how)));
         }
+    }
+
+    #[test]
+    fn alt_tab_cycles_and_shift_goes_back() {
+        let alt = mods(false, true);
+        assert_eq!(
+            key_action(&alt, keysyms::KEY_Tab),
+            Some(KeyAction::CycleTabs { forward: true })
+        );
+        let alt_shift = ModifiersState {
+            alt: true,
+            shift: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            key_action(&alt_shift, keysyms::KEY_ISO_Left_Tab),
+            Some(KeyAction::CycleTabs { forward: false })
+        );
+        assert_eq!(key_action(&mods(false, false), keysyms::KEY_Tab), None);
     }
 
     #[test]

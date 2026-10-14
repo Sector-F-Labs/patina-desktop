@@ -662,8 +662,8 @@ impl XdgShellHandler for State {
         self.focus(Some(window), SERIAL_COUNTER.next_serial());
     }
 
-    fn toplevel_destroyed(&mut self, _: ToplevelSurface) {
-        self.focus_top_window();
+    fn toplevel_destroyed(&mut self, toplevel: ToplevelSurface) {
+        self.focus_after_close(toplevel.wl_surface());
     }
 
     fn new_popup(&mut self, surface: PopupSurface, _: PositionerState) {

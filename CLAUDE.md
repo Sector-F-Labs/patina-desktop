@@ -47,6 +47,12 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   edge for pieces the compositor starts) are shared.
 - `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`.
 
+## Principle
+
+Don't repeat the UI (ADR-0027): a feature grows where it already lives. The bar's tabs are the
+window list (Alt+Tab steps along them, closing focuses the neighbouring tab); there's no separate
+switcher.
+
 ## Gotchas
 
 - `bsdt exec -- cmd ~/x` expands `~` on the host; use `bsdt exec -- sh -c '... $HOME/x'`.

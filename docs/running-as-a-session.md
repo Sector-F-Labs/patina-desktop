@@ -37,7 +37,8 @@ choosing it at the login screen.
   cursor where it sets one.
 - **Keys of its own:** **Ctrl+Alt+F1** to **F12** switch consoles. **Ctrl+Alt+Backspace** quits
   the compositor, the way out whatever state it's in. **Super** on its own opens the launcher,
-  **Super+1** to **9** bring forward the window in that tab of the bar, **Super+Up/Down** (or
+  **Super+1** to **9** bring forward the window in that tab of the bar,
+  **Alt+Tab** and **Alt+Shift+Tab** step to the next and previous tab (the bar is the switcher), **Super+Up/Down** (or
   **K/J**) maximise and restore the focused window, **Super+Left/Right** (or **H/L**) fill the left
   or right half, **Super+Shift** with an arrow grows the focused window that way by a
   tenth of the screen, **Super+Shift+K/J** grow and shrink it, and **Super+Shift+L/H** widen and

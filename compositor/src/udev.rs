@@ -374,6 +374,7 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             | KeyAction::Run(_)
             | KeyAction::Snap(_)
             | KeyAction::Grow(_)
+            | KeyAction::CycleTabs { .. }
             | KeyAction::Resize(_)
             | KeyAction::CloseWindow
             | KeyAction::QuitApp

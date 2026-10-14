@@ -48,6 +48,11 @@ pub struct HandleData {
 }
 
 impl ForeignToplevels {
+    /// The open windows in the order the bar's tabs show them.
+    pub fn order(&self) -> Vec<WlSurface> {
+        self.entries.iter().map(|e| e.surface.clone()).collect()
+    }
+
     /// The `n`th open window (from 1), in the order the bar's tabs show
     /// them: the order they opened.
     pub fn nth(&self, n: usize) -> Option<WlSurface> {

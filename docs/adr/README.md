@@ -68,6 +68,7 @@ mechanics of adding one.
 | [0024](0024-battery-indicator.md) | A battery indicator in the tray, read from sysfs | Accepted |
 | [0025](0025-lock-screen.md) | A lock screen through ext-session-lock, swaylock by default | Accepted; lock key superseded by [0026](0026-lock-with-ctrl-super-q.md) |
 | [0026](0026-lock-with-ctrl-super-q.md) | Lock with Ctrl+Super+Q, the Mac shortcut; Super+L tiles right again | Accepted |
+| [0027](0027-bar-tabs-are-the-window-list.md) | The bar's tabs are the one window list: Alt+Tab and closing follow them | Accepted |
 
 ## Decision Relationship
 
@@ -101,6 +102,7 @@ flowchart TD
     B --> K[0011: patina-shell crate]
     K --> J[0010: launcher reads .desktop files]
     K --> L[0012: windows via foreign-toplevel]
+    L --> AA[0027: bar tabs are the window list]
     A --> M[0013: Patina from develop]
 ```
 
