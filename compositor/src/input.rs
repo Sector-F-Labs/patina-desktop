@@ -37,6 +37,9 @@ pub enum KeyAction {
     /// Maximise, restore or tile the focused window (Super with an arrow
     /// or a vim key).
     Snap(crate::maximize::Snap),
+    /// Grow the focused window in a direction (Super+Shift with an arrow or
+    /// a vim key).
+    Grow(crate::maximize::Snap),
     /// Ask the focused window to close (Super+W), as its close button does.
     CloseWindow,
     /// Ask every window of the focused app to close (Super+Q): quitting it,
@@ -81,6 +84,20 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     }
     if modifiers.logo && sym == keysyms::KEY_space {
         return Some(KeyAction::NextLayout);
+    }
+    if modifiers.logo && modifiers.shift && !modifiers.ctrl && !modifiers.alt {
+        use crate::maximize::Snap;
+        // With Shift held, the vim keys come as capitals.
+        let toward = match sym {
+            keysyms::KEY_Up | keysyms::KEY_K => Some(Snap::Up),
+            keysyms::KEY_Down | keysyms::KEY_J => Some(Snap::Down),
+            keysyms::KEY_Left | keysyms::KEY_H => Some(Snap::Left),
+            keysyms::KEY_Right | keysyms::KEY_L => Some(Snap::Right),
+            _ => None,
+        };
+        if let Some(toward) = toward {
+            return Some(KeyAction::Grow(toward));
+        }
     }
     if modifiers.logo && !modifiers.shift && !modifiers.ctrl && !modifiers.alt {
         use crate::maximize::Snap;
@@ -190,6 +207,10 @@ impl State {
             }
             Some(KeyAction::QuitApp) => {
                 self.quit_focused_app();
+                None
+            }
+            Some(KeyAction::Grow(toward)) => {
+                self.grow(toward);
                 None
             }
             Some(KeyAction::Snap(snap)) => {
@@ -401,6 +422,28 @@ mod tests {
             key_action(&logo, keysyms::KEY_Escape),
             Some(KeyAction::Lock)
         );
+    }
+
+    #[test]
+    fn super_shift_with_arrows_or_vim_keys_grows() {
+        use crate::maximize::Snap;
+        let keys = ModifiersState {
+            logo: true,
+            shift: true,
+            ..Default::default()
+        };
+        for (sym, toward) in [
+            (keysyms::KEY_Up, Snap::Up),
+            (keysyms::KEY_K, Snap::Up),
+            (keysyms::KEY_Down, Snap::Down),
+            (keysyms::KEY_J, Snap::Down),
+            (keysyms::KEY_Left, Snap::Left),
+            (keysyms::KEY_H, Snap::Left),
+            (keysyms::KEY_Right, Snap::Right),
+            (keysyms::KEY_L, Snap::Right),
+        ] {
+            assert_eq!(key_action(&keys, sym), Some(KeyAction::Grow(toward)));
+        }
     }
 
     #[test]

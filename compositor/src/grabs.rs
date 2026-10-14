@@ -309,7 +309,8 @@ enum ResizeState {
         edges: Edges,
         initial: Rectangle<i32, Logical>,
     },
-    /// The pointer let go; the next commit has the final size.
+    /// The pointer let go, or the keyboard asked (grow): the first commit
+    /// at a new size settles it.
     WaitingForLastCommit {
         edges: Edges,
         initial: Rectangle<i32, Logical>,
@@ -327,6 +328,25 @@ impl ResizeState {
             f(&mut cell.borrow_mut())
         })
     }
+}
+
+/// Resizes `window` from `initial` to `size` without the pointer (Super+
+/// Shift+arrow): the edges in `edges` move, and the others stay put as the
+/// app's commits come in, as in a pointer resize.
+pub fn resize_keeping(
+    window: &smithay::desktop::Window,
+    edges: Edges,
+    initial: Rectangle<i32, Logical>,
+    size: Size<i32, Logical>,
+) {
+    let Some(toplevel) = window.toplevel() else {
+        return;
+    };
+    ResizeState::with(toplevel.wl_surface(), |s| {
+        *s = ResizeState::WaitingForLastCommit { edges, initial }
+    });
+    toplevel.with_pending_state(|s| s.size = Some(size));
+    toplevel.send_pending_configure();
 }
 
 /// On a commit from a window being resized by its top or left edge, moves
@@ -347,7 +367,10 @@ pub fn handle_commit(state: &mut State, surface: &WlSurface) {
     let resize = ResizeState::with(surface, |s| match *s {
         ResizeState::Resizing { edges, initial } => Some((edges, initial)),
         ResizeState::WaitingForLastCommit { edges, initial } => {
-            *s = ResizeState::Idle;
+            // Commits from before the app took its new size don't count.
+            if size != initial.size {
+                *s = ResizeState::Idle;
+            }
             Some((edges, initial))
         }
         ResizeState::Idle => None,

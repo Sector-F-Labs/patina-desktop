@@ -79,6 +79,42 @@ pub fn after_snap(now: Option<Placement>, snap: Snap) -> Option<Placement> {
     }
 }
 
+/// `rect` grown by `step` toward `toward`: that edge moves out, the
+/// opposite one stays. It stops at the edge of `area`, never shrinks, and
+/// stays within `max` (0 for no limit).
+pub fn grown(
+    rect: Rectangle<i32, Logical>,
+    area: Rectangle<i32, Logical>,
+    toward: Snap,
+    step: i32,
+    max: Size<i32, Logical>,
+) -> Rectangle<i32, Logical> {
+    let (mut left, mut top) = (rect.loc.x, rect.loc.y);
+    let (mut right, mut bottom) = (left + rect.size.w, top + rect.size.h);
+    let area_right = area.loc.x + area.size.w;
+    let area_bottom = area.loc.y + area.size.h;
+    match toward {
+        Snap::Right => right = (right + step).min(area_right).max(right),
+        Snap::Left => left = (left - step).max(area.loc.x).min(left),
+        Snap::Down => bottom = (bottom + step).min(area_bottom).max(bottom),
+        Snap::Up => top = (top - step).max(area.loc.y).min(top),
+    }
+    let (max_w, max_h) = (max.w, max.h);
+    if max_w > 0 && right - left > max_w {
+        match toward {
+            Snap::Left => left = right - max_w,
+            _ => right = left + max_w,
+        }
+    }
+    if max_h > 0 && bottom - top > max_h {
+        match toward {
+            Snap::Up => top = bottom - max_h,
+            _ => bottom = top + max_h,
+        }
+    }
+    Rectangle::new((left, top).into(), Size::from((right - left, bottom - top)))
+}
+
 /// Where a restored window of `size` goes so the pointer, at `pointer`
 /// over the placed window `rect`, stays at the same fraction of its width.
 /// Its top stays at the placed window's top, so the pointer is just as
@@ -190,6 +226,55 @@ impl State {
         }
     }
 
+    /// Grows the focused window toward `toward` by a tenth of the work area
+    /// (Super+Shift with an arrow or vim key). A tiled window becomes a
+    /// floating one at its size first; a maximised one has nowhere to grow.
+    pub fn grow(&mut self, toward: Snap) {
+        let Some(window) = self.focused_window() else {
+            return;
+        };
+        let Some(toplevel) = window.toplevel().cloned() else {
+            return;
+        };
+        match placement(&window) {
+            Some(Placement::Maximized) => return,
+            Some(_) => {
+                *placed(&window).0.borrow_mut() = None;
+                set_states(&toplevel, None);
+            }
+            None => {}
+        }
+        let area = self.work_area();
+        let Some(location) = self.space.element_location(&window) else {
+            return;
+        };
+        let rect = Rectangle::new(location, window.geometry().size);
+        let step = match toward {
+            Snap::Left | Snap::Right => area.size.w / 10,
+            Snap::Up | Snap::Down => area.size.h / 10,
+        }
+        .max(32);
+        let max = smithay::wayland::compositor::with_states(toplevel.wl_surface(), |states| {
+            states
+                .cached_state
+                .get::<smithay::wayland::shell::xdg::SurfaceCachedState>()
+                .current()
+                .max_size
+        });
+        let new = grown(rect, area, toward, step, max);
+        if new == rect {
+            return;
+        }
+        let edges = crate::grabs::Edges {
+            left: toward == Snap::Left,
+            right: toward == Snap::Right,
+            top: toward == Snap::Up,
+            bottom: toward == Snap::Down,
+        };
+        crate::grabs::resize_keeping(&window, edges, rect, new.size);
+        self.needs_redraw = true;
+    }
+
     /// Keeps placed windows filling their part of the work area after it
     /// changed: the output resized or rescaled, or the bar came or went.
     pub fn relayout_maximized(&mut self) {
@@ -266,6 +351,47 @@ mod tests {
         assert_eq!(left, Rectangle::new((0, 0).into(), (641, 759).into()));
         assert_eq!(right, Rectangle::new((641, 0).into(), (640, 759).into()));
         assert_eq!(rect_for(Placement::Maximized, area()), area());
+    }
+
+    #[test]
+    fn growing_moves_one_edge_out_and_stops_at_the_work_area() {
+        let area = Rectangle::new((0, 41).into(), (1000, 700).into());
+        let rect = Rectangle::new((100, 100).into(), (400, 300).into());
+        let none = Size::from((0, 0));
+        assert_eq!(
+            grown(rect, area, Snap::Right, 100, none),
+            Rectangle::new((100, 100).into(), (500, 300).into())
+        );
+        assert_eq!(
+            grown(rect, area, Snap::Left, 100, none),
+            Rectangle::new((0, 100).into(), (500, 300).into())
+        );
+        assert_eq!(
+            grown(rect, area, Snap::Up, 100, none),
+            Rectangle::new((100, 41).into(), (400, 359).into()),
+            "stops at the bar"
+        );
+        assert_eq!(
+            grown(rect, area, Snap::Down, 100, none),
+            Rectangle::new((100, 100).into(), (400, 400).into())
+        );
+    }
+
+    #[test]
+    fn growing_never_shrinks_and_keeps_to_the_apps_maximum() {
+        let area = Rectangle::new((0, 0).into(), (1000, 700).into());
+        // Already past the right edge: growing right leaves it.
+        let wide = Rectangle::new((800, 0).into(), (400, 300).into());
+        assert_eq!(
+            grown(wide, area, Snap::Right, 100, Size::from((0, 0))),
+            wide
+        );
+        // Grows left only up to the app's 450 px maximum, right edge still.
+        let rect = Rectangle::new((300, 0).into(), (400, 300).into());
+        assert_eq!(
+            grown(rect, area, Snap::Left, 100, Size::from((450, 0))),
+            Rectangle::new((250, 0).into(), (450, 300).into())
+        );
     }
 
     #[test]
