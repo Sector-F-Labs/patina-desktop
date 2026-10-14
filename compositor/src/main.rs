@@ -19,8 +19,8 @@ use crate::state::State;
 const USAGE: &str = "usage: patina-compositor [command ...]
 
 Opens a window on the current Wayland desktop and runs a Patina desktop in
-it: patina-bar, then each command (foot when none is given), with
-WAYLAND_DISPLAY set to the compositor's socket.";
+it: patina-bar, then each command given, with WAYLAND_DISPLAY set to the
+compositor's socket. Apps are started from the bar's launcher.";
 
 fn main() -> ExitCode {
     let mut commands: Vec<String> = Vec::new();
@@ -40,9 +40,6 @@ fn main() -> ExitCode {
             }
             _ => commands.push(arg),
         }
-    }
-    if commands.is_empty() {
-        commands.push("foot".into());
     }
     match run(&commands) {
         Ok(()) => ExitCode::SUCCESS,

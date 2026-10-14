@@ -19,7 +19,7 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   after changes, `make screenshot` (grim → docs/screenshot.png) and read the PNG back.
 - The user often uses the VM live over VNC. Don't `bsdt type`/`bsdt key` into it without asking;
   grim screenshots are fine.
-- Logs in the guest: /tmp/bsdt-gui.log (compositor, bar and foot), /tmp/bsdt-session.log (dwl).
+- Logs in the guest: /tmp/bsdt-gui.log (compositor, bar and the apps they start), /tmp/bsdt-session.log (dwl).
 
 ## Layout
 

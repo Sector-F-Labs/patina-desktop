@@ -13,7 +13,7 @@ help: ## Show this help
 	@echo
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  \033[1m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-run: ## Run the compositor in a window on this desktop, with the bar and foot
+run: ## Run the compositor in a window on this desktop, with the bar
 	cargo build --workspace
 	target/debug/patina-compositor
 

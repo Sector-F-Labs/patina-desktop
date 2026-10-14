@@ -19,8 +19,8 @@ The first pieces of a desktop in the style of [Patina](https://github.com/Sector
 ## Running
 
 ```sh
-make run                          # the compositor in a window, with the bar and foot
-patina-compositor foot firefox    # or say which clients to start besides the bar
+make run                          # the compositor in a window, with the bar
+patina-compositor foot firefox    # and any clients to start besides the bar
 dwl -s patina-bar                 # the bar alone, on dwl, with dwl's tags
 ```
 
