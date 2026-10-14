@@ -12,6 +12,8 @@ The first pieces of a desktop in the style of [Patina](https://github.com/Sector
 - **patina-launcher** (`launcher/`): opened by the bar's Sector F button. It lists the installed
   apps from their `.desktop` files, with icons, and filters them as you type. Up and Down choose,
   Enter or a click starts one, and Escape, clicking elsewhere or the button again closes it.
+- **patina-volume** (`volume/`): the volume menu, opened by the bar's speaker: mute, a slider and
+  the level. It also fades in briefly when the volume keys are used.
 - **patina-shell** (`shell/`): what the bar and launcher share, a layer-shell host for egui
   drawn in software.
 
@@ -41,14 +43,15 @@ tags = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 hide_vacant_tags = false
 left = ["launcher", "windows", "tags", "layout"]
 center = ["title"]
-right = ["load", "clock"]
+right = ["tray", "load", "clock"]
 clock = "%a %-d %b  %H:%M"  # strftime, as in date(1)
 launcher = "patina-launcher"  # what the Sector F button runs, through sh(1)
 ```
 
 The modules are `launcher` (the Sector F flask, which runs `launcher` when clicked), `windows`
 (the open windows as Patina tabs: a click brings one forward, its cross closes it), `tags`,
-`layout`, `title`, `appid`, `clock` and `load`. `windows` needs a compositor with
+`layout`, `title`, `appid`, `clock`, `load` and `tray` (a speaker showing the volume; a click
+opens the volume menu, run by `volume = "patina-volume"`). `windows` needs a compositor with
 wlr-foreign-toplevel-management, such as patina-compositor or sway. `tags` and `layout` come
 from dwl and show nothing elsewhere. Unknown keys and modules are reported on stderr and skipped.
 A broken file falls back to the defaults.
