@@ -2,6 +2,7 @@
 //! built on Smithay. For now it runs as a window on another desktop and
 //! starts patina-bar and a terminal inside it.
 
+mod clients;
 mod config;
 mod dmabuf;
 mod grabs;
@@ -16,7 +17,7 @@ mod toplevels;
 mod udev;
 mod winit;
 
-use std::process::{Command, ExitCode, Stdio};
+use std::process::{Command, ExitCode};
 
 use smithay::{
     output::{Output, PhysicalProperties, Subpixel},
@@ -34,13 +35,6 @@ compositor's socket. Apps are started from the bar's launcher.
 --session  run as the login session (the Patina entry at the login screen
            starts it so): also tells systemd and D-Bus about the display.
            See docs/running-as-a-session.md.";
-
-/// How clients, and services started for them, know which desktop this is.
-const DESKTOP_ENV: [(&str, &str); 3] = [
-    ("XDG_CURRENT_DESKTOP", "Patina"),
-    ("XDG_SESSION_DESKTOP", "patina"),
-    ("XDG_SESSION_TYPE", "wayland"),
-];
 
 fn main() -> ExitCode {
     let mut commands: Vec<String> = Vec::new();
@@ -107,9 +101,9 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
     if session {
         export_to_session(&state);
     }
-    spawn(&state, "patina-bar");
+    state.spawn_client("patina-bar");
     for command in commands {
-        spawn(&state, command);
+        state.spawn_client(command);
     }
 
     event_loop
@@ -172,21 +166,6 @@ fn nested_state(
     Ok(state)
 }
 
-/// PATH for clients, with this binary's folder first, so the desktop's own
-/// programs (patina-bar, patina-launcher, built into the same target
-/// folder) are found beside it before any installed copies.
-fn client_path() -> std::ffi::OsString {
-    let mut dirs: Vec<std::path::PathBuf> = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|d| d.to_path_buf()))
-        .into_iter()
-        .collect();
-    if let Some(path) = std::env::var_os("PATH") {
-        dirs.extend(std::env::split_paths(&path));
-    }
-    std::env::join_paths(dirs).unwrap_or_default()
-}
-
 /// Tells systemd's user manager and D-Bus activation which display and
 /// desktop this is, so services they start later (portals, notification
 /// daemons) reach this compositor.
@@ -195,29 +174,12 @@ fn export_to_session(state: &State) {
     command
         .arg("--systemd")
         .arg("WAYLAND_DISPLAY")
-        .args(DESKTOP_ENV.map(|(k, _)| k))
+        .args(clients::DESKTOP_ENV.map(|(k, _)| k))
         .env("WAYLAND_DISPLAY", &state.socket_name)
-        .envs(DESKTOP_ENV);
+        .envs(clients::DESKTOP_ENV);
     match command.status() {
         Ok(s) if s.success() => {}
         Ok(s) => eprintln!("patina-compositor: dbus-update-activation-environment: {s}"),
         Err(e) => eprintln!("patina-compositor: can't run dbus-update-activation-environment: {e}"),
-    }
-}
-
-/// Runs `command` through sh(1) as a client of this compositor.
-fn spawn(state: &State, command: &str) {
-    let result = Command::new("sh")
-        .arg("-c")
-        .arg(command)
-        .env("PATH", client_path())
-        .env("WAYLAND_DISPLAY", &state.socket_name)
-        .envs(DESKTOP_ENV)
-        .env_remove("WAYLAND_SOCKET")
-        .env_remove("DISPLAY")
-        .stdin(Stdio::null())
-        .spawn();
-    if let Err(e) = result {
-        eprintln!("patina-compositor: can't run {command}: {e}");
     }
 }

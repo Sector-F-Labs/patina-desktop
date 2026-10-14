@@ -7,6 +7,7 @@ mod bar;
 mod config;
 mod dwl;
 mod launcher;
+mod tray;
 
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -137,6 +138,42 @@ fn run(options: Options, bar: bar::Bar) -> Result<(), String> {
             }
         })
         .map_err(|e| e.to_string())?;
+
+    // The tray's speaker follows the volume, read once a second.
+    if host
+        .shell
+        .config
+        .right
+        .iter()
+        .chain(&host.shell.config.left)
+        .chain(&host.shell.config.center)
+        .any(|m| m == "tray")
+    {
+        let (levels, volume) = channel::channel::<patina_shell::audio::Volume>();
+        std::thread::Builder::new()
+            .name("volume".into())
+            .spawn(move || {
+                loop {
+                    if let Some(v) = patina_shell::audio::get()
+                        && levels.send(v).is_err()
+                    {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_secs(1));
+                }
+            })
+            .map_err(|e| e.to_string())?;
+        handle
+            .insert_source(volume, |event, _, host| {
+                if let Event::Msg(v) = event
+                    && host.shell.volume != Some(v)
+                {
+                    host.shell.volume = Some(v);
+                    host.redraw_all();
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
 
     // The clock and load change on their own; redraw on each second.
     handle

@@ -38,6 +38,9 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   XDG_RUNTIME_DIR. The bar passes its skin in `PATINA_SKIN`.
 - `compositor/src/toplevels.rs` and `shell/src/toplevels.rs`: wlr-foreign-toplevel-management,
   server and client, for the bar's `windows` tabs (ADR-0012).
+- `volume/`: patina-volume, the tray's volume menu, also flashed by the compositor after a
+  volume key (ADR-0021). `shell/src/audio.rs` (wpctl), `icons.rs` and `bar.rs` (the bar's skin and
+  edge for pieces the compositor starts) are shared.
 - `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`.
 
 ## Gotchas

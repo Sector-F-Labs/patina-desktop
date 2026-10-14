@@ -17,6 +17,8 @@ pub struct Config {
     pub keyboard: Keyboard,
     pub touchpad: Touchpad,
     pub media: Media,
+    /// What tapping Super on its own runs; "" for nothing.
+    pub launcher: String,
 }
 
 /// The brightness and volume keys (ADR-0020).
@@ -30,6 +32,9 @@ pub struct Media {
     pub volume_down: String,
     pub mute: String,
     pub mic_mute: String,
+    /// The volume menu, flashed (with --flash) after a volume key; ""
+    /// for none.
+    pub volume_menu: String,
 }
 
 impl Default for Media {
@@ -40,6 +45,7 @@ impl Default for Media {
             volume_down: "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-".into(),
             mute: "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle".into(),
             mic_mute: "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle".into(),
+            volume_menu: "patina-volume".into(),
         }
     }
 }
@@ -77,6 +83,7 @@ impl Default for Config {
             keyboard: Keyboard::default(),
             touchpad: Touchpad::default(),
             media: Media::default(),
+            launcher: "patina-launcher".into(),
         }
     }
 }

@@ -10,6 +10,9 @@
 # environment overrides it.
 # scale = 1.5
 
+# What tapping Super on its own opens; "" for nothing.
+# launcher = "patina-launcher"
+
 [keyboard]
 # Layouts to switch between with Super+Space. Unset, the system's from
 # /etc/default/keyboard.
@@ -43,3 +46,6 @@
 # volume_down = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
 # mute = "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
 # mic_mute = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+
+# The menu that flashes up with the level after a volume key; "" for none.
+# volume_menu = "patina-volume"

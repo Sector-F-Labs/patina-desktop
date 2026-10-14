@@ -1,0 +1,12 @@
+[package]
+name = "patina-volume"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's volume menu, which also flashes up when the volume keys are used"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+egui = "0.35"
+patina-shell = { path = "../shell" }
+patina-ui = { workspace = true }

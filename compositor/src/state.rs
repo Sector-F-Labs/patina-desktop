@@ -96,6 +96,8 @@ pub struct State {
     pub toplevels: ForeignToplevels,
     /// The settings from config.toml in use (ADR-0019).
     pub config: crate::config::Config,
+    /// Super is down, and nothing else has been pressed since.
+    pub super_tap: bool,
     /// The scale the backend would choose by itself: the panel's density on
     /// the hardware, the parent desktop's when nested.
     pub auto_scale: f64,
@@ -191,6 +193,7 @@ impl State {
             seat,
             toplevels: ForeignToplevels::new(&dh),
             config,
+            super_tap: false,
             auto_scale,
             _fractional_scale: smithay::wayland::fractional_scale::FractionalScaleManagerState::new::<
                 Self,
@@ -250,6 +253,8 @@ impl State {
 
     /// `button` is an evdev code, as both Wayland and Smithay use.
     pub fn pointer_button(&mut self, button: u32, pressed: bool, time: u32) {
+        // A click while Super is held (Super+drag) isn't a tap.
+        self.super_tap = false;
         let pointer = self.seat.get_pointer().expect("seat has a pointer");
         let serial = SERIAL_COUNTER.next_serial();
         // A click on a layer surface (the bar, a launcher) focuses it only

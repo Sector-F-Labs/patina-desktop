@@ -18,6 +18,8 @@ const GAP: f32 = 12.0;
 pub struct Bar {
     pub config: Config,
     pub status: Status,
+    /// The default output's volume, for the tray's speaker.
+    pub volume: Option<patina_shell::audio::Volume>,
     skin: Skin,
     /// The open windows, from the compositor, in the order they opened.
     toplevels: Vec<Toplevel>,
@@ -53,6 +55,7 @@ impl Bar {
             Self {
                 config,
                 status: Status::default(),
+                volume: None,
                 skin,
                 toplevels: Vec::new(),
                 requests: RefCell::new(Vec::new()),
@@ -90,6 +93,13 @@ impl Bar {
             }
             "appid" => {
                 ui.label(&m.appid);
+            }
+            "tray" => {
+                let edge = match self.config.position {
+                    Position::Top => "top",
+                    Position::Bottom => "bottom",
+                };
+                crate::tray::speaker(ui, self.volume, &self.config.volume, &self.skin.name, edge)
             }
             "launcher" => {
                 let edge = match self.config.position {
@@ -369,6 +379,7 @@ mod tests {
         Bar {
             config,
             status: Status::default(),
+            volume: None,
             skin: Skin::default_skin(),
             toplevels: Vec::new(),
             requests: RefCell::new(Vec::new()),

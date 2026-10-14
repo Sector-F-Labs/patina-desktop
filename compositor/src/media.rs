@@ -33,8 +33,9 @@ pub fn media_key(sym: u32) -> Option<MediaKey> {
     })
 }
 
-/// Carries out `key` on a thread of its own.
-pub fn press(key: MediaKey, settings: &crate::config::Media) {
+/// Carries out `key` on a thread of its own. After a volume key, the
+/// volume menu flashes up on the compositor at `socket`, showing the level.
+pub fn press(key: MediaKey, settings: &crate::config::Media, socket: std::ffi::OsString) {
     let settings = settings.clone();
     let _ = std::thread::Builder::new()
         .name("media-key".into())
@@ -49,6 +50,14 @@ pub fn press(key: MediaKey, settings: &crate::config::Media) {
             };
             if let Err(e) = result {
                 eprintln!("patina-compositor: {key:?}: {e}");
+                return;
+            }
+            let volume_key = matches!(
+                key,
+                MediaKey::VolumeUp | MediaKey::VolumeDown | MediaKey::Mute
+            );
+            if volume_key && !settings.volume_menu.is_empty() {
+                crate::clients::spawn(&socket, &format!("{} --flash", settings.volume_menu));
             }
         });
 }

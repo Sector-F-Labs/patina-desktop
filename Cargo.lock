@@ -1878,6 +1878,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-volume"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "patina-shell",
+ "patina-ui",
+]
+
+[[package]]
 name = "peniko"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

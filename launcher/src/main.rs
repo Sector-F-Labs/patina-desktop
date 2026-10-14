@@ -130,9 +130,10 @@ fn run() -> Result<(), String> {
 
 /// The bar's edge, from `PATINA_BAR_EDGE`, which the launcher opens from.
 fn bar_edge() -> Anchor {
-    match std::env::var("PATINA_BAR_EDGE").as_deref() {
-        Ok("top") => Anchor::TOP,
-        _ => Anchor::BOTTOM,
+    if patina_shell::bar::at_top() {
+        Anchor::TOP
+    } else {
+        Anchor::BOTTOM
     }
 }
 
@@ -146,7 +147,7 @@ fn socket_path() -> PathBuf {
 /// The skin named by `PATINA_SKIN`, from Patina's built-ins and the
 /// launcher's own skins folder, or Default.
 fn chosen_skin() -> Skin {
-    let Ok(name) = std::env::var("PATINA_SKIN") else {
+    let Some(name) = patina_shell::bar::skin() else {
         return Skin::default_skin();
     };
     let dirs: Vec<_> = skin::app_dir("patina-launcher").into_iter().collect();

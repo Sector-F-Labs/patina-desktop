@@ -82,7 +82,7 @@ pub fn rasterise(pixels: u32) -> Option<ColorImage> {
 /// Runs `command` through sh(1), detached from the bar: no stdin, and a
 /// thread reaps it so it never lingers as a zombie. `PATINA_SKIN` names the
 /// bar's skin and `PATINA_BAR_EDGE` its edge, `top` or `bottom`.
-fn run(command: &str, skin: &str, edge: &str) {
+pub fn run(command: &str, skin: &str, edge: &str) {
     match Command::new("sh")
         .arg("-c")
         .arg(command)

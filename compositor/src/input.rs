@@ -65,20 +65,32 @@ impl State {
         } else {
             KeyState::Released
         };
+        let mut sym = 0;
         let action = keyboard.input::<KeyAction, _>(
             self,
             smithay::input::keyboard::Keycode::new(code + 8),
             state,
             SERIAL_COUNTER.next_serial(),
             time,
-            |_, modifiers, handle| match (
-                pressed,
-                key_action(modifiers, handle.modified_sym().raw()),
-            ) {
-                (true, Some(action)) => FilterResult::Intercept(action),
-                _ => FilterResult::Forward,
+            |_, modifiers, handle| {
+                sym = handle.modified_sym().raw();
+                match (pressed, key_action(modifiers, sym)) {
+                    (true, Some(action)) => FilterResult::Intercept(action),
+                    _ => FilterResult::Forward,
+                }
             },
         );
+        // Super tapped on its own (pressed and released with nothing in
+        // between) opens the launcher; any other key or a click cancels it.
+        let is_super = sym == keysyms::KEY_Super_L || sym == keysyms::KEY_Super_R;
+        if pressed {
+            self.super_tap = is_super;
+        } else if is_super
+            && std::mem::take(&mut self.super_tap)
+            && !self.config.launcher.is_empty()
+        {
+            self.spawn_client(&self.config.launcher.clone());
+        }
         match action {
             Some(KeyAction::NextLayout) => {
                 keyboard.with_xkb_state(self, |mut xkb| xkb.cycle_next_layout());
@@ -89,7 +101,7 @@ impl State {
                 None
             }
             Some(KeyAction::Media(key)) => {
-                crate::media::press(key, &self.config.media);
+                crate::media::press(key, &self.config.media, self.socket_name.clone());
                 None
             }
             other => other,
