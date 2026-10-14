@@ -14,6 +14,9 @@ The first pieces of a desktop in the style of [Patina](https://github.com/Sector
   Enter or a click starts one, and Escape, clicking elsewhere or the button again closes it.
 - **patina-volume** (`volume/`): the volume menu, opened by the bar's speaker: mute, a slider and
   the level. It also fades in briefly when the volume keys are used.
+- **patina-wifi** (`wifi/`): the Wi-Fi menu, opened by the bar's Wi-Fi icon: networks in range,
+  joining (with a password box for new ones), disconnecting and Wi-Fi on and off, through
+  NetworkManager.
 - **patina-shell** (`shell/`): what the bar and launcher share, a layer-shell host for egui
   drawn in software.
 
@@ -50,8 +53,9 @@ launcher = "patina-launcher"  # what the Sector F button runs, through sh(1)
 
 The modules are `launcher` (the Sector F flask, which runs `launcher` when clicked), `windows`
 (the open windows as Patina tabs: a click brings one forward, its cross closes it), `tags`,
-`layout`, `title`, `appid`, `clock`, `load` and `tray` (a speaker showing the volume; a click
-opens the volume menu, run by `volume = "patina-volume"`). `windows` needs a compositor with
+`layout`, `title`, `appid`, `clock`, `load` and `tray` (a Wi-Fi icon showing the signal and a
+speaker showing the volume; clicks open the Wi-Fi and volume menus, run by
+`wifi = "patina-wifi"` and `volume = "patina-volume"`). `windows` needs a compositor with
 wlr-foreign-toplevel-management, such as patina-compositor or sway. `tags` and `layout` come
 from dwl and show nothing elsewhere. Unknown keys and modules are reported on stderr and skipped.
 A broken file falls back to the defaults.

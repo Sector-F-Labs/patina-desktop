@@ -40,6 +40,8 @@ pub struct Config {
     pub launcher: String,
     /// What the tray's speaker runs, through sh(1).
     pub volume: String,
+    /// What the tray's Wi-Fi icon runs, through sh(1).
+    pub wifi: String,
 }
 
 impl Default for Config {
@@ -63,6 +65,7 @@ impl Default for Config {
             clock: "%a %-d %b  %H:%M".into(),
             launcher: "patina-launcher".into(),
             volume: "patina-volume".into(),
+            wifi: "patina-wifi".into(),
         }
     }
 }

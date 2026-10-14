@@ -63,6 +63,7 @@ mechanics of adding one.
 | [0019](0019-compositor-config-file.md) | A config file for the compositor, reloaded with Super+Shift+R | Accepted |
 | [0020](0020-brightness-and-volume-keys.md) | Brightness through logind, volume through configurable commands | Accepted |
 | [0021](0021-tray-volume-menu-and-super-key.md) | A tray with a volume menu that doubles as the volume keys' display; Super opens the launcher | Accepted |
+| [0022](0022-wifi-menu.md) | A Wi-Fi menu in the tray, talking to NetworkManager over D-Bus | Accepted |
 
 ## Decision Relationship
 
@@ -83,6 +84,7 @@ flowchart TD
     R --> S[0019: compositor config, Super+Shift+R]
     S --> T[0020: brightness and volume keys]
     T --> U[0021: tray, volume menu, Super key]
+    U --> V[0022: Wi-Fi menu]
     K --> U
     E --> Q
     C --> H

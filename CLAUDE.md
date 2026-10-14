@@ -38,6 +38,10 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   XDG_RUNTIME_DIR. The bar passes its skin in `PATINA_SKIN`.
 - `compositor/src/toplevels.rs` and `shell/src/toplevels.rs`: wlr-foreign-toplevel-management,
   server and client, for the bar's `windows` tabs (ADR-0012).
+- `wifi/`: patina-wifi, the tray's Wi-Fi menu (ADR-0022), on `shell/src/network.rs`
+  (NetworkManager over the system bus with zbus; `cargo run -p patina-shell --example wifi` prints
+  what it reads). `shell/src/piece.rs` is what the bar's pieces share: one copy per display over a
+  socket, and the bar's skin and edge.
 - `volume/`: patina-volume, the tray's volume menu, also flashed by the compositor after a
   volume key (ADR-0021). `shell/src/audio.rs` (wpctl), `icons.rs` and `bar.rs` (the bar's skin and
   edge for pieces the compositor starts) are shared.

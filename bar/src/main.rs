@@ -139,6 +139,14 @@ fn run(options: Options, bar: bar::Bar) -> Result<(), String> {
         })
         .map_err(|e| e.to_string())?;
 
+    let uses_tray = host
+        .shell
+        .config
+        .right
+        .iter()
+        .chain(&host.shell.config.left)
+        .chain(&host.shell.config.center)
+        .any(|m| m == "tray");
     // The tray's speaker follows the volume, read once a second.
     if host
         .shell
@@ -169,6 +177,35 @@ fn run(options: Options, bar: bar::Bar) -> Result<(), String> {
                     && host.shell.volume != Some(v)
                 {
                     host.shell.volume = Some(v);
+                    host.redraw_all();
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
+
+    // The tray's Wi-Fi icon follows the signal, read every few seconds.
+    if uses_tray {
+        let (signals, signal) = channel::channel::<Option<Option<u8>>>();
+        std::thread::Builder::new()
+            .name("wifi".into())
+            .spawn(move || {
+                let Ok(nm) = patina_shell::network::NetworkManager::new() else {
+                    return;
+                };
+                loop {
+                    if signals.send(nm.signal()).is_err() {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_secs(3));
+                }
+            })
+            .map_err(|e| e.to_string())?;
+        handle
+            .insert_source(signal, |event, _, host| {
+                if let Event::Msg(s) = event
+                    && host.shell.wifi != s
+                {
+                    host.shell.wifi = s;
                     host.redraw_all();
                 }
             })

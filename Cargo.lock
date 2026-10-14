@@ -1860,7 +1860,9 @@ name = "patina-shell"
 version = "0.1.0"
 dependencies = [
  "egui",
+ "patina-ui",
  "smithay-client-toolkit 0.21.1",
+ "zbus",
 ]
 
 [[package]]
@@ -1879,6 +1881,15 @@ dependencies = [
 
 [[package]]
 name = "patina-volume"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "patina-shell",
+ "patina-ui",
+]
+
+[[package]]
+name = "patina-wifi"
 version = "0.1.0"
 dependencies = [
  "egui",

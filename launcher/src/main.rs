@@ -7,13 +7,10 @@ mod apps;
 mod icons;
 mod ui;
 
-use std::io::{Read, Write};
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
 use std::process::ExitCode;
 
-use patina::skin::{self, Skin};
 use patina_shell::calloop::channel::{self, Event};
+use patina_shell::piece::{self, Single};
 use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 
 const USAGE: &str = "usage: patina-launcher
@@ -62,29 +59,15 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), String> {
-    let socket = socket_path();
-    // Already open: ask that one to close, and stop.
-    if let Ok(mut open) = UnixStream::connect(&socket) {
-        let _ = open.write_all(b"close");
-        return Ok(());
-    }
-    let _ = std::fs::remove_file(&socket);
-    let listener = UnixListener::bind(&socket).map_err(|e| format!("{}: {e}", socket.display()))?;
-
     let (send, receive) = channel::channel::<Message>();
     let closer = send.clone();
-    std::thread::Builder::new()
-        .name("toggle".into())
-        .spawn(move || {
-            for mut stream in listener.incoming().flatten() {
-                let mut word = String::new();
-                let _ = stream.read_to_string(&mut word);
-                if word == "close" && closer.send(Message::Close).is_err() {
-                    return;
-                }
-            }
-        })
-        .map_err(|e| e.to_string())?;
+    // Already open: ask that one to close, and stop.
+    let Some(_single) = Single::start("patina-launcher", "close", move |word| {
+        word != "close" || closer.send(Message::Close).is_ok()
+    })?
+    else {
+        return Ok(());
+    };
 
     let apps = apps::load();
     let wanted: Vec<(usize, String)> = apps
@@ -97,12 +80,12 @@ fn run() -> Result<(), String> {
             send.send(Message::Icon(i, image)).is_ok()
         });
     });
-    let launcher = ui::Launcher::new(apps, chosen_skin(), start_icons);
+    let launcher = ui::Launcher::new(apps, piece::skin("patina-launcher"), start_icons);
 
     let options = Options {
         namespace: "patina-launcher".into(),
         layer: Layer::Overlay,
-        anchor: bar_edge() | Anchor::LEFT,
+        anchor: piece::bar_edge() | Anchor::LEFT,
         size: SIZE,
         // 0 keeps it clear of the bar's reserved strip.
         exclusive_zone: 0,
@@ -123,37 +106,5 @@ fn run() -> Result<(), String> {
             Event::Closed => {}
         })
         .map_err(|e| e.to_string())?;
-    let result = host.run(event_loop);
-    let _ = std::fs::remove_file(&socket);
-    result
-}
-
-/// The bar's edge, from `PATINA_BAR_EDGE`, which the launcher opens from.
-fn bar_edge() -> Anchor {
-    if patina_shell::bar::at_top() {
-        Anchor::TOP
-    } else {
-        Anchor::BOTTOM
-    }
-}
-
-/// One socket per Wayland display, in the runtime directory.
-fn socket_path() -> PathBuf {
-    let dir = std::env::var_os("XDG_RUNTIME_DIR").map_or_else(std::env::temp_dir, PathBuf::from);
-    let display = std::env::var("WAYLAND_DISPLAY").unwrap_or_else(|_| "wayland-0".into());
-    dir.join(format!("patina-launcher-{display}.sock"))
-}
-
-/// The skin named by `PATINA_SKIN`, from Patina's built-ins and the
-/// launcher's own skins folder, or Default.
-fn chosen_skin() -> Skin {
-    let Some(name) = patina_shell::bar::skin() else {
-        return Skin::default_skin();
-    };
-    let dirs: Vec<_> = skin::app_dir("patina-launcher").into_iter().collect();
-    let (skins, _) = skin::load_all(skin::BUILT_IN, &dirs);
-    skins
-        .into_iter()
-        .find(|s| s.name == name)
-        .unwrap_or_else(Skin::default_skin)
+    host.run(event_loop)
 }

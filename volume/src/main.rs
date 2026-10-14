@@ -7,15 +7,12 @@
 
 mod ui;
 
-use std::io::{Read, Write};
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use patina::skin::{self, Skin};
 use patina_shell::calloop::channel::{self, Event};
+use patina_shell::piece::{self, Single};
 use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 
 use crate::ui::{Change, Mode, VolumeMenu};
@@ -67,38 +64,24 @@ fn main() -> ExitCode {
 }
 
 fn run(mode: Mode) -> Result<(), String> {
-    let socket = socket_path();
-    // Already shown: tell that one, and stop.
-    if let Ok(mut open) = UnixStream::connect(&socket) {
-        let word: &[u8] = match mode {
-            Mode::Menu => b"toggle",
-            Mode::Flash => b"flash",
-        };
-        let _ = open.write_all(word);
-        return Ok(());
-    }
-    let _ = std::fs::remove_file(&socket);
-    let listener = UnixListener::bind(&socket).map_err(|e| format!("{}: {e}", socket.display()))?;
-
     let (send, receive) = channel::channel::<Message>();
     let commands = send.clone();
-    std::thread::Builder::new()
-        .name("commands".into())
-        .spawn(move || {
-            for mut stream in listener.incoming().flatten() {
-                let mut word = String::new();
-                let _ = stream.read_to_string(&mut word);
-                let message = match word.as_str() {
-                    "toggle" => Message::Toggle,
-                    "flash" => Message::Flash,
-                    _ => continue,
-                };
-                if commands.send(message).is_err() {
-                    return;
-                }
-            }
-        })
-        .map_err(|e| e.to_string())?;
+    let word = match mode {
+        Mode::Menu => "toggle",
+        Mode::Flash => "flash",
+    };
+    // Already shown: tell that one, and stop.
+    let Some(_single) = Single::start("patina-volume", word, move |word| {
+        let message = match word.as_str() {
+            "toggle" => Message::Toggle,
+            "flash" => Message::Flash,
+            _ => return true,
+        };
+        commands.send(message).is_ok()
+    })?
+    else {
+        return Ok(());
+    };
 
     // The level, read now and while shown; and changes, applied in order.
     std::thread::Builder::new()
@@ -134,11 +117,11 @@ fn run(mode: Mode) -> Result<(), String> {
         })
         .map_err(|e| e.to_string())?;
 
-    let menu = VolumeMenu::new(mode, chosen_skin(), changes);
+    let menu = VolumeMenu::new(mode, piece::skin("patina-volume"), changes);
     let options = Options {
         namespace: "patina-volume".into(),
         layer: Layer::Overlay,
-        anchor: bar_edge() | Anchor::RIGHT,
+        anchor: piece::bar_edge() | Anchor::RIGHT,
         size: SIZE,
         exclusive_zone: 0,
         margin: (GAP, GAP, GAP, GAP),
@@ -171,9 +154,7 @@ fn run(mode: Mode) -> Result<(), String> {
             host.redraw_all();
         })
         .map_err(|e| e.to_string())?;
-    let result = host.run(event_loop);
-    let _ = std::fs::remove_file(&socket);
-    result
+    host.run(event_loop)
 }
 
 fn apply(change: Change) {
@@ -190,33 +171,4 @@ fn keyboard_for(mode: Mode) -> KeyboardInteractivity {
         Mode::Menu => KeyboardInteractivity::Exclusive,
         Mode::Flash => KeyboardInteractivity::None,
     }
-}
-
-/// The bar's edge, from `PATINA_BAR_EDGE`.
-fn bar_edge() -> Anchor {
-    if patina_shell::bar::at_top() {
-        Anchor::TOP
-    } else {
-        Anchor::BOTTOM
-    }
-}
-
-/// One socket per Wayland display, in the runtime directory.
-fn socket_path() -> PathBuf {
-    let dir = std::env::var_os("XDG_RUNTIME_DIR").map_or_else(std::env::temp_dir, PathBuf::from);
-    let display = std::env::var("WAYLAND_DISPLAY").unwrap_or_else(|_| "wayland-0".into());
-    dir.join(format!("patina-volume-{display}.sock"))
-}
-
-/// The skin named by `PATINA_SKIN`, from Patina's built-ins, or Default.
-fn chosen_skin() -> Skin {
-    let Some(name) = patina_shell::bar::skin() else {
-        return Skin::default_skin();
-    };
-    let dirs: Vec<_> = skin::app_dir("patina-volume").into_iter().collect();
-    let (skins, _) = skin::load_all(skin::BUILT_IN, &dirs);
-    skins
-        .into_iter()
-        .find(|s| s.name == name)
-        .unwrap_or_else(Skin::default_skin)
 }

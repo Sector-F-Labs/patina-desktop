@@ -34,7 +34,7 @@ test: ## Run the tests
 check: test ## Run the tests and clippy, as before a commit or release
 	cargo clippy --workspace --all-targets -- -D warnings
 
-BINARIES := patina-bar patina-compositor patina-launcher patina-volume
+BINARIES := patina-bar patina-compositor patina-launcher patina-volume patina-wifi
 
 install: build ## Install the binaries into $(PREFIX)/bin
 	install -d $(PREFIX)/bin

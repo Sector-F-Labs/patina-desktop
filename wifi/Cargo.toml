@@ -1,0 +1,12 @@
+[package]
+name = "patina-wifi"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's Wi-Fi menu: networks in range, joining, and Wi-Fi on and off, through NetworkManager"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+egui = "0.35"
+patina-shell = { path = "../shell" }
+patina-ui = { workspace = true }

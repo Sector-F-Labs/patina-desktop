@@ -20,6 +20,8 @@ pub struct Bar {
     pub status: Status,
     /// The default output's volume, for the tray's speaker.
     pub volume: Option<patina_shell::audio::Volume>,
+    /// The Wi-Fi signal, for the tray's Wi-Fi icon (see tray::wifi).
+    pub wifi: Option<Option<u8>>,
     skin: Skin,
     /// The open windows, from the compositor, in the order they opened.
     toplevels: Vec<Toplevel>,
@@ -56,6 +58,7 @@ impl Bar {
                 config,
                 status: Status::default(),
                 volume: None,
+                wifi: None,
                 skin,
                 toplevels: Vec::new(),
                 requests: RefCell::new(Vec::new()),
@@ -99,7 +102,18 @@ impl Bar {
                     Position::Top => "top",
                     Position::Bottom => "bottom",
                 };
-                crate::tray::speaker(ui, self.volume, &self.config.volume, &self.skin.name, edge)
+                // The tray's own spacing, tighter than between modules.
+                ui.scope(|ui| {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    crate::tray::wifi(ui, self.wifi, &self.config.wifi, &self.skin.name, edge);
+                    crate::tray::speaker(
+                        ui,
+                        self.volume,
+                        &self.config.volume,
+                        &self.skin.name,
+                        edge,
+                    );
+                });
             }
             "launcher" => {
                 let edge = match self.config.position {
@@ -380,6 +394,7 @@ mod tests {
             config,
             status: Status::default(),
             volume: None,
+            wifi: None,
             skin: Skin::default_skin(),
             toplevels: Vec::new(),
             requests: RefCell::new(Vec::new()),
