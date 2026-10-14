@@ -44,7 +44,9 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             position: Position::Bottom,
-            height: 26,
+            // The height of a Patina window's header bar: its 25 px row,
+            // 8 px margins and the 1 px line under it.
+            height: 41,
             skin: patina::skin::DEFAULT_SKIN.to_string(),
             tags: (1..=9).map(|n| n.to_string()).collect(),
             hide_vacant_tags: false,
@@ -110,7 +112,7 @@ mod tests {
     fn empty_is_the_defaults() {
         let (c, w) = parse("");
         assert!(w.is_empty());
-        assert_eq!(c.height, 26);
+        assert_eq!(c.height, 41);
         assert_eq!(c.tags.len(), 9);
         assert_eq!(c.position, Position::Bottom);
     }
@@ -140,7 +142,7 @@ mod tests {
     #[test]
     fn a_bad_file_falls_back_to_the_defaults() {
         let (c, w) = parse("height = \"tall\"");
-        assert_eq!(c.height, 26);
+        assert_eq!(c.height, 41);
         assert_eq!(w.len(), 1);
         let (_, w) = parse("height = ");
         assert_eq!(w.len(), 1);

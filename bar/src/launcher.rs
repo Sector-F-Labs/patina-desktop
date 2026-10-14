@@ -9,8 +9,9 @@ use egui::{ColorImage, Id, Sense, TextureHandle, TextureOptions, Ui, vec2};
 
 const LOGO: &str = include_str!("../assets/sector-f.svg");
 
-/// Space around the logo inside the button, in points.
-const PADDING: f32 = 4.0;
+/// Space around the logo inside the button, in points: a Patina header
+/// bar's margin, so the logo is as tall as a title bar's contents.
+const PADDING: f32 = 8.0;
 
 /// Draws the button; runs `command` when it's clicked.
 pub fn button(ui: &mut Ui, command: &str) {
