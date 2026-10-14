@@ -89,6 +89,8 @@ pub struct UdevData {
     pub(crate) dmabuf_state: DmabufState,
     _dmabuf_global: DmabufGlobal,
     cursor: Cursor,
+    /// Touchpads, to apply `[touchpad]` to again on a reload.
+    touchpads: Vec<smithay::reexports::input::Device>,
     loop_handle: LoopHandle<'static, State>,
     /// The session has the devices (we're the active console).
     active: bool,
@@ -109,7 +111,8 @@ struct Monitor {
 pub fn init(
     event_loop: &EventLoop<'static, State>,
     dh: &DisplayHandle,
-) -> Result<(UdevData, Output), String> {
+    config: &crate::config::Config,
+) -> Result<(UdevData, Output, f64), String> {
     let (mut session, notifier) =
         LibSeatSession::new().map_err(|e| format!("no login session to run in: {e}"))?;
     let seat = session.seat();
@@ -136,7 +139,7 @@ pub fn init(
     let renderer = unsafe { GlesRenderer::new(context) }.map_err(|e| format!("gles: {e}"))?;
 
     let monitor = choose_monitor(&drm).ok_or("no monitor is connected")?;
-    let output = make_output(&monitor);
+    let (output, auto_scale) = make_output(&monitor, config);
     let surface = drm
         .create_surface(monitor.crtc, monitor.mode, &[monitor.connector.handle()])
         .map_err(|e| format!("can't drive {}: {e}", output.name()))?;
@@ -211,12 +214,37 @@ pub fn init(
             dmabuf_state,
             _dmabuf_global: dmabuf_global,
             cursor,
+            touchpads: Vec::new(),
             loop_handle: handle,
             active: true,
             frame_pending: false,
         },
         output,
+        auto_scale,
     ))
+}
+
+impl UdevData {
+    /// Applies `[touchpad]` to every touchpad.
+    pub fn configure_touchpads(&mut self, settings: &crate::config::Touchpad) {
+        for device in &mut self.touchpads {
+            configure_touchpad(device, settings);
+        }
+    }
+
+    /// Loads the pointer again, at the size for `scale`.
+    pub fn reload_cursor(&mut self, scale: f64) {
+        self.cursor = Cursor::load(scale);
+    }
+}
+
+fn configure_touchpad(
+    device: &mut smithay::reexports::input::Device,
+    settings: &crate::config::Touchpad,
+) {
+    let _ = device.config_tap_set_enabled(settings.tap);
+    let _ = device.config_scroll_set_natural_scroll_enabled(settings.natural_scroll);
+    let _ = device.config_accel_set_speed(settings.speed);
 }
 
 /// The internal panel if it's connected (a laptop), otherwise the first
@@ -263,8 +291,9 @@ fn is_internal(interface: connector::Interface) -> bool {
 }
 
 /// The output for `monitor`, named as the kernel names connectors (eDP-1,
-/// DP-3), at its mode and the scale for its density.
-fn make_output(monitor: &Monitor) -> Output {
+/// DP-3), at its mode and scale, and the scale its density alone would
+/// give.
+fn make_output(monitor: &Monitor, config: &crate::config::Config) -> (Output, f64) {
     let c = &monitor.connector;
     let name = format!("{}-{}", c.interface().as_str(), c.interface_id());
     let (mm_w, mm_h) = c.size().unwrap_or((0, 0));
@@ -279,11 +308,8 @@ fn make_output(monitor: &Monitor) -> Output {
     );
     let (w, h) = monitor.mode.size();
     let mode = Mode::from(monitor.mode);
-    let scale = std::env::var("PATINA_SCALE")
-        .ok()
-        .and_then(|s| s.parse::<f64>().ok())
-        .filter(|s| (0.5..=4.0).contains(s))
-        .unwrap_or_else(|| default_scale(w as u32, h as u32, mm_w));
+    let automatic = default_scale(w as u32, h as u32, mm_w);
+    let scale = crate::config::scale(config, automatic);
     output.change_current_state(
         Some(mode),
         Some(Transform::Normal),
@@ -291,7 +317,7 @@ fn make_output(monitor: &Monitor) -> Output {
         Some((0, 0).into()),
     );
     output.set_preferred(mode);
-    output
+    (output, automatic)
 }
 
 /// A scale for a panel `width` x `height` pixels and `width_mm` wide: 2
@@ -313,10 +339,20 @@ pub fn default_scale(width: u32, height: u32, width_mm: u32) -> f64 {
 
 fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
     if let InputEvent::DeviceAdded { mut device } = event {
-        // libinput leaves tap-to-click off; a touchpad without it is a trap.
+        // A touchpad is a pointer that can tap; [touchpad] applies to those,
+        // not to mice.
         if device.has_capability(DeviceCapability::Pointer) && device.config_tap_finger_count() > 0
         {
-            let _ = device.config_tap_set_enabled(true);
+            configure_touchpad(&mut device, &state.config.touchpad);
+            if let Some(u) = state.udev.as_mut() {
+                u.touchpads.push(device);
+            }
+        }
+        return;
+    }
+    if let InputEvent::DeviceRemoved { device } = &event {
+        if let Some(u) = state.udev.as_mut() {
+            u.touchpads.retain(|d| d != device);
         }
         return;
     }
@@ -329,8 +365,8 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             }
         }
         Some(KeyAction::Quit) => state.loop_signal.stop(),
-        // Switched inside State::key.
-        Some(KeyAction::NextLayout) | None => {}
+        // Done inside State::key.
+        Some(KeyAction::NextLayout | KeyAction::Reload) | None => {}
     }
 }
 

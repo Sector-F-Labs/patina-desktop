@@ -94,6 +94,11 @@ pub struct State {
     pub winit: Option<crate::winit::WinitData>,
     /// What the bar's window list has been told.
     pub toplevels: ForeignToplevels,
+    /// The settings from config.toml in use (ADR-0019).
+    pub config: crate::config::Config,
+    /// The scale the backend would choose by itself: the panel's density on
+    /// the hardware, the parent desktop's when nested.
+    pub auto_scale: f64,
     _fractional_scale: smithay::wayland::fractional_scale::FractionalScaleManagerState,
     _viewporter: smithay::wayland::viewporter::ViewporterState,
     /// The pointer image clients asked for, drawn on the hardware.
@@ -109,19 +114,22 @@ impl State {
         output: Output,
         nested: Option<Nested>,
         winit: Option<crate::winit::WinitData>,
+        config: crate::config::Config,
+        auto_scale: f64,
     ) -> Result<Self, String> {
         let dh = display.handle();
         let mut seat_state = SeatState::new();
         let mut seat = seat_state.new_wl_seat(&dh, "seat0");
         // The system's layout; if xkb rejects it, the US default rather than
         // no keyboard at all.
-        let keyboard = crate::keyboard::KeyboardSettings::load();
-        if let Err(e) = seat.add_keyboard(keyboard.config(), 200, 25) {
+        let keyboard = crate::keyboard::KeyboardSettings::load(&config.keyboard);
+        let (rate, delay) = (config.keyboard.repeat_rate, config.keyboard.repeat_delay);
+        if let Err(e) = seat.add_keyboard(keyboard.config(), delay, rate) {
             eprintln!(
                 "patina-compositor: keyboard layout {:?}: {e}; using US",
                 keyboard.layout
             );
-            seat.add_keyboard(Default::default(), 200, 25)
+            seat.add_keyboard(Default::default(), delay, rate)
                 .map_err(|e| format!("keyboard: {e}"))?;
         }
         seat.add_pointer();
@@ -182,6 +190,8 @@ impl State {
             data_device_state: DataDeviceState::new::<Self>(&dh),
             seat,
             toplevels: ForeignToplevels::new(&dh),
+            config,
+            auto_scale,
             _fractional_scale: smithay::wayland::fractional_scale::FractionalScaleManagerState::new::<
                 Self,
             >(&dh),

@@ -26,6 +26,8 @@ pub enum KeyAction {
     Quit,
     /// The next keyboard layout (Super+Space, as on GNOME).
     NextLayout,
+    /// Read config.toml again (Super+Shift+R).
+    Reload,
 }
 
 /// The compositor's own keys; everything else goes to the focused client.
@@ -40,6 +42,10 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     }
     if modifiers.logo && sym == keysyms::KEY_space {
         return Some(KeyAction::NextLayout);
+    }
+    // With Shift held, the keysym is the capital.
+    if modifiers.logo && modifiers.shift && (sym == keysyms::KEY_R || sym == keysyms::KEY_r) {
+        return Some(KeyAction::Reload);
     }
     None
 }
@@ -68,11 +74,17 @@ impl State {
                 _ => FilterResult::Forward,
             },
         );
-        if action == Some(KeyAction::NextLayout) {
-            keyboard.with_xkb_state(self, |mut xkb| xkb.cycle_next_layout());
-            return None;
+        match action {
+            Some(KeyAction::NextLayout) => {
+                keyboard.with_xkb_state(self, |mut xkb| xkb.cycle_next_layout());
+                None
+            }
+            Some(KeyAction::Reload) => {
+                self.reload_config();
+                None
+            }
+            other => other,
         }
-        action
     }
 
     /// The output's area, for absolute positions and keeping the pointer on
@@ -180,6 +192,21 @@ mod tests {
             Some(KeyAction::NextLayout)
         );
         assert_eq!(key_action(&mods(false, false), keysyms::KEY_space), None);
+    }
+
+    #[test]
+    fn super_shift_r_reloads() {
+        let keys = ModifiersState {
+            logo: true,
+            shift: true,
+            ..Default::default()
+        };
+        assert_eq!(key_action(&keys, keysyms::KEY_R), Some(KeyAction::Reload));
+        let no_shift = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        assert_eq!(key_action(&no_shift, keysyms::KEY_r), None);
     }
 
     #[test]

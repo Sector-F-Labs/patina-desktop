@@ -60,6 +60,7 @@ mechanics of adding one.
 | [0016](0016-hardware-backend.md) | Run on the hardware with DRM/KMS, GBM, libinput and libseat | Proposed |
 | [0017](0017-linux-vm-for-the-hardware-backend.md) | Test the hardware backend in a Linux VM with a virtio GPU | Proposed |
 | [0018](0018-fractional-scaling.md) | Fractional scaling through wp_fractional_scale and wp_viewporter | Accepted |
+| [0019](0019-compositor-config-file.md) | A config file for the compositor, reloaded with Super+Shift+R | Accepted |
 
 ## Decision Relationship
 
@@ -77,6 +78,7 @@ flowchart TD
     O --> P[0016: hardware backend]
     P --> Q[0017: Linux VM with virtio GPU for testing it]
     P --> R[0018: fractional scaling]
+    R --> S[0019: compositor config, Super+Shift+R]
     E --> Q
     C --> H
     F --> I[0009: one workspace]

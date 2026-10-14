@@ -2,6 +2,7 @@
 //! built on Smithay. For now it runs as a window on another desktop and
 //! starts patina-bar and a terminal inside it.
 
+mod config;
 mod dmabuf;
 mod grabs;
 mod input;
@@ -80,9 +81,18 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
     let mut state = if std::env::var_os("WAYLAND_DISPLAY").is_some() {
         nested_state(&mut event_loop, display)?
     } else {
-        let (mut udev, output) = udev::init(&event_loop, &display.handle())?;
+        let config = config::load_or_default();
+        let (mut udev, output, auto_scale) = udev::init(&event_loop, &display.handle(), &config)?;
         let formats = udev::shm_formats(&mut udev);
-        let mut state = State::new(&mut event_loop, display, output, None, None)?;
+        let mut state = State::new(
+            &mut event_loop,
+            display,
+            output,
+            None,
+            None,
+            config,
+            auto_scale,
+        )?;
         state.udev = Some(udev);
         state.set_shm_formats(formats);
         state.centre_pointer();
@@ -120,6 +130,7 @@ fn nested_state(
     event_loop: &mut EventLoop<'static, State>,
     display: Display<State>,
 ) -> Result<State, String> {
+    let config = config::load_or_default();
     let output = Output::new(
         "PATINA-1".into(),
         PhysicalProperties {
@@ -137,7 +148,7 @@ fn nested_state(
     let gl = if software {
         None
     } else {
-        match winit::init(event_loop, &output, &display.handle()) {
+        match winit::init(event_loop, &output, &display.handle(), &config) {
             Ok(gl) => {
                 eprintln!("patina-compositor: drawing with OpenGL ES");
                 Some(gl)
@@ -152,7 +163,8 @@ fn nested_state(
         Some(_) => None,
         None => Some(nested::Nested::connect(event_loop, &output)?),
     };
-    let mut state = State::new(event_loop, display, output, nested, gl)?;
+    let auto_scale = gl.as_ref().map_or(1.0, winit::window_scale);
+    let mut state = State::new(event_loop, display, output, nested, gl, config, auto_scale)?;
     if let Some(formats) = state.winit.as_mut().map(winit::shm_formats) {
         state.set_shm_formats(formats);
     }

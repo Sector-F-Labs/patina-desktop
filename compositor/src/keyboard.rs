@@ -1,6 +1,7 @@
-//! The keyboard layout: the system's, from `/etc/default/keyboard` (which
-//! Ubuntu's installer and the text console use), with `XKB_DEFAULT_*`
-//! environment variables taking precedence, as xkbcommon's own defaults do.
+//! The keyboard layout: `XKB_DEFAULT_*` environment variables first (as
+//! xkbcommon's own defaults), then the `[keyboard]` section of the
+//! compositor's config, then the system's, from `/etc/default/keyboard`
+//! (which Ubuntu's installer and the text console use).
 
 /// xkb's rules, model, layout, variant and options, as names.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -14,9 +15,19 @@ pub struct KeyboardSettings {
 impl KeyboardSettings {
     /// The settings for this machine. Empty fields leave xkbcommon to its
     /// defaults (US).
-    pub fn load() -> Self {
+    pub fn load(config: &crate::config::Keyboard) -> Self {
         let file = std::fs::read_to_string("/etc/default/keyboard").unwrap_or_default();
         let mut settings = parse(&file);
+        if !config.layout.is_empty() {
+            settings.layout = config.layout.clone();
+            settings.variant = config.variant.clone();
+        }
+        if !config.model.is_empty() {
+            settings.model = config.model.clone();
+        }
+        if !config.options.is_empty() {
+            settings.options = Some(config.options.clone());
+        }
         let env = |name: &str| std::env::var(name).ok().filter(|v| !v.is_empty());
         if let Some(v) = env("XKB_DEFAULT_MODEL") {
             settings.model = v;

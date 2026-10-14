@@ -31,11 +31,39 @@ choosing it at the login screen.
   (most laptops), 1 otherwise. Set `PATINA_SCALE=1.25` (or any value from 0.5 to 4) to choose. Apps
   that support fractional scaling (most, except GTK3 ones) draw at the exact scale, so text stays
   sharp at 1.5 ([ADR-0018](adr/0018-fractional-scaling.md)).
-- **Input:** keyboards, mice and touchpads through libinput, with tap-to-click on.
+- **Input:** keyboards, mice and touchpads through libinput; touchpads tap to click and scroll
+  naturally (content follows your fingers) unless the config says otherwise.
 - **The pointer:** your cursor theme's arrow (`XCURSOR_THEME`, `XCURSOR_SIZE`), or the app's own
   cursor where it sets one.
 - **Keys of its own:** **Ctrl+Alt+F1** to **F12** switch consoles. **Ctrl+Alt+Backspace** quits
-  the compositor, the way out whatever state it's in.
+  the compositor, the way out whatever state it's in. **Super+Space** switches keyboard layout,
+  and **Super+Shift+R** reloads the config file.
+
+## Settings
+
+`~/.config/patina-compositor/config.toml`; every key is optional
+([ADR-0019](adr/0019-compositor-config-file.md)):
+
+```toml
+scale = 1.25                 # unset: from the panel's density
+
+[keyboard]
+layout = "us,se"             # unset: /etc/default/keyboard
+variant = ""
+options = ""
+repeat_delay = 200           # ms before a held key repeats
+repeat_rate = 25             # repeats per second
+
+[touchpad]
+tap = true                   # tap to click
+natural_scroll = true        # content follows your fingers
+speed = 0.0                  # -1.0 (slow) to 1.0 (fast)
+```
+
+Press **Super+Shift+R** after saving to apply it without logging out. Mistakes are reported in
+the session's log (`journalctl -b | grep patina`) and never stop the desktop: a broken file keeps
+the settings in use. `PATINA_SCALE` and `XKB_DEFAULT_LAYOUT` in the environment still win over
+the file.
 
 Not yet: more than one monitor (others stay dark), plugging monitors in and out, the lid,
 brightness and volume keys, touchpad settings beyond tap, and explicit sync for NVIDIA apps.

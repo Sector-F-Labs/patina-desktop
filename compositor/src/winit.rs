@@ -41,15 +41,16 @@ pub struct WinitData {
     redraw_requested: bool,
 }
 
-/// The parent window's scale, or `PATINA_SCALE` (as on the hardware), so
-/// fractional scales can be tried on any desktop.
-fn scale(window_scale: f64) -> Scale {
-    let scale = std::env::var("PATINA_SCALE")
-        .ok()
-        .and_then(|s| s.parse::<f64>().ok())
-        .filter(|s| (0.5..=4.0).contains(s))
-        .unwrap_or(window_scale);
-    Scale::Fractional(scale)
+/// The parent window's scale, unless the config or `PATINA_SCALE` say
+/// otherwise (as on the hardware), so fractional scales can be tried on any
+/// desktop.
+fn scale(config: &crate::config::Config, window_scale: f64) -> Scale {
+    Scale::Fractional(crate::config::scale(config, window_scale))
+}
+
+/// The parent window's own scale, which the compositor would use by itself.
+pub fn window_scale(data: &WinitData) -> f64 {
+    data.backend.scale_factor()
 }
 
 fn mode(size: Size<i32, Physical>) -> Mode {
@@ -66,6 +67,7 @@ pub fn init(
     event_loop: &EventLoop<'static, State>,
     output: &Output,
     dh: &DisplayHandle,
+    config: &crate::config::Config,
 ) -> Result<WinitData, String> {
     let attributes = Window::default_attributes()
         .with_inner_size(LogicalSize::new(DEFAULT_SIZE.0, DEFAULT_SIZE.1))
@@ -81,7 +83,7 @@ pub fn init(
     output.change_current_state(
         Some(mode),
         Some(Transform::Flipped180),
-        Some(scale(backend.scale_factor())),
+        Some(scale(config, backend.scale_factor())),
         Some((0, 0).into()),
     );
     output.set_preferred(mode);
@@ -142,10 +144,14 @@ pub fn schedule(state: &mut State) {
 fn handle_event(state: &mut State, event: WinitEvent) {
     match event {
         WinitEvent::Resized { size, scale_factor } => {
+            state.auto_scale = scale_factor;
             let mode = mode(size);
-            state
-                .output
-                .change_current_state(Some(mode), None, Some(scale(scale_factor)), None);
+            state.output.change_current_state(
+                Some(mode),
+                None,
+                Some(scale(&state.config, scale_factor)),
+                None,
+            );
             state.output.set_preferred(mode);
             layer_map_for_output(&state.output).arrange();
             state.relayout_maximized();
