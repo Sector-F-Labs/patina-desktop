@@ -58,6 +58,7 @@ mechanics of adding one.
 | [0014](0014-maximise.md) | Maximise fills the work area, and dragging restores | Proposed |
 | [0015](0015-gl-when-nested.md) | Render nested with OpenGL ES through winit, keeping pixman as the fallback | Proposed |
 | [0016](0016-hardware-backend.md) | Run on the hardware with DRM/KMS, GBM, libinput and libseat | Proposed |
+| [0017](0017-linux-vm-for-the-hardware-backend.md) | Test the hardware backend in a Linux VM with a virtio GPU | Proposed |
 
 ## Decision Relationship
 
@@ -73,6 +74,8 @@ flowchart TD
     F --> H[0008: nested, pixman]
     H --> O[0015: GL when nested, pixman fallback]
     O --> P[0016: hardware backend]
+    P --> Q[0017: Linux VM with virtio GPU for testing it]
+    E --> Q
     C --> H
     F --> I[0009: one workspace]
     B --> K[0011: patina-shell crate]
