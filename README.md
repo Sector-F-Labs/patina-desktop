@@ -68,7 +68,8 @@ A broken file falls back to the defaults.
 |---|---|
 | `make run` | The compositor in a window on this desktop |
 | `make check` | Tests and clippy |
-| `make install` | Both binaries into `~/.local/bin` |
+| `make install` | The binaries into `~/.local/bin` |
+| `make install-session` | Also add Patina to the login screen ([how](docs/running-as-a-session.md)) |
 | `make vm` | The FreeBSD test VM: the compositor in a window on dwl ([bsdt](https://bsdt.divanv.com)) |
 | `make vm-restart` | Rebuild in the VM and restart its desktop |
 | `make vm-gui` | Open the VM's desktop over VNC |

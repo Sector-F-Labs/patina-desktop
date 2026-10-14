@@ -17,16 +17,29 @@ use smithay::{
 
 use crate::state::State;
 
-const USAGE: &str = "usage: patina-compositor [command ...]
+const USAGE: &str = "usage: patina-compositor [--session] [command ...]
 
 Opens a window on the current Wayland desktop and runs a Patina desktop in
 it: patina-bar, then each command given, with WAYLAND_DISPLAY set to the
-compositor's socket. Apps are started from the bar's launcher.";
+compositor's socket. Apps are started from the bar's launcher.
+
+--session  run as the login session (the Patina entry at the login screen
+           starts it so): also tells systemd and D-Bus about the display.
+           See docs/running-as-a-session.md.";
+
+/// How clients, and services started for them, know which desktop this is.
+const DESKTOP_ENV: [(&str, &str); 3] = [
+    ("XDG_CURRENT_DESKTOP", "Patina"),
+    ("XDG_SESSION_DESKTOP", "patina"),
+    ("XDG_SESSION_TYPE", "wayland"),
+];
 
 fn main() -> ExitCode {
     let mut commands: Vec<String> = Vec::new();
+    let mut session = false;
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
+            "--session" => session = true,
             "-h" | "--help" => {
                 println!("{USAGE}");
                 return ExitCode::SUCCESS;
@@ -42,7 +55,7 @@ fn main() -> ExitCode {
             _ => commands.push(arg),
         }
     }
-    match run(&commands) {
+    match run(&commands, session) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("patina-compositor: {e}");
@@ -51,7 +64,14 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(commands: &[String]) -> Result<(), String> {
+fn run(commands: &[String], session: bool) -> Result<(), String> {
+    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
+        return Err(
+            "there's no desktop to open a window on (WAYLAND_DISPLAY is unset), and \
+             running straight on the hardware isn't built yet; see docs/running-as-a-session.md"
+                .into(),
+        );
+    }
     let mut event_loop: EventLoop<'static, State> =
         EventLoop::try_new().map_err(|e| e.to_string())?;
     let display: Display<State> = Display::new().map_err(|e| e.to_string())?;
@@ -76,6 +96,9 @@ fn run(commands: &[String]) -> Result<(), String> {
         state.socket_name.to_string_lossy()
     );
 
+    if session {
+        export_to_session(&state);
+    }
     spawn(&state, "patina-bar");
     for command in commands {
         spawn(&state, command);
@@ -107,6 +130,24 @@ fn client_path() -> std::ffi::OsString {
     std::env::join_paths(dirs).unwrap_or_default()
 }
 
+/// Tells systemd's user manager and D-Bus activation which display and
+/// desktop this is, so services they start later (portals, notification
+/// daemons) reach this compositor.
+fn export_to_session(state: &State) {
+    let mut command = Command::new("dbus-update-activation-environment");
+    command
+        .arg("--systemd")
+        .arg("WAYLAND_DISPLAY")
+        .args(DESKTOP_ENV.map(|(k, _)| k))
+        .env("WAYLAND_DISPLAY", &state.socket_name)
+        .envs(DESKTOP_ENV);
+    match command.status() {
+        Ok(s) if s.success() => {}
+        Ok(s) => eprintln!("patina-compositor: dbus-update-activation-environment: {s}"),
+        Err(e) => eprintln!("patina-compositor: can't run dbus-update-activation-environment: {e}"),
+    }
+}
+
 /// Runs `command` through sh(1) as a client of this compositor.
 fn spawn(state: &State, command: &str) {
     let result = Command::new("sh")
@@ -114,6 +155,7 @@ fn spawn(state: &State, command: &str) {
         .arg(command)
         .env("PATH", client_path())
         .env("WAYLAND_DISPLAY", &state.socket_name)
+        .envs(DESKTOP_ENV)
         .env_remove("WAYLAND_SOCKET")
         .env_remove("DISPLAY")
         .stdin(Stdio::null())

@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Patina
+Comment=The Patina desktop
+Exec=@BINDIR@/patina-compositor --session
+Type=Application
+DesktopNames=Patina

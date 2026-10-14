@@ -9,7 +9,8 @@ with GDM), and how to get back if something goes wrong.
 |---|---|
 | Running nested, as a window on GNOME or another desktop (`make run`) | Works |
 | Running on the hardware itself: screens, keyboard and mouse, GPU | **Not built yet** |
-| A login-screen entry, and the session setup it starts | Not built yet; described below |
+| A login-screen entry: `make install-session` | Works, but the session can't start yet |
+| The session setup (`patina-compositor --session`) | Partly: the desktop's environment, not yet portals and helpers |
 
 patina-compositor only has a nested backend so far ([ADR-0008](adr/0008-nested-software-backend.md)):
 it opens a window on another Wayland desktop and draws into it in software. To be your session it
@@ -40,27 +41,27 @@ GDM gains nothing and loses the fallback.
 
 ## Installing the session
 
-### 1. The binaries
-
 ```sh
-make install                 # patina-compositor, patina-bar and patina-launcher into ~/.local/bin
+make install-session         # run it without sudo; it asks for your password itself
 ```
 
-A login session doesn't read your shell's `PATH` changes, so either install system-wide
-(`sudo make install PREFIX=/usr/local`) or make sure `~/.local/bin` is on `PATH` in
-`~/.profile`, which Ubuntu's does by default.
+It installs the binaries (patina-compositor, patina-bar and patina-launcher) into
+`~/.local/bin`, as `make install` does, then the session entry into
+`/usr/share/wayland-sessions/patina.desktop`, which is the only part that needs root: GDM only
+reads sessions from that system folder. Don't run it as `sudo make install-session`; it refuses,
+since under sudo the binaries would go to root's home.
 
-### 2. The session entry
+`make install-session PREFIX=/usr/local` puts the binaries in `/usr/local/bin` instead (then the
+binaries need root too, so run `sudo make install PREFIX=/usr/local` first).
 
-GDM lists the `.desktop` files in `/usr/share/wayland-sessions/`. That folder is system-wide (a
-session in `~/.local/share` isn't read), so it needs root:
+The entry it installs, from `packaging/linux/patina.desktop`, names the compositor by its full
+path, since a login session doesn't read your shell's `PATH`:
 
 ```ini
-# /usr/share/wayland-sessions/patina.desktop
 [Desktop Entry]
 Name=Patina
 Comment=The Patina desktop
-Exec=patina-compositor --session
+Exec=/home/you/.local/bin/patina-compositor --session
 Type=Application
 DesktopNames=Patina
 ```
@@ -69,26 +70,28 @@ DesktopNames=Patina
 `OnlyShowIn=` and `NotShowIn=` are checked against (the launcher already treats this desktop as
 `Patina`).
 
-`--session` doesn't exist yet. It's where the compositor would do what a session needs before it
-starts its first client (below), so there's no separate shell script to keep in step.
+### What the session sets up
 
-### 3. What the session sets up
+`--session` is where the compositor does what a session needs before its first client, so there's
+no separate shell script to keep in step. GDM, through systemd-logind, already gives the session a
+D-Bus session bus and `XDG_RUNTIME_DIR`. On top of that, the compositor:
 
-GDM, through systemd-logind, already gives the session a D-Bus session bus and
-`XDG_RUNTIME_DIR`. On top of that, `patina-compositor --session` should:
+- sets `XDG_CURRENT_DESKTOP=Patina`, `XDG_SESSION_DESKTOP=patina` and `XDG_SESSION_TYPE=wayland`
+  for its clients (always, nested or not);
+- with `--session`, exports those and `WAYLAND_DISPLAY` to systemd and D-Bus
+  (`dbus-update-activation-environment --systemd`), so services started later find the
+  compositor.
 
-- set `XDG_CURRENT_DESKTOP=Patina`, `XDG_SESSION_DESKTOP=patina` and `XDG_SESSION_TYPE=wayland`
-  for its clients, and export `WAYLAND_DISPLAY` to systemd and D-Bus
-  (`dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP`), so
-  services started later find the compositor;
+Still to do, so these don't work in the session yet:
+
 - start **xdg-desktop-portal** with a backend, so Firefox's file picker, Flatpak apps and screen
   sharing work. `xdg-desktop-portal-wlr` (screen sharing) and `xdg-desktop-portal-gtk` (file
   pickers) work until there's a Patina one;
-- start a **polkit agent**, for password prompts from Software, Disks and the like;
-- start a **notification daemon**, until Patina has its own notifications;
-- start **gnome-keyring** if you want passwords stored as on GNOME (Ubuntu's PAM setup unlocks it
+- a **polkit agent**, for password prompts from Software, Disks and the like;
+- a **notification daemon**, until Patina has its own notifications;
+- **gnome-keyring**, if you want passwords stored as on GNOME (Ubuntu's PAM setup unlocks it
   at login);
-- then start patina-bar, and anything in the autostart list.
+- an autostart list for apps to open at login.
 
 ## Choosing Patina at login
 
@@ -118,7 +121,8 @@ back to `ubuntu` to return to GNOME.
 Before trusting it as your session, run it from a text console:
 
 1. Press **Ctrl+Alt+F3** and log in at the text prompt.
-2. Run `patina-compositor`. With no `WAYLAND_DISPLAY` set, it would take the hardware backend.
+2. Run `patina-compositor`. With no `WAYLAND_DISPLAY` set it would take the hardware backend;
+   until that exists it says so and exits.
 3. To leave, quit the compositor, or switch back to GNOME with **Ctrl+Alt+F2** (GDM's sessions
    usually live on F1 or F2; try the others if needed).
 
@@ -130,8 +134,8 @@ nested, as a window.
 ## If something goes wrong
 
 - **The session fails to start and drops you back at the login screen.** Choose Ubuntu again. The
-  session's output is in the journal: `journalctl --user -b` (or `journalctl -b` and search for
-  `patina`).
+  session's output is in the journal: `journalctl -b | grep patina`. Until the hardware backend
+  exists, this is what happens, with "running straight on the hardware isn't built yet" there.
 - **The screen is frozen or black.** Switch to a text console (Ctrl+Alt+F3), log in, and run
   `pkill patina-compositor`; GDM comes back. If keys don't respond at all, a reboot returns you to
   the login screen, where you can choose Ubuntu.
@@ -141,8 +145,8 @@ nested, as a window.
 ## Removing it
 
 ```sh
-sudo rm /usr/share/wayland-sessions/patina.desktop
-make uninstall                # or: sudo make uninstall PREFIX=/usr/local
+make uninstall-session        # the login-screen entry (asks for sudo)
+make uninstall                # the binaries; or: sudo make uninstall PREFIX=/usr/local
 ```
 
 and set `Session=ubuntu` in `/var/lib/AccountsService/users/<your user name>` if it says `patina`.
