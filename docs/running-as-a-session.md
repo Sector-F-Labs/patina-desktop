@@ -42,7 +42,9 @@ choosing it at the login screen.
 ## Settings
 
 `~/.config/patina-compositor/config.toml`; every key is optional
-([ADR-0019](adr/0019-compositor-config-file.md)):
+([ADR-0019](adr/0019-compositor-config-file.md)). The first start writes it with every setting
+commented out at its default (from `compositor/config.example.toml`), so it changes nothing until
+you edit it, and it's never rewritten once it exists:
 
 ```toml
 scale = 1.25                 # unset: from the panel's density

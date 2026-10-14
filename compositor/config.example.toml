@@ -1,0 +1,33 @@
+# Patina compositor settings.
+#
+# Everything here is commented out at its default, so this file changes
+# nothing until you edit it. Uncomment a line to change it, save, and press
+# Super+Shift+R to apply it without logging out. Mistakes are reported in the
+# session's log (journalctl -b | grep patina) and never stop the desktop.
+
+# The screen's scale. Unset, it's chosen from the panel's density: 1.5 on most
+# laptops, 1 on desktop monitors, 2 on very dense panels. PATINA_SCALE in the
+# environment overrides it.
+# scale = 1.5
+
+[keyboard]
+# Layouts to switch between with Super+Space. Unset, the system's from
+# /etc/default/keyboard.
+# layout = "us,se"
+# variant = ""
+# model = ""
+# options = ""
+
+# Milliseconds before a held key repeats, and repeats per second.
+# repeat_delay = 200
+# repeat_rate = 25
+
+[touchpad]
+# Tap to click.
+# tap = true
+
+# Content follows your fingers, as on a phone. false scrolls the other way.
+# natural_scroll = true
+
+# Pointer speed, from -1.0 (slowest) to 1.0 (fastest).
+# speed = 0.0

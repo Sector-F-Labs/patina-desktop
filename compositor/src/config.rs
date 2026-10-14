@@ -77,6 +77,10 @@ impl Default for Touchpad {
     }
 }
 
+/// The file written on first start where there's none: every setting,
+/// commented out at its default.
+pub const STARTER: &str = include_str!("../config.example.toml");
+
 pub fn path() -> Option<PathBuf> {
     dirs::config_dir().map(|d| d.join("patina-compositor").join("config.toml"))
 }
@@ -131,11 +135,38 @@ pub fn scale(config: &Config, automatic: f64) -> f64 {
         .unwrap_or(automatic)
 }
 
-/// The config file, or the defaults with what was wrong, for start-up.
+/// Writes the starter file at `path` if nothing is there, so the settings
+/// can be found. It never replaces a file.
+pub fn write_starter(path: &Path) -> std::io::Result<bool> {
+    use std::io::Write;
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+    {
+        Ok(mut file) => file.write_all(STARTER.as_bytes()).map(|()| true),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(false),
+        Err(e) => Err(e),
+    }
+}
+
+/// The config file, or the defaults with what was wrong, for start-up. On
+/// the first start it writes the starter file.
 pub fn load_or_default() -> Config {
     let Some(path) = path() else {
         return Config::default();
     };
+    match write_starter(&path) {
+        Ok(true) => eprintln!(
+            "patina-compositor: wrote {}, every setting at its default",
+            path.display()
+        ),
+        Ok(false) => {}
+        Err(e) => eprintln!("patina-compositor: can't write {}: {e}", path.display()),
+    }
     match load(&path) {
         Ok((config, warnings)) => {
             for w in warnings {
@@ -246,6 +277,26 @@ mod tests {
         assert_eq!(c.scale, None);
         assert_eq!(c.touchpad.speed, 0.0);
         assert_eq!(w.len(), 3, "{w:?}");
+    }
+
+    #[test]
+    fn the_starter_file_is_the_defaults() {
+        let (c, w) = parse(STARTER).expect("the starter file parses");
+        assert!(w.is_empty(), "{w:?}");
+        assert_eq!(c, Config::default());
+    }
+
+    #[test]
+    fn the_starter_file_is_written_once_and_never_replaced() {
+        let dir = std::env::temp_dir().join(format!("patina-config-{}", std::process::id()));
+        let path = dir.join("patina-compositor").join("config.toml");
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(write_starter(&path).unwrap());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), STARTER);
+        std::fs::write(&path, "scale = 2.0\n").unwrap();
+        assert!(!write_starter(&path).unwrap());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "scale = 2.0\n");
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

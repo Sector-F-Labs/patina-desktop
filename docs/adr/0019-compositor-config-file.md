@@ -31,6 +31,10 @@ system or the backend. **Super+Shift+R** reads the file again and applies it str
 scale to every surface, the cursor and maximised windows; the layout and repeat to the keyboard;
 the touchpad settings to every touchpad.
 
+The first start writes the file where there's none, with every setting commented out at its
+default (`compositor/config.example.toml`, checked by a test to parse to exactly the defaults), so
+the settings can be found; it never replaces a file.
+
 ## Consequences
 
 - Settings live in one file a future Patina settings app can edit.
