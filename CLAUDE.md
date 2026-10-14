@@ -1,8 +1,10 @@
-# Patina desktop (patina-compositor + patina-bar)
+# Patina desktop
 
 A cargo workspace (ADR-0009): `compositor/` is a floating Smithay compositor (ADR-0006, 0007),
-`bar/` is a layer-shell egui status bar skinned with Patina. The compositor starts the bar from
-beside its own binary.
+`bar/` is a layer-shell egui status bar skinned with Patina, `launcher/` is the app launcher the
+bar's Sector F button opens (ADR-0010), and `shell/` (patina-shell) is the layer-shell host and
+software painter they share (ADR-0011). The compositor puts its own folder first on its
+clients' PATH, so the bar and launcher are found beside it.
 
 ## Commands
 
@@ -22,8 +24,12 @@ beside its own binary.
 - `compositor/src/nested.rs`: the window on the parent desktop (sctk), pixman rendering copied
   into wl_shm, parent input → seat (ADR-0008). sctk traits are aliased (`Client*`) where their
   names clash with Smithay's.
-- `bar/src/host.rs`: layer-shell egui host (sctk), generic over a `Shell` (ADR-0003).
-- `bar/src/raster.rs`: CPU painter for egui meshes (ADR-0002).
+- `shell/src/host.rs`: layer-shell egui host (sctk), generic over a `Shell`; `Options` sets
+  anchor, size, keyboard and per-output surfaces (ADR-0011).
+- `shell/src/raster.rs`: CPU painter for egui meshes (ADR-0002).
+- `launcher/src/apps.rs`: .desktop entries, search, launch; `icons.rs`: theme lookup and
+  decoding on a thread; `ui.rs`: the surface. A second run closes the open one over a socket in
+  XDG_RUNTIME_DIR. The bar passes its skin in `PATINA_SKIN`.
 - `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`.
 
 ## Gotchas

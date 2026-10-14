@@ -595,8 +595,13 @@ impl WlrLayerShellHandler for State {
             map.unmap_layer(layer);
         }
         drop(map);
+        // Its client may be gone already, taking the focus with it, so
+        // also refocus when the keyboard is on nothing or a dead surface.
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
-        if keyboard.current_focus().as_ref() == Some(surface.wl_surface()) {
+        let stranded = keyboard
+            .current_focus()
+            .is_none_or(|f| !f.is_alive() || &f == surface.wl_surface());
+        if stranded {
             self.focus_top_window();
         }
         self.needs_redraw = true;

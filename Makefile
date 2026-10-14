@@ -29,12 +29,14 @@ test: ## Run the tests
 check: test ## Run the tests and clippy, as before a commit or release
 	cargo clippy --workspace --all-targets -- -D warnings
 
-install: build ## Install both binaries into $(PREFIX)/bin
+BINARIES := patina-bar patina-compositor patina-launcher
+
+install: build ## Install the binaries into $(PREFIX)/bin
 	install -d $(PREFIX)/bin
-	install -m 755 target/release/patina-bar target/release/patina-compositor $(PREFIX)/bin/
+	install -m 755 $(addprefix target/release/,$(BINARIES)) $(PREFIX)/bin/
 
 uninstall: ## Remove the installed binaries
-	rm -f $(PREFIX)/bin/patina-bar $(PREFIX)/bin/patina-compositor
+	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES))
 
 vm: ## Boot the FreeBSD test VM: the compositor in a window on dwl (bsdt up)
 	bsdt up

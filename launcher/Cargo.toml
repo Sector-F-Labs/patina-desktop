@@ -1,0 +1,18 @@
+[package]
+name = "patina-launcher"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's app launcher: installed apps from .desktop files, with search"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+egui = "0.35"
+freedesktop-desktop-entry = { version = "0.8", default-features = false }
+freedesktop-icons = "0.4"
+image = { version = "0.25", default-features = false, features = ["png"] }
+libc = "0.2"
+patina-shell = { path = "../shell" }
+patina-ui = "0.1.7"
+resvg = { version = "0.48.1", default-features = false }
+smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop"] }

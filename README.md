@@ -1,4 +1,4 @@
-# Patina desktop: patina-compositor and patina-bar
+# Patina desktop
 
 The first pieces of a desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
 
@@ -8,6 +8,11 @@ The first pieces of a desktop in the style of [Patina](https://github.com/Sector
 - **patina-bar** (`bar/`): a status bar in egui on a wlr-layer-shell surface, skinned with the
   same skins as the Patina apps. It runs on any layer-shell compositor, including dwl, where it
   also shows dwl's tags.
+- **patina-launcher** (`launcher/`): opened by the bar's Sector F button. It lists the installed
+  apps from their `.desktop` files, with icons, and filters them as you type. Up and Down choose,
+  Enter or a click starts one, and Escape, clicking elsewhere or the button again closes it.
+- **patina-shell** (`shell/`): what the bar and launcher share, a layer-shell host for egui
+  drawn in software.
 
 ![patina-compositor running foot and patina-bar](docs/screenshot.png)
 
@@ -37,7 +42,7 @@ left = ["launcher", "tags", "layout"]
 center = ["title"]
 right = ["load", "clock"]
 clock = "%a %-d %b  %H:%M"  # strftime, as in date(1)
-launcher = "wofi --show drun"  # what the Sector F button runs, through sh(1)
+launcher = "patina-launcher"  # what the Sector F button runs, through sh(1)
 ```
 
 The modules are `launcher` (the Sector F flask, which runs `launcher` when clicked), `tags`,

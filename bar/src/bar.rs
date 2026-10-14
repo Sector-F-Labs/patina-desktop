@@ -8,7 +8,7 @@ use patina::skin::{self, Skin};
 
 use crate::config::{Config, Position};
 use crate::dwl::{Monitor, Status};
-use crate::host::Shell;
+use patina_shell::Shell;
 
 /// Space between modules, and at the bar's ends.
 const GAP: f32 = 12.0;
@@ -82,7 +82,7 @@ impl Bar {
             "appid" => {
                 ui.label(&m.appid);
             }
-            "launcher" => crate::launcher::button(ui, &self.config.launcher),
+            "launcher" => crate::launcher::button(ui, &self.config.launcher, &self.skin.name),
             "clock" => {
                 ui.label(clock(&self.config.clock));
             }

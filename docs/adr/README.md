@@ -51,6 +51,8 @@ mechanics of adding one.
 | [0007](0007-floating-first.md) | Floating windows first | Accepted |
 | [0008](0008-nested-software-backend.md) | Run nested, drawn in software with pixman | Proposed |
 | [0009](0009-one-workspace.md) | Keep the compositor and the bar in one cargo workspace | Accepted |
+| [0010](0010-launcher-reads-desktop-entries.md) | The launcher lists apps from .desktop files | Accepted |
+| [0011](0011-shared-shell-crate.md) | Move the layer-shell host into patina-shell | Proposed |
 
 ## Decision Relationship
 
@@ -65,12 +67,14 @@ flowchart TD
     F --> H[0008: nested, pixman]
     C --> H
     F --> I[0009: one workspace]
+    B --> K[0011: patina-shell crate]
+    K --> J[0010: launcher reads .desktop files]
 ```
 
 ## Revisit Triggers
 
-- A second layer-shell piece (launcher, notifications) is started: move the host into a shared
-  crate ([ADR-0003](0003-layer-shell-host.md)).
+- An `~/Applications` folder of AppImages joins the launcher's list
+  ([ADR-0010](0010-launcher-reads-desktop-entries.md)).
 - A surface that is large or animated draws too slowly on the CPU
   ([ADR-0002](0002-software-rendering.md)).
 - The compositor gets workspaces: the bar's tags move from dwl's stdin to the compositor

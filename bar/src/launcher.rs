@@ -1,5 +1,5 @@
-//! The launcher button: the Sector F flask, which runs a command (wofi by
-//! default) when clicked. The logo is rasterised at the exact pixel size it
+//! The launcher button: the Sector F flask, which runs a command
+//! (patina-launcher by default) when clicked. The logo is rasterised at the exact pixel size it
 //! is drawn at, as a white mask, and tinted from the skin's text colour, so
 //! skins reach it like everything else the bar paints.
 
@@ -13,8 +13,9 @@ const LOGO: &str = include_str!("../assets/sector-f.svg");
 /// bar's margin, so the logo is as tall as a title bar's contents.
 const PADDING: f32 = 8.0;
 
-/// Draws the button; runs `command` when it's clicked.
-pub fn button(ui: &mut Ui, command: &str) {
+/// Draws the button; runs `command` when it's clicked, telling it the bar's
+/// skin so the launcher matches.
+pub fn button(ui: &mut Ui, command: &str, skin: &str) {
     let side = ui.available_height();
     let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
     let v = ui.visuals();
@@ -40,7 +41,7 @@ pub fn button(ui: &mut Ui, command: &str) {
         );
     }
     if response.clicked() {
-        run(command);
+        run(command, skin);
     }
 }
 
@@ -79,11 +80,13 @@ pub fn rasterise(pixels: u32) -> Option<ColorImage> {
 }
 
 /// Runs `command` through sh(1), detached from the bar: no stdin, and a
-/// thread reaps it so it never lingers as a zombie.
-fn run(command: &str) {
+/// thread reaps it so it never lingers as a zombie. `PATINA_SKIN` names the
+/// bar's skin.
+fn run(command: &str, skin: &str) {
     match Command::new("sh")
         .arg("-c")
         .arg(command)
+        .env("PATINA_SKIN", skin)
         .stdin(Stdio::null())
         .spawn()
     {

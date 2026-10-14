@@ -54,7 +54,7 @@ impl Default for Config {
             center: vec!["title".into()],
             right: vec!["load".into(), "clock".into()],
             clock: "%a %-d %b  %H:%M".into(),
-            launcher: "wofi --show drun".into(),
+            launcher: "patina-launcher".into(),
         }
     }
 }

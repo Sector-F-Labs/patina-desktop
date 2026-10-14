@@ -6,20 +6,18 @@
 mod bar;
 mod config;
 mod dwl;
-mod host;
 mod launcher;
-mod raster;
 
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use smithay_client_toolkit::reexports::calloop::{
+use patina_shell::calloop::{
     channel::{self, Event},
     timer::{TimeoutAction, Timer},
 };
-use smithay_client_toolkit::shell::wlr_layer::{Anchor, Layer};
+use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 
 use crate::config::Position;
 
@@ -65,14 +63,19 @@ fn main() -> ExitCode {
         }
         None => (config::Config::default(), Vec::new()),
     };
-    let options = host::Options {
+    let height = config.height.max(1);
+    let edge = match config.position {
+        Position::Top => Anchor::TOP,
+        Position::Bottom => Anchor::BOTTOM,
+    };
+    let options = Options {
         namespace: "patina-bar".into(),
         layer: Layer::Top,
-        edge: match config.position {
-            Position::Top => Anchor::TOP,
-            Position::Bottom => Anchor::BOTTOM,
-        },
-        height: config.height.max(1),
+        anchor: edge | Anchor::LEFT | Anchor::RIGHT,
+        size: (0, height),
+        exclusive_zone: height as i32,
+        keyboard: KeyboardInteractivity::None,
+        per_output: true,
     };
     let (bar, skin_warnings) = bar::Bar::new(config);
     warnings.extend(skin_warnings);
@@ -94,8 +97,8 @@ fn usage_error() -> ExitCode {
     ExitCode::from(2)
 }
 
-fn run(options: host::Options, bar: bar::Bar) -> Result<(), String> {
-    let (host, event_loop) = host::Host::connect(options, bar)?;
+fn run(options: Options, bar: bar::Bar) -> Result<(), String> {
+    let (host, event_loop) = Host::connect(options, bar)?;
     let handle = event_loop.handle();
 
     // dwl blocks when its status pipe fills up, so stdin is read on a thread

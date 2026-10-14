@@ -77,7 +77,7 @@ fn run(commands: &[String]) -> Result<(), String> {
         state.socket_name.to_string_lossy()
     );
 
-    spawn(&state, &bar_command());
+    spawn(&state, "patina-bar");
     for command in commands {
         spawn(&state, command);
     }
@@ -92,16 +92,19 @@ fn run(commands: &[String]) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// patina-bar from beside this binary (both are built into the same
-/// target directory), or from PATH.
-fn bar_command() -> String {
-    let beside = std::env::current_exe()
+/// PATH for clients, with this binary's folder first, so the desktop's own
+/// programs (patina-bar, patina-launcher, built into the same target
+/// folder) are found beside it before any installed copies.
+fn client_path() -> std::ffi::OsString {
+    let mut dirs: Vec<std::path::PathBuf> = std::env::current_exe()
         .ok()
-        .and_then(|exe| exe.parent().map(|d| d.join("patina-bar")));
-    match beside {
-        Some(path) if path.exists() => path.to_string_lossy().into_owned(),
-        _ => "patina-bar".into(),
+        .and_then(|exe| exe.parent().map(|d| d.to_path_buf()))
+        .into_iter()
+        .collect();
+    if let Some(path) = std::env::var_os("PATH") {
+        dirs.extend(std::env::split_paths(&path));
     }
+    std::env::join_paths(dirs).unwrap_or_default()
 }
 
 /// Runs `command` through sh(1) as a client of this compositor.
@@ -109,6 +112,7 @@ fn spawn(state: &State, command: &str) {
     let result = Command::new("sh")
         .arg("-c")
         .arg(command)
+        .env("PATH", client_path())
         .env("WAYLAND_DISPLAY", &state.socket_name)
         .env_remove("WAYLAND_SOCKET")
         .env_remove("DISPLAY")
