@@ -56,7 +56,9 @@ A broken file falls back to the defaults.
 
 - Minimise and fullscreen.
 - Workspaces.
-- Running on real hardware (DRM/KMS) and HiDPI.
+- Running on real hardware (DRM/KMS) and HiDPI, so it can be your login session. How that will
+  work, and how to choose it at the login screen, is in
+  [docs/running-as-a-session.md](docs/running-as-a-session.md).
 
 ## Build
 
