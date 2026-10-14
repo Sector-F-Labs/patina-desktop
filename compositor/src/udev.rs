@@ -374,7 +374,8 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             | KeyAction::Run(_)
             | KeyAction::Snap(_)
             | KeyAction::CloseWindow
-            | KeyAction::QuitApp,
+            | KeyAction::QuitApp
+            | KeyAction::Lock,
         )
         | None => {}
     }
@@ -427,6 +428,8 @@ pub fn schedule(state: &mut State) {
 }
 
 fn render(state: &mut State) {
+    let locked = state.locked();
+    let lock_surface = state.lock_surface().cloned();
     let Some(u) = state.udev.as_mut() else { return };
     state.needs_redraw = false;
     let scale = state.output.current_scale().fractional_scale();
@@ -441,9 +444,18 @@ fn render(state: &mut State) {
         u.cursor
             .elements(&mut u.renderer, &state.cursor, pointer, scale),
     );
-    match space_render_elements(&mut u.renderer, [&state.space], &state.output, 1.0) {
-        Ok(space) => elements.extend(space.into_iter().map(OutputElement::Space)),
-        Err(e) => eprintln!("patina-compositor: {e:?}"),
+    if locked {
+        // Only the locker, over black.
+        elements.extend(
+            crate::lock::elements(&mut u.renderer, lock_surface.as_ref(), scale)
+                .into_iter()
+                .map(OutputElement::Surface),
+        );
+    } else {
+        match space_render_elements(&mut u.renderer, [&state.space], &state.output, 1.0) {
+            Ok(space) => elements.extend(space.into_iter().map(OutputElement::Space)),
+            Err(e) => eprintln!("patina-compositor: {e:?}"),
+        }
     }
 
     let queued =
@@ -494,6 +506,8 @@ fn render(state: &mut State) {
             Some(output.clone())
         });
     }
+    crate::lock::send_frames(lock_surface.as_ref(), &output, time);
+    state.lock_drawn();
     state.space.refresh();
     state.popups.cleanup();
 }

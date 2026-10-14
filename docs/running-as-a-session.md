@@ -38,8 +38,8 @@ choosing it at the login screen.
 - **Keys of its own:** **Ctrl+Alt+F1** to **F12** switch consoles. **Ctrl+Alt+Backspace** quits
   the compositor, the way out whatever state it's in. **Super** on its own opens the launcher,
   **Super+1** to **9** bring forward the window in that tab of the bar, **Super+Up/Down** (or
-  **K/J**) maximise and restore the focused window, **Super+Left/Right** (or **H/L**) fill the left
-  or right half, **Super+W** closes the focused window, **Super+Q** quits its app (closes all its windows), **Super+Space** switches
+  **K/J**) maximise and restore the focused window, **Super+Left/Right** (or **H** for left) fill
+  the left or right half, **Super+L** or **Super+Escape** lock the screen, **Super+W** closes the focused window, **Super+Q** quits its app (closes all its windows), **Super+Space** switches
   keyboard layout, and **Super+Shift+R** reloads the config file. The
   brightness and volume keys work, and the volume menu fades in to show the level.
 

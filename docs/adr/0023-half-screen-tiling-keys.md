@@ -4,7 +4,7 @@ Date: 2026-10-15
 
 ## Status
 
-Accepted
+Accepted; Super+L became the lock key in [ADR-0025](0025-lock-screen.md)
 
 ## Context
 

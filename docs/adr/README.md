@@ -66,6 +66,7 @@ mechanics of adding one.
 | [0022](0022-wifi-menu.md) | A Wi-Fi menu in the tray, talking to NetworkManager over D-Bus | Accepted |
 | [0023](0023-half-screen-tiling-keys.md) | Super with the arrows or vim keys maximises, restores and tiles half-screen | Accepted |
 | [0024](0024-battery-indicator.md) | A battery indicator in the tray, read from sysfs | Accepted |
+| [0025](0025-lock-screen.md) | A lock screen through ext-session-lock, swaylock by default | Accepted |
 
 ## Decision Relationship
 
@@ -86,6 +87,7 @@ flowchart TD
     P --> R[0018: fractional scaling]
     R --> S[0019: compositor config, Super+Shift+R]
     S --> T[0020: brightness and volume keys]
+    S --> Y[0025: lock screen]
     T --> U[0021: tray, volume menu, Super key]
     U --> V[0022: Wi-Fi menu]
     U --> X[0024: battery indicator]

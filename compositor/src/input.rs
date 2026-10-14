@@ -42,6 +42,8 @@ pub enum KeyAction {
     /// Ask every window of the focused app to close (Super+Q): quitting it,
     /// politely, as Cmd+Q does on macOS.
     QuitApp,
+    /// Lock the screen (Super+Escape).
+    Lock,
 }
 
 /// The [bindings] command for a key, if one matches: exact modifiers, and
@@ -86,7 +88,8 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
             keysyms::KEY_Up | keysyms::KEY_k => Some(Snap::Up),
             keysyms::KEY_Down | keysyms::KEY_j => Some(Snap::Down),
             keysyms::KEY_Left | keysyms::KEY_h => Some(Snap::Left),
-            keysyms::KEY_Right | keysyms::KEY_l => Some(Snap::Right),
+            // L locks, as on Ubuntu, so tiling right is the arrow only.
+            keysyms::KEY_Right => Some(Snap::Right),
             _ => None,
         };
         if let Some(snap) = snap {
@@ -97,6 +100,9 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
         }
         if sym == keysyms::KEY_q {
             return Some(KeyAction::QuitApp);
+        }
+        if sym == keysyms::KEY_Escape || sym == keysyms::KEY_l {
+            return Some(KeyAction::Lock);
         }
     }
     if modifiers.logo
@@ -137,6 +143,11 @@ impl State {
                     .map_or(sym, |s| s.raw());
                 let action = key_action(modifiers, sym)
                     .or_else(|| binding(&state.config.combos(), modifiers, base));
+                // Locked, the keys go to the locker; only switching consoles
+                // and the brightness and volume keys still work.
+                let action = action.filter(|a| {
+                    !state.locked() || matches!(a, KeyAction::SwitchVt(_) | KeyAction::Media(_))
+                });
                 match (pressed, action) {
                     (true, Some(action)) => FilterResult::Intercept(action),
                     _ => FilterResult::Forward,
@@ -150,6 +161,7 @@ impl State {
             self.super_tap = is_super;
         } else if is_super
             && std::mem::take(&mut self.super_tap)
+            && !self.locked()
             && !self.config.launcher.is_empty()
         {
             self.spawn_client(&self.config.launcher.clone());
@@ -170,6 +182,10 @@ impl State {
                 {
                     self.close_toplevel(&surface);
                 }
+                None
+            }
+            Some(KeyAction::Lock) => {
+                self.lock_screen();
                 None
             }
             Some(KeyAction::QuitApp) => {
@@ -368,11 +384,23 @@ mod tests {
             (keysyms::KEY_Left, Snap::Left),
             (keysyms::KEY_h, Snap::Left),
             (keysyms::KEY_Right, Snap::Right),
-            (keysyms::KEY_l, Snap::Right),
         ] {
             assert_eq!(key_action(&logo, sym), Some(KeyAction::Snap(snap)));
         }
         assert_eq!(key_action(&mods(false, false), keysyms::KEY_Up), None);
+    }
+
+    #[test]
+    fn super_l_and_escape_lock() {
+        let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        assert_eq!(key_action(&logo, keysyms::KEY_l), Some(KeyAction::Lock));
+        assert_eq!(
+            key_action(&logo, keysyms::KEY_Escape),
+            Some(KeyAction::Lock)
+        );
     }
 
     #[test]

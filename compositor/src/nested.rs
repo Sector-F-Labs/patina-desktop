@@ -150,6 +150,15 @@ pub fn mode(size: (u32, u32)) -> Mode {
 /// Draws the output into the window, if anything changed and the parent
 /// desktop is ready for a frame, then tells clients to draw their next.
 pub fn render(state: &mut State) {
+    let locked = state.locked();
+    let lock_surface = state.lock_surface().cloned();
+    let scale = state.output.current_scale().fractional_scale();
+    // Locked, only the locker, over black.
+    let spaces: Vec<&smithay::desktop::Space<smithay::desktop::Window>> = if locked {
+        Vec::new()
+    } else {
+        vec![&state.space]
+    };
     let Some(n) = state.nested.as_mut() else {
         return;
     };
@@ -173,6 +182,7 @@ pub fn render(state: &mut State) {
         return;
     };
 
+    let lock_elements = crate::lock::elements(&mut n.renderer, lock_surface.as_ref(), scale);
     let damaged = {
         let mut target = match n.renderer.bind(image) {
             Ok(t) => t,
@@ -187,8 +197,8 @@ pub fn render(state: &mut State) {
             &mut target,
             1.0,
             n.age,
-            [&state.space],
-            &[],
+            spaces,
+            &lock_elements,
             &mut n.damage_tracker,
             BACKGROUND,
         ) {
@@ -217,6 +227,8 @@ pub fn render(state: &mut State) {
             Some(output.clone())
         });
     }
+    crate::lock::send_frames(lock_surface.as_ref(), &output, time);
+    state.lock_drawn();
     state.space.refresh();
     state.popups.cleanup();
 }

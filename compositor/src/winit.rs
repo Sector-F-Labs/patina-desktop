@@ -180,6 +180,15 @@ fn handle_event(state: &mut State, event: WinitEvent) {
 /// Draws the output with GL, presents what changed, and tells clients to
 /// draw their next frame.
 fn render(state: &mut State) {
+    let locked = state.locked();
+    let lock_surface = state.lock_surface().cloned();
+    let scale = state.output.current_scale().fractional_scale();
+    // Locked, only the locker, over black.
+    let spaces: Vec<&smithay::desktop::Space<smithay::desktop::Window>> = if locked {
+        Vec::new()
+    } else {
+        vec![&state.space]
+    };
     let Some(w) = state.winit.as_mut() else {
         return;
     };
@@ -192,14 +201,15 @@ fn render(state: &mut State) {
     };
     let damage = match w.backend.bind() {
         Ok((renderer, mut framebuffer)) => {
+            let lock_elements = crate::lock::elements(renderer, lock_surface.as_ref(), scale);
             match render_output::<_, WaylandSurfaceRenderElement<GlesRenderer>, _, _>(
                 &state.output,
                 renderer,
                 &mut framebuffer,
                 1.0,
                 age,
-                [&state.space],
-                &[],
+                spaces,
+                &lock_elements,
                 &mut w.damage_tracker,
                 BACKGROUND,
             ) {
@@ -233,6 +243,8 @@ fn render(state: &mut State) {
             Some(output.clone())
         });
     }
+    crate::lock::send_frames(lock_surface.as_ref(), &output, time);
+    state.lock_drawn();
     state.space.refresh();
     state.popups.cleanup();
 }

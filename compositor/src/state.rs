@@ -96,6 +96,11 @@ pub struct State {
     pub toplevels: ForeignToplevels,
     /// The settings from config.toml in use (ADR-0019).
     pub config: crate::config::Config,
+    /// The lock screen (ADR-0025).
+    pub lock: crate::lock::Lock,
+    pub session_lock: smithay::wayland::session_lock::SessionLockManagerState,
+    /// Locked, and a frame has been drawn since: the desktop is hidden.
+    pub lock_shown: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Super is down, and nothing else has been pressed since.
     pub super_tap: bool,
     /// The scale the backend would choose by itself: the panel's density on
@@ -193,6 +198,12 @@ impl State {
             seat,
             toplevels: ForeignToplevels::new(&dh),
             config,
+            lock: crate::lock::Lock::Unlocked,
+            session_lock: smithay::wayland::session_lock::SessionLockManagerState::new::<Self, _>(
+                &dh,
+                |_| true,
+            ),
+            lock_shown: Default::default(),
             super_tap: false,
             auto_scale,
             _fractional_scale: smithay::wayland::fractional_scale::FractionalScaleManagerState::new::<
@@ -213,6 +224,12 @@ impl State {
         &self,
         pos: Point<f64, Logical>,
     ) -> Option<(WlSurface, Point<f64, Logical>)> {
+        // Locked, there's only the locker's surface, covering the screen.
+        if self.locked() {
+            return self
+                .lock_surface()
+                .map(|s| (s.clone(), Point::from((0.0, 0.0))));
+        }
         let map = layer_map_for_output(&self.output);
         let layer_under = |layer: Layer| {
             let surface = map.layer_under(layer, pos)?;
@@ -257,6 +274,25 @@ impl State {
         self.super_tap = false;
         let pointer = self.seat.get_pointer().expect("seat has a pointer");
         let serial = SERIAL_COUNTER.next_serial();
+        // Locked, a click goes to the locker and changes nothing else.
+        if self.locked() {
+            let state = if pressed {
+                smithay::backend::input::ButtonState::Pressed
+            } else {
+                smithay::backend::input::ButtonState::Released
+            };
+            pointer.button(
+                self,
+                &ButtonEvent {
+                    button,
+                    state,
+                    serial,
+                    time,
+                },
+            );
+            pointer.frame(self);
+            return;
+        }
         // A click on a layer surface (the bar, a launcher) focuses it only
         // if it takes the keyboard, and leaves the windows' focus alone.
         let on_layer = self
@@ -322,7 +358,7 @@ impl State {
 
     /// Gives the keyboard back to the window on top, as when a launcher
     /// that had it closes.
-    fn focus_top_window(&mut self) {
+    pub(crate) fn focus_top_window(&mut self) {
         let top = self.space.elements().next_back().cloned();
         self.focus(top, SERIAL_COUNTER.next_serial());
     }
@@ -385,6 +421,10 @@ impl State {
     /// Gives the keyboard to a layer surface (a launcher), leaving every
     /// window looking inactive while it has it.
     fn focus_layer(&mut self, layer: &LayerSurface, serial: Serial) {
+        // Locked, only the locker has the keyboard.
+        if self.locked() {
+            return;
+        }
         self.activate(None);
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
         keyboard.set_focus(self, Some(layer.wl_surface().clone()), serial);
@@ -392,7 +432,7 @@ impl State {
     }
 
     /// Marks `window` as the active one, and every other as inactive.
-    fn activate(&self, window: Option<&Window>) {
+    pub(crate) fn activate(&self, window: Option<&Window>) {
         for w in self.space.elements() {
             w.set_activated(Some(w) == window);
             if let Some(t) = w.toplevel() {
@@ -402,6 +442,11 @@ impl State {
     }
 
     fn focus(&mut self, window: Option<Window>, serial: Serial) {
+        // Locked, only the locker has the keyboard; a window opening or
+        // closing behind it changes nothing.
+        if self.locked() {
+            return;
+        }
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
         if let Some(window) = &window {
             self.space.raise_element(window, true);

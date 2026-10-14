@@ -8,6 +8,7 @@ mod dmabuf;
 mod grabs;
 mod input;
 mod keyboard;
+mod lock;
 mod maximize;
 mod media;
 mod nested;
@@ -91,6 +92,19 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
         state.udev = Some(udev);
         state.set_shm_formats(formats);
         state.centre_pointer();
+        // Lock before the machine sleeps, so waking never shows the desktop.
+        if state.config.lock.on_suspend {
+            let (lock_now, requests) = smithay::reexports::calloop::channel::channel::<()>();
+            event_loop
+                .handle()
+                .insert_source(requests, |event, _, state| {
+                    if let smithay::reexports::calloop::channel::Event::Msg(()) = event {
+                        state.lock_screen();
+                    }
+                })
+                .map_err(|e| e.to_string())?;
+            lock::watch_sleep(lock_now, state.lock_shown.clone());
+        }
         state
     };
     eprintln!(

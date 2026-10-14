@@ -17,6 +17,7 @@ pub struct Config {
     pub keyboard: Keyboard,
     pub touchpad: Touchpad,
     pub media: Media,
+    pub lock: Lock,
     /// What tapping Super on its own runs; "" for nothing.
     pub launcher: String,
     /// Key combinations ("Alt+T") and the commands they run. A [bindings]
@@ -84,6 +85,26 @@ impl Config {
     }
 }
 
+/// The lock screen (ADR-0025).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct Lock {
+    /// An ext-session-lock locker, run through sh(1) by Super+Escape and
+    /// before sleep; "" for none.
+    pub command: String,
+    /// Lock before the machine sleeps (the lid, or a suspend).
+    pub on_suspend: bool,
+}
+
+impl Default for Lock {
+    fn default() -> Self {
+        Self {
+            command: "swaylock -f -c 1b1b1b".into(),
+            on_suspend: true,
+        }
+    }
+}
+
 /// The brightness and volume keys (ADR-0020).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default)]
@@ -146,6 +167,7 @@ impl Default for Config {
             keyboard: Keyboard::default(),
             touchpad: Touchpad::default(),
             media: Media::default(),
+            lock: Lock::default(),
             launcher: "patina-launcher".into(),
             bindings: default_bindings(),
         }
