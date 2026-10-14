@@ -10,7 +10,10 @@ use std::time::Duration;
 use smithay::{
     backend::{
         input::{Axis, AxisSource},
-        renderer::{Bind, damage::OutputDamageTracker, element::surface::WaylandSurfaceRenderElement, pixman::PixmanRenderer},
+        renderer::{
+            Bind, damage::OutputDamageTracker, element::surface::WaylandSurfaceRenderElement,
+            pixman::PixmanRenderer,
+        },
     },
     desktop::{layer_map_for_output, space::render_output},
     input::pointer::AxisFrame,
@@ -18,8 +21,12 @@ use smithay::{
     reexports::pixman::{FormatCode, Image},
 };
 use smithay_client_toolkit::{
-    compositor::{CompositorHandler as ClientCompositorHandler, CompositorState as ClientCompositorState, FrameCallbackData},
+    compositor::{
+        CompositorHandler as ClientCompositorHandler, CompositorState as ClientCompositorState,
+        FrameCallbackData,
+    },
     delegate_registry,
+    output::{OutputHandler as ClientOutputHandler, OutputState as ClientOutputState},
     reexports::{
         calloop::EventLoop,
         calloop_wayland_source::WaylandSource,
@@ -28,15 +35,18 @@ use smithay_client_toolkit::{
             globals::registry_queue_init,
             protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface},
         },
-        protocols::wp::cursor_shape::v1::client::wp_cursor_shape_device_v1::{Shape, WpCursorShapeDeviceV1},
+        protocols::wp::cursor_shape::v1::client::wp_cursor_shape_device_v1::{
+            Shape, WpCursorShapeDeviceV1,
+        },
     },
-    output::{OutputHandler as ClientOutputHandler, OutputState as ClientOutputState},
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
     seat::{
         Capability, SeatHandler as ClientSeatHandler, SeatState as ClientSeatState,
         keyboard::{KeyEvent, KeyboardHandler, Keysym, Modifiers, RawModifiers},
-        pointer::{PointerEvent, PointerEventKind, PointerHandler, cursor_shape::CursorShapeManager},
+        pointer::{
+            PointerEvent, PointerEventKind, PointerHandler, cursor_shape::CursorShapeManager,
+        },
     },
     shell::{
         WaylandSurface,
@@ -81,16 +91,24 @@ pub struct Nested {
 impl Nested {
     /// Opens the window on the desktop named by `WAYLAND_DISPLAY`, and adds
     /// that connection to the event loop.
-    pub fn connect(event_loop: &EventLoop<'static, State>, output: &Output) -> Result<Self, String> {
-        let conn = Connection::connect_to_env().map_err(|e| format!("no desktop to open a window on: {e}"))?;
+    pub fn connect(
+        event_loop: &EventLoop<'static, State>,
+        output: &Output,
+    ) -> Result<Self, String> {
+        let conn = Connection::connect_to_env()
+            .map_err(|e| format!("no desktop to open a window on: {e}"))?;
         let (globals, queue) = registry_queue_init(&conn).map_err(|e| e.to_string())?;
         let qh = queue.handle();
-        WaylandSource::new(conn, queue).insert(event_loop.handle()).map_err(|e| e.to_string())?;
+        WaylandSource::new(conn, queue)
+            .insert(event_loop.handle())
+            .map_err(|e| e.to_string())?;
 
-        let compositor = ClientCompositorState::bind(&globals, &qh).map_err(|e| format!("wl_compositor: {e}"))?;
+        let compositor = ClientCompositorState::bind(&globals, &qh)
+            .map_err(|e| format!("wl_compositor: {e}"))?;
         let xdg_shell = XdgShell::bind(&globals, &qh).map_err(|e| format!("xdg_wm_base: {e}"))?;
         let shm = Shm::bind(&globals, &qh).map_err(|e| format!("wl_shm: {e}"))?;
-        let pool = SlotPool::new((DEFAULT_SIZE.0 * DEFAULT_SIZE.1 * 4) as usize, &shm).map_err(|e| e.to_string())?;
+        let pool = SlotPool::new((DEFAULT_SIZE.0 * DEFAULT_SIZE.1 * 4) as usize, &shm)
+            .map_err(|e| e.to_string())?;
 
         let surface = compositor.create_surface(&qh);
         let window = xdg_shell.create_window(surface, WindowDecorations::RequestServer, &qh);
@@ -123,7 +141,10 @@ impl Nested {
 
 /// The output's mode for a window of `size`.
 pub fn mode(size: (u32, u32)) -> Mode {
-    Mode { size: (size.0 as i32, size.1 as i32).into(), refresh: 60_000 }
+    Mode {
+        size: (size.0 as i32, size.1 as i32).into(),
+        refresh: 60_000,
+    }
 }
 
 /// Draws the output into the window, if anything changed and the parent
@@ -146,7 +167,9 @@ pub fn render(state: &mut State) {
         }
         n.age = 0;
     }
-    let Some(image) = n.image.as_mut() else { return };
+    let Some(image) = n.image.as_mut() else {
+        return;
+    };
 
     let damaged = {
         let mut target = match n.renderer.bind(image) {
@@ -183,10 +206,14 @@ pub fn render(state: &mut State) {
     let time = state.start.elapsed();
     let output = state.output.clone();
     for window in state.space.elements() {
-        window.send_frame(&output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));
+        window.send_frame(&output, time, Some(Duration::ZERO), |_, _| {
+            Some(output.clone())
+        });
     }
     for layer in layer_map_for_output(&output).layers() {
-        layer.send_frame(&output, time, Some(Duration::ZERO), |_, _| Some(output.clone()));
+        layer.send_frame(&output, time, Some(Duration::ZERO), |_, _| {
+            Some(output.clone())
+        });
     }
     state.space.refresh();
     state.popups.cleanup();
@@ -194,14 +221,20 @@ pub fn render(state: &mut State) {
 
 /// Copies the image into a shm buffer and commits it to the window.
 fn present(n: &mut Nested, w: usize, h: usize) {
-    let Some(image) = n.image.as_ref() else { return };
-    let (buffer, canvas) = match n.pool.create_buffer(w as i32, h as i32, w as i32 * 4, wl_shm::Format::Argb8888) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("patina-compositor: no {w}x{h} buffer: {e}");
-            return;
-        }
+    let Some(image) = n.image.as_ref() else {
+        return;
     };
+    let (buffer, canvas) =
+        match n
+            .pool
+            .create_buffer(w as i32, h as i32, w as i32 * 4, wl_shm::Format::Argb8888)
+        {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("patina-compositor: no {w}x{h} buffer: {e}");
+                return;
+            }
+        };
     let stride = image.stride();
     // SAFETY: the image owns `stride * h` bytes, and nothing writes to it
     // while this slice lives.
@@ -225,7 +258,14 @@ impl WindowHandler for State {
         self.loop_signal.stop();
     }
 
-    fn configure(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &Window, configure: WindowConfigure, _: u32) {
+    fn configure(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &Window,
+        configure: WindowConfigure,
+        _: u32,
+    ) {
         let n = &mut self.nested;
         let size = (
             configure.new_size.0.map_or(n.size.0, |w| w.get()),
@@ -234,7 +274,8 @@ impl WindowHandler for State {
         if size != n.size || !n.configured {
             n.size = size;
             let mode = mode(size);
-            self.output.change_current_state(Some(mode), None, None, None);
+            self.output
+                .change_current_state(Some(mode), None, None, None);
             self.output.set_preferred(mode);
             layer_map_for_output(&self.output).arrange();
         }
@@ -244,15 +285,43 @@ impl WindowHandler for State {
 }
 
 impl ClientCompositorHandler for State {
-    fn scale_factor_changed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: i32) {}
-    fn transform_changed(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: wl_output::Transform) {}
+    fn scale_factor_changed(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_surface::WlSurface,
+        _: i32,
+    ) {
+    }
+    fn transform_changed(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_surface::WlSurface,
+        _: wl_output::Transform,
+    ) {
+    }
 
     fn frame(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: u32) {
         self.nested.frame_pending = false;
     }
 
-    fn surface_enter(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: &wl_output::WlOutput) {}
-    fn surface_leave(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: &wl_output::WlOutput) {}
+    fn surface_enter(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_surface::WlSurface,
+        _: &wl_output::WlOutput,
+    ) {
+    }
+    fn surface_leave(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_surface::WlSurface,
+        _: &wl_output::WlOutput,
+    ) {
+    }
 }
 
 impl ClientOutputHandler for State {
@@ -277,12 +346,21 @@ impl ClientSeatHandler for State {
 
     fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
 
-    fn new_capability(&mut self, _: &Connection, qh: &QueueHandle<Self>, seat: wl_seat::WlSeat, capability: Capability) {
+    fn new_capability(
+        &mut self,
+        _: &Connection,
+        qh: &QueueHandle<Self>,
+        seat: wl_seat::WlSeat,
+        capability: Capability,
+    ) {
         let n = &mut self.nested;
         match capability {
             Capability::Pointer if n.pointer.is_none() => {
                 if let Ok(pointer) = n.seat_state.get_pointer(qh, &seat) {
-                    let device = n.cursor_shape.as_ref().map(|m| m.get_shape_device(&pointer, qh));
+                    let device = n
+                        .cursor_shape
+                        .as_ref()
+                        .map(|m| m.get_shape_device(&pointer, qh));
                     n.pointer = Some((pointer, device));
                 }
             }
@@ -293,7 +371,13 @@ impl ClientSeatHandler for State {
         }
     }
 
-    fn remove_capability(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat, capability: Capability) {
+    fn remove_capability(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: wl_seat::WlSeat,
+        capability: Capability,
+    ) {
         let n = &mut self.nested;
         match capability {
             Capability::Pointer => {
@@ -317,7 +401,13 @@ impl ClientSeatHandler for State {
 }
 
 impl PointerHandler for State {
-    fn pointer_frame(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_pointer::WlPointer, events: &[PointerEvent]) {
+    fn pointer_frame(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_pointer::WlPointer,
+        events: &[PointerEvent],
+    ) {
         for event in events {
             if &event.surface != self.nested.window.wl_surface() {
                 continue;
@@ -334,9 +424,18 @@ impl PointerHandler for State {
                 }
                 PointerEventKind::Leave { .. } => {}
                 PointerEventKind::Motion { time } => self.pointer_motion(pos, time),
-                PointerEventKind::Press { time, button, .. } => self.pointer_button(button, true, time),
-                PointerEventKind::Release { time, button, .. } => self.pointer_button(button, false, time),
-                PointerEventKind::Axis { time, horizontal, vertical, source } => {
+                PointerEventKind::Press { time, button, .. } => {
+                    self.pointer_button(button, true, time)
+                }
+                PointerEventKind::Release { time, button, .. } => {
+                    self.pointer_button(button, false, time)
+                }
+                PointerEventKind::Axis {
+                    time,
+                    horizontal,
+                    vertical,
+                    source,
+                } => {
                     use smithay_client_toolkit::reexports::client::protocol::wl_pointer::AxisSource as Wl;
                     let source = match source {
                         Some(Wl::Finger) => AxisSource::Finger,
@@ -345,7 +444,9 @@ impl PointerHandler for State {
                         _ => AxisSource::Wheel,
                     };
                     let mut frame = AxisFrame::new(time).source(source);
-                    for (axis, scroll) in [(Axis::Horizontal, horizontal), (Axis::Vertical, vertical)] {
+                    for (axis, scroll) in
+                        [(Axis::Horizontal, horizontal), (Axis::Vertical, vertical)]
+                    {
                         if scroll.absolute != 0.0 {
                             frame = frame.value(axis, scroll.absolute);
                         }
@@ -376,16 +477,46 @@ impl KeyboardHandler for State {
     ) {
     }
 
-    fn leave(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: &wl_surface::WlSurface, _: u32) {}
+    fn leave(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_keyboard::WlKeyboard,
+        _: &wl_surface::WlSurface,
+        _: u32,
+    ) {
+    }
 
-    fn press_key(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: u32, event: KeyEvent) {
+    fn press_key(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_keyboard::WlKeyboard,
+        _: u32,
+        event: KeyEvent,
+    ) {
         self.key(event.raw_code, true, event.time);
     }
 
     // Clients repeat keys themselves, from the seat's repeat info.
-    fn repeat_key(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: u32, _: KeyEvent) {}
+    fn repeat_key(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_keyboard::WlKeyboard,
+        _: u32,
+        _: KeyEvent,
+    ) {
+    }
 
-    fn release_key(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_keyboard::WlKeyboard, _: u32, event: KeyEvent) {
+    fn release_key(
+        &mut self,
+        _: &Connection,
+        _: &QueueHandle<Self>,
+        _: &wl_keyboard::WlKeyboard,
+        _: u32,
+        event: KeyEvent,
+    ) {
         self.key(event.raw_code, false, event.time);
     }
 

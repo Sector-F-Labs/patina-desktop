@@ -2,6 +2,7 @@
 //! built on Smithay. For now it runs as a window on another desktop and
 //! starts patina-bar and a terminal inside it.
 
+mod grabs;
 mod nested;
 mod state;
 
@@ -52,12 +53,18 @@ fn main() -> ExitCode {
 }
 
 fn run(commands: &[String]) -> Result<(), String> {
-    let mut event_loop: EventLoop<'static, State> = EventLoop::try_new().map_err(|e| e.to_string())?;
+    let mut event_loop: EventLoop<'static, State> =
+        EventLoop::try_new().map_err(|e| e.to_string())?;
     let display: Display<State> = Display::new().map_err(|e| e.to_string())?;
 
     let output = Output::new(
         "PATINA-1".into(),
-        PhysicalProperties { size: (0, 0).into(), subpixel: Subpixel::Unknown, make: "Patina".into(), model: "Nested".into() },
+        PhysicalProperties {
+            size: (0, 0).into(),
+            subpixel: Subpixel::Unknown,
+            make: "Patina".into(),
+            model: "Nested".into(),
+        },
     );
     let mode = nested::mode(nested::DEFAULT_SIZE);
     output.change_current_state(Some(mode), None, None, Some((0, 0).into()));
@@ -65,7 +72,10 @@ fn run(commands: &[String]) -> Result<(), String> {
 
     let nested = nested::Nested::connect(&event_loop, &output)?;
     let mut state = State::new(&mut event_loop, display, output, nested)?;
-    eprintln!("patina-compositor: clients connect on WAYLAND_DISPLAY={}", state.socket_name.to_string_lossy());
+    eprintln!(
+        "patina-compositor: clients connect on WAYLAND_DISPLAY={}",
+        state.socket_name.to_string_lossy()
+    );
 
     spawn(&state, &bar_command());
     for command in commands {
@@ -85,7 +95,9 @@ fn run(commands: &[String]) -> Result<(), String> {
 /// patina-bar from beside this binary (both are built into the same
 /// target directory), or from PATH.
 fn bar_command() -> String {
-    let beside = std::env::current_exe().ok().and_then(|exe| exe.parent().map(|d| d.join("patina-bar")));
+    let beside = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|d| d.join("patina-bar")));
     match beside {
         Some(path) if path.exists() => path.to_string_lossy().into_owned(),
         _ => "patina-bar".into(),
