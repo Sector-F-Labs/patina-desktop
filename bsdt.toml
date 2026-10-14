@@ -12,8 +12,8 @@
 os = "freebsd"
 version = "15.1"
 # arch = "auto"         # auto (match the host), amd64 or aarch64
-# cpus = 2
-# memory = "2G"
+cpus = 4
+memory = "4G"
 # disk = "20G"
 # filesystem = "ufs"    # ufs or zfs
 # ports = ["8080:80"]   # 127.0.0.1:HOST on the host -> GUEST in the VM
@@ -24,15 +24,21 @@ gui = true           # a desktop in a window; see [gui] in bsdt(1)
 [packages]
 # foot and wmenu are dwl's default terminal and launcher; grim takes
 # screenshots of the desktop for checking the bar.
-# libxkbcommon, pixman and pkgconf are for building the compositor.
-install = ["git", "rust", "pkgconf", "libxkbcommon", "pixman", "dwl", "foot", "wmenu", "wofi", "grim", "fastfetch"]
+# libxkbcommon, pixman and pkgconf are for building the compositor;
+# alsa-lib for building UnAmp, and alsa-plugins to reach the sound card
+# through FreeBSD's OSS.
+install = ["git", "rust", "pkgconf", "libxkbcommon", "pixman", "alsa-lib", "alsa-plugins",
+           "dwl", "foot", "wmenu", "wofi", "grim", "fastfetch", "firefox"]
 
 [sync]
 # dest = "/home/bsdt/<project directory>"
 exclude = ["target"]
 
 [provision]
-run = ["cargo build --release"]
+# UnAmp comes from crates.io, with a launcher entry so wofi lists it.
+run = ["cargo build --release",
+       "cargo install --locked unamp",
+       "mkdir -p $HOME/.local/share/applications && printf '[Desktop Entry]\\nType=Application\\nName=UnAmp\\nComment=Music player\\nExec=%s/.cargo/bin/unamp\\nCategories=AudioVideo;Audio;Player;\\n' $HOME > $HOME/.local/share/applications/unamp.desktop"]
 
 [gui]
 desktop = "wayland"
