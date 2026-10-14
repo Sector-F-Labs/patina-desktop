@@ -4,7 +4,8 @@ Date: 2026-10-15
 
 ## Status
 
-Accepted; Super+L became the lock key in [ADR-0025](0025-lock-screen.md)
+Accepted; Super+L was the lock key from [ADR-0025](0025-lock-screen.md) until
+[ADR-0026](0026-lock-with-ctrl-super-q.md) made it tile right again
 
 ## Context
 

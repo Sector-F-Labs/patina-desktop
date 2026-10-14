@@ -2,7 +2,8 @@
 //! default, from the `[lock]` config) locks the session: from then on only
 //! its surface is drawn and gets input, and the desktop stays hidden until
 //! it unlocks, even if it crashes (then a new locker can take over).
-//! Super+Escape locks, and, on the hardware, so does going to sleep: a
+//! Ctrl+Super+Q and Super+Escape lock (ADR-0026), and, on the hardware, so
+//! does going to sleep: a
 //! logind delay inhibitor holds suspend back until the lock is on screen.
 
 use std::sync::Arc;

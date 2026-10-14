@@ -89,8 +89,8 @@ impl Config {
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct Lock {
-    /// An ext-session-lock locker, run through sh(1) by Super+Escape and
-    /// before sleep; "" for none.
+    /// An ext-session-lock locker, run through sh(1) by Ctrl+Super+Q,
+    /// Super+Escape and before sleep; "" for none.
     pub command: String,
     /// Lock before the machine sleeps (the lid, or a suspend).
     pub on_suspend: bool,

@@ -85,6 +85,15 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     if modifiers.logo && sym == keysyms::KEY_space {
         return Some(KeyAction::NextLayout);
     }
+    // Ctrl+Super+Q locks, as Ctrl+Cmd+Q does on a Mac.
+    if modifiers.logo
+        && modifiers.ctrl
+        && !modifiers.shift
+        && !modifiers.alt
+        && sym == keysyms::KEY_q
+    {
+        return Some(KeyAction::Lock);
+    }
     if modifiers.logo && modifiers.shift && !modifiers.ctrl && !modifiers.alt {
         use crate::maximize::Snap;
         // With Shift held, the vim keys come as capitals.
@@ -105,8 +114,7 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
             keysyms::KEY_Up | keysyms::KEY_k => Some(Snap::Up),
             keysyms::KEY_Down | keysyms::KEY_j => Some(Snap::Down),
             keysyms::KEY_Left | keysyms::KEY_h => Some(Snap::Left),
-            // L locks, as on Ubuntu, so tiling right is the arrow only.
-            keysyms::KEY_Right => Some(Snap::Right),
+            keysyms::KEY_Right | keysyms::KEY_l => Some(Snap::Right),
             _ => None,
         };
         if let Some(snap) = snap {
@@ -118,7 +126,7 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
         if sym == keysyms::KEY_q {
             return Some(KeyAction::QuitApp);
         }
-        if sym == keysyms::KEY_Escape || sym == keysyms::KEY_l {
+        if sym == keysyms::KEY_Escape {
             return Some(KeyAction::Lock);
         }
     }
@@ -405,6 +413,7 @@ mod tests {
             (keysyms::KEY_Left, Snap::Left),
             (keysyms::KEY_h, Snap::Left),
             (keysyms::KEY_Right, Snap::Right),
+            (keysyms::KEY_l, Snap::Right),
         ] {
             assert_eq!(key_action(&logo, sym), Some(KeyAction::Snap(snap)));
         }
@@ -412,12 +421,25 @@ mod tests {
     }
 
     #[test]
-    fn super_l_and_escape_lock() {
+    fn ctrl_super_q_and_super_escape_lock() {
         let logo = ModifiersState {
             logo: true,
             ..Default::default()
         };
-        assert_eq!(key_action(&logo, keysyms::KEY_l), Some(KeyAction::Lock));
+        let ctrl_logo = ModifiersState {
+            logo: true,
+            ctrl: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            key_action(&ctrl_logo, keysyms::KEY_q),
+            Some(KeyAction::Lock)
+        );
+        assert_eq!(key_action(&logo, keysyms::KEY_q), Some(KeyAction::QuitApp));
+        assert_eq!(
+            key_action(&logo, keysyms::KEY_l),
+            Some(KeyAction::Snap(crate::maximize::Snap::Right))
+        );
         assert_eq!(
             key_action(&logo, keysyms::KEY_Escape),
             Some(KeyAction::Lock)

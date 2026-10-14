@@ -4,7 +4,7 @@ Date: 2026-10-15
 
 ## Status
 
-Accepted
+Accepted; the lock key is superseded by [ADR-0026](0026-lock-with-ctrl-super-q.md)
 
 ## Context
 
