@@ -8,6 +8,7 @@ mod input;
 mod keyboard;
 mod maximize;
 mod nested;
+mod scale;
 mod state;
 mod toplevels;
 mod udev;

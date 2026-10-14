@@ -94,6 +94,8 @@ pub struct State {
     pub winit: Option<crate::winit::WinitData>,
     /// What the bar's window list has been told.
     pub toplevels: ForeignToplevels,
+    _fractional_scale: smithay::wayland::fractional_scale::FractionalScaleManagerState,
+    _viewporter: smithay::wayland::viewporter::ViewporterState,
     /// The pointer image clients asked for, drawn on the hardware.
     pub cursor: CursorImageStatus,
     /// Or the hardware itself (ADR-0016).
@@ -180,6 +182,10 @@ impl State {
             data_device_state: DataDeviceState::new::<Self>(&dh),
             seat,
             toplevels: ForeignToplevels::new(&dh),
+            _fractional_scale: smithay::wayland::fractional_scale::FractionalScaleManagerState::new::<
+                Self,
+            >(&dh),
+            _viewporter: smithay::wayland::viewporter::ViewporterState::new::<Self>(&dh),
             cursor: CursorImageStatus::default_named(),
             udev: None,
             display_handle: dh,

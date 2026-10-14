@@ -28,7 +28,9 @@ choosing it at the login screen.
   monitor, at its preferred mode, through DRM/KMS and GBM, drawn with OpenGL ES. Apps hand over GPU
   buffers through linux-dmabuf. It works on Mesa (Intel, AMD) and NVIDIA's driver alike.
 - **Scale:** 2 for dense panels that are still at least 800 points tall at 2x, 1.5 from 140 dpi
-  (most laptops), 1 otherwise. Set `PATINA_SCALE=1.25` (or any value from 0.5 to 4) to choose.
+  (most laptops), 1 otherwise. Set `PATINA_SCALE=1.25` (or any value from 0.5 to 4) to choose. Apps
+  that support fractional scaling (most, except GTK3 ones) draw at the exact scale, so text stays
+  sharp at 1.5 ([ADR-0018](adr/0018-fractional-scaling.md)).
 - **Input:** keyboards, mice and touchpads through libinput, with tap-to-click on.
 - **The pointer:** your cursor theme's arrow (`XCURSOR_THEME`, `XCURSOR_SIZE`), or the app's own
   cursor where it sets one.

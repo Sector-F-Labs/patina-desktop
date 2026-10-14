@@ -41,6 +41,17 @@ pub struct WinitData {
     redraw_requested: bool,
 }
 
+/// The parent window's scale, or `PATINA_SCALE` (as on the hardware), so
+/// fractional scales can be tried on any desktop.
+fn scale(window_scale: f64) -> Scale {
+    let scale = std::env::var("PATINA_SCALE")
+        .ok()
+        .and_then(|s| s.parse::<f64>().ok())
+        .filter(|s| (0.5..=4.0).contains(s))
+        .unwrap_or(window_scale);
+    Scale::Fractional(scale)
+}
+
 fn mode(size: Size<i32, Physical>) -> Mode {
     Mode {
         size,
@@ -70,7 +81,7 @@ pub fn init(
     output.change_current_state(
         Some(mode),
         Some(Transform::Flipped180),
-        Some(Scale::Fractional(backend.scale_factor())),
+        Some(scale(backend.scale_factor())),
         Some((0, 0).into()),
     );
     output.set_preferred(mode);
@@ -132,15 +143,13 @@ fn handle_event(state: &mut State, event: WinitEvent) {
     match event {
         WinitEvent::Resized { size, scale_factor } => {
             let mode = mode(size);
-            state.output.change_current_state(
-                Some(mode),
-                None,
-                Some(Scale::Fractional(scale_factor)),
-                None,
-            );
+            state
+                .output
+                .change_current_state(Some(mode), None, Some(scale(scale_factor)), None);
             state.output.set_preferred(mode);
             layer_map_for_output(&state.output).arrange();
             state.relayout_maximized();
+            state.update_preferred_scale();
             if let Some(w) = state.winit.as_mut() {
                 w.full_redraw = 4;
             }

@@ -59,6 +59,7 @@ mechanics of adding one.
 | [0015](0015-gl-when-nested.md) | Render nested with OpenGL ES through winit, keeping pixman as the fallback | Proposed |
 | [0016](0016-hardware-backend.md) | Run on the hardware with DRM/KMS, GBM, libinput and libseat | Proposed |
 | [0017](0017-linux-vm-for-the-hardware-backend.md) | Test the hardware backend in a Linux VM with a virtio GPU | Proposed |
+| [0018](0018-fractional-scaling.md) | Fractional scaling through wp_fractional_scale and wp_viewporter | Accepted |
 
 ## Decision Relationship
 
@@ -75,6 +76,7 @@ flowchart TD
     H --> O[0015: GL when nested, pixman fallback]
     O --> P[0016: hardware backend]
     P --> Q[0017: Linux VM with virtio GPU for testing it]
+    P --> R[0018: fractional scaling]
     E --> Q
     C --> H
     F --> I[0009: one workspace]
