@@ -5,6 +5,7 @@
 mod dmabuf;
 mod grabs;
 mod input;
+mod keyboard;
 mod maximize;
 mod nested;
 mod state;

@@ -329,7 +329,8 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             }
         }
         Some(KeyAction::Quit) => state.loop_signal.stop(),
-        None => {}
+        // Switched inside State::key.
+        Some(KeyAction::NextLayout) | None => {}
     }
 }
 

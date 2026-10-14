@@ -111,8 +111,17 @@ impl State {
         let dh = display.handle();
         let mut seat_state = SeatState::new();
         let mut seat = seat_state.new_wl_seat(&dh, "seat0");
-        seat.add_keyboard(Default::default(), 200, 25)
-            .map_err(|e| format!("keyboard: {e}"))?;
+        // The system's layout; if xkb rejects it, the US default rather than
+        // no keyboard at all.
+        let keyboard = crate::keyboard::KeyboardSettings::load();
+        if let Err(e) = seat.add_keyboard(keyboard.config(), 200, 25) {
+            eprintln!(
+                "patina-compositor: keyboard layout {:?}: {e}; using US",
+                keyboard.layout
+            );
+            seat.add_keyboard(Default::default(), 200, 25)
+                .map_err(|e| format!("keyboard: {e}"))?;
+        }
         seat.add_pointer();
         output.create_global::<State>(&dh);
         let mut space = Space::default();

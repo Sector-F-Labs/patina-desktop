@@ -24,6 +24,8 @@ pub enum KeyAction {
     /// Quit the compositor: Ctrl+Alt+Backspace, the way out of a session
     /// that's gone wrong.
     Quit,
+    /// The next keyboard layout (Super+Space, as on GNOME).
+    NextLayout,
 }
 
 /// The compositor's own keys; everything else goes to the focused client.
@@ -35,6 +37,9 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     }
     if modifiers.ctrl && modifiers.alt && sym == keysyms::KEY_BackSpace {
         return Some(KeyAction::Quit);
+    }
+    if modifiers.logo && sym == keysyms::KEY_space {
+        return Some(KeyAction::NextLayout);
     }
     None
 }
@@ -49,7 +54,7 @@ impl State {
         } else {
             KeyState::Released
         };
-        keyboard.input::<KeyAction, _>(
+        let action = keyboard.input::<KeyAction, _>(
             self,
             smithay::input::keyboard::Keycode::new(code + 8),
             state,
@@ -62,7 +67,12 @@ impl State {
                 (true, Some(action)) => FilterResult::Intercept(action),
                 _ => FilterResult::Forward,
             },
-        )
+        );
+        if action == Some(KeyAction::NextLayout) {
+            keyboard.with_xkb_state(self, |mut xkb| xkb.cycle_next_layout());
+            return None;
+        }
+        action
     }
 
     /// The output's area, for absolute positions and keeping the pointer on
@@ -157,6 +167,19 @@ mod tests {
             key_action(&mods(true, true), keysyms::KEY_XF86Switch_VT_12),
             Some(KeyAction::SwitchVt(12))
         );
+    }
+
+    #[test]
+    fn super_space_switches_layout() {
+        let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            key_action(&logo, keysyms::KEY_space),
+            Some(KeyAction::NextLayout)
+        );
+        assert_eq!(key_action(&mods(false, false), keysyms::KEY_space), None);
     }
 
     #[test]
