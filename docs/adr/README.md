@@ -64,6 +64,7 @@ mechanics of adding one.
 | [0020](0020-brightness-and-volume-keys.md) | Brightness through logind, volume through configurable commands | Accepted |
 | [0021](0021-tray-volume-menu-and-super-key.md) | A tray with a volume menu that doubles as the volume keys' display; Super opens the launcher | Accepted |
 | [0022](0022-wifi-menu.md) | A Wi-Fi menu in the tray, talking to NetworkManager over D-Bus | Accepted |
+| [0023](0023-half-screen-tiling-keys.md) | Super with the arrows or vim keys maximises, restores and tiles half-screen | Accepted |
 
 ## Decision Relationship
 
@@ -76,6 +77,7 @@ flowchart TD
     D --> F[0006: own compositor on Smithay]
     F --> G[0007: floating first]
     G --> N[0014: maximise]
+    N --> W[0023: Super+arrows, half-screen tiles]
     F --> H[0008: nested, pixman]
     H --> O[0015: GL when nested, pixman fallback]
     O --> P[0016: hardware backend]

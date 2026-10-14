@@ -371,7 +371,8 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             | KeyAction::Reload
             | KeyAction::Media(_)
             | KeyAction::Window(_)
-            | KeyAction::Run(_),
+            | KeyAction::Run(_)
+            | KeyAction::Snap(_),
         )
         | None => {}
     }

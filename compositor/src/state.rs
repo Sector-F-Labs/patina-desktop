@@ -440,6 +440,12 @@ impl State {
         Some((start, window, pointer))
     }
 
+    /// The window with the keyboard, if a window has it.
+    pub fn focused_window(&self) -> Option<Window> {
+        let focus = self.seat.get_keyboard()?.current_focus()?;
+        self.window_for(&focus)
+    }
+
     pub fn window_for(&self, surface: &WlSurface) -> Option<Window> {
         self.space
             .elements()

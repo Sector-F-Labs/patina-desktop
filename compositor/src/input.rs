@@ -34,6 +34,9 @@ pub enum KeyAction {
     Window(usize),
     /// A [bindings] command from the config.
     Run(String),
+    /// Maximise, restore or tile the focused window (Super with an arrow
+    /// or a vim key).
+    Snap(crate::maximize::Snap),
 }
 
 /// The [bindings] command for a key, if one matches: exact modifiers, and
@@ -71,6 +74,19 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     }
     if modifiers.logo && sym == keysyms::KEY_space {
         return Some(KeyAction::NextLayout);
+    }
+    if modifiers.logo && !modifiers.shift && !modifiers.ctrl && !modifiers.alt {
+        use crate::maximize::Snap;
+        let snap = match sym {
+            keysyms::KEY_Up | keysyms::KEY_k => Some(Snap::Up),
+            keysyms::KEY_Down | keysyms::KEY_j => Some(Snap::Down),
+            keysyms::KEY_Left | keysyms::KEY_h => Some(Snap::Left),
+            keysyms::KEY_Right | keysyms::KEY_l => Some(Snap::Right),
+            _ => None,
+        };
+        if let Some(snap) = snap {
+            return Some(KeyAction::Snap(snap));
+        }
     }
     if modifiers.logo
         && !modifiers.shift
@@ -134,6 +150,10 @@ impl State {
             }
             Some(KeyAction::Reload) => {
                 self.reload_config();
+                None
+            }
+            Some(KeyAction::Snap(snap)) => {
+                self.snap(snap);
                 None
             }
             Some(KeyAction::Run(command)) => {
@@ -307,6 +327,28 @@ mod tests {
         );
         assert_eq!(binding(&combos, &mods(true, true), keysyms::KEY_t), None);
         assert_eq!(binding(&combos, &alt, keysyms::KEY_b), None);
+    }
+
+    #[test]
+    fn super_with_arrows_or_vim_keys_snaps() {
+        use crate::maximize::Snap;
+        let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        for (sym, snap) in [
+            (keysyms::KEY_Up, Snap::Up),
+            (keysyms::KEY_k, Snap::Up),
+            (keysyms::KEY_Down, Snap::Down),
+            (keysyms::KEY_j, Snap::Down),
+            (keysyms::KEY_Left, Snap::Left),
+            (keysyms::KEY_h, Snap::Left),
+            (keysyms::KEY_Right, Snap::Right),
+            (keysyms::KEY_l, Snap::Right),
+        ] {
+            assert_eq!(key_action(&logo, sym), Some(KeyAction::Snap(snap)));
+        }
+        assert_eq!(key_action(&mods(false, false), keysyms::KEY_Up), None);
     }
 
     #[test]
