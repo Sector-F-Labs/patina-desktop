@@ -1860,6 +1860,7 @@ name = "patina-shell"
 version = "0.1.0"
 dependencies = [
  "egui",
+ "image",
  "patina-ui",
  "smithay-client-toolkit 0.21.1",
  "zbus",

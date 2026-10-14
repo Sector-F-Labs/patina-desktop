@@ -212,6 +212,32 @@ fn run(options: Options, bar: bar::Bar) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
 
+    // The tray's battery, read every few seconds, so plugging in shows soon.
+    if uses_tray {
+        let (readings, battery) = channel::channel::<Option<patina_shell::power::Battery>>();
+        std::thread::Builder::new()
+            .name("battery".into())
+            .spawn(move || {
+                loop {
+                    if readings.send(patina_shell::power::read()).is_err() {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_secs(5));
+                }
+            })
+            .map_err(|e| e.to_string())?;
+        handle
+            .insert_source(battery, |event, _, host| {
+                if let Event::Msg(b) = event
+                    && host.shell.battery != b
+                {
+                    host.shell.battery = b;
+                    host.redraw_all();
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
+
     // The clock and load change on their own; redraw on each second.
     handle
         .insert_source(Timer::from_duration(until_next_second()), |_, _, host| {

@@ -1,7 +1,8 @@
 //! The tray: the bar's status icons. Wi-Fi, showing the signal, opens the
 //! Wi-Fi menu (patina-wifi, ADR-0022); the speaker, showing the level and
 //! mute, opens the volume menu (patina-volume), which also flashes up when
-//! the volume keys are used (ADR-0021).
+//! the volume keys are used (ADR-0021); the battery shows the charge
+//! (ADR-0024).
 
 use egui::{Sense, Ui, vec2};
 use patina_shell::audio::Volume;
@@ -68,4 +69,39 @@ pub fn speaker(ui: &mut Ui, volume: Option<Volume>, command: &str, skin: &str, e
     if response.clicked() {
         crate::launcher::run(command, skin, edge);
     }
+}
+
+/// The battery and its percentage, with the time left on hover; nothing
+/// on a machine without one. At 10% or under, while discharging, it's in
+/// the error colour.
+pub fn battery(ui: &mut Ui, battery: Option<patina_shell::power::Battery>) {
+    let Some(b) = battery else { return };
+    let v = ui.visuals().clone();
+    let colour = if b.low() {
+        v.error_fg_color
+    } else {
+        v.text_color()
+    };
+    let charging = b.charge == patina_shell::power::Charge::Charging;
+    let text = format!("{}%", b.percent);
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    let galley = ui.painter().layout_no_wrap(text, font, colour);
+    let side = ui.available_height();
+    let size = vec2(side * 0.7 + galley.size().x + 6.0, side);
+    let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
+    let icon = egui::Rect::from_min_size(rect.min, vec2(side * 0.7, side));
+    patina_shell::icons::battery(
+        ui.painter(),
+        icon.shrink2(vec2(2.0, side * 0.33)),
+        b.percent,
+        charging,
+        colour,
+        v.panel_fill,
+    );
+    ui.painter().galley(
+        egui::pos2(icon.right() + 4.0, rect.center().y - galley.size().y / 2.0),
+        galley,
+        colour,
+    );
+    response.on_hover_text(b.describe());
 }

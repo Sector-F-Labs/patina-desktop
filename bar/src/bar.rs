@@ -22,6 +22,8 @@ pub struct Bar {
     pub volume: Option<patina_shell::audio::Volume>,
     /// The Wi-Fi signal, for the tray's Wi-Fi icon (see tray::wifi).
     pub wifi: Option<Option<u8>>,
+    /// The battery, for the tray; `None` without one.
+    pub battery: Option<patina_shell::power::Battery>,
     skin: Skin,
     /// The open windows, from the compositor, in the order they opened.
     toplevels: Vec<Toplevel>,
@@ -59,6 +61,7 @@ impl Bar {
                 status: Status::default(),
                 volume: None,
                 wifi: None,
+                battery: None,
                 skin,
                 toplevels: Vec::new(),
                 requests: RefCell::new(Vec::new()),
@@ -113,6 +116,8 @@ impl Bar {
                         &self.skin.name,
                         edge,
                     );
+                    ui.add_space(4.0);
+                    crate::tray::battery(ui, self.battery);
                 });
             }
             "launcher" => {
@@ -395,6 +400,7 @@ mod tests {
             status: Status::default(),
             volume: None,
             wifi: None,
+            battery: None,
             skin: Skin::default_skin(),
             toplevels: Vec::new(),
             requests: RefCell::new(Vec::new()),

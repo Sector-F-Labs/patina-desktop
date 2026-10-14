@@ -65,6 +65,7 @@ mechanics of adding one.
 | [0021](0021-tray-volume-menu-and-super-key.md) | A tray with a volume menu that doubles as the volume keys' display; Super opens the launcher | Accepted |
 | [0022](0022-wifi-menu.md) | A Wi-Fi menu in the tray, talking to NetworkManager over D-Bus | Accepted |
 | [0023](0023-half-screen-tiling-keys.md) | Super with the arrows or vim keys maximises, restores and tiles half-screen | Accepted |
+| [0024](0024-battery-indicator.md) | A battery indicator in the tray, read from sysfs | Accepted |
 
 ## Decision Relationship
 
@@ -87,6 +88,7 @@ flowchart TD
     S --> T[0020: brightness and volume keys]
     T --> U[0021: tray, volume menu, Super key]
     U --> V[0022: Wi-Fi menu]
+    U --> X[0024: battery indicator]
     K --> U
     E --> Q
     C --> H

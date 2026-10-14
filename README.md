@@ -53,8 +53,8 @@ launcher = "patina-launcher"  # what the Sector F button runs, through sh(1)
 
 The modules are `launcher` (the Sector F flask, which runs `launcher` when clicked), `windows`
 (the open windows as Patina tabs: a click brings one forward, its cross closes it), `tags`,
-`layout`, `title`, `appid`, `clock`, `load` and `tray` (a Wi-Fi icon showing the signal and a
-speaker showing the volume; clicks open the Wi-Fi and volume menus, run by
+`layout`, `title`, `appid`, `clock`, `load` and `tray` (a Wi-Fi icon showing the signal, a
+speaker showing the volume and, on laptops, the battery; clicks open the Wi-Fi and volume menus, run by
 `wifi = "patina-wifi"` and `volume = "patina-volume"`). `windows` needs a compositor with
 wlr-foreign-toplevel-management, such as patina-compositor or sway. `tags` and `layout` come
 from dwl and show nothing elsewhere. Unknown keys and modules are reported on stderr and skipped.
