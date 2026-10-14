@@ -4,7 +4,8 @@ The first pieces of a desktop in the style of [Patina](https://github.com/Sector
 
 - **patina-compositor** (`compositor/`): a floating Wayland compositor built on
   [Smithay](https://github.com/Smithay/smithay). For now it runs as a window on another desktop,
-  drawn in software, and starts patina-bar and a terminal inside it.
+  drawn with OpenGL ES (apps hand it GPU buffers through linux-dmabuf), or in software where
+  there's no GPU (`PATINA_RENDERER=pixman` forces that). It starts patina-bar inside it.
 - **patina-bar** (`bar/`): a status bar in egui on a wlr-layer-shell surface, skinned with the
   same skins as the Patina apps. It runs on any layer-shell compositor, including dwl, where it
   also shows dwl's tags.

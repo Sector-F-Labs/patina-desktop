@@ -1,0 +1,300 @@
+//! Runs the compositor as a window on another desktop, rendered with OpenGL
+//! ES through winit and EGL, with linux-dmabuf so clients hand over GPU
+//! buffers instead of drawing in software (ADR-0015). The pixman backend in
+//! `nested.rs` is the fallback where there's no EGL.
+
+use std::time::Duration;
+
+use smithay::{
+    backend::{
+        allocator::dmabuf::Dmabuf,
+        egl::EGLDevice,
+        input::{
+            AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputEvent, KeyState,
+            KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent,
+        },
+        renderer::{
+            ImportDma, ImportMemWl, damage::OutputDamageTracker,
+            element::surface::WaylandSurfaceRenderElement, gles::GlesRenderer,
+        },
+        winit::{self as smithay_winit, WinitEvent, WinitGraphicsBackend, WinitInput},
+    },
+    delegate_dmabuf,
+    desktop::{layer_map_for_output, space::render_output},
+    input::pointer::AxisFrame,
+    output::{Mode, Output, Scale},
+    reexports::{
+        calloop::EventLoop,
+        wayland_server::DisplayHandle,
+        winit::{
+            dpi::LogicalSize, platform::wayland::WindowAttributesExtWayland, window::Window,
+        },
+    },
+    utils::{Physical, Size, Transform},
+    wayland::dmabuf::{
+        DmabufFeedbackBuilder, DmabufGlobal, DmabufHandler, DmabufState, ImportNotifier,
+    },
+};
+
+use crate::nested::{BACKGROUND, DEFAULT_SIZE};
+use crate::state::State;
+
+const APP_ID: &str = "com.sectorflabs.PatinaCompositor";
+
+pub struct WinitData {
+    backend: WinitGraphicsBackend<GlesRenderer>,
+    damage_tracker: OutputDamageTracker,
+    dmabuf_state: DmabufState,
+    _dmabuf_global: DmabufGlobal,
+    /// Frames to draw in full, after a resize, before trusting buffer age.
+    full_redraw: u8,
+    /// A redraw was asked of winit and hasn't come yet.
+    redraw_requested: bool,
+}
+
+fn mode(size: Size<i32, Physical>) -> Mode {
+    Mode {
+        size,
+        refresh: 60_000,
+    }
+}
+
+/// Opens the window and its GL context, sets `output` to its size and
+/// scale, offers linux-dmabuf, and adds winit's events to the loop. Fails
+/// where there's no EGL, and the caller falls back to pixman.
+pub fn init(
+    event_loop: &EventLoop<'static, State>,
+    output: &Output,
+    dh: &DisplayHandle,
+) -> Result<WinitData, String> {
+    let attributes = Window::default_attributes()
+        .with_inner_size(LogicalSize::new(DEFAULT_SIZE.0, DEFAULT_SIZE.1))
+        .with_title("Patina")
+        .with_name(APP_ID, "")
+        .with_visible(true);
+    let (mut backend, winit) = smithay_winit::init_from_attributes::<GlesRenderer>(attributes)
+        .map_err(|e| e.to_string())?;
+
+    let mode = mode(backend.window_size());
+    // GL draws upside down; winit's output is flipped to match, as in
+    // Smithay's own examples.
+    output.change_current_state(
+        Some(mode),
+        Some(Transform::Flipped180),
+        Some(Scale::Fractional(backend.scale_factor())),
+        Some((0, 0).into()),
+    );
+    output.set_preferred(mode);
+
+    // Feedback names the GPU, so clients allocate buffers it can read;
+    // without a render node, plain dmabuf v3.
+    let formats = backend.renderer().dmabuf_formats();
+    let node = EGLDevice::device_for_display(backend.renderer().egl_context().display())
+        .ok()
+        .and_then(|device| device.try_get_render_node().ok().flatten());
+    let mut dmabuf_state = DmabufState::new();
+    let feedback = node.and_then(|n| {
+        DmabufFeedbackBuilder::new(n.dev_id(), formats.clone())
+            .build()
+            .ok()
+    });
+    let dmabuf_global = match feedback {
+        Some(feedback) => {
+            dmabuf_state.create_global_with_default_feedback::<State>(dh, &feedback)
+        }
+        None => dmabuf_state.create_global::<State>(dh, formats),
+    };
+
+    event_loop
+        .handle()
+        .insert_source(winit, |event, _, state| handle_event(state, event))
+        .map_err(|e| e.to_string())?;
+
+    Ok(WinitData {
+        damage_tracker: OutputDamageTracker::from_output(output),
+        backend,
+        dmabuf_state,
+        _dmabuf_global: dmabuf_global,
+        full_redraw: 0,
+        redraw_requested: false,
+    })
+}
+
+/// The shm formats the GL renderer reads, for clients drawing in software.
+pub fn shm_formats(
+    data: &mut WinitData,
+) -> Vec<smithay::reexports::wayland_server::protocol::wl_shm::Format> {
+    data.backend.renderer().shm_formats().collect()
+}
+
+/// Asks winit for a frame if something changed. The frame comes as
+/// `Redraw`, paced by the parent desktop.
+pub fn schedule(state: &mut State) {
+    if !state.needs_redraw {
+        return;
+    }
+    if let Some(w) = state.winit.as_mut()
+        && !w.redraw_requested
+    {
+        w.redraw_requested = true;
+        w.backend.window().request_redraw();
+    }
+}
+
+fn handle_event(state: &mut State, event: WinitEvent) {
+    match event {
+        WinitEvent::Resized { size, scale_factor } => {
+            let mode = mode(size);
+            state.output.change_current_state(
+                Some(mode),
+                None,
+                Some(Scale::Fractional(scale_factor)),
+                None,
+            );
+            state.output.set_preferred(mode);
+            layer_map_for_output(&state.output).arrange();
+            state.relayout_maximized();
+            if let Some(w) = state.winit.as_mut() {
+                w.full_redraw = 4;
+            }
+            state.needs_redraw = true;
+        }
+        WinitEvent::Input(event) => input(state, event),
+        WinitEvent::Redraw => {
+            if let Some(w) = state.winit.as_mut() {
+                w.redraw_requested = false;
+            }
+            render(state);
+        }
+        WinitEvent::CloseRequested => state.loop_signal.stop(),
+        WinitEvent::Focus(_) => {}
+    }
+}
+
+/// The window's input, into the compositor's seat.
+fn input(state: &mut State, event: InputEvent<WinitInput>) {
+    match event {
+        InputEvent::PointerMotionAbsolute { event } => {
+            let size = state
+                .space
+                .output_geometry(&state.output)
+                .map(|g| g.size)
+                .unwrap_or_default();
+            state.pointer_motion(event.position_transformed(size), event.time_msec());
+        }
+        InputEvent::PointerButton { event } => state.pointer_button(
+            event.button_code(),
+            event.state() == ButtonState::Pressed,
+            event.time_msec(),
+        ),
+        InputEvent::PointerAxis { event } => {
+            let mut frame = AxisFrame::new(event.time_msec()).source(event.source());
+            for axis in [Axis::Horizontal, Axis::Vertical] {
+                let v120 = event.amount_v120(axis);
+                let amount = event
+                    .amount(axis)
+                    .unwrap_or_else(|| v120.unwrap_or(0.0) * 15.0 / 120.0);
+                if amount != 0.0 {
+                    frame = frame.value(axis, amount);
+                    if let Some(v120) = v120 {
+                        frame = frame.v120(axis, v120 as i32);
+                    }
+                }
+                if event.source() == AxisSource::Finger && event.amount(axis) == Some(0.0) {
+                    frame = frame.stop(axis);
+                }
+            }
+            state.pointer_axis(frame);
+        }
+        InputEvent::Keyboard { event } => {
+            // xkb keycodes are evdev's plus 8.
+            let code = event.key_code().raw().saturating_sub(8);
+            state.key(code, event.state() == KeyState::Pressed, event.time_msec());
+        }
+        _ => {}
+    }
+}
+
+/// Draws the output with GL, presents what changed, and tells clients to
+/// draw their next frame.
+fn render(state: &mut State) {
+    let Some(w) = state.winit.as_mut() else {
+        return;
+    };
+    state.needs_redraw = false;
+    let age = if w.full_redraw > 0 {
+        w.full_redraw -= 1;
+        0
+    } else {
+        w.backend.buffer_age().unwrap_or(0)
+    };
+    let damage = match w.backend.bind() {
+        Ok((renderer, mut framebuffer)) => {
+            match render_output::<_, WaylandSurfaceRenderElement<GlesRenderer>, _, _>(
+                &state.output,
+                renderer,
+                &mut framebuffer,
+                1.0,
+                age,
+                [&state.space],
+                &[],
+                &mut w.damage_tracker,
+                BACKGROUND,
+            ) {
+                Ok(result) => result.damage.cloned(),
+                Err(e) => {
+                    eprintln!("patina-compositor: render failed: {e:?}");
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("patina-compositor: {e}");
+            None
+        }
+    };
+    if let Some(damage) = damage
+        && let Err(e) = w.backend.submit(Some(&damage))
+    {
+        eprintln!("patina-compositor: {e}");
+    }
+
+    let time = state.start.elapsed();
+    let output = state.output.clone();
+    for window in state.space.elements() {
+        window.send_frame(&output, time, Some(Duration::ZERO), |_, _| {
+            Some(output.clone())
+        });
+    }
+    for layer in layer_map_for_output(&output).layers() {
+        layer.send_frame(&output, time, Some(Duration::ZERO), |_, _| {
+            Some(output.clone())
+        });
+    }
+    state.space.refresh();
+    state.popups.cleanup();
+}
+
+impl DmabufHandler for State {
+    fn dmabuf_state(&mut self) -> &mut DmabufState {
+        &mut self
+            .winit
+            .as_mut()
+            .expect("linux-dmabuf is only offered with the GL backend")
+            .dmabuf_state
+    }
+
+    fn dmabuf_imported(&mut self, _: &DmabufGlobal, dmabuf: Dmabuf, notifier: ImportNotifier) {
+        let imported = self
+            .winit
+            .as_mut()
+            .is_some_and(|w| w.backend.renderer().import_dmabuf(&dmabuf, None).is_ok());
+        if imported {
+            let _ = notifier.successful::<State>();
+        } else {
+            notifier.failed();
+        }
+    }
+}
+
+delegate_dmabuf!(State);

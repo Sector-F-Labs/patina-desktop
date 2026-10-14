@@ -64,7 +64,7 @@ use crate::state::State;
 pub const DEFAULT_SIZE: (u32, u32) = (1280, 800);
 
 /// The desktop behind every window, until there's a wallpaper.
-const BACKGROUND: [f32; 4] = [0.13, 0.13, 0.14, 1.0];
+pub const BACKGROUND: [f32; 4] = [0.13, 0.13, 0.14, 1.0];
 
 pub struct Nested {
     qh: QueueHandle<State>,
@@ -150,7 +150,9 @@ pub fn mode(size: (u32, u32)) -> Mode {
 /// Draws the output into the window, if anything changed and the parent
 /// desktop is ready for a frame, then tells clients to draw their next.
 pub fn render(state: &mut State) {
-    let n = &mut state.nested;
+    let Some(n) = state.nested.as_mut() else {
+        return;
+    };
     if !n.configured || n.frame_pending || !state.needs_redraw {
         return;
     }
@@ -253,6 +255,16 @@ fn present(n: &mut Nested, w: usize, h: usize) {
     n.frame_pending = true;
 }
 
+impl State {
+    /// The software backend, for the sctk handlers: its events only arrive
+    /// when it's the backend in use.
+    fn nested_mut(&mut self) -> &mut Nested {
+        self.nested
+            .as_mut()
+            .expect("sctk events only arrive with the software backend")
+    }
+}
+
 impl WindowHandler for State {
     fn request_close(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &Window) {
         self.loop_signal.stop();
@@ -266,7 +278,9 @@ impl WindowHandler for State {
         configure: WindowConfigure,
         _: u32,
     ) {
-        let n = &mut self.nested;
+        let Some(n) = self.nested.as_mut() else {
+            return;
+        };
         let size = (
             configure.new_size.0.map_or(n.size.0, |w| w.get()),
             configure.new_size.1.map_or(n.size.1, |h| h.get()),
@@ -281,7 +295,9 @@ impl WindowHandler for State {
             n.configured = true;
             self.relayout_maximized();
         }
-        self.nested.configured = true;
+        if let Some(n) = self.nested.as_mut() {
+            n.configured = true;
+        }
         self.needs_redraw = true;
     }
 }
@@ -305,7 +321,9 @@ impl ClientCompositorHandler for State {
     }
 
     fn frame(&mut self, _: &Connection, _: &QueueHandle<Self>, _: &wl_surface::WlSurface, _: u32) {
-        self.nested.frame_pending = false;
+        if let Some(n) = self.nested.as_mut() {
+            n.frame_pending = false;
+        }
     }
 
     fn surface_enter(
@@ -328,7 +346,7 @@ impl ClientCompositorHandler for State {
 
 impl ClientOutputHandler for State {
     fn output_state(&mut self) -> &mut ClientOutputState {
-        &mut self.nested.output_state
+        &mut self.nested_mut().output_state
     }
     fn new_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
     fn update_output(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_output::WlOutput) {}
@@ -337,13 +355,13 @@ impl ClientOutputHandler for State {
 
 impl ClientShmHandler for State {
     fn shm_state(&mut self) -> &mut Shm {
-        &mut self.nested.shm
+        &mut self.nested_mut().shm
     }
 }
 
 impl ClientSeatHandler for State {
     fn seat_state(&mut self) -> &mut ClientSeatState {
-        &mut self.nested.seat_state
+        &mut self.nested_mut().seat_state
     }
 
     fn new_seat(&mut self, _: &Connection, _: &QueueHandle<Self>, _: wl_seat::WlSeat) {}
@@ -355,7 +373,9 @@ impl ClientSeatHandler for State {
         seat: wl_seat::WlSeat,
         capability: Capability,
     ) {
-        let n = &mut self.nested;
+        let Some(n) = self.nested.as_mut() else {
+            return;
+        };
         match capability {
             Capability::Pointer if n.pointer.is_none() => {
                 if let Ok(pointer) = n.seat_state.get_pointer(qh, &seat) {
@@ -380,7 +400,9 @@ impl ClientSeatHandler for State {
         _: wl_seat::WlSeat,
         capability: Capability,
     ) {
-        let n = &mut self.nested;
+        let Some(n) = self.nested.as_mut() else {
+            return;
+        };
         match capability {
             Capability::Pointer => {
                 if let Some((pointer, device)) = n.pointer.take() {
@@ -410,8 +432,11 @@ impl PointerHandler for State {
         _: &wl_pointer::WlPointer,
         events: &[PointerEvent],
     ) {
+        let Some(window) = self.nested.as_ref().map(|n| n.window.wl_surface().clone()) else {
+            return;
+        };
         for event in events {
-            if &event.surface != self.nested.window.wl_surface() {
+            if event.surface != window {
                 continue;
             }
             let pos = event.position.into();
@@ -419,7 +444,7 @@ impl PointerHandler for State {
                 PointerEventKind::Enter { serial } => {
                     // The compositor's clients ask for their own cursors,
                     // but there's no cursor drawing yet: show the default.
-                    if let Some((_, Some(device))) = &self.nested.pointer {
+                    if let Some((_, Some(device))) = self.nested.as_ref().and_then(|n| n.pointer.as_ref()) {
                         device.set_shape(serial, Shape::Default);
                     }
                     self.pointer_motion(pos, 0);
@@ -538,7 +563,7 @@ impl KeyboardHandler for State {
 
 impl ProvidesRegistryState for State {
     fn registry(&mut self) -> &mut RegistryState {
-        &mut self.nested.registry_state
+        &mut self.nested_mut().registry_state
     }
     registry_handlers![ClientOutputState, ClientSeatState];
 }

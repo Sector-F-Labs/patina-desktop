@@ -4,7 +4,7 @@ Date: 2026-10-14
 
 ## Status
 
-Proposed
+Proposed; now the fallback, see [ADR-0015](0015-gl-when-nested.md)
 
 ## Context
 

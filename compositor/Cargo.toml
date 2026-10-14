@@ -7,5 +7,5 @@ description = "A floating Wayland compositor for the Patina desktop, built on Sm
 repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [dependencies]
-smithay = { version = "0.7", default-features = false, features = ["wayland_frontend", "desktop", "renderer_pixman"] }
+smithay = { version = "0.7", default-features = false, features = ["wayland_frontend", "desktop", "renderer_pixman", "backend_winit", "backend_drm"] }
 smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop", "xkbcommon"] }

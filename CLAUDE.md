@@ -24,8 +24,11 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 ## Layout
 
 - `compositor/src/state.rs`: server side: protocols, placement, focus, input into the seat.
-- `compositor/src/nested.rs`: the window on the parent desktop (sctk), pixman rendering copied
-  into wl_shm, parent input → seat (ADR-0008). sctk traits are aliased (`Client*`) where their
+- `compositor/src/winit.rs`: the window on the parent desktop with OpenGL ES (Smithay's winit
+  backend) and linux-dmabuf (ADR-0015); tried first.
+- `compositor/src/nested.rs`: the fallback (no EGL, or `PATINA_RENDERER=pixman`): an sctk window,
+  pixman rendering copied into wl_shm, parent input → seat (ADR-0008). `State::nested` and
+  `State::winit` are Options; exactly one is set. sctk traits are aliased (`Client*`) where their
   names clash with Smithay's.
 - `shell/src/host.rs`: layer-shell egui host (sctk), generic over a `Shell`; `Options` sets
   anchor, size, keyboard and per-output surfaces (ADR-0011).

@@ -7,6 +7,7 @@ mod maximize;
 mod nested;
 mod state;
 mod toplevels;
+mod winit;
 
 use std::process::{Command, ExitCode, Stdio};
 
@@ -89,8 +90,31 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
     output.change_current_state(Some(mode), None, None, Some((0, 0).into()));
     output.set_preferred(mode);
 
-    let nested = nested::Nested::connect(&event_loop, &output)?;
-    let mut state = State::new(&mut event_loop, display, output, nested)?;
+    // OpenGL where there's EGL; otherwise, or with PATINA_RENDERER=pixman,
+    // software (ADR-0015).
+    let software = std::env::var("PATINA_RENDERER").as_deref() == Ok("pixman");
+    let gl = if software {
+        None
+    } else {
+        match winit::init(&event_loop, &output, &display.handle()) {
+            Ok(gl) => {
+                eprintln!("patina-compositor: drawing with OpenGL ES");
+                Some(gl)
+            }
+            Err(e) => {
+                eprintln!("patina-compositor: no OpenGL ({e}); drawing in software");
+                None
+            }
+        }
+    };
+    let nested = match gl {
+        Some(_) => None,
+        None => Some(nested::Nested::connect(&event_loop, &output)?),
+    };
+    let mut state = State::new(&mut event_loop, display, output, nested, gl)?;
+    if let Some(formats) = state.winit.as_mut().map(winit::shm_formats) {
+        state.set_shm_formats(formats);
+    }
     eprintln!(
         "patina-compositor: clients connect on WAYLAND_DISPLAY={}",
         state.socket_name.to_string_lossy()
@@ -107,6 +131,7 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
     event_loop
         .run(None, &mut state, |state| {
             toplevels::refresh(state);
+            winit::schedule(state);
             nested::render(state);
             if let Err(e) = state.display_handle.flush_clients() {
                 eprintln!("patina-compositor: {e}");

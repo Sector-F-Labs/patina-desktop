@@ -56,6 +56,7 @@ mechanics of adding one.
 | [0012](0012-windows-through-foreign-toplevel.md) | The bar learns about windows through wlr-foreign-toplevel-management | Proposed |
 | [0013](0013-patina-from-develop.md) | Depend on Patina's develop branch | Accepted |
 | [0014](0014-maximise.md) | Maximise fills the work area, and dragging restores | Proposed |
+| [0015](0015-gl-when-nested.md) | Render nested with OpenGL ES through winit, keeping pixman as the fallback | Proposed |
 
 ## Decision Relationship
 
@@ -69,6 +70,7 @@ flowchart TD
     F --> G[0007: floating first]
     G --> N[0014: maximise]
     F --> H[0008: nested, pixman]
+    H --> O[0015: GL when nested, pixman fallback]
     C --> H
     F --> I[0009: one workspace]
     B --> K[0011: patina-shell crate]

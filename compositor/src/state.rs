@@ -90,7 +90,9 @@ pub struct State {
     pub seat: Seat<State>,
 
     /// The window on the parent desktop that this compositor draws into.
-    pub nested: Nested,
+    pub nested: Option<Nested>,
+    /// Or the window it draws into with OpenGL ES (ADR-0015).
+    pub winit: Option<crate::winit::WinitData>,
     /// What the bar's window list has been told.
     pub toplevels: ForeignToplevels,
 }
@@ -100,7 +102,8 @@ impl State {
         event_loop: &mut EventLoop<'static, State>,
         display: Display<State>,
         output: Output,
-        nested: Nested,
+        nested: Option<Nested>,
+        winit: Option<crate::winit::WinitData>,
     ) -> Result<Self, String> {
         let dh = display.handle();
         let mut seat_state = SeatState::new();
@@ -167,6 +170,7 @@ impl State {
             toplevels: ForeignToplevels::new(&dh),
             display_handle: dh,
             nested,
+            winit,
         })
     }
 
@@ -340,6 +344,11 @@ impl State {
             self.space.raise_element(w, false);
         }
         self.needs_redraw = true;
+    }
+
+    /// Lets clients use every shm format the renderer can draw.
+    pub fn set_shm_formats(&mut self, formats: impl IntoIterator<Item = smithay::reexports::wayland_server::protocol::wl_shm::Format>) {
+        self.shm_state.update_formats(formats);
     }
 
     /// Gives the keyboard to a layer surface (a launcher), leaving every

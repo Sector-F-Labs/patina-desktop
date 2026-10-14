@@ -12,8 +12,9 @@ with GDM), and how to get back if something goes wrong.
 | A login-screen entry: `make install-session` | Works, but the session can't start yet |
 | The session setup (`patina-compositor --session`) | Partly: the desktop's environment, not yet portals and helpers |
 
-patina-compositor only has a nested backend so far ([ADR-0008](adr/0008-nested-software-backend.md)):
-it opens a window on another Wayland desktop and draws into it in software. To be your session it
+patina-compositor only runs nested so far: it opens a window on another Wayland desktop and draws
+into it, with OpenGL ES where there's a GPU ([ADR-0015](adr/0015-gl-when-nested.md)) and in
+software otherwise ([ADR-0008](adr/0008-nested-software-backend.md)). To be your session it
 needs a second backend that drives the machine directly, and until that exists, the steps from
 [Installing the session](#installing-the-session) on won't give you a working desktop. They're
 written down now so the shape is settled; the commands will work as soon as the backend lands.
@@ -27,8 +28,9 @@ the full wiring.
   sessions through systemd-logind, which hands those over without root.
 - **DRM/KMS**, to find the monitors, set their modes and show frames on them.
 - **libinput**, for keyboards, mice and touchpads, with the keyboard layout from your settings.
-- **A GPU renderer** (Smithay's GLES renderer) in place of pixman, and **linux-dmabuf**, so apps
-  hand the compositor GPU buffers. This also ends software rendering for apps.
+- **A GPU renderer and linux-dmabuf.** Done for the nested backend (ADR-0015); the hardware
+  backend uses the same GLES renderer and dmabuf import, on a GBM device instead of a window, and
+  adds explicit sync (`linux-drm-syncobj`) for NVIDIA.
 
 The plan is a `compositor/src/udev.rs` beside `nested.rs`, chosen at start-up: nested when
 `WAYLAND_DISPLAY` is set (there's a desktop to open a window on), hardware otherwise.
