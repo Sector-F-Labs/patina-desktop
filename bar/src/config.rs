@@ -39,7 +39,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            position: Position::Top,
+            position: Position::Bottom,
             height: 26,
             skin: patina::skin::DEFAULT_SKIN.to_string(),
             tags: (1..=9).map(|n| n.to_string()).collect(),
@@ -107,16 +107,16 @@ mod tests {
         assert!(w.is_empty());
         assert_eq!(c.height, 26);
         assert_eq!(c.tags.len(), 9);
-        assert_eq!(c.position, Position::Top);
+        assert_eq!(c.position, Position::Bottom);
     }
 
     #[test]
     fn reads_keys() {
         let (c, w) = parse(
-            "position = \"bottom\"\nheight = 30\nright = [\"clock\"]\ntags = [\"web\", \"code\"]\n",
+            "position = \"top\"\nheight = 30\nright = [\"clock\"]\ntags = [\"web\", \"code\"]\n",
         );
         assert!(w.is_empty(), "{w:?}");
-        assert_eq!(c.position, Position::Bottom);
+        assert_eq!(c.position, Position::Top);
         assert_eq!(c.height, 30);
         assert_eq!(c.right, ["clock"]);
         assert_eq!(c.tags, ["web", "code"]);

@@ -28,7 +28,7 @@ one.
 `~/.config/patina-bar/config.toml`, or `patina-bar -c <file>`. Every key is optional:
 
 ```toml
-position = "top"            # or "bottom"
+position = "bottom"         # or "top"
 height = 26
 skin = "Default"            # a Patina skin, or one in ~/.config/patina-bar/skins
 tags = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
