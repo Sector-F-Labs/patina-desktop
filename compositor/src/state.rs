@@ -440,6 +440,27 @@ impl State {
         Some((start, window, pointer))
     }
 
+    /// Asks every window of the focused window's app (its Wayland client)
+    /// to close. There's no "quit" request in Wayland; apps quit when their
+    /// last window closes, and each window can still ask about unsaved work.
+    pub fn quit_focused_app(&mut self) {
+        let Some(focused) = self.focused_window() else {
+            return;
+        };
+        let Some(client) = focused.toplevel().and_then(|t| t.wl_surface().client()) else {
+            return;
+        };
+        let windows: Vec<ToplevelSurface> = self
+            .space
+            .elements()
+            .filter_map(|w| w.toplevel().cloned())
+            .filter(|t| t.wl_surface().client().as_ref() == Some(&client))
+            .collect();
+        for toplevel in windows {
+            toplevel.send_close();
+        }
+    }
+
     /// The window with the keyboard, if a window has it.
     pub fn focused_window(&self) -> Option<Window> {
         let focus = self.seat.get_keyboard()?.current_focus()?;

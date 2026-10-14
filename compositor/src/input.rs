@@ -39,6 +39,9 @@ pub enum KeyAction {
     Snap(crate::maximize::Snap),
     /// Ask the focused window to close (Super+W), as its close button does.
     CloseWindow,
+    /// Ask every window of the focused app to close (Super+Q): quitting it,
+    /// politely, as Cmd+Q does on macOS.
+    QuitApp,
 }
 
 /// The [bindings] command for a key, if one matches: exact modifiers, and
@@ -91,6 +94,9 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
         }
         if sym == keysyms::KEY_w {
             return Some(KeyAction::CloseWindow);
+        }
+        if sym == keysyms::KEY_q {
+            return Some(KeyAction::QuitApp);
         }
     }
     if modifiers.logo
@@ -164,6 +170,10 @@ impl State {
                 {
                     self.close_toplevel(&surface);
                 }
+                None
+            }
+            Some(KeyAction::QuitApp) => {
+                self.quit_focused_app();
                 None
             }
             Some(KeyAction::Snap(snap)) => {
@@ -363,6 +373,15 @@ mod tests {
             assert_eq!(key_action(&logo, sym), Some(KeyAction::Snap(snap)));
         }
         assert_eq!(key_action(&mods(false, false), keysyms::KEY_Up), None);
+    }
+
+    #[test]
+    fn super_q_quits() {
+        let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        assert_eq!(key_action(&logo, keysyms::KEY_q), Some(KeyAction::QuitApp));
     }
 
     #[test]
