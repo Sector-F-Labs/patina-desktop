@@ -444,7 +444,9 @@ impl PointerHandler for State {
                 PointerEventKind::Enter { serial } => {
                     // The compositor's clients ask for their own cursors,
                     // but there's no cursor drawing yet: show the default.
-                    if let Some((_, Some(device))) = self.nested.as_ref().and_then(|n| n.pointer.as_ref()) {
+                    if let Some((_, Some(device))) =
+                        self.nested.as_ref().and_then(|n| n.pointer.as_ref())
+                    {
                         device.set_shape(serial, Shape::Default);
                     }
                     self.pointer_motion(pos, 0);
@@ -522,7 +524,9 @@ impl KeyboardHandler for State {
         _: u32,
         event: KeyEvent,
     ) {
-        self.key(event.raw_code, true, event.time);
+        if self.key(event.raw_code, true, event.time) == Some(crate::input::KeyAction::Quit) {
+            self.loop_signal.stop();
+        }
     }
 
     // Clients repeat keys themselves, from the seat's repeat info.
@@ -544,7 +548,7 @@ impl KeyboardHandler for State {
         _: u32,
         event: KeyEvent,
     ) {
-        self.key(event.raw_code, false, event.time);
+        let _ = self.key(event.raw_code, false, event.time);
     }
 
     // The seat works out modifiers from the keys themselves.

@@ -8,32 +8,35 @@ with GDM), and how to get back if something goes wrong.
 | Piece | State |
 |---|---|
 | Running nested, as a window on GNOME or another desktop (`make run`) | Works |
-| Running on the hardware itself: screens, keyboard and mouse, GPU | **Not built yet** |
-| A login-screen entry: `make install-session` | Works, but the session can't start yet |
+| Running on the hardware itself: one monitor, keyboard, mouse and touchpad, GPU | **New, untested on real machines yet** |
+| A login-screen entry: `make install-session` | Works |
 | The session setup (`patina-compositor --session`) | Partly: the desktop's environment, not yet portals and helpers |
 
-patina-compositor only runs nested so far: it opens a window on another Wayland desktop and draws
-into it, with OpenGL ES where there's a GPU ([ADR-0015](adr/0015-gl-when-nested.md)) and in
-software otherwise ([ADR-0008](adr/0008-nested-software-backend.md)). To be your session it
-needs a second backend that drives the machine directly, and until that exists, the steps from
-[Installing the session](#installing-the-session) on won't give you a working desktop. They're
-written down now so the shape is settled; the commands will work as soon as the backend lands.
+patina-compositor picks its backend when it starts. With a desktop to open a window on
+(`WAYLAND_DISPLAY` set) it runs nested in it, with OpenGL ES where there's a GPU
+([ADR-0015](adr/0015-gl-when-nested.md)) and in software otherwise
+([ADR-0008](adr/0008-nested-software-backend.md)). Without one, at a text console or as the login
+session, it drives the machine itself ([ADR-0016](adr/0016-hardware-backend.md)). That backend is
+new: try it from a text console first ([below](#trying-it-without-logging-out-of-gnome)) before
+choosing it at the login screen.
 
-## What the hardware backend needs
+## What the hardware backend does
 
-Smithay, which the compositor is built on, provides all of it; its `anvil` example and niri show
-the full wiring.
+- **The session:** libseat, through systemd-logind, opens the GPU and input devices without root,
+  and hands them back and forth when you switch consoles.
+- **The screen:** one monitor, the laptop's own panel if it has one, otherwise the first connected
+  monitor, at its preferred mode, through DRM/KMS and GBM, drawn with OpenGL ES. Apps hand over GPU
+  buffers through linux-dmabuf. It works on Mesa (Intel, AMD) and NVIDIA's driver alike.
+- **Scale:** 2 for dense panels that are still at least 800 points tall at 2x, 1.5 from 140 dpi
+  (most laptops), 1 otherwise. Set `PATINA_SCALE=1.25` (or any value from 0.5 to 4) to choose.
+- **Input:** keyboards, mice and touchpads through libinput, with tap-to-click on.
+- **The pointer:** your cursor theme's arrow (`XCURSOR_THEME`, `XCURSOR_SIZE`), or the app's own
+  cursor where it sets one.
+- **Keys of its own:** **Ctrl+Alt+F1** to **F12** switch consoles. **Ctrl+Alt+Backspace** quits
+  the compositor, the way out whatever state it's in.
 
-- **libseat**, for access to the GPU and input devices through the login session. GDM starts
-  sessions through systemd-logind, which hands those over without root.
-- **DRM/KMS**, to find the monitors, set their modes and show frames on them.
-- **libinput**, for keyboards, mice and touchpads, with the keyboard layout from your settings.
-- **A GPU renderer and linux-dmabuf.** Done for the nested backend (ADR-0015); the hardware
-  backend uses the same GLES renderer and dmabuf import, on a GBM device instead of a window, and
-  adds explicit sync (`linux-drm-syncobj`) for NVIDIA.
-
-The plan is a `compositor/src/udev.rs` beside `nested.rs`, chosen at start-up: nested when
-`WAYLAND_DISPLAY` is set (there's a desktop to open a window on), hardware otherwise.
+Not yet: more than one monitor (others stay dark), plugging monitors in and out, the lid,
+brightness and volume keys, touchpad settings beyond tap, and explicit sync for NVIDIA apps.
 
 ## You don't need to remove GDM
 
@@ -123,15 +126,18 @@ back to `ubuntu` to return to GNOME.
 Before trusting it as your session, run it from a text console:
 
 1. Press **Ctrl+Alt+F3** and log in at the text prompt.
-2. Run `patina-compositor`. With no `WAYLAND_DISPLAY` set it would take the hardware backend;
-   until that exists it says so and exits.
-3. To leave, quit the compositor, or switch back to GNOME with **Ctrl+Alt+F2** (GDM's sessions
-   usually live on F1 or F2; try the others if needed).
+2. Run `patina-compositor` (after `make install`; or `target/release/patina-compositor` in the
+   repo after `make build`). With no `WAYLAND_DISPLAY` set, it takes the GPU and the screen, and
+   starts the bar. Its messages, including the monitor, mode and scale it chose, are on the
+   console when it exits.
+3. To leave, press **Ctrl+Alt+Backspace** to quit it, or **Ctrl+Alt+F2** (or F1) to switch back
+   to GNOME and leave it running; **Ctrl+Alt+F3** returns to it.
 
-A crash here only ends that console's session; GNOME on the other one is untouched.
+A crash here only ends that console's session; GNOME on the other one is untouched. If the screen
+stays black, switch consoles: the kernel takes the screen back.
 
-Until the hardware backend exists, `make run` inside GNOME is the way to use the desktop: it runs
-nested, as a window.
+Run inside GNOME's own session (a terminal there, with `WAYLAND_DISPLAY` unset), it can't open the
+GPU GNOME holds, so it exits with "Resource temporarily unavailable" and leaves the desktop alone.
 
 ## If something goes wrong
 

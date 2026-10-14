@@ -2,11 +2,14 @@
 //! built on Smithay. For now it runs as a window on another desktop and
 //! starts patina-bar and a terminal inside it.
 
+mod dmabuf;
 mod grabs;
+mod input;
 mod maximize;
 mod nested;
 mod state;
 mod toplevels;
+mod udev;
 mod winit;
 
 use std::process::{Command, ExitCode, Stdio};
@@ -66,55 +69,23 @@ fn main() -> ExitCode {
 }
 
 fn run(commands: &[String], session: bool) -> Result<(), String> {
-    if std::env::var_os("WAYLAND_DISPLAY").is_none() {
-        return Err(
-            "there's no desktop to open a window on (WAYLAND_DISPLAY is unset), and \
-             running straight on the hardware isn't built yet; see docs/running-as-a-session.md"
-                .into(),
-        );
-    }
     let mut event_loop: EventLoop<'static, State> =
         EventLoop::try_new().map_err(|e| e.to_string())?;
     let display: Display<State> = Display::new().map_err(|e| e.to_string())?;
 
-    let output = Output::new(
-        "PATINA-1".into(),
-        PhysicalProperties {
-            size: (0, 0).into(),
-            subpixel: Subpixel::Unknown,
-            make: "Patina".into(),
-            model: "Nested".into(),
-        },
-    );
-    let mode = nested::mode(nested::DEFAULT_SIZE);
-    output.change_current_state(Some(mode), None, None, Some((0, 0).into()));
-    output.set_preferred(mode);
-
-    // OpenGL where there's EGL; otherwise, or with PATINA_RENDERER=pixman,
-    // software (ADR-0015).
-    let software = std::env::var("PATINA_RENDERER").as_deref() == Ok("pixman");
-    let gl = if software {
-        None
+    // With a desktop to open a window on, run nested in it; without one
+    // (a text console, or the login session), run on the hardware.
+    let mut state = if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+        nested_state(&mut event_loop, display)?
     } else {
-        match winit::init(&event_loop, &output, &display.handle()) {
-            Ok(gl) => {
-                eprintln!("patina-compositor: drawing with OpenGL ES");
-                Some(gl)
-            }
-            Err(e) => {
-                eprintln!("patina-compositor: no OpenGL ({e}); drawing in software");
-                None
-            }
-        }
-    };
-    let nested = match gl {
-        Some(_) => None,
-        None => Some(nested::Nested::connect(&event_loop, &output)?),
-    };
-    let mut state = State::new(&mut event_loop, display, output, nested, gl)?;
-    if let Some(formats) = state.winit.as_mut().map(winit::shm_formats) {
+        let (mut udev, output) = udev::init(&event_loop, &display.handle())?;
+        let formats = udev::shm_formats(&mut udev);
+        let mut state = State::new(&mut event_loop, display, output, None, None)?;
+        state.udev = Some(udev);
         state.set_shm_formats(formats);
-    }
+        state.centre_pointer();
+        state
+    };
     eprintln!(
         "patina-compositor: clients connect on WAYLAND_DISPLAY={}",
         state.socket_name.to_string_lossy()
@@ -131,6 +102,7 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
     event_loop
         .run(None, &mut state, |state| {
             toplevels::refresh(state);
+            udev::schedule(state);
             winit::schedule(state);
             nested::render(state);
             if let Err(e) = state.display_handle.flush_clients() {
@@ -138,6 +110,51 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
             }
         })
         .map_err(|e| e.to_string())
+}
+
+/// The compositor as a window on another desktop: OpenGL where there's
+/// EGL, otherwise (or with PATINA_RENDERER=pixman) software (ADR-0015).
+fn nested_state(
+    event_loop: &mut EventLoop<'static, State>,
+    display: Display<State>,
+) -> Result<State, String> {
+    let output = Output::new(
+        "PATINA-1".into(),
+        PhysicalProperties {
+            size: (0, 0).into(),
+            subpixel: Subpixel::Unknown,
+            make: "Patina".into(),
+            model: "Nested".into(),
+        },
+    );
+    let mode = nested::mode(nested::DEFAULT_SIZE);
+    output.change_current_state(Some(mode), None, None, Some((0, 0).into()));
+    output.set_preferred(mode);
+
+    let software = std::env::var("PATINA_RENDERER").as_deref() == Ok("pixman");
+    let gl = if software {
+        None
+    } else {
+        match winit::init(event_loop, &output, &display.handle()) {
+            Ok(gl) => {
+                eprintln!("patina-compositor: drawing with OpenGL ES");
+                Some(gl)
+            }
+            Err(e) => {
+                eprintln!("patina-compositor: no OpenGL ({e}); drawing in software");
+                None
+            }
+        }
+    };
+    let nested = match gl {
+        Some(_) => None,
+        None => Some(nested::Nested::connect(event_loop, &output)?),
+    };
+    let mut state = State::new(event_loop, display, output, nested, gl)?;
+    if let Some(formats) = state.winit.as_mut().map(winit::shm_formats) {
+        state.set_shm_formats(formats);
+    }
+    Ok(state)
 }
 
 /// PATH for clients, with this binary's folder first, so the desktop's own

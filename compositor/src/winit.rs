@@ -7,33 +7,22 @@ use std::time::Duration;
 
 use smithay::{
     backend::{
-        allocator::dmabuf::Dmabuf,
         egl::EGLDevice,
-        input::{
-            AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputEvent, KeyState,
-            KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent,
-        },
         renderer::{
             ImportDma, ImportMemWl, damage::OutputDamageTracker,
             element::surface::WaylandSurfaceRenderElement, gles::GlesRenderer,
         },
-        winit::{self as smithay_winit, WinitEvent, WinitGraphicsBackend, WinitInput},
+        winit::{self as smithay_winit, WinitEvent, WinitGraphicsBackend},
     },
-    delegate_dmabuf,
     desktop::{layer_map_for_output, space::render_output},
-    input::pointer::AxisFrame,
     output::{Mode, Output, Scale},
     reexports::{
         calloop::EventLoop,
         wayland_server::DisplayHandle,
-        winit::{
-            dpi::LogicalSize, platform::wayland::WindowAttributesExtWayland, window::Window,
-        },
+        winit::{dpi::LogicalSize, platform::wayland::WindowAttributesExtWayland, window::Window},
     },
     utils::{Physical, Size, Transform},
-    wayland::dmabuf::{
-        DmabufFeedbackBuilder, DmabufGlobal, DmabufHandler, DmabufState, ImportNotifier,
-    },
+    wayland::dmabuf::{DmabufFeedbackBuilder, DmabufGlobal, DmabufState},
 };
 
 use crate::nested::{BACKGROUND, DEFAULT_SIZE};
@@ -42,9 +31,9 @@ use crate::state::State;
 const APP_ID: &str = "com.sectorflabs.PatinaCompositor";
 
 pub struct WinitData {
-    backend: WinitGraphicsBackend<GlesRenderer>,
+    pub(crate) backend: WinitGraphicsBackend<GlesRenderer>,
     damage_tracker: OutputDamageTracker,
-    dmabuf_state: DmabufState,
+    pub(crate) dmabuf_state: DmabufState,
     _dmabuf_global: DmabufGlobal,
     /// Frames to draw in full, after a resize, before trusting buffer age.
     full_redraw: u8,
@@ -99,9 +88,7 @@ pub fn init(
             .ok()
     });
     let dmabuf_global = match feedback {
-        Some(feedback) => {
-            dmabuf_state.create_global_with_default_feedback::<State>(dh, &feedback)
-        }
+        Some(feedback) => dmabuf_state.create_global_with_default_feedback::<State>(dh, &feedback),
         None => dmabuf_state.create_global::<State>(dh, formats),
     };
 
@@ -159,7 +146,11 @@ fn handle_event(state: &mut State, event: WinitEvent) {
             }
             state.needs_redraw = true;
         }
-        WinitEvent::Input(event) => input(state, event),
+        WinitEvent::Input(event) => {
+            if crate::input::handle(state, event) == Some(crate::input::KeyAction::Quit) {
+                state.loop_signal.stop();
+            }
+        }
         WinitEvent::Redraw => {
             if let Some(w) = state.winit.as_mut() {
                 w.redraw_requested = false;
@@ -168,50 +159,6 @@ fn handle_event(state: &mut State, event: WinitEvent) {
         }
         WinitEvent::CloseRequested => state.loop_signal.stop(),
         WinitEvent::Focus(_) => {}
-    }
-}
-
-/// The window's input, into the compositor's seat.
-fn input(state: &mut State, event: InputEvent<WinitInput>) {
-    match event {
-        InputEvent::PointerMotionAbsolute { event } => {
-            let size = state
-                .space
-                .output_geometry(&state.output)
-                .map(|g| g.size)
-                .unwrap_or_default();
-            state.pointer_motion(event.position_transformed(size), event.time_msec());
-        }
-        InputEvent::PointerButton { event } => state.pointer_button(
-            event.button_code(),
-            event.state() == ButtonState::Pressed,
-            event.time_msec(),
-        ),
-        InputEvent::PointerAxis { event } => {
-            let mut frame = AxisFrame::new(event.time_msec()).source(event.source());
-            for axis in [Axis::Horizontal, Axis::Vertical] {
-                let v120 = event.amount_v120(axis);
-                let amount = event
-                    .amount(axis)
-                    .unwrap_or_else(|| v120.unwrap_or(0.0) * 15.0 / 120.0);
-                if amount != 0.0 {
-                    frame = frame.value(axis, amount);
-                    if let Some(v120) = v120 {
-                        frame = frame.v120(axis, v120 as i32);
-                    }
-                }
-                if event.source() == AxisSource::Finger && event.amount(axis) == Some(0.0) {
-                    frame = frame.stop(axis);
-                }
-            }
-            state.pointer_axis(frame);
-        }
-        InputEvent::Keyboard { event } => {
-            // xkb keycodes are evdev's plus 8.
-            let code = event.key_code().raw().saturating_sub(8);
-            state.key(code, event.state() == KeyState::Pressed, event.time_msec());
-        }
-        _ => {}
     }
 }
 
@@ -274,27 +221,3 @@ fn render(state: &mut State) {
     state.space.refresh();
     state.popups.cleanup();
 }
-
-impl DmabufHandler for State {
-    fn dmabuf_state(&mut self) -> &mut DmabufState {
-        &mut self
-            .winit
-            .as_mut()
-            .expect("linux-dmabuf is only offered with the GL backend")
-            .dmabuf_state
-    }
-
-    fn dmabuf_imported(&mut self, _: &DmabufGlobal, dmabuf: Dmabuf, notifier: ImportNotifier) {
-        let imported = self
-            .winit
-            .as_mut()
-            .is_some_and(|w| w.backend.renderer().import_dmabuf(&dmabuf, None).is_ok());
-        if imported {
-            let _ = notifier.successful::<State>();
-        } else {
-            notifier.failed();
-        }
-    }
-}
-
-delegate_dmabuf!(State);

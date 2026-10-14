@@ -57,6 +57,7 @@ mechanics of adding one.
 | [0013](0013-patina-from-develop.md) | Depend on Patina's develop branch | Accepted |
 | [0014](0014-maximise.md) | Maximise fills the work area, and dragging restores | Proposed |
 | [0015](0015-gl-when-nested.md) | Render nested with OpenGL ES through winit, keeping pixman as the fallback | Proposed |
+| [0016](0016-hardware-backend.md) | Run on the hardware with DRM/KMS, GBM, libinput and libseat | Proposed |
 
 ## Decision Relationship
 
@@ -71,6 +72,7 @@ flowchart TD
     G --> N[0014: maximise]
     F --> H[0008: nested, pixman]
     H --> O[0015: GL when nested, pixman fallback]
+    O --> P[0016: hardware backend]
     C --> H
     F --> I[0009: one workspace]
     B --> K[0011: patina-shell crate]

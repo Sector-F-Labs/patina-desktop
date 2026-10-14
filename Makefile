@@ -6,12 +6,17 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run-bar build test check install uninstall install-session uninstall-session vm vm-restart vm-gui screenshot clean
+.PHONY: help deps run run-bar build test check install uninstall install-session uninstall-session vm vm-restart vm-gui screenshot clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
 	@echo
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  \033[1m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+deps: ## Show the system packages the build needs
+	@echo "Ubuntu/Debian: sudo apt install pkg-config libxkbcommon-dev libpixman-1-dev libudev-dev \\"
+	@echo "                   libinput-dev libseat-dev libgbm-dev libegl-dev libdrm-dev libwayland-dev"
+	@echo "FreeBSD:       pkg install pkgconf libxkbcommon pixman libudev-devd libinput seatd mesa-libs libdrm wayland"
 
 run: ## Run the compositor in a window on this desktop, with the bar
 	cargo build --workspace

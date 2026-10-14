@@ -57,8 +57,8 @@ A broken file falls back to the defaults.
 
 - Minimise and fullscreen.
 - Workspaces.
-- Running on real hardware (DRM/KMS) and HiDPI, so it can be your login session. How that will
-  work, and how to choose it at the login screen, is in
+- More than one monitor, hotplug, lid, brightness and volume keys on the hardware. Running it as
+  your session (one monitor, from a text console or the login screen) is in
   [docs/running-as-a-session.md](docs/running-as-a-session.md).
 
 ## Build
@@ -76,7 +76,8 @@ A broken file falls back to the defaults.
 | `make vm-gui` | Open the VM's desktop over VNC |
 | `make screenshot` | The VM's desktop to `docs/screenshot.png` |
 
-Building the compositor needs libxkbcommon, pixman and pkg-config. Design decisions are in
+Building the compositor needs a few system libraries (xkbcommon, pixman, udev, libinput,
+libseat, GBM, EGL, libdrm); `make deps` lists the packages. Design decisions are in
 [docs/adr](docs/adr/README.md).
 
 ## Licence

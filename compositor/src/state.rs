@@ -15,7 +15,6 @@ use smithay::{
     },
     input::{
         Seat, SeatHandler, SeatState,
-        keyboard::{FilterResult, Keycode},
         pointer::{AxisFrame, ButtonEvent, CursorImageStatus, Focus, GrabStartData, MotionEvent},
     },
     output::Output,
@@ -95,6 +94,10 @@ pub struct State {
     pub winit: Option<crate::winit::WinitData>,
     /// What the bar's window list has been told.
     pub toplevels: ForeignToplevels,
+    /// The pointer image clients asked for, drawn on the hardware.
+    pub cursor: CursorImageStatus,
+    /// Or the hardware itself (ADR-0016).
+    pub udev: Option<crate::udev::UdevData>,
 }
 
 impl State {
@@ -168,6 +171,8 @@ impl State {
             data_device_state: DataDeviceState::new::<Self>(&dh),
             seat,
             toplevels: ForeignToplevels::new(&dh),
+            cursor: CursorImageStatus::default_named(),
+            udev: None,
             display_handle: dh,
             nested,
             winit,
@@ -202,6 +207,8 @@ impl State {
     }
 
     pub fn pointer_motion(&mut self, pos: Point<f64, Logical>, time: u32) {
+        // On the hardware the compositor draws the pointer itself.
+        self.needs_redraw = true;
         let pointer = self.seat.get_pointer().expect("seat has a pointer");
         let under = self.surface_under(pos);
         pointer.motion(
@@ -276,24 +283,6 @@ impl State {
         pointer.frame(self);
     }
 
-    /// `code` is an evdev keycode.
-    pub fn key(&mut self, code: u32, pressed: bool, time: u32) {
-        let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
-        let state = if pressed {
-            smithay::backend::input::KeyState::Pressed
-        } else {
-            smithay::backend::input::KeyState::Released
-        };
-        keyboard.input::<(), _>(
-            self,
-            Keycode::new(code + 8),
-            state,
-            SERIAL_COUNTER.next_serial(),
-            time,
-            |_, _, _| FilterResult::Forward,
-        );
-    }
-
     /// Gives `window` the keyboard and raises it; `None` clears focus.
     fn layer_for(&self, surface: &WlSurface) -> Option<LayerSurface> {
         layer_map_for_output(&self.output)
@@ -346,8 +335,20 @@ impl State {
         self.needs_redraw = true;
     }
 
+    /// Puts the pointer in the middle of the screen, where it starts on the
+    /// hardware.
+    pub fn centre_pointer(&mut self) {
+        if let Some(screen) = self.space.output_geometry(&self.output) {
+            let centre = screen.loc.to_f64() + screen.size.to_f64().downscale(2.0).to_point();
+            self.pointer_motion(centre, 0);
+        }
+    }
+
     /// Lets clients use every shm format the renderer can draw.
-    pub fn set_shm_formats(&mut self, formats: impl IntoIterator<Item = smithay::reexports::wayland_server::protocol::wl_shm::Format>) {
+    pub fn set_shm_formats(
+        &mut self,
+        formats: impl IntoIterator<Item = smithay::reexports::wayland_server::protocol::wl_shm::Format>,
+    ) {
         self.shm_state.update_formats(formats);
     }
 
@@ -675,7 +676,10 @@ impl SeatHandler for State {
         &mut self.seat_state
     }
 
-    fn cursor_image(&mut self, _: &Seat<Self>, _: CursorImageStatus) {}
+    fn cursor_image(&mut self, _: &Seat<Self>, image: CursorImageStatus) {
+        self.cursor = image;
+        self.needs_redraw = true;
+    }
 
     fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&WlSurface>) {
         let client = focused.and_then(|s| self.display_handle.get_client(s.id()).ok());
