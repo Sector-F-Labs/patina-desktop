@@ -1,0 +1,38 @@
+# bsdt environment; see bsdt(1).
+#
+# A FreeBSD VM running dwl from packages, with patina-bar as dwl's status
+# command: dwl -s pipes its status lines into the bar's stdin.
+#
+#   bsdt up                         # create, build the bar, start dwl
+#   bsdt gui                        # open the desktop in a VNC viewer
+#   bsdt exec cargo build --release && bsdt gui --restart
+
+[vm]
+os = "freebsd"
+version = "15.1"
+# arch = "auto"         # auto (match the host), amd64 or aarch64
+# cpus = 2
+# memory = "2G"
+# disk = "20G"
+# filesystem = "ufs"    # ufs or zfs
+# ports = ["8080:80"]   # 127.0.0.1:HOST on the host -> GUEST in the VM
+# update = false        # install OS security updates on first boot
+audio = true         # a sound card that plays on the host
+gui = true           # a desktop in a window; see [gui] in bsdt(1)
+
+[packages]
+# foot and wmenu are dwl's default terminal and launcher; grim takes
+# screenshots of the desktop for checking the bar.
+install = ["git", "rust", "dwl", "foot", "wmenu", "grim", "fastfetch"]
+
+[sync]
+# dest = "/home/bsdt/<project directory>"
+exclude = ["target"]
+
+[provision]
+run = ["cargo build --release"]
+
+[gui]
+desktop = "wayland"
+session = "dwl -s 'exec patina-bar/target/release/patina-bar'"
+open = false
