@@ -141,9 +141,7 @@ impl PointerGrab<State> for MoveGrab {
         // No client has the pointer while it drags a window.
         handle.motion(state, None, event);
         let location = self.initial.to_f64() + (event.location - self.start.location);
-        state
-            .space
-            .map_element(self.window.clone(), location.to_i32_round(), true);
+        state.place(&self.window, location.to_i32_round());
         state.needs_redraw = true;
     }
 
@@ -364,7 +362,7 @@ pub fn handle_commit(state: &mut State, surface: &WlSurface) {
         location.y = initial.loc.y + initial.size.h - size.h;
     }
     if edges.left || edges.top {
-        state.space.map_element(window, location, false);
+        state.place(&window, location);
     }
 }
 

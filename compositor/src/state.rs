@@ -320,6 +320,28 @@ impl State {
         }
     }
 
+    /// Moves a mapped window without changing the stacking order or which
+    /// window is active; only focusing a window raises it. (Smithay's
+    /// `map_element` puts the window on top, so the ones that were above
+    /// it are raised back over it, in order.)
+    pub fn place(&mut self, window: &Window, location: Point<i32, Logical>) {
+        if self.space.element_location(window) == Some(location) {
+            return;
+        }
+        let above: Vec<Window> = self
+            .space
+            .elements()
+            .skip_while(|w| *w != window)
+            .skip(1)
+            .cloned()
+            .collect();
+        self.space.map_element(window.clone(), location, false);
+        for w in &above {
+            self.space.raise_element(w, false);
+        }
+        self.needs_redraw = true;
+    }
+
     /// Gives the keyboard to a layer surface (a launcher), leaving every
     /// window looking inactive while it has it.
     fn focus_layer(&mut self, layer: &LayerSurface, serial: Serial) {

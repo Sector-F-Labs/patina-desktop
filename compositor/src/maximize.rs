@@ -66,7 +66,7 @@ impl State {
         if toplevel.is_initial_configure_sent() {
             toplevel.send_pending_configure();
         }
-        self.space.map_element(window.clone(), zone.loc, true);
+        self.place(window, zone.loc);
         self.needs_redraw = true;
     }
 
@@ -86,8 +86,7 @@ impl State {
         if toplevel.is_initial_configure_sent() {
             toplevel.send_pending_configure();
         }
-        self.space
-            .map_element(window.clone(), at.unwrap_or(before.loc), true);
+        self.place(window, at.unwrap_or(before.loc));
         self.needs_redraw = true;
     }
 
@@ -102,13 +101,18 @@ impl State {
             .cloned()
             .collect();
         for window in maximized {
-            if let Some(toplevel) = window.toplevel() {
+            // Called on every commit of a layer surface (the bar redraws
+            // each second), so only act on a real change.
+            let Some(toplevel) = window.toplevel() else {
+                continue;
+            };
+            if toplevel.with_pending_state(|s| s.size) != Some(zone.size) {
                 toplevel.with_pending_state(|s| s.size = Some(zone.size));
                 if toplevel.is_initial_configure_sent() {
                     toplevel.send_pending_configure();
                 }
             }
-            self.space.map_element(window, zone.loc, false);
+            self.place(&window, zone.loc);
         }
     }
 
