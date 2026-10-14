@@ -71,6 +71,18 @@ mute = "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
 mic_mute = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
 ```
 
+`[bindings]` maps key combinations to commands; by default **Alt+T** opens Teleprinter and
+**Alt+B** Firefox. A `[bindings]` section of your own replaces those defaults:
+
+```toml
+[bindings]
+"Alt+T" = "teleprinter"
+"Alt+B" = "firefox"
+"Super+Return" = "foot"
+```
+
+A bound key no longer reaches apps (Alt+B is "back a word" in shells, for example).
+
 The brightness keys need no extra tools: the compositor sets the backlight through the login
 session ([ADR-0020](adr/0020-brightness-and-volume-keys.md)). The volume keys run the commands
 above, for PipeWire (Ubuntu's sound system).

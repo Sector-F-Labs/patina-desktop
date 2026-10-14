@@ -49,3 +49,10 @@
 
 # The menu that flashes up with the level after a volume key; "" for none.
 # volume_menu = "patina-volume"
+
+# Keys that run commands: modifiers (Super, Alt, Ctrl, Shift) and a key, by
+# its name ("T", "Return", "F5"). Writing a [bindings] section replaces these
+# defaults, so uncomment the header together with the bindings you keep.
+# [bindings]
+# "Alt+T" = "teleprinter"
+# "Alt+B" = "firefox"

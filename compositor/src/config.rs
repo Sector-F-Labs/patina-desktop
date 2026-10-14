@@ -19,6 +19,69 @@ pub struct Config {
     pub media: Media,
     /// What tapping Super on its own runs; "" for nothing.
     pub launcher: String,
+    /// Key combinations ("Alt+T") and the commands they run. A [bindings]
+    /// section replaces these defaults.
+    pub bindings: std::collections::BTreeMap<String, String>,
+}
+
+/// A key combination from [bindings], ready to match.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Combo {
+    pub logo: bool,
+    pub alt: bool,
+    pub ctrl: bool,
+    pub shift: bool,
+    /// The key's base keysym (lower case, unshifted).
+    pub sym: u32,
+}
+
+/// Reads "Super+Shift+Return": modifiers, then one key, by its xkb name.
+pub fn combo(text: &str) -> Result<Combo, String> {
+    let mut combo = Combo {
+        logo: false,
+        alt: false,
+        ctrl: false,
+        shift: false,
+        sym: 0,
+    };
+    let mut parts: Vec<&str> = text.split('+').map(str::trim).collect();
+    let key = parts
+        .pop()
+        .filter(|k| !k.is_empty())
+        .ok_or(format!("{text:?} has no key"))?;
+    for m in parts {
+        match m.to_ascii_lowercase().as_str() {
+            "super" | "logo" | "mod4" => combo.logo = true,
+            "alt" | "mod1" => combo.alt = true,
+            "ctrl" | "control" => combo.ctrl = true,
+            "shift" => combo.shift = true,
+            other => return Err(format!("{text:?}: unknown modifier {other:?}")),
+        }
+    }
+    use smithay::input::keyboard::xkb;
+    let sym = xkb::keysym_from_name(key, xkb::KEYSYM_CASE_INSENSITIVE);
+    if sym.raw() == 0 {
+        return Err(format!("{text:?}: unknown key {key:?}"));
+    }
+    combo.sym = sym.raw();
+    Ok(combo)
+}
+
+fn default_bindings() -> std::collections::BTreeMap<String, String> {
+    [("Alt+T", "teleprinter"), ("Alt+B", "firefox")]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
+}
+
+impl Config {
+    /// The [bindings] that parse, with the commands they run.
+    pub fn combos(&self) -> Vec<(Combo, String)> {
+        self.bindings
+            .iter()
+            .filter_map(|(k, v)| combo(k).ok().map(|c| (c, v.clone())))
+            .collect()
+    }
 }
 
 /// The brightness and volume keys (ADR-0020).
@@ -84,6 +147,7 @@ impl Default for Config {
             touchpad: Touchpad::default(),
             media: Media::default(),
             launcher: "patina-launcher".into(),
+            bindings: default_bindings(),
         }
     }
 }
@@ -150,6 +214,11 @@ pub fn parse(text: &str) -> Result<(Config, Vec<String>), String> {
             config.touchpad.speed
         ));
         config.touchpad.speed = 0.0;
+    }
+    for key in config.bindings.keys() {
+        if let Err(e) = combo(key) {
+            warnings.push(format!("binding {e}; ignored"));
+        }
     }
     if !(1..=50).contains(&config.media.brightness_step) {
         warnings.push(format!(
@@ -338,6 +407,33 @@ mod tests {
         assert!(!write_starter(&path).unwrap());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "scale = 2.0\n");
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn bindings_default_and_a_section_replaces_them() {
+        let (c, _) = parse("").unwrap();
+        assert_eq!(
+            c.bindings.get("Alt+T").map(String::as_str),
+            Some("teleprinter")
+        );
+        let (c, w) =
+            parse("[bindings]\n\"Ctrl+Alt+Return\" = \"foot\"\n\"Alt+Nope\" = \"x\"\n").unwrap();
+        assert_eq!(c.bindings.len(), 2);
+        assert_eq!(c.combos().len(), 1, "the bad one is left out");
+        assert_eq!(w.len(), 1, "{w:?}");
+    }
+
+    #[test]
+    fn combos_read_modifiers_and_keys() {
+        use smithay::input::keyboard::keysyms;
+        let c = combo("Alt+T").unwrap();
+        assert!(c.alt && !c.logo && !c.ctrl && !c.shift);
+        assert_eq!(c.sym, keysyms::KEY_t);
+        let c = combo("super + shift + Return").unwrap();
+        assert!(c.logo && c.shift);
+        assert_eq!(c.sym, keysyms::KEY_Return);
+        assert!(combo("Hyper+T").is_err());
+        assert!(combo("Alt+").is_err());
     }
 
     #[test]

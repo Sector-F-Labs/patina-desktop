@@ -367,7 +367,11 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
         Some(KeyAction::Quit) => state.loop_signal.stop(),
         // Done inside State::key.
         Some(
-            KeyAction::NextLayout | KeyAction::Reload | KeyAction::Media(_) | KeyAction::Window(_),
+            KeyAction::NextLayout
+            | KeyAction::Reload
+            | KeyAction::Media(_)
+            | KeyAction::Window(_)
+            | KeyAction::Run(_),
         )
         | None => {}
     }

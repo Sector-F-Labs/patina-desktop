@@ -17,7 +17,7 @@ use smithay::{
 use crate::state::State;
 
 /// What a key the compositor keeps asks for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyAction {
     /// Switch to text console `n` (Ctrl+Alt+F`n`), on the hardware.
     SwitchVt(i32),
@@ -32,6 +32,28 @@ pub enum KeyAction {
     Media(crate::media::MediaKey),
     /// Bring forward the window in the bar's `n`th tab (Super+1 to 9).
     Window(usize),
+    /// A [bindings] command from the config.
+    Run(String),
+}
+
+/// The [bindings] command for a key, if one matches: exact modifiers, and
+/// the key's base symbol (`base`, unshifted on the first layout), so Shift
+/// or another layout don't change which key it is.
+pub fn binding(
+    combos: &[(crate::config::Combo, String)],
+    modifiers: &ModifiersState,
+    base: u32,
+) -> Option<KeyAction> {
+    combos
+        .iter()
+        .find(|(c, _)| {
+            c.logo == modifiers.logo
+                && c.alt == modifiers.alt
+                && c.ctrl == modifiers.ctrl
+                && c.shift == modifiers.shift
+                && c.sym == base
+        })
+        .map(|(_, command)| KeyAction::Run(command.clone()))
 }
 
 /// The compositor's own keys; everything else goes to the focused client.
@@ -81,9 +103,14 @@ impl State {
             state,
             SERIAL_COUNTER.next_serial(),
             time,
-            |_, modifiers, handle| {
+            |state, modifiers, handle| {
                 sym = handle.modified_sym().raw();
-                match (pressed, key_action(modifiers, sym)) {
+                let base = handle
+                    .raw_latin_sym_or_raw_current_sym()
+                    .map_or(sym, |s| s.raw());
+                let action = key_action(modifiers, sym)
+                    .or_else(|| binding(&state.config.combos(), modifiers, base));
+                match (pressed, action) {
                     (true, Some(action)) => FilterResult::Intercept(action),
                     _ => FilterResult::Forward,
                 }
@@ -107,6 +134,10 @@ impl State {
             }
             Some(KeyAction::Reload) => {
                 self.reload_config();
+                None
+            }
+            Some(KeyAction::Run(command)) => {
+                self.spawn_client(&command);
                 None
             }
             Some(KeyAction::Window(n)) => {
@@ -261,6 +292,21 @@ mod tests {
         );
         assert_eq!(key_action(&logo, keysyms::KEY_0), None);
         assert_eq!(key_action(&mods(false, false), keysyms::KEY_1), None);
+    }
+
+    #[test]
+    fn bindings_match_exact_modifiers_on_the_base_key() {
+        let combos = vec![(
+            crate::config::combo("Alt+T").unwrap(),
+            "teleprinter".to_string(),
+        )];
+        let alt = mods(false, true);
+        assert_eq!(
+            binding(&combos, &alt, keysyms::KEY_t),
+            Some(KeyAction::Run("teleprinter".into()))
+        );
+        assert_eq!(binding(&combos, &mods(true, true), keysyms::KEY_t), None);
+        assert_eq!(binding(&combos, &alt, keysyms::KEY_b), None);
     }
 
     #[test]
