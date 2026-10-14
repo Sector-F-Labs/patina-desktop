@@ -28,10 +28,15 @@ pub enum KeyAction {
     NextLayout,
     /// Read config.toml again (Super+Shift+R).
     Reload,
+    /// A brightness or volume key.
+    Media(crate::media::MediaKey),
 }
 
 /// The compositor's own keys; everything else goes to the focused client.
 pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
+    if let Some(key) = crate::media::media_key(sym) {
+        return Some(KeyAction::Media(key));
+    }
     if (keysyms::KEY_XF86Switch_VT_1..=keysyms::KEY_XF86Switch_VT_12).contains(&sym) {
         return Some(KeyAction::SwitchVt(
             (sym - keysyms::KEY_XF86Switch_VT_1 + 1) as i32,
@@ -81,6 +86,10 @@ impl State {
             }
             Some(KeyAction::Reload) => {
                 self.reload_config();
+                None
+            }
+            Some(KeyAction::Media(key)) => {
+                crate::media::press(key, &self.config.media);
                 None
             }
             other => other,

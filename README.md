@@ -57,7 +57,7 @@ A broken file falls back to the defaults.
 
 - Minimise and fullscreen.
 - Workspaces.
-- More than one monitor, hotplug, lid, brightness and volume keys on the hardware. Running it as
+- More than one monitor, hotplug and the lid on the hardware. Running it as
   your session (one monitor, from a text console or the login screen) is in
   [docs/running-as-a-session.md](docs/running-as-a-session.md).
 

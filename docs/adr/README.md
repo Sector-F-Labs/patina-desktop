@@ -61,6 +61,7 @@ mechanics of adding one.
 | [0017](0017-linux-vm-for-the-hardware-backend.md) | Test the hardware backend in a Linux VM with a virtio GPU | Proposed |
 | [0018](0018-fractional-scaling.md) | Fractional scaling through wp_fractional_scale and wp_viewporter | Accepted |
 | [0019](0019-compositor-config-file.md) | A config file for the compositor, reloaded with Super+Shift+R | Accepted |
+| [0020](0020-brightness-and-volume-keys.md) | Brightness through logind, volume through configurable commands | Accepted |
 
 ## Decision Relationship
 
@@ -79,6 +80,7 @@ flowchart TD
     P --> Q[0017: Linux VM with virtio GPU for testing it]
     P --> R[0018: fractional scaling]
     R --> S[0019: compositor config, Super+Shift+R]
+    S --> T[0020: brightness and volume keys]
     E --> Q
     C --> H
     F --> I[0009: one workspace]

@@ -60,15 +60,26 @@ repeat_rate = 25             # repeats per second
 tap = true                   # tap to click
 natural_scroll = true        # content follows your fingers
 speed = 0.0                  # -1.0 (slow) to 1.0 (fast)
+
+[media]
+brightness_step = 5          # percent per press of a brightness key
+volume_up = "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"
+volume_down = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+mute = "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+mic_mute = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
 ```
+
+The brightness keys need no extra tools: the compositor sets the backlight through the login
+session ([ADR-0020](adr/0020-brightness-and-volume-keys.md)). The volume keys run the commands
+above, for PipeWire (Ubuntu's sound system).
 
 Press **Super+Shift+R** after saving to apply it without logging out. Mistakes are reported in
 the session's log (`journalctl -b | grep patina`) and never stop the desktop: a broken file keeps
 the settings in use. `PATINA_SCALE` and `XKB_DEFAULT_LAYOUT` in the environment still win over
 the file.
 
-Not yet: more than one monitor (others stay dark), plugging monitors in and out, the lid,
-brightness and volume keys, touchpad settings beyond tap, and explicit sync for NVIDIA apps.
+Not yet: more than one monitor (others stay dark), plugging monitors in and out, the lid, an
+on-screen display for brightness and volume, and explicit sync for NVIDIA apps.
 
 ## You don't need to remove GDM
 

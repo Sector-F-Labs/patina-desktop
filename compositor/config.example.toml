@@ -31,3 +31,15 @@
 
 # Pointer speed, from -1.0 (slowest) to 1.0 (fastest).
 # speed = 0.0
+
+[media]
+# Percent of the screen's brightness range per press of a brightness key.
+# Brightness is set through the login session, so it needs no extra tools.
+# brightness_step = 5
+
+# What the volume and microphone keys run, through sh. The defaults are for
+# PipeWire (Ubuntu's sound system); "" does nothing.
+# volume_up = "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"
+# volume_down = "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+# mute = "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+# mic_mute = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"

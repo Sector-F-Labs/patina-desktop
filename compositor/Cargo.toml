@@ -13,4 +13,5 @@ dirs = "6"
 serde = { version = "1", features = ["derive"] }
 serde_ignored = "0.1"
 toml = "1"
+zbus = "5"
 smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop", "xkbcommon"] }

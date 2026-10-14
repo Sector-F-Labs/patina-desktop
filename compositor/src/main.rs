@@ -8,6 +8,7 @@ mod grabs;
 mod input;
 mod keyboard;
 mod maximize;
+mod media;
 mod nested;
 mod scale;
 mod state;

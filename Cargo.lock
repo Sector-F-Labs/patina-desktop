@@ -1837,6 +1837,7 @@ dependencies = [
  "smithay-client-toolkit 0.21.1",
  "toml",
  "xcursor",
+ "zbus",
 ]
 
 [[package]]

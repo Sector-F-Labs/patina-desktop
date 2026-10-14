@@ -16,6 +16,32 @@ pub struct Config {
     pub scale: Option<f64>,
     pub keyboard: Keyboard,
     pub touchpad: Touchpad,
+    pub media: Media,
+}
+
+/// The brightness and volume keys (ADR-0020).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct Media {
+    /// Percent of the backlight's range per press.
+    pub brightness_step: u32,
+    /// Commands, run through sh(1); empty does nothing.
+    pub volume_up: String,
+    pub volume_down: String,
+    pub mute: String,
+    pub mic_mute: String,
+}
+
+impl Default for Media {
+    fn default() -> Self {
+        Self {
+            brightness_step: 5,
+            volume_up: "wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+".into(),
+            volume_down: "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-".into(),
+            mute: "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle".into(),
+            mic_mute: "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle".into(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -50,6 +76,7 @@ impl Default for Config {
             scale: None,
             keyboard: Keyboard::default(),
             touchpad: Touchpad::default(),
+            media: Media::default(),
         }
     }
 }
@@ -116,6 +143,13 @@ pub fn parse(text: &str) -> Result<(Config, Vec<String>), String> {
             config.touchpad.speed
         ));
         config.touchpad.speed = 0.0;
+    }
+    if !(1..=50).contains(&config.media.brightness_step) {
+        warnings.push(format!(
+            "brightness step {} is outside 1 to 50; using 5",
+            config.media.brightness_step
+        ));
+        config.media.brightness_step = 5;
     }
     if config.keyboard.repeat_rate < 0 || config.keyboard.repeat_delay < 0 {
         warnings.push("keyboard repeat values can't be negative; using the defaults".into());
