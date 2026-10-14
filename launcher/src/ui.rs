@@ -169,8 +169,11 @@ impl Shell for Launcher {
         }
         let (up, down, enter, escape) = ui.input_mut(|i| {
             (
-                i.consume_key(Modifiers::NONE, Key::ArrowUp),
-                i.consume_key(Modifiers::NONE, Key::ArrowDown),
+                // Ctrl+P and Ctrl+N too, as in Emacs, shells and Vim.
+                i.consume_key(Modifiers::NONE, Key::ArrowUp)
+                    | i.consume_key(Modifiers::CTRL, Key::P),
+                i.consume_key(Modifiers::NONE, Key::ArrowDown)
+                    | i.consume_key(Modifiers::CTRL, Key::N),
                 i.consume_key(Modifiers::NONE, Key::Enter),
                 i.consume_key(Modifiers::NONE, Key::Escape),
             )
