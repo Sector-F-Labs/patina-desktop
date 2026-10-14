@@ -37,9 +37,11 @@ pub enum KeyAction {
     /// Maximise, restore or tile the focused window (Super with an arrow
     /// or a vim key).
     Snap(crate::maximize::Snap),
-    /// Grow the focused window in a direction (Super+Shift with an arrow or
-    /// a vim key).
+    /// Grow the focused window in a direction (Super+Shift with an arrow).
     Grow(crate::maximize::Snap),
+    /// Resize the focused window around its centre (Super+Shift+K/J grow
+    /// and shrink it, L/H widen and narrow it).
+    Resize(crate::maximize::Resize),
     /// Ask the focused window to close (Super+W), as its close button does.
     CloseWindow,
     /// Ask every window of the focused app to close (Super+Q): quitting it,
@@ -95,17 +97,22 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
         return Some(KeyAction::Lock);
     }
     if modifiers.logo && modifiers.shift && !modifiers.ctrl && !modifiers.alt {
+        use crate::maximize::Resize;
         use crate::maximize::Snap;
         // With Shift held, the vim keys come as capitals.
-        let toward = match sym {
-            keysyms::KEY_Up | keysyms::KEY_K => Some(Snap::Up),
-            keysyms::KEY_Down | keysyms::KEY_J => Some(Snap::Down),
-            keysyms::KEY_Left | keysyms::KEY_H => Some(Snap::Left),
-            keysyms::KEY_Right | keysyms::KEY_L => Some(Snap::Right),
+        let action = match sym {
+            keysyms::KEY_Up => Some(KeyAction::Grow(Snap::Up)),
+            keysyms::KEY_Down => Some(KeyAction::Grow(Snap::Down)),
+            keysyms::KEY_Left => Some(KeyAction::Grow(Snap::Left)),
+            keysyms::KEY_Right => Some(KeyAction::Grow(Snap::Right)),
+            keysyms::KEY_K => Some(KeyAction::Resize(Resize::Grow)),
+            keysyms::KEY_J => Some(KeyAction::Resize(Resize::Shrink)),
+            keysyms::KEY_L => Some(KeyAction::Resize(Resize::Wider)),
+            keysyms::KEY_H => Some(KeyAction::Resize(Resize::Narrower)),
             _ => None,
         };
-        if let Some(toward) = toward {
-            return Some(KeyAction::Grow(toward));
+        if action.is_some() {
+            return action;
         }
     }
     if modifiers.logo && !modifiers.shift && !modifiers.ctrl && !modifiers.alt {
@@ -219,6 +226,10 @@ impl State {
             }
             Some(KeyAction::Grow(toward)) => {
                 self.grow(toward);
+                None
+            }
+            Some(KeyAction::Resize(how)) => {
+                self.resize_focused(how);
                 None
             }
             Some(KeyAction::Snap(snap)) => {
@@ -447,8 +458,8 @@ mod tests {
     }
 
     #[test]
-    fn super_shift_with_arrows_or_vim_keys_grows() {
-        use crate::maximize::Snap;
+    fn super_shift_arrows_grow_and_vim_keys_resize() {
+        use crate::maximize::{Resize, Snap};
         let keys = ModifiersState {
             logo: true,
             shift: true,
@@ -456,15 +467,19 @@ mod tests {
         };
         for (sym, toward) in [
             (keysyms::KEY_Up, Snap::Up),
-            (keysyms::KEY_K, Snap::Up),
             (keysyms::KEY_Down, Snap::Down),
-            (keysyms::KEY_J, Snap::Down),
             (keysyms::KEY_Left, Snap::Left),
-            (keysyms::KEY_H, Snap::Left),
             (keysyms::KEY_Right, Snap::Right),
-            (keysyms::KEY_L, Snap::Right),
         ] {
             assert_eq!(key_action(&keys, sym), Some(KeyAction::Grow(toward)));
+        }
+        for (sym, how) in [
+            (keysyms::KEY_K, Resize::Grow),
+            (keysyms::KEY_J, Resize::Shrink),
+            (keysyms::KEY_L, Resize::Wider),
+            (keysyms::KEY_H, Resize::Narrower),
+        ] {
+            assert_eq!(key_action(&keys, sym), Some(KeyAction::Resize(how)));
         }
     }
 

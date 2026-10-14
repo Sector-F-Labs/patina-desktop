@@ -345,8 +345,39 @@ pub fn resize_keeping(
     ResizeState::with(toplevel.wl_surface(), |s| {
         *s = ResizeState::WaitingForLastCommit { edges, initial }
     });
+    shift_resize(window, Point::from((0, 0)));
     toplevel.with_pending_state(|s| s.size = Some(size));
     toplevel.send_pending_configure();
+}
+
+/// How far a centred keyboard resize moves the window as well, to keep it
+/// inside the work area; read with each of its commits.
+#[derive(Default)]
+struct ResizeShift(RefCell<Point<i32, Logical>>);
+
+impl ResizeShift {
+    fn take(surface: &WlSurface) -> Point<i32, Logical> {
+        compositor::with_states(surface, |states| {
+            states
+                .data_map
+                .get::<ResizeShift>()
+                .map(|s| *s.0.borrow())
+                .unwrap_or_default()
+        })
+    }
+}
+
+/// Moves a centred keyboard resize of `window` by `shift` as well.
+pub fn shift_resize(window: &smithay::desktop::Window, shift: Point<i32, Logical>) {
+    let Some(toplevel) = window.toplevel() else {
+        return;
+    };
+    compositor::with_states(toplevel.wl_surface(), |states| {
+        states.data_map.insert_if_missing(ResizeShift::default);
+        if let Some(s) = states.data_map.get::<ResizeShift>() {
+            *s.0.borrow_mut() = shift;
+        }
+    });
 }
 
 /// On a commit from a window being resized by its top or left edge, moves
@@ -378,14 +409,28 @@ pub fn handle_commit(state: &mut State, surface: &WlSurface) {
     let Some((edges, initial)) = resize else {
         return;
     };
-    if edges.left {
+    let shift = ResizeShift::take(surface);
+    // Both edges of an axis: the window stays centred on it. The left or
+    // top edge alone: the opposite edge stays put.
+    if edges.left && edges.right {
+        location.x = initial.loc.x + (initial.size.w - size.w) / 2 + shift.x;
+    } else if edges.left {
         location.x = initial.loc.x + initial.size.w - size.w;
     }
-    if edges.top {
+    if edges.top && edges.bottom {
+        location.y = initial.loc.y + (initial.size.h - size.h) / 2 + shift.y;
+    } else if edges.top {
         location.y = initial.loc.y + initial.size.h - size.h;
     }
     if edges.left || edges.top {
         state.place(&window, location);
+    }
+    if !(edges.left && edges.right) && !(edges.top && edges.bottom) {
+        return;
+    }
+    // A centred resize that finished leaves no shift behind for the next.
+    if ResizeState::with(surface, |s| *s == ResizeState::Idle) {
+        shift_resize(&window, Point::from((0, 0)));
     }
 }
 

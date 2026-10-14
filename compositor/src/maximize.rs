@@ -24,6 +24,18 @@ pub enum Placement {
     Right,
 }
 
+/// Resizing around the centre (Super+Shift+K/J/L/H).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Resize {
+    Grow,
+    Shrink,
+    Wider,
+    Narrower,
+}
+
+/// The smallest a window gets by Super+Shift+J or H, whatever the app allows.
+const SMALLEST: (i32, i32) = (120, 80);
+
 /// A direction from Super with an arrow or a vim key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Snap {
@@ -113,6 +125,31 @@ pub fn grown(
         }
     }
     Rectangle::new((left, top).into(), Size::from((right - left, bottom - top)))
+}
+
+/// `rect` resized by (`dw`, `dh`) around its centre, kept between `min`
+/// and `max` (0 for no limit, and never past `area`), and moved back inside
+/// `area` if it sticks out.
+pub fn resized_around_centre(
+    rect: Rectangle<i32, Logical>,
+    area: Rectangle<i32, Logical>,
+    dw: i32,
+    dh: i32,
+    min: Size<i32, Logical>,
+    max: Size<i32, Logical>,
+) -> Rectangle<i32, Logical> {
+    let limit = |v: i32, lo: i32, hi: i32, room: i32| {
+        let hi = if hi > 0 { hi.min(room) } else { room };
+        v.max(lo).min(hi.max(lo))
+    };
+    let (min_w, min_h) = (min.w.max(SMALLEST.0), min.h.max(SMALLEST.1));
+    let (max_w, max_h) = (max.w, max.h);
+    let w = limit(rect.size.w + dw, min_w, max_w, area.size.w);
+    let h = limit(rect.size.h + dh, min_h, max_h, area.size.h);
+    let centre = (rect.loc.x + rect.size.w / 2, rect.loc.y + rect.size.h / 2);
+    let x = (centre.0 - w / 2).clamp(area.loc.x, (area.loc.x + area.size.w - w).max(area.loc.x));
+    let y = (centre.1 - h / 2).clamp(area.loc.y, (area.loc.y + area.size.h - h).max(area.loc.y));
+    Rectangle::new((x, y).into(), Size::from((w, h)))
 }
 
 /// Where a restored window of `size` goes so the pointer, at `pointer`
@@ -275,6 +312,68 @@ impl State {
         self.needs_redraw = true;
     }
 
+    /// Resizes the focused window around its centre by a tenth of the work
+    /// area (Super+Shift+K/J/L/H). Like growing, a tiled window becomes a
+    /// floating one first, and a maximised one is left alone.
+    pub fn resize_focused(&mut self, how: Resize) {
+        let Some(window) = self.focused_window() else {
+            return;
+        };
+        let Some(toplevel) = window.toplevel().cloned() else {
+            return;
+        };
+        match placement(&window) {
+            Some(Placement::Maximized) => return,
+            Some(_) => {
+                *placed(&window).0.borrow_mut() = None;
+                set_states(&toplevel, None);
+            }
+            None => {}
+        }
+        let area = self.work_area();
+        let Some(location) = self.space.element_location(&window) else {
+            return;
+        };
+        let rect = Rectangle::new(location, window.geometry().size);
+        let (step_w, step_h) = ((area.size.w / 10).max(32), (area.size.h / 10).max(32));
+        let (dw, dh) = match how {
+            Resize::Grow => (step_w, step_h),
+            Resize::Shrink => (-step_w, -step_h),
+            Resize::Wider => (step_w, 0),
+            Resize::Narrower => (-step_w, 0),
+        };
+        let (min, max) =
+            smithay::wayland::compositor::with_states(toplevel.wl_surface(), |states| {
+                let mut cached = states
+                    .cached_state
+                    .get::<smithay::wayland::shell::xdg::SurfaceCachedState>();
+                let current = cached.current();
+                (current.min_size, current.max_size)
+            });
+        let new = resized_around_centre(rect, area, dw, dh, min, max);
+        if new == rect {
+            return;
+        }
+        // Both edges of an axis that changes move: the window stays centred
+        // as the app resizes.
+        let edges = crate::grabs::Edges {
+            left: new.size.w != rect.size.w,
+            right: new.size.w != rect.size.w,
+            top: new.size.h != rect.size.h,
+            bottom: new.size.h != rect.size.h,
+        };
+        crate::grabs::resize_keeping(&window, edges, rect, new.size);
+        // Moved back inside the work area if it would stick out.
+        let centred = Point::from((
+            rect.loc.x + (rect.size.w - new.size.w) / 2,
+            rect.loc.y + (rect.size.h - new.size.h) / 2,
+        ));
+        if new.loc != centred {
+            crate::grabs::shift_resize(&window, new.loc - centred);
+        }
+        self.needs_redraw = true;
+    }
+
     /// Keeps placed windows filling their part of the work area after it
     /// changed: the output resized or rescaled, or the bar came or went.
     pub fn relayout_maximized(&mut self) {
@@ -392,6 +491,34 @@ mod tests {
             grown(rect, area, Snap::Left, 100, Size::from((450, 0))),
             Rectangle::new((250, 0).into(), (450, 300).into())
         );
+    }
+
+    #[test]
+    fn resizing_keeps_the_centre_and_stays_inside() {
+        let area = Rectangle::new((0, 0).into(), (1000, 700).into());
+        let rect = Rectangle::new((300, 200).into(), (400, 300).into());
+        let none = Size::from((0, 0));
+        // Grow: 100 wider and taller, centre still at (500, 350).
+        assert_eq!(
+            resized_around_centre(rect, area, 100, 100, none, none),
+            Rectangle::new((250, 150).into(), (500, 400).into())
+        );
+        // Narrower: only the width changes.
+        assert_eq!(
+            resized_around_centre(rect, area, -100, 0, none, none),
+            Rectangle::new((350, 200).into(), (300, 300).into())
+        );
+        // Shrinking stops at 120 x 80, or the app's minimum if larger.
+        let small = resized_around_centre(rect, area, -1000, -1000, none, none);
+        assert_eq!(small.size, Size::from((120, 80)));
+        let app_min = resized_around_centre(rect, area, -1000, 0, Size::from((350, 0)), none);
+        assert_eq!(app_min.size.w, 350);
+        // Growing near the edge moves it back inside, and never past the area.
+        let corner = Rectangle::new((0, 0).into(), (400, 300).into());
+        let grown_at_corner = resized_around_centre(corner, area, 100, 100, none, none);
+        assert_eq!(grown_at_corner.loc, Point::from((0, 0)));
+        let huge = resized_around_centre(rect, area, 5000, 5000, none, none);
+        assert_eq!(huge, area);
     }
 
     #[test]
