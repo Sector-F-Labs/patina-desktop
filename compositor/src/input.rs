@@ -37,6 +37,8 @@ pub enum KeyAction {
     /// Maximise, restore or tile the focused window (Super with an arrow
     /// or a vim key).
     Snap(crate::maximize::Snap),
+    /// Ask the focused window to close (Super+W), as its close button does.
+    CloseWindow,
 }
 
 /// The [bindings] command for a key, if one matches: exact modifiers, and
@@ -86,6 +88,9 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
         };
         if let Some(snap) = snap {
             return Some(KeyAction::Snap(snap));
+        }
+        if sym == keysyms::KEY_w {
+            return Some(KeyAction::CloseWindow);
         }
     }
     if modifiers.logo
@@ -150,6 +155,15 @@ impl State {
             }
             Some(KeyAction::Reload) => {
                 self.reload_config();
+                None
+            }
+            Some(KeyAction::CloseWindow) => {
+                if let Some(surface) = self
+                    .focused_window()
+                    .and_then(|w| w.toplevel().map(|t| t.wl_surface().clone()))
+                {
+                    self.close_toplevel(&surface);
+                }
                 None
             }
             Some(KeyAction::Snap(snap)) => {
@@ -349,6 +363,19 @@ mod tests {
             assert_eq!(key_action(&logo, sym), Some(KeyAction::Snap(snap)));
         }
         assert_eq!(key_action(&mods(false, false), keysyms::KEY_Up), None);
+    }
+
+    #[test]
+    fn super_w_closes() {
+        let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            key_action(&logo, keysyms::KEY_w),
+            Some(KeyAction::CloseWindow)
+        );
+        assert_eq!(key_action(&mods(false, false), keysyms::KEY_w), None);
     }
 
     #[test]
