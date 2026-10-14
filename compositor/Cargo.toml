@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 license = "BSD-3-Clause"
 description = "A floating Wayland compositor for the Patina desktop, built on Smithay"
-repository = "https://github.com/Sector-F-Labs/patina-bar"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [dependencies]
 smithay = { version = "0.7", default-features = false, features = ["wayland_frontend", "desktop", "renderer_pixman"] }

@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory holds ADRs for patina-bar — short records of significant architecture decisions,
+This directory holds ADRs for the Patina desktop (patina-compositor and patina-bar) — short records of significant architecture decisions,
 written at the time they're made, following Michael Nygard's format as popularized by Martin
 Fowler: <https://martinfowler.com/bliki/ArchitectureDecisionRecord.html>.
 
@@ -31,7 +31,7 @@ gets its own new ADR that supersedes the old one, which stays in place with its 
 - Keep records short — a paragraph or two per section is normal. An ADR documents a decision and
   its reasoning, not a design document.
 
-patina-bar is a [Patina](https://github.com/Sector-F-Labs/patina) app. Decisions about the shared
+The Patina desktop is built on [Patina](https://github.com/Sector-F-Labs/patina). Decisions about the shared
 frame, skins and components are recorded in Patina's own ADRs; record here only what this app
 decides.
 

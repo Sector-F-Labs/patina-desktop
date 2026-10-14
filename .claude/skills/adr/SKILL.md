@@ -5,7 +5,7 @@ description: Create a new Architecture Decision Record in docs/adr/ following th
 
 # Writing an ADR
 
-patina-bar records significant, hard-to-reverse architecture decisions as ADRs in `docs/adr/` —
+The Patina desktop records significant, hard-to-reverse architecture decisions as ADRs in `docs/adr/` —
 see `docs/adr/README.md` for the full convention (when one is warranted). This skill covers only
 the mechanics of adding one.
 
