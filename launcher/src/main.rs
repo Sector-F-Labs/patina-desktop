@@ -109,6 +109,7 @@ fn run() -> Result<(), String> {
         margin: (GAP, 0, GAP, GAP),
         keyboard: KeyboardInteractivity::Exclusive,
         per_output: false,
+        toplevels: false,
     };
     let (host, event_loop) = Host::connect(options, launcher)?;
     event_loop

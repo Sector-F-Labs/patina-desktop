@@ -53,6 +53,8 @@ mechanics of adding one.
 | [0009](0009-one-workspace.md) | Keep the compositor and the bar in one cargo workspace | Accepted |
 | [0010](0010-launcher-reads-desktop-entries.md) | The launcher lists apps from .desktop files | Accepted |
 | [0011](0011-shared-shell-crate.md) | Move the layer-shell host into patina-shell | Proposed |
+| [0012](0012-windows-through-foreign-toplevel.md) | The bar learns about windows through wlr-foreign-toplevel-management | Proposed |
+| [0013](0013-patina-from-develop.md) | Depend on Patina's develop branch | Accepted |
 
 ## Decision Relationship
 
@@ -69,6 +71,8 @@ flowchart TD
     F --> I[0009: one workspace]
     B --> K[0011: patina-shell crate]
     K --> J[0010: launcher reads .desktop files]
+    K --> L[0012: windows via foreign-toplevel]
+    A --> M[0013: Patina from develop]
 ```
 
 ## Revisit Triggers

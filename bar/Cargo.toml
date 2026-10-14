@@ -13,7 +13,7 @@ egui = "0.35"
 resvg = { version = "0.48.1", default-features = false }
 libc = "0.2"
 patina-shell = { path = "../shell" }
-patina-ui = "0.1.7"
+patina-ui = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 serde_ignored = "0.1"
 toml = "1"

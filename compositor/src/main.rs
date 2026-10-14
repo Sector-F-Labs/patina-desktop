@@ -5,6 +5,7 @@
 mod grabs;
 mod nested;
 mod state;
+mod toplevels;
 
 use std::process::{Command, ExitCode, Stdio};
 
@@ -84,6 +85,7 @@ fn run(commands: &[String]) -> Result<(), String> {
 
     event_loop
         .run(None, &mut state, |state| {
+            toplevels::refresh(state);
             nested::render(state);
             if let Err(e) = state.display_handle.flush_clients() {
                 eprintln!("patina-compositor: {e}");

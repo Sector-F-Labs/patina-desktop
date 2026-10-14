@@ -38,15 +38,17 @@ height = 41                 # as tall as a Patina title bar
 skin = "Default"            # a Patina skin, or one in ~/.config/patina-bar/skins
 tags = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 hide_vacant_tags = false
-left = ["launcher", "tags", "layout"]
+left = ["launcher", "windows", "tags", "layout"]
 center = ["title"]
 right = ["load", "clock"]
 clock = "%a %-d %b  %H:%M"  # strftime, as in date(1)
 launcher = "patina-launcher"  # what the Sector F button runs, through sh(1)
 ```
 
-The modules are `launcher` (the Sector F flask, which runs `launcher` when clicked), `tags`,
-`layout`, `title`, `appid`, `clock` and `load`. `tags` and `layout` come
+The modules are `launcher` (the Sector F flask, which runs `launcher` when clicked), `windows`
+(the open windows as Patina tabs: a click brings one forward, its cross closes it), `tags`,
+`layout`, `title`, `appid`, `clock` and `load`. `windows` needs a compositor with
+wlr-foreign-toplevel-management, such as patina-compositor or sway. `tags` and `layout` come
 from dwl and show nothing elsewhere. Unknown keys and modules are reported on stderr and skipped.
 A broken file falls back to the defaults.
 

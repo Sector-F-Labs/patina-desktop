@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 /// The modules a side of the bar can hold.
 pub const MODULES: &[&str] = &[
-    "launcher", "tags", "layout", "title", "appid", "clock", "load",
+    "launcher", "windows", "tags", "layout", "title", "appid", "clock", "load",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -50,7 +50,12 @@ impl Default for Config {
             skin: patina::skin::DEFAULT_SKIN.to_string(),
             tags: (1..=9).map(|n| n.to_string()).collect(),
             hide_vacant_tags: false,
-            left: vec!["launcher".into(), "tags".into(), "layout".into()],
+            left: vec![
+                "launcher".into(),
+                "windows".into(),
+                "tags".into(),
+                "layout".into(),
+            ],
             center: vec!["title".into()],
             right: vec!["load".into(), "clock".into()],
             clock: "%a %-d %b  %H:%M".into(),

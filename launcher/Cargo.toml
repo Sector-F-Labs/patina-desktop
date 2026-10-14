@@ -13,6 +13,6 @@ freedesktop-icons = "0.4"
 image = { version = "0.25", default-features = false, features = ["png"] }
 libc = "0.2"
 patina-shell = { path = "../shell" }
-patina-ui = "0.1.7"
+patina-ui = { workspace = true }
 resvg = { version = "0.48.1", default-features = false }
 smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop"] }

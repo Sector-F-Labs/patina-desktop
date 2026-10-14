@@ -1,6 +1,7 @@
 //! The bar: dwl's status laid out in modules, left, centre and right, as
 //! waybar does, in the colours of the active Patina skin.
 
+use std::cell::RefCell;
 use std::fmt::Write as _;
 
 use egui::{Align, Color32, Layout, Rect, Sense, Stroke, Ui, UiBuilder, vec2};
@@ -8,7 +9,8 @@ use patina::skin::{self, Skin};
 
 use crate::config::{Config, Position};
 use crate::dwl::{Monitor, Status};
-use patina_shell::Shell;
+use patina::tabs::{TabAction, TabStrip};
+use patina_shell::{Shell, Toplevel, ToplevelRequest};
 
 /// Space between modules, and at the bar's ends.
 const GAP: f32 = 12.0;
@@ -17,6 +19,10 @@ pub struct Bar {
     pub config: Config,
     pub status: Status,
     skin: Skin,
+    /// The open windows, from the compositor, in the order they opened.
+    toplevels: Vec<Toplevel>,
+    /// Clicks on the window tabs, for the host to pass on.
+    requests: RefCell<Vec<ToplevelRequest>>,
 }
 
 impl Bar {
@@ -48,6 +54,8 @@ impl Bar {
                 config,
                 status: Status::default(),
                 skin,
+                toplevels: Vec::new(),
+                requests: RefCell::new(Vec::new()),
             },
             warnings,
         )
@@ -76,6 +84,7 @@ impl Bar {
             "layout" => {
                 ui.label(&m.layout);
             }
+            "windows" => self.windows(ui),
             "title" => {
                 ui.add(egui::Label::new(&m.title).truncate());
             }
@@ -184,7 +193,71 @@ impl Bar {
     }
 }
 
+impl Bar {
+    /// The open windows as Patina tabs, the active one shown: a click
+    /// activates a window, its cross or a middle click closes it.
+    fn windows(&self, ui: &mut Ui) {
+        if self.toplevels.is_empty() {
+            return;
+        }
+        let titles: Vec<&str> = self
+            .toplevels
+            .iter()
+            .map(|t| {
+                if t.title.is_empty() {
+                    &t.app_id
+                } else {
+                    &t.title
+                }
+            })
+            .map(String::as_str)
+            .collect();
+        let shown = self
+            .toplevels
+            .iter()
+            .position(|t| t.activated)
+            .unwrap_or(usize::MAX);
+        // The bar is the tabs' "title bar", so the shown tab is set off
+        // from it the way TabStrip sets tabs off a panel-coloured bar.
+        let mut style = self.skin.frame_style(ui.visuals());
+        style.title_bar = ui.visuals().panel_fill;
+        let span = ui.max_rect().y_range();
+        // TabStrip zeroes the item spacing; keep that from the next module.
+        let action = ui
+            .scope(|ui| {
+                TabStrip::new(&titles, shown, &style)
+                    .id_salt("windows")
+                    .new_tab(false)
+                    .noun("Window")
+                    .span(span)
+                    .show(ui)
+            })
+            .inner;
+        let request = match action {
+            Some(TabAction::Show(i)) => self
+                .toplevels
+                .get(i)
+                .map(|t| ToplevelRequest::Activate(t.id)),
+            Some(TabAction::Close(i)) => {
+                self.toplevels.get(i).map(|t| ToplevelRequest::Close(t.id))
+            }
+            _ => None,
+        };
+        if let Some(request) = request {
+            self.requests.borrow_mut().push(request);
+        }
+    }
+}
+
 impl Shell for Bar {
+    fn toplevels_changed(&mut self, toplevels: &[Toplevel]) {
+        self.toplevels = toplevels.to_vec();
+    }
+
+    fn take_toplevel_requests(&mut self) -> Vec<ToplevelRequest> {
+        std::mem::take(self.requests.get_mut())
+    }
+
     fn setup(&mut self, ctx: &egui::Context) {
         self.skin.apply(ctx);
         if self.skin.follows_desktop() {
@@ -297,6 +370,8 @@ mod tests {
             config,
             status: Status::default(),
             skin: Skin::default_skin(),
+            toplevels: Vec::new(),
+            requests: RefCell::new(Vec::new()),
         }
     }
 
@@ -363,6 +438,67 @@ mod tests {
         let mut b = bar("");
         feed(&mut b, &["X title hello", "X selmon 1"]);
         assert!(texts(&mut b, "Y").iter().any(|(s, _)| s == "hello"));
+    }
+
+    fn window(id: u64, title: &str, activated: bool) -> Toplevel {
+        Toplevel {
+            id,
+            title: title.into(),
+            app_id: format!("app{id}"),
+            activated,
+        }
+    }
+
+    /// Runs frames of the bar at `time` steps, so clicks don't merge.
+    fn frame(bar: &mut Bar, ctx: &egui::Context, time: &mut f64, events: Vec<egui::Event>) {
+        *time += 0.05;
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(egui::Pos2::ZERO, vec2(1000.0, 41.0))),
+            time: Some(*time),
+            events,
+            ..Default::default()
+        };
+        let _ = ctx.run_ui(input, |ui| bar.ui(ui, "A"));
+    }
+
+    #[test]
+    fn open_windows_are_tabs_and_a_click_activates_one() {
+        let mut b = bar("center = []\nright = []");
+        b.toplevels_changed(&[window(7, "notes", false), window(9, "", true)]);
+        let words: Vec<String> = texts(&mut b, "A").into_iter().map(|(s, _)| s).collect();
+        assert!(words.contains(&"notes".to_string()), "{words:?}");
+        assert!(
+            words.contains(&"app9".to_string()),
+            "an untitled window shows its app id"
+        );
+
+        let ctx = egui::Context::default();
+        b.setup(&ctx);
+        let mut time = 0.0;
+        frame(&mut b, &ctx, &mut time, vec![]);
+        let tab = ctx
+            .read_response(egui::Id::new("windows").with(("tab", 0usize)))
+            .expect("the first window has a tab")
+            .rect;
+        // Away from its close cross, which shows at the right end on hover.
+        let at = tab.left_center() + vec2(12.0, 0.0);
+        let button = |pressed| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Default::default(),
+        };
+        frame(&mut b, &ctx, &mut time, vec![egui::Event::PointerMoved(at)]);
+        frame(&mut b, &ctx, &mut time, vec![button(true)]);
+        frame(&mut b, &ctx, &mut time, vec![button(false)]);
+        assert_eq!(b.take_toplevel_requests(), [ToplevelRequest::Activate(7)]);
+        assert!(b.take_toplevel_requests().is_empty(), "taken once");
+    }
+
+    #[test]
+    fn no_windows_no_tabs() {
+        let mut b = bar("left = [\"windows\"]\ncenter = []\nright = []");
+        assert!(texts(&mut b, "A").is_empty());
     }
 
     #[test]

@@ -6,6 +6,9 @@ bar's Sector F button opens (ADR-0010), and `shell/` (patina-shell) is the layer
 software painter they share (ADR-0011). The compositor puts its own folder first on its
 clients' PATH, so the bar and launcher are found beside it.
 
+Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there, push
+`develop`, then `cargo update -p patina-ui` here. Never publish Patina without asking.
+
 ## Commands
 
 - `make` lists targets; `make check` (workspace tests + clippy -D warnings) before committing.
@@ -30,6 +33,8 @@ clients' PATH, so the bar and launcher are found beside it.
 - `launcher/src/apps.rs`: .desktop entries, search, launch; `icons.rs`: theme lookup and
   decoding on a thread; `ui.rs`: the surface. A second run closes the open one over a socket in
   XDG_RUNTIME_DIR. The bar passes its skin in `PATINA_SKIN`.
+- `compositor/src/toplevels.rs` and `shell/src/toplevels.rs`: wlr-foreign-toplevel-management,
+  server and client, for the bar's `windows` tabs (ADR-0012).
 - `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`.
 
 ## Gotchas

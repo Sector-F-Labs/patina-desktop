@@ -60,6 +60,7 @@ use smithay::{
 
 use crate::grabs::{self, MoveGrab, ResizeGrab};
 use crate::nested::Nested;
+use crate::toplevels::ForeignToplevels;
 
 /// Where the first window goes, inside the free area, and how far each
 /// next one steps down and right.
@@ -90,6 +91,8 @@ pub struct State {
 
     /// The window on the parent desktop that this compositor draws into.
     pub nested: Nested,
+    /// What the bar's window list has been told.
+    pub toplevels: ForeignToplevels,
 }
 
 impl State {
@@ -156,6 +159,7 @@ impl State {
             seat_state,
             data_device_state: DataDeviceState::new::<Self>(&dh),
             seat,
+            toplevels: ForeignToplevels::new(&dh),
             display_handle: dh,
             nested,
         })
@@ -302,6 +306,22 @@ impl State {
     fn focus_top_window(&mut self) {
         let top = self.space.elements().next_back().cloned();
         self.focus(top, SERIAL_COUNTER.next_serial());
+    }
+
+    /// Focuses and raises the window of `surface`, as a click on its tab in
+    /// the bar does.
+    pub fn activate_toplevel(&mut self, surface: &WlSurface) {
+        if let Some(window) = self.window_for(surface) {
+            self.focus(Some(window), SERIAL_COUNTER.next_serial());
+        }
+    }
+
+    /// Asks the window of `surface` to close, as its own close button
+    /// would.
+    pub fn close_toplevel(&mut self, surface: &WlSurface) {
+        if let Some(toplevel) = self.window_for(surface).and_then(|w| w.toplevel().cloned()) {
+            toplevel.send_close();
+        }
     }
 
     /// Gives the keyboard to a layer surface (a launcher), leaving every
