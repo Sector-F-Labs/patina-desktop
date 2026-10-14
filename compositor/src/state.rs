@@ -58,7 +58,7 @@ use smithay::{
     },
 };
 
-use crate::grabs::{self, MoveGrab, ResizeGrab};
+use crate::grabs::{self, ResizeGrab};
 use crate::nested::Nested;
 use crate::toplevels::ForeignToplevels;
 
@@ -152,7 +152,12 @@ impl State {
             needs_redraw: true,
             placed: 0,
             compositor_state: CompositorState::new::<Self>(&dh),
-            xdg_shell_state: XdgShellState::new::<Self>(&dh),
+            // Only what the compositor does, so clients hide the rest of
+            // their window buttons.
+            xdg_shell_state: XdgShellState::new_with_capabilities::<Self>(
+                &dh,
+                [xdg_toplevel::WmCapabilities::Maximize],
+            ),
             layer_shell_state: WlrLayerShellState::new::<Self>(&dh),
             shm_state: ShmState::new::<Self>(&dh, vec![]),
             _output_manager_state: OutputManagerState::new_with_xdg_output::<Self>(&dh),
@@ -233,23 +238,14 @@ impl State {
                 .is_some_and(|k| k.modifier_state().logo);
             if logo
                 && button == grabs::BTN_LEFT
-                && let Some((window, location)) = under
+                && let Some((window, _)) = under
             {
                 let start = GrabStartData {
                     focus: None,
                     button,
                     location: pointer.current_location(),
                 };
-                pointer.set_grab(
-                    self,
-                    MoveGrab {
-                        start,
-                        window,
-                        initial: location,
-                    },
-                    serial,
-                    Focus::Clear,
-                );
+                self.start_move(window, start, pointer, serial);
                 return;
             }
         }
@@ -382,7 +378,7 @@ impl State {
         Some((start, window, pointer))
     }
 
-    fn window_for(&self, surface: &WlSurface) -> Option<Window> {
+    pub fn window_for(&self, surface: &WlSurface) -> Option<Window> {
         self.space
             .elements()
             .find(|w| w.toplevel().is_some_and(|t| t.wl_surface() == surface))
@@ -485,6 +481,7 @@ impl CompositorHandler for State {
                 .layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
                 .cloned();
             drop(map);
+            self.relayout_maximized();
             if let Some(layer) = layer {
                 if !sent {
                     layer.layer_surface().send_configure();
@@ -560,19 +557,19 @@ impl XdgShellHandler for State {
         let Some((start, window, pointer)) = self.client_grab(&surface, &seat, serial) else {
             return;
         };
-        let Some(initial) = self.space.element_location(&window) else {
-            return;
-        };
-        pointer.set_grab(
-            self,
-            MoveGrab {
-                start,
-                window,
-                initial,
-            },
-            serial,
-            Focus::Clear,
-        );
+        self.start_move(window, start, pointer, serial);
+    }
+
+    fn maximize_request(&mut self, surface: ToplevelSurface) {
+        if let Some(window) = self.window_for(surface.wl_surface()) {
+            self.maximize(&window);
+        }
+    }
+
+    fn unmaximize_request(&mut self, surface: ToplevelSurface) {
+        if let Some(window) = self.window_for(surface.wl_surface()) {
+            self.unmaximize(&window, None);
+        }
     }
 
     fn resize_request(
@@ -624,6 +621,7 @@ impl WlrLayerShellHandler for State {
             map.unmap_layer(layer);
         }
         drop(map);
+        self.relayout_maximized();
         // Its client may be gone already, taking the focus with it, so
         // also refocus when the keyboard is on nothing or a dead surface.
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");

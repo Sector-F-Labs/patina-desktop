@@ -7,7 +7,6 @@
 //! what changed.
 
 use smithay::{
-    desktop::Window,
     reexports::{
         wayland_protocols_wlr::foreign_toplevel::v1::server::{
             zwlr_foreign_toplevel_handle_v1::{self, ZwlrForeignToplevelHandleV1},
@@ -21,6 +20,7 @@ use smithay::{
     wayland::{compositor::with_states, shell::xdg::XdgToplevelSurfaceData},
 };
 
+use crate::maximize::is_maximized;
 use crate::state::State;
 
 const VERSION: u32 = 3;
@@ -39,6 +39,7 @@ struct Entry {
     title: String,
     app_id: String,
     activated: bool,
+    maximized: bool,
 }
 
 /// A handle's link back to its window.
@@ -74,17 +75,21 @@ fn describe(surface: &WlSurface) -> (String, String) {
 fn send_all(handle: &ZwlrForeignToplevelHandleV1, entry: &Entry) {
     handle.title(entry.title.clone());
     handle.app_id(entry.app_id.clone());
-    send_state(handle, entry.activated);
+    send_state(handle, entry);
     handle.done();
 }
 
-fn send_state(handle: &ZwlrForeignToplevelHandleV1, activated: bool) {
-    let mut state = Vec::new();
-    if activated {
-        state.extend_from_slice(
-            &(zwlr_foreign_toplevel_handle_v1::State::Activated as u32).to_ne_bytes(),
-        );
-    }
+fn send_state(handle: &ZwlrForeignToplevelHandleV1, entry: &Entry) {
+    use zwlr_foreign_toplevel_handle_v1::State as S;
+    let flags = [
+        (entry.activated, S::Activated),
+        (entry.maximized, S::Maximized),
+    ];
+    let state: Vec<u8> = flags
+        .iter()
+        .filter(|(on, _)| *on)
+        .flat_map(|(_, s)| (*s as u32).to_ne_bytes())
+        .collect();
     handle.state(state);
 }
 
@@ -112,17 +117,16 @@ fn announce(dh: &DisplayHandle, manager: &ZwlrForeignToplevelManagerV1, entry: &
 /// the keyboard, which is the active window.
 pub fn refresh(state: &mut State) {
     let focused = state.seat.get_keyboard().and_then(|k| k.current_focus());
-    let windows: Vec<WlSurface> = state
+    let windows: Vec<(WlSurface, bool)> = state
         .space
         .elements()
-        .filter_map(Window::toplevel)
-        .map(|t| t.wl_surface().clone())
+        .filter_map(|w| Some((w.toplevel()?.wl_surface().clone(), is_maximized(w))))
         .collect();
     let dh = state.display_handle.clone();
     let this = &mut state.toplevels;
 
     this.entries.retain(|entry| {
-        let open = windows.contains(&entry.surface);
+        let open = windows.iter().any(|(s, _)| s == &entry.surface);
         if !open {
             for handle in &entry.handles {
                 handle.closed();
@@ -131,7 +135,7 @@ pub fn refresh(state: &mut State) {
         open
     });
 
-    for surface in windows {
+    for (surface, maximized) in windows {
         let (title, app_id) = describe(&surface);
         let activated = focused.as_ref() == Some(&surface);
         match this.entries.iter_mut().find(|e| e.surface == surface) {
@@ -142,6 +146,7 @@ pub fn refresh(state: &mut State) {
                     title,
                     app_id,
                     activated,
+                    maximized,
                 };
                 for manager in &this.managers {
                     announce(&dh, manager, &mut entry);
@@ -151,13 +156,14 @@ pub fn refresh(state: &mut State) {
             Some(entry) => {
                 let title_changed = entry.title != title;
                 let app_id_changed = entry.app_id != app_id;
-                let state_changed = entry.activated != activated;
+                let state_changed = entry.activated != activated || entry.maximized != maximized;
                 if !(title_changed || app_id_changed || state_changed) {
                     continue;
                 }
                 entry.title = title;
                 entry.app_id = app_id;
                 entry.activated = activated;
+                entry.maximized = maximized;
                 for handle in &entry.handles {
                     if title_changed {
                         handle.title(entry.title.clone());
@@ -166,7 +172,7 @@ pub fn refresh(state: &mut State) {
                         handle.app_id(entry.app_id.clone());
                     }
                     if state_changed {
-                        send_state(handle, entry.activated);
+                        send_state(handle, entry);
                     }
                     handle.done();
                 }
@@ -232,9 +238,19 @@ impl Dispatch<ZwlrForeignToplevelHandleV1, HandleData> for State {
         match request {
             Request::Activate { .. } => state.activate_toplevel(&data.surface),
             Request::Close => state.close_toplevel(&data.surface),
+            Request::SetMaximized => {
+                if let Some(window) = state.window_for(&data.surface) {
+                    state.maximize(&window);
+                }
+            }
+            Request::UnsetMaximized => {
+                if let Some(window) = state.window_for(&data.surface) {
+                    state.unmaximize(&window, None);
+                }
+            }
             Request::Destroy => forget(state, handle),
-            // Floating windows with no maximise, minimise or fullscreen
-            // yet, and no use for a taskbar's rectangle.
+            // No minimise or fullscreen yet, and no use for a taskbar's
+            // rectangle.
             _ => {}
         }
     }

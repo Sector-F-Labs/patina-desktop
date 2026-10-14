@@ -55,6 +55,7 @@ mechanics of adding one.
 | [0011](0011-shared-shell-crate.md) | Move the layer-shell host into patina-shell | Proposed |
 | [0012](0012-windows-through-foreign-toplevel.md) | The bar learns about windows through wlr-foreign-toplevel-management | Proposed |
 | [0013](0013-patina-from-develop.md) | Depend on Patina's develop branch | Accepted |
+| [0014](0014-maximise.md) | Maximise fills the work area, and dragging restores | Proposed |
 
 ## Decision Relationship
 
@@ -66,6 +67,7 @@ flowchart TD
     D --> E[0005: test on dwl in bsdt]
     D --> F[0006: own compositor on Smithay]
     F --> G[0007: floating first]
+    G --> N[0014: maximise]
     F --> H[0008: nested, pixman]
     C --> H
     F --> I[0009: one workspace]

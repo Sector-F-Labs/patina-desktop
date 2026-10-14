@@ -278,8 +278,10 @@ impl WindowHandler for State {
                 .change_current_state(Some(mode), None, None, None);
             self.output.set_preferred(mode);
             layer_map_for_output(&self.output).arrange();
+            n.configured = true;
+            self.relayout_maximized();
         }
-        n.configured = true;
+        self.nested.configured = true;
         self.needs_redraw = true;
     }
 }

@@ -54,7 +54,7 @@ A broken file falls back to the defaults.
 
 ## Not yet
 
-- Moving and resizing windows by their own frames, maximise and minimise.
+- Minimise and fullscreen.
 - Workspaces, and window titles in the bar under the compositor.
 - Running on real hardware (DRM/KMS) and HiDPI.
 

@@ -3,6 +3,7 @@
 //! starts patina-bar and a terminal inside it.
 
 mod grabs;
+mod maximize;
 mod nested;
 mod state;
 mod toplevels;
