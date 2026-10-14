@@ -19,11 +19,16 @@ use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 const USAGE: &str = "usage: patina-launcher
 
 Lists the installed apps, filters them as you type and starts the one you
-pick. Run it again while it's open to close it. The skin is the one named by
-PATINA_SKIN (as patina-bar sets), or Default.";
+pick. Run it again while it's open to close it. It opens at the left end of
+the bar, like a menu from the bar's button: the edge named by
+PATINA_BAR_EDGE (top or bottom, as patina-bar sets; bottom by default). The
+skin is the one named by PATINA_SKIN, or Default.";
 
 /// The launcher's size in points.
-const SIZE: (u32, u32) = (560, 460);
+const SIZE: (u32, u32) = (420, 500);
+/// Its distance from the bar and the screen's left edge, as a menu sits
+/// just off the button that opened it.
+const GAP: i32 = 4;
 
 enum Message {
     Icon(usize, egui::ColorImage),
@@ -97,9 +102,11 @@ fn run() -> Result<(), String> {
     let options = Options {
         namespace: "patina-launcher".into(),
         layer: Layer::Overlay,
-        anchor: Anchor::empty(),
+        anchor: bar_edge() | Anchor::LEFT,
         size: SIZE,
+        // 0 keeps it clear of the bar's reserved strip.
         exclusive_zone: 0,
+        margin: (GAP, 0, GAP, GAP),
         keyboard: KeyboardInteractivity::Exclusive,
         per_output: false,
     };
@@ -118,6 +125,14 @@ fn run() -> Result<(), String> {
     let result = host.run(event_loop);
     let _ = std::fs::remove_file(&socket);
     result
+}
+
+/// The bar's edge, from `PATINA_BAR_EDGE`, which the launcher opens from.
+fn bar_edge() -> Anchor {
+    match std::env::var("PATINA_BAR_EDGE").as_deref() {
+        Ok("top") => Anchor::TOP,
+        _ => Anchor::BOTTOM,
+    }
 }
 
 /// One socket per Wayland display, in the runtime directory.

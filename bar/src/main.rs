@@ -74,6 +74,7 @@ fn main() -> ExitCode {
         anchor: edge | Anchor::LEFT | Anchor::RIGHT,
         size: (0, height),
         exclusive_zone: height as i32,
+        margin: (0, 0, 0, 0),
         keyboard: KeyboardInteractivity::None,
         per_output: true,
     };

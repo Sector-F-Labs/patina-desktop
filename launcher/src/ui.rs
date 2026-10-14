@@ -184,7 +184,7 @@ impl Shell for Launcher {
         let v = ui.visuals().clone();
         ui.painter().rect(
             rect,
-            patina::frame::WINDOW_RADIUS,
+            v.menu_corner_radius,
             v.panel_fill,
             v.window_stroke,
             StrokeKind::Inside,

@@ -14,8 +14,8 @@ const LOGO: &str = include_str!("../assets/sector-f.svg");
 const PADDING: f32 = 8.0;
 
 /// Draws the button; runs `command` when it's clicked, telling it the bar's
-/// skin so the launcher matches.
-pub fn button(ui: &mut Ui, command: &str, skin: &str) {
+/// skin and edge, so the launcher matches and opens from the bar.
+pub fn button(ui: &mut Ui, command: &str, skin: &str, edge: &str) {
     let side = ui.available_height();
     let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
     let v = ui.visuals();
@@ -41,7 +41,7 @@ pub fn button(ui: &mut Ui, command: &str, skin: &str) {
         );
     }
     if response.clicked() {
-        run(command, skin);
+        run(command, skin, edge);
     }
 }
 
@@ -81,12 +81,13 @@ pub fn rasterise(pixels: u32) -> Option<ColorImage> {
 
 /// Runs `command` through sh(1), detached from the bar: no stdin, and a
 /// thread reaps it so it never lingers as a zombie. `PATINA_SKIN` names the
-/// bar's skin.
-fn run(command: &str, skin: &str) {
+/// bar's skin and `PATINA_BAR_EDGE` its edge, `top` or `bottom`.
+fn run(command: &str, skin: &str, edge: &str) {
     match Command::new("sh")
         .arg("-c")
         .arg(command)
         .env("PATINA_SKIN", skin)
+        .env("PATINA_BAR_EDGE", edge)
         .stdin(Stdio::null())
         .spawn()
     {

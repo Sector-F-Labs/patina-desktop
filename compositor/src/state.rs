@@ -214,8 +214,7 @@ impl State {
             .and_then(|(surface, _)| self.layer_for(&surface));
         if pressed && let Some(layer) = on_layer {
             if layer.can_receive_keyboard_focus() {
-                let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
-                keyboard.set_focus(self, Some(layer.wl_surface().clone()), serial);
+                self.focus_layer(&layer, serial);
             }
         } else if pressed && !pointer.is_grabbed() {
             let under = self
@@ -305,17 +304,31 @@ impl State {
         self.focus(top, SERIAL_COUNTER.next_serial());
     }
 
+    /// Gives the keyboard to a layer surface (a launcher), leaving every
+    /// window looking inactive while it has it.
+    fn focus_layer(&mut self, layer: &LayerSurface, serial: Serial) {
+        self.activate(None);
+        let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
+        keyboard.set_focus(self, Some(layer.wl_surface().clone()), serial);
+        self.needs_redraw = true;
+    }
+
+    /// Marks `window` as the active one, and every other as inactive.
+    fn activate(&self, window: Option<&Window>) {
+        for w in self.space.elements() {
+            w.set_activated(Some(w) == window);
+            if let Some(t) = w.toplevel() {
+                t.send_pending_configure();
+            }
+        }
+    }
+
     fn focus(&mut self, window: Option<Window>, serial: Serial) {
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
         if let Some(window) = &window {
             self.space.raise_element(window, true);
         }
-        for w in self.space.elements() {
-            w.set_activated(Some(w) == window.as_ref());
-            if let Some(t) = w.toplevel() {
-                t.send_pending_configure();
-            }
-        }
+        self.activate(window.as_ref());
         let surface = window.and_then(|w| w.toplevel().map(|t| t.wl_surface().clone()));
         keyboard.set_focus(self, surface, serial);
         self.needs_redraw = true;
@@ -462,11 +475,7 @@ impl CompositorHandler for State {
                     // them once it's configured.
                     let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
                     if keyboard.current_focus().as_ref() != Some(layer.wl_surface()) {
-                        keyboard.set_focus(
-                            self,
-                            Some(layer.wl_surface().clone()),
-                            SERIAL_COUNTER.next_serial(),
-                        );
+                        self.focus_layer(&layer, SERIAL_COUNTER.next_serial());
                     }
                 }
             }
