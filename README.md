@@ -33,13 +33,15 @@ height = 26
 skin = "Default"            # a Patina skin, or one in ~/.config/patina-bar/skins
 tags = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 hide_vacant_tags = false
-left = ["tags", "layout"]
+left = ["launcher", "tags", "layout"]
 center = ["title"]
 right = ["load", "clock"]
 clock = "%a %-d %b  %H:%M"  # strftime, as in date(1)
+launcher = "wofi --show drun"  # what the Sector F button runs, through sh(1)
 ```
 
-The modules are `tags`, `layout`, `title`, `appid`, `clock` and `load`. `tags` and `layout` come
+The modules are `launcher` (the Sector F flask, which runs `launcher` when clicked), `tags`,
+`layout`, `title`, `appid`, `clock` and `load`. `tags` and `layout` come
 from dwl and show nothing elsewhere. Unknown keys and modules are reported on stderr and skipped.
 A broken file falls back to the defaults.
 

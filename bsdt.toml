@@ -25,7 +25,7 @@ gui = true           # a desktop in a window; see [gui] in bsdt(1)
 # foot and wmenu are dwl's default terminal and launcher; grim takes
 # screenshots of the desktop for checking the bar.
 # libxkbcommon, pixman and pkgconf are for building the compositor.
-install = ["git", "rust", "pkgconf", "libxkbcommon", "pixman", "dwl", "foot", "wmenu", "grim", "fastfetch"]
+install = ["git", "rust", "pkgconf", "libxkbcommon", "pixman", "dwl", "foot", "wmenu", "wofi", "grim", "fastfetch"]
 
 [sync]
 # dest = "/home/bsdt/<project directory>"

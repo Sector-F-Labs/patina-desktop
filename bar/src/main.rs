@@ -7,6 +7,7 @@ mod bar;
 mod config;
 mod dwl;
 mod host;
+mod launcher;
 mod raster;
 
 use std::io::{BufRead, BufReader};

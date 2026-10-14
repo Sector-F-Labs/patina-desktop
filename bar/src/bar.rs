@@ -82,6 +82,7 @@ impl Bar {
             "appid" => {
                 ui.label(&m.appid);
             }
+            "launcher" => crate::launcher::button(ui, &self.config.launcher),
             "clock" => {
                 ui.label(clock(&self.config.clock));
             }

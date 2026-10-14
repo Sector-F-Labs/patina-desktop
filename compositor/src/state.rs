@@ -45,8 +45,8 @@ use smithay::{
         },
         shell::{
             wlr_layer::{
-                Layer, LayerSurface as WlrLayerSurface, LayerSurfaceData, WlrLayerShellHandler,
-                WlrLayerShellState,
+                KeyboardInteractivity, Layer, LayerSurface as WlrLayerSurface, LayerSurfaceData,
+                WlrLayerShellHandler, WlrLayerShellState,
             },
             xdg::{
                 PopupSurface, PositionerState, ToplevelSurface, XdgShellHandler, XdgShellState,
@@ -207,7 +207,17 @@ impl State {
     pub fn pointer_button(&mut self, button: u32, pressed: bool, time: u32) {
         let pointer = self.seat.get_pointer().expect("seat has a pointer");
         let serial = SERIAL_COUNTER.next_serial();
-        if pressed && !pointer.is_grabbed() {
+        // A click on a layer surface (the bar, a launcher) focuses it only
+        // if it takes the keyboard, and leaves the windows' focus alone.
+        let on_layer = self
+            .surface_under(pointer.current_location())
+            .and_then(|(surface, _)| self.layer_for(&surface));
+        if pressed && let Some(layer) = on_layer {
+            if layer.can_receive_keyboard_focus() {
+                let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
+                keyboard.set_focus(self, Some(layer.wl_surface().clone()), serial);
+            }
+        } else if pressed && !pointer.is_grabbed() {
             let under = self
                 .space
                 .element_under(pointer.current_location())
@@ -282,6 +292,19 @@ impl State {
     }
 
     /// Gives `window` the keyboard and raises it; `None` clears focus.
+    fn layer_for(&self, surface: &WlSurface) -> Option<LayerSurface> {
+        layer_map_for_output(&self.output)
+            .layer_for_surface(surface, WindowSurfaceType::ALL)
+            .cloned()
+    }
+
+    /// Gives the keyboard back to the window on top, as when a launcher
+    /// that had it closes.
+    fn focus_top_window(&mut self) {
+        let top = self.space.elements().next_back().cloned();
+        self.focus(top, SERIAL_COUNTER.next_serial());
+    }
+
     fn focus(&mut self, window: Option<Window>, serial: Serial) {
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
         if let Some(window) = &window {
@@ -425,10 +448,27 @@ impl CompositorHandler for State {
                     .is_some_and(|d| d.lock().is_ok_and(|d| d.initial_configure_sent))
             });
             map.arrange();
-            if !sent
-                && let Some(layer) = map.layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
-            {
-                layer.layer_surface().send_configure();
+            let layer = map
+                .layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
+                .cloned();
+            drop(map);
+            if let Some(layer) = layer {
+                if !sent {
+                    layer.layer_surface().send_configure();
+                } else if layer.cached_state().keyboard_interactivity
+                    == KeyboardInteractivity::Exclusive
+                {
+                    // A launcher or lock screen asking for every key gets
+                    // them once it's configured.
+                    let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
+                    if keyboard.current_focus().as_ref() != Some(layer.wl_surface()) {
+                        keyboard.set_focus(
+                            self,
+                            Some(layer.wl_surface().clone()),
+                            SERIAL_COUNTER.next_serial(),
+                        );
+                    }
+                }
             }
         }
     }
@@ -463,9 +503,7 @@ impl XdgShellHandler for State {
     }
 
     fn toplevel_destroyed(&mut self, _: ToplevelSurface) {
-        // Focus the window now on top, if any.
-        let top = self.space.elements().next_back().cloned();
-        self.focus(top, SERIAL_COUNTER.next_serial());
+        self.focus_top_window();
     }
 
     fn new_popup(&mut self, surface: PopupSurface, _: PositionerState) {
@@ -553,8 +591,13 @@ impl WlrLayerShellHandler for State {
             .layers()
             .find(|l| l.layer_surface() == &surface)
             .cloned();
-        if let Some(layer) = layer {
-            map.unmap_layer(&layer);
+        if let Some(layer) = &layer {
+            map.unmap_layer(layer);
+        }
+        drop(map);
+        let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
+        if keyboard.current_focus().as_ref() == Some(surface.wl_surface()) {
+            self.focus_top_window();
         }
         self.needs_redraw = true;
     }

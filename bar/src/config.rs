@@ -8,7 +8,9 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 /// The modules a side of the bar can hold.
-pub const MODULES: &[&str] = &["tags", "layout", "title", "appid", "clock", "load"];
+pub const MODULES: &[&str] = &[
+    "launcher", "tags", "layout", "title", "appid", "clock", "load",
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -34,6 +36,8 @@ pub struct Config {
     pub right: Vec<String>,
     /// A strftime format, as in date(1).
     pub clock: String,
+    /// What the launcher button runs, through sh(1).
+    pub launcher: String,
 }
 
 impl Default for Config {
@@ -44,10 +48,11 @@ impl Default for Config {
             skin: patina::skin::DEFAULT_SKIN.to_string(),
             tags: (1..=9).map(|n| n.to_string()).collect(),
             hide_vacant_tags: false,
-            left: vec!["tags".into(), "layout".into()],
+            left: vec!["launcher".into(), "tags".into(), "layout".into()],
             center: vec!["title".into()],
             right: vec!["load".into(), "clock".into()],
             clock: "%a %-d %b  %H:%M".into(),
+            launcher: "wofi --show drun".into(),
         }
     }
 }
