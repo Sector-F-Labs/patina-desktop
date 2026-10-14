@@ -65,6 +65,12 @@ impl Bar {
     }
 
     fn module(&self, ui: &mut Ui, name: &str, m: &Monitor) {
+        // Tags and the layout are dwl's; with nothing reporting them, as
+        // under patina-compositor, they would only be nine dead buttons.
+        let from_dwl = matches!(name, "tags" | "layout");
+        if from_dwl && self.status.monitors.is_empty() {
+            return;
+        }
         match name {
             "tags" => self.tags(ui, m),
             "layout" => {
@@ -350,6 +356,13 @@ mod tests {
         let mut b = bar("");
         feed(&mut b, &["X title hello", "X selmon 1"]);
         assert!(texts(&mut b, "Y").iter().any(|(s, _)| s == "hello"));
+    }
+
+    #[test]
+    fn no_tags_without_dwl() {
+        let mut b = bar("right = []");
+        let t = texts(&mut b, "A");
+        assert!(t.iter().all(|(s, _)| s.is_empty()), "{t:?}");
     }
 
     #[test]

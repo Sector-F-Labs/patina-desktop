@@ -1,11 +1,12 @@
 # bsdt environment; see bsdt(1).
 #
-# A FreeBSD VM running dwl from packages, with patina-bar as dwl's status
-# command: dwl -s pipes its status lines into the bar's stdin.
+# A FreeBSD VM whose desktop is dwl from packages, used only as somewhere
+# for patina-compositor's window to open. The compositor fills the screen
+# (dwl tiles its only window) and runs patina-bar and foot inside it.
 #
-#   bsdt up                         # create, build the bar, start dwl
-#   bsdt gui                        # open the desktop in a VNC viewer
-#   bsdt exec cargo build --release && bsdt gui --restart
+#   make vm            # create, build, start dwl and the compositor
+#   make vm-gui        # open the desktop in a VNC viewer
+#   make vm-restart    # rebuild and restart after changes
 
 [vm]
 os = "freebsd"
@@ -23,7 +24,8 @@ gui = true           # a desktop in a window; see [gui] in bsdt(1)
 [packages]
 # foot and wmenu are dwl's default terminal and launcher; grim takes
 # screenshots of the desktop for checking the bar.
-install = ["git", "rust", "dwl", "foot", "wmenu", "grim", "fastfetch"]
+# libxkbcommon, pixman and pkgconf are for building the compositor.
+install = ["git", "rust", "pkgconf", "libxkbcommon", "pixman", "dwl", "foot", "wmenu", "grim", "fastfetch"]
 
 [sync]
 # dest = "/home/bsdt/<project directory>"
@@ -34,5 +36,6 @@ run = ["cargo build --release"]
 
 [gui]
 desktop = "wayland"
-session = "dwl -s 'exec patina-bar/target/release/patina-bar'"
+session = "dwl"
+start = "exec target/release/patina-compositor"
 open = false

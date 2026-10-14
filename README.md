@@ -1,24 +1,29 @@
-# patina-bar
+# Patina desktop: patina-compositor and patina-bar
 
-A status bar for [dwl](https://codeberg.org/dwl/dwl), in the style of
-[Patina](https://github.com/Sector-F-Labs/patina): egui on a wlr-layer-shell surface, skinned
-with the same skins as the Patina apps. It is the first piece of a Patina desktop.
+The first pieces of a desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
 
-![patina-bar on dwl](docs/screenshot.png)
+- **patina-compositor** (`compositor/`): a floating Wayland compositor built on
+  [Smithay](https://github.com/Smithay/smithay). For now it runs as a window on another desktop,
+  drawn in software, and starts patina-bar and a terminal inside it.
+- **patina-bar** (`bar/`): a status bar in egui on a wlr-layer-shell surface, skinned with the
+  same skins as the Patina apps. It runs on any layer-shell compositor, including dwl, where it
+  also shows dwl's tags.
+
+![patina-compositor running foot and patina-bar](docs/screenshot.png)
 
 ## Running
 
-Make it dwl's status command, so it reads dwl's status from stdin:
-
 ```sh
-dwl -s patina-bar
+make run                          # the compositor in a window, with the bar and foot
+patina-compositor foot firefox    # or say which clients to start besides the bar
+dwl -s patina-bar                 # the bar alone, on dwl, with dwl's tags
 ```
 
-It puts a bar on every output, showing that output's tags, layout and focused window. Tags are
-dwm-style: the viewed ones are in the selection colour, a hollow square marks an occupied tag
-and a filled one the focused window's, and urgent ones are in the error colour.
+The compositor needs a Wayland desktop to open its window on. On GNOME the window has no title
+bar; move it with Super+drag. Windows inside it float and cascade, and a click focuses and raises
+one.
 
-## Config
+## The bar's config
 
 `~/.config/patina-bar/config.toml`, or `patina-bar -c <file>`. Every key is optional:
 
@@ -34,14 +39,15 @@ right = ["load", "clock"]
 clock = "%a %-d %b  %H:%M"  # strftime, as in date(1)
 ```
 
-The modules are `tags`, `layout`, `title`, `appid`, `clock` and `load`. Unknown keys and modules
-are reported on stderr and skipped. A broken file falls back to the defaults.
+The modules are `tags`, `layout`, `title`, `appid`, `clock` and `load`. `tags` and `layout` come
+from dwl and show nothing elsewhere. Unknown keys and modules are reported on stderr and skipped.
+A broken file falls back to the defaults.
 
-## Limits
+## Not yet
 
-- Tags can't be clicked yet. dwl's status pipe is one-way (see
-  [ADR-0004](docs/adr/0004-dwl-status-from-stdin.md)).
-- It needs a compositor with wlr-layer-shell, so it won't run on GNOME.
+- Moving and resizing windows by their own frames, maximise and minimise.
+- Workspaces, and window titles in the bar under the compositor.
+- Running on real hardware (DRM/KMS) and HiDPI.
 
 ## Build
 
@@ -49,15 +55,16 @@ are reported on stderr and skipped. A broken file falls back to the defaults.
 
 | Target | |
 |---|---|
-| `make build` | Release binary |
+| `make run` | The compositor in a window on this desktop |
 | `make check` | Tests and clippy |
-| `make install` | Binary into `~/.local/bin` |
-| `make vm` | Boot the FreeBSD test VM: dwl with the bar ([bsdt](https://bsdt.divanv.com)) |
-| `make vm-restart` | Rebuild in the VM and restart dwl |
+| `make install` | Both binaries into `~/.local/bin` |
+| `make vm` | The FreeBSD test VM: the compositor in a window on dwl ([bsdt](https://bsdt.divanv.com)) |
+| `make vm-restart` | Rebuild in the VM and restart its desktop |
 | `make vm-gui` | Open the VM's desktop over VNC |
-| `make screenshot` | The VM's bar to `docs/screenshot.png` |
+| `make screenshot` | The VM's desktop to `docs/screenshot.png` |
 
-Design decisions are in [docs/adr](docs/adr/README.md).
+Building the compositor needs libxkbcommon, pixman and pkg-config. Design decisions are in
+[docs/adr](docs/adr/README.md).
 
 ## Licence
 
