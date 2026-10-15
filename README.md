@@ -17,6 +17,8 @@ The first pieces of a desktop in the style of [Patina](https://github.com/Sector
 - **patina-wifi** (`wifi/`): the Wi-Fi menu, opened by the bar's Wi-Fi icon: networks in range,
   joining (with a password box for new ones), disconnecting and Wi-Fi on and off, through
   NetworkManager.
+- **patina-lock** (`lock/`): the lock screen, in the bar's skin: the time, and a password box
+  checked through PAM. The compositor runs it on Ctrl+Super+Q, Super+Escape and before sleep.
 - **patina-shell** (`shell/`): what the bar and launcher share, a layer-shell host for egui
   drawn in software.
 

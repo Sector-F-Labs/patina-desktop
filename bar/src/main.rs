@@ -79,6 +79,7 @@ fn main() -> ExitCode {
         keyboard: KeyboardInteractivity::None,
         per_output: true,
         toplevels: true,
+        lock: false,
     };
     let (bar, skin_warnings) = bar::Bar::new(config);
     warnings.extend(skin_warnings);

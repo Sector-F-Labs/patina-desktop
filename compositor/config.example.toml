@@ -52,9 +52,10 @@
 
 [lock]
 # The lock screen: any locker that speaks ext-session-lock. Ctrl+Super+Q (as
-# Ctrl+Cmd+Q on a Mac) and Super+Escape run it, and so does going to sleep. Install swaylock for the default
-# (sudo apt install swaylock); "" for no lock screen.
-# command = "swaylock -f -c 1b1b1b"
+# Ctrl+Cmd+Q on a Mac) and Super+Escape run it, and so does going to sleep.
+# The default is Patina's own, in the bar's skin; "swaylock -f -c 1b1b1b"
+# also works; "" for no lock screen.
+# command = "patina-lock"
 
 # Lock before the machine sleeps (closing the lid, or a suspend), so the
 # desktop isn't shown on waking.

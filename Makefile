@@ -34,7 +34,7 @@ test: ## Run the tests
 check: test ## Run the tests and clippy, as before a commit or release
 	cargo clippy --workspace --all-targets -- -D warnings
 
-BINARIES := patina-bar patina-compositor patina-launcher patina-volume patina-wifi
+BINARIES := patina-bar patina-compositor patina-launcher patina-lock patina-volume patina-wifi
 
 install: build ## Install the binaries into $(PREFIX)/bin
 	install -d $(PREFIX)/bin
@@ -43,22 +43,23 @@ install: build ## Install the binaries into $(PREFIX)/bin
 uninstall: ## Remove the installed binaries
 	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES))
 
-# Login sessions are only read from the system folder, so this one file
-# needs root. The binaries stay per user; run these without sudo, or
-# PREFIX would be root's home.
+# Login sessions and PAM services are only read from system folders, so
+# these two files need root. The binaries stay per user; run these without
+# sudo, or PREFIX would be root's home.
 SESSION_DIR := /usr/share/wayland-sessions
+PAM_DIR := /etc/pam.d
 
-install-session: install ## Also add "Patina" to the login screen's sessions (asks for sudo)
+install-session: install ## Also add "Patina" to the login screen's sessions, and the lock screen's PAM service (asks for sudo)
 	@test "$$(id -u)" != 0 || { echo "Run make install-session without sudo; it asks for sudo itself."; exit 1; }
 	@mkdir -p target
 	sed 's|@BINDIR@|$(PREFIX)/bin|' packaging/linux/patina.desktop > target/patina.desktop
 	sudo install -D -m 644 target/patina.desktop $(SESSION_DIR)/patina.desktop
-	@echo "Installed $(SESSION_DIR)/patina.desktop. Running on the hardware isn't built yet,"
-	@echo "so choosing Patina at login returns to the login screen until it is."
+	sudo install -D -m 644 packaging/linux/patina-lock.pam $(PAM_DIR)/patina-lock
+	@echo "Installed $(SESSION_DIR)/patina.desktop and $(PAM_DIR)/patina-lock."
 
-uninstall-session: ## Remove "Patina" from the login screen's sessions (asks for sudo)
+uninstall-session: ## Remove "Patina" from the login screen's sessions, and the PAM service (asks for sudo)
 	@test "$$(id -u)" != 0 || { echo "Run make uninstall-session without sudo; it asks for sudo itself."; exit 1; }
-	sudo rm -f $(SESSION_DIR)/patina.desktop
+	sudo rm -f $(SESSION_DIR)/patina.desktop $(PAM_DIR)/patina-lock
 
 vm: ## Boot the FreeBSD test VM: the compositor in a window on dwl (bsdt up)
 	bsdt up

@@ -1,0 +1,6 @@
+#
+# PAM configuration for patina-lock, the Patina desktop's lock screen. It
+# checks your password as logging in does, as swaylock's does.
+#
+
+auth include login

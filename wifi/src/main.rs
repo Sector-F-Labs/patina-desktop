@@ -85,6 +85,7 @@ fn run() -> Result<(), String> {
         keyboard: KeyboardInteractivity::Exclusive,
         per_output: false,
         toplevels: false,
+        lock: false,
     };
     let (host, event_loop) = Host::connect(options, menu)?;
     event_loop

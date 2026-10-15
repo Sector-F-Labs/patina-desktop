@@ -1,4 +1,4 @@
-//! The lock screen (ADR-0025). Any ext-session-lock locker (swaylock by
+//! The lock screen (ADR-0025). Any ext-session-lock locker (patina-lock by
 //! default, from the `[lock]` config) locks the session: from then on only
 //! its surface is drawn and gets input, and the desktop stays hidden until
 //! it unlocks, even if it crashes (then a new locker can take over).

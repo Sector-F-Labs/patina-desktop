@@ -66,9 +66,10 @@ mechanics of adding one.
 | [0022](0022-wifi-menu.md) | A Wi-Fi menu in the tray, talking to NetworkManager over D-Bus | Accepted |
 | [0023](0023-half-screen-tiling-keys.md) | Super with the arrows or vim keys maximises, restores and tiles half-screen | Accepted |
 | [0024](0024-battery-indicator.md) | A battery indicator in the tray, read from sysfs | Accepted |
-| [0025](0025-lock-screen.md) | A lock screen through ext-session-lock, swaylock by default | Accepted; lock key superseded by [0026](0026-lock-with-ctrl-super-q.md) |
+| [0025](0025-lock-screen.md) | A lock screen through ext-session-lock, swaylock by default | Accepted; lock key superseded by [0026](0026-lock-with-ctrl-super-q.md), swaylock by [0028](0028-patina-lock.md) |
 | [0026](0026-lock-with-ctrl-super-q.md) | Lock with Ctrl+Super+Q, the Mac shortcut; Super+L tiles right again | Accepted |
 | [0027](0027-bar-tabs-are-the-window-list.md) | The bar's tabs are the one window list: Alt+Tab and closing follow them | Accepted |
+| [0028](0028-patina-lock.md) | Patina's own lock screen, patina-lock, replaces swaylock as the default | Accepted |
 
 ## Decision Relationship
 
@@ -103,6 +104,8 @@ flowchart TD
     K --> J[0010: launcher reads .desktop files]
     K --> L[0012: windows via foreign-toplevel]
     L --> AA[0027: bar tabs are the window list]
+    Y -->|swaylock superseded by| AB[0028: patina-lock]
+    K --> AB
     A --> M[0013: Patina from develop]
 ```
 

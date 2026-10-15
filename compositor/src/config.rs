@@ -99,7 +99,7 @@ pub struct Lock {
 impl Default for Lock {
     fn default() -> Self {
         Self {
-            command: "swaylock -f -c 1b1b1b".into(),
+            command: "patina-lock".into(),
             on_suspend: true,
         }
     }

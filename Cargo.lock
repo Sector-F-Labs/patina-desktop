@@ -1856,6 +1856,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-lock"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "egui",
+ "libc",
+ "patina-shell",
+ "patina-ui",
+]
+
+[[package]]
 name = "patina-shell"
 version = "0.1.0"
 dependencies = [

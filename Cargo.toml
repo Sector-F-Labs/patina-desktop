@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["bar", "compositor", "launcher", "shell", "volume", "wifi"]
+members = ["bar", "compositor", "launcher", "lock", "shell", "volume", "wifi"]
 
 # Patina's develop branch, so desktop work can use Patina changes before
 # they're released.
