@@ -211,12 +211,17 @@ impl Shell for DesktopMenu {
                 Frame::menu(ui.style()).show(ui, |ui| self.items(ui))
             });
         // Outside the menu and its submenu: on the transparent background.
-        let outside = ui.input(|i| {
-            i.pointer.any_pressed()
-                && i.pointer.interact_pos().is_some_and(|p| {
-                    ctx.layer_id_at(p)
-                        .is_none_or(|layer| layer.order == Order::Background)
-                })
+        // The layer is looked up after `input`, which holds the context's
+        // lock that `layer_id_at` takes too.
+        let pressed = ui.input(|i| {
+            i.pointer
+                .any_pressed()
+                .then(|| i.pointer.interact_pos())
+                .flatten()
+        });
+        let outside = pressed.is_some_and(|p| {
+            ctx.layer_id_at(p)
+                .is_none_or(|layer| layer.order == Order::Background)
         });
         if outside {
             self.done = true;
@@ -225,5 +230,50 @@ impl Shell for DesktopMenu {
 
     fn finished(&self) -> bool {
         self.done
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One frame of the menu on a 1600x1000 screen, with `events`.
+    fn frame(menu: &mut DesktopMenu, ctx: &egui::Context, events: Vec<egui::Event>) {
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                Pos2::ZERO,
+                egui::vec2(1600.0, 1000.0),
+            )),
+            focused: true,
+            events,
+            ..Default::default()
+        };
+        let _ = ctx.run_ui(input, |ui| menu.ui(ui, ""));
+    }
+
+    fn press(at: Pos2) -> Vec<egui::Event> {
+        vec![
+            egui::Event::PointerMoved(at),
+            egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed: true,
+                modifiers: Default::default(),
+            },
+        ]
+    }
+
+    /// A press used to look up the layer under it while holding egui's
+    /// lock, which hung the menu, and the desktop under it, on any click.
+    #[test]
+    fn a_press_on_the_menu_keeps_it_and_one_elsewhere_closes_it() {
+        let ctx = egui::Context::default();
+        let mut menu = DesktopMenu::new(egui::pos2(400.0, 300.0));
+        frame(&mut menu, &ctx, Vec::new());
+        // The "Skin" heading: on the menu, but nothing to do.
+        frame(&mut menu, &ctx, press(egui::pos2(415.0, 312.0)));
+        assert!(!menu.done);
+        frame(&mut menu, &ctx, press(egui::pos2(1200.0, 800.0)));
+        assert!(menu.done);
     }
 }
