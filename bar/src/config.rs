@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 /// The modules a side of the bar can hold.
 pub const MODULES: &[&str] = &[
-    "launcher", "windows", "tray", "tags", "layout", "title", "appid", "clock", "load",
+    "launcher", "windows", "tray", "tags", "layout", "title", "appid", "clock",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -61,7 +61,7 @@ impl Default for Config {
                 "layout".into(),
             ],
             center: vec!["title".into()],
-            right: vec!["tray".into(), "load".into(), "clock".into()],
+            right: vec!["tray".into(), "clock".into()],
             clock: "%a %-d %b  %H:%M".into(),
             launcher: "patina-launcher".into(),
             volume: "patina-volume".into(),

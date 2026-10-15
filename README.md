@@ -48,14 +48,14 @@ tags = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
 hide_vacant_tags = false
 left = ["launcher", "windows", "tags", "layout"]
 center = ["title"]
-right = ["tray", "load", "clock"]
+right = ["tray", "clock"]
 clock = "%a %-d %b  %H:%M"  # strftime, as in date(1)
 launcher = "patina-launcher"  # what the Sector F button runs, through sh(1)
 ```
 
 The modules are `launcher` (the Sector F flask, which runs `launcher` when clicked), `windows`
 (the open windows as Patina tabs: a click brings one forward, its cross closes it), `tags`,
-`layout`, `title`, `appid`, `clock`, `load` and `tray` (a Wi-Fi icon showing the signal, a
+`layout`, `title`, `appid`, `clock` and `tray` (a Wi-Fi icon showing the signal, a
 speaker showing the volume and, on laptops, the battery; clicks open the Wi-Fi and volume menus, run by
 `wifi = "patina-wifi"` and `volume = "patina-volume"`). `windows` needs a compositor with
 wlr-foreign-toplevel-management, such as patina-compositor or sway. `tags` and `layout` come

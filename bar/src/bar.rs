@@ -130,11 +130,6 @@ impl Bar {
             "clock" => {
                 ui.label(clock(&self.config.clock));
             }
-            "load" => {
-                if let Some(load) = load() {
-                    ui.label(format!("load {load:.2}"));
-                }
-            }
             _ => {}
         }
     }
@@ -378,14 +373,6 @@ fn clock(format: &str) -> String {
         Ok(()) => out,
         Err(_) => format!("bad clock format: {format}"),
     }
-}
-
-/// The one-minute load average.
-fn load() -> Option<f64> {
-    let mut avg = [0.0f64; 3];
-    // SAFETY: getloadavg writes at most `nelem` doubles into `avg`.
-    let n = unsafe { libc::getloadavg(avg.as_mut_ptr(), 3) };
-    (n >= 1).then_some(avg[0])
 }
 
 #[cfg(test)]

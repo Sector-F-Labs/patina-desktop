@@ -239,7 +239,7 @@ fn run(options: Options, bar: bar::Bar) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
 
-    // The clock and load change on their own; redraw on each second.
+    // The clock changes on its own; redraw on each second.
     handle
         .insert_source(Timer::from_duration(until_next_second()), |_, _, host| {
             host.redraw_all();
