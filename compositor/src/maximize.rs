@@ -422,6 +422,9 @@ impl State {
         let Some(initial) = self.space.element_location(&window) else {
             return;
         };
+        // The arrow while a window moves, as on macOS, whatever the title
+        // bar under it last asked for.
+        self.grab_cursor = Some(smithay::input::pointer::CursorIcon::Default);
         pointer.set_grab(
             self,
             MoveGrab {

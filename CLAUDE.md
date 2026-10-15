@@ -26,6 +26,10 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 - `compositor/src/state.rs`: server side: protocols, placement, focus, input into the seat.
 - `compositor/src/drag.rs`: three-finger drag (ADR-0031): libinput swipes hold BTN_LEFT, with a
   grace timer on `State::loop_handle` between strokes.
+- `compositor/src/cursor.rs`: Patina's cursors (ADR-0032), SVG shapes rendered per scale; served by
+  name through cursor-shape. `State::grab_cursor` overrides the client's during moves and resizes.
+  `cargo test -p patina-compositor cursor -- --ignored` with PATINA_CURSOR_PREVIEW=file.png draws
+  them all.
 - `compositor/src/winit.rs`: the window on the parent desktop with OpenGL ES (Smithay's winit
   backend) and linux-dmabuf (ADR-0015); tried first.
 - `compositor/src/nested.rs`: the fallback (no EGL, or `PATINA_RENDERER=pixman`): an sctk window,

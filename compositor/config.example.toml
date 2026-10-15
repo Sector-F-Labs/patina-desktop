@@ -41,8 +41,17 @@
 
 # Drag with three fingers, as macOS's accessibility setting has it: three
 # fingers moving hold the button down and move the pointer. Lift, and put
-# them back within half a second to carry on the drag.
+# them back within half a second to carry on the drag; moving on with one
+# finger drops it at once.
 # three_finger_drag = true
+
+[cursor]
+# An installed cursor theme (a folder in /usr/share/icons, such as "Yaru"
+# or "Adwaita") to use instead of Patina's own; "" for Patina's.
+# theme = ""
+
+# The cursor's size in pixels at scale 1; it's scaled with the screen.
+# size = 24
 
 [media]
 # Percent of the screen's brightness range per press of a brightness key.

@@ -48,7 +48,8 @@ choosing it at the login screen.
   brightness and volume keys work, and the volume menu fades in to show the level. A right click
   on the desktop opens the desktop's menu, where the shell's skin and wallpaper are chosen. On the
   touchpad, three fingers drag, as with macOS's accessibility setting: lift and put them back
-  within half a second to carry on (`three_finger_drag` in `[touchpad]` turns it off).
+  within half a second to carry on, or carry on with one finger to drop (`three_finger_drag` in
+  `[touchpad]` turns it off). The pointer is Patina's own, shaped for what's under it.
 
 ## Settings
 

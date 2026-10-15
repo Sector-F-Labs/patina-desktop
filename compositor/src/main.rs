@@ -4,6 +4,7 @@
 
 mod clients;
 mod config;
+mod cursor;
 mod dmabuf;
 mod drag;
 mod grabs;

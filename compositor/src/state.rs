@@ -116,6 +116,10 @@ pub struct State {
     _viewporter: smithay::wayland::viewporter::ViewporterState,
     /// The pointer image clients asked for, drawn on the hardware.
     pub cursor: CursorImageStatus,
+    /// The cursor the compositor shows while it moves or resizes a window,
+    /// whatever the client under it asks for (ADR-0032).
+    pub grab_cursor: Option<smithay::input::pointer::CursorIcon>,
+    _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
     /// Or the hardware itself (ADR-0016).
     pub udev: Option<crate::udev::UdevData>,
 }
@@ -219,6 +223,10 @@ impl State {
             >(&dh),
             _viewporter: smithay::wayland::viewporter::ViewporterState::new::<Self>(&dh),
             cursor: CursorImageStatus::default_named(),
+            grab_cursor: None,
+            _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState::new::<Self>(
+                &dh,
+            ),
             udev: None,
             display_handle: dh,
             nested,
@@ -741,7 +749,9 @@ impl XdgShellHandler for State {
             return;
         };
         let initial = smithay::utils::Rectangle::new(location, window.geometry().size);
-        if let Some(grab) = ResizeGrab::start(start, window, edges.into(), initial) {
+        let edges: grabs::Edges = edges.into();
+        if let Some(grab) = ResizeGrab::start(start, window, edges, initial) {
+            self.grab_cursor = Some(edges.cursor());
             pointer.set_grab(self, grab, serial, Focus::Clear);
         }
     }
@@ -831,3 +841,15 @@ delegate_layer_shell!(State);
 delegate_seat!(State);
 delegate_data_device!(State);
 delegate_output!(State);
+smithay::delegate_cursor_shape!(State);
+
+/// Needed by cursor-shape, which also serves tablet tools; there are none.
+impl smithay::wayland::tablet_manager::TabletSeatHandler for State {}
+
+impl State {
+    /// A move or resize ended: the client under the pointer's cursor again.
+    pub fn end_grab_cursor(&mut self) {
+        self.grab_cursor = None;
+        self.needs_redraw = true;
+    }
+}

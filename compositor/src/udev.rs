@@ -25,7 +25,7 @@ use smithay::{
             ImportDma, ImportMemWl,
             element::{
                 Kind,
-                memory::{MemoryRenderBuffer, MemoryRenderBufferRenderElement},
+                memory::MemoryRenderBufferRenderElement,
                 render_elements,
                 surface::{WaylandSurfaceRenderElement, render_elements_from_surface_tree},
             },
@@ -51,7 +51,7 @@ use smithay::{
         rustix::fs::OFlags,
         wayland_server::DisplayHandle,
     },
-    utils::{DeviceFd, Physical, Point, Transform},
+    utils::{DeviceFd, Point, Transform},
     wayland::{
         compositor::with_states,
         dmabuf::{DmabufFeedbackBuilder, DmabufGlobal, DmabufState},
@@ -88,7 +88,7 @@ pub struct UdevData {
     compositor: Compositor,
     pub(crate) dmabuf_state: DmabufState,
     _dmabuf_global: DmabufGlobal,
-    cursor: Cursor,
+    cursors: crate::cursor::Cursors,
     /// Touchpads, to apply `[touchpad]` to again on a reload.
     touchpads: Vec<smithay::reexports::input::Device>,
     loop_handle: LoopHandle<'static, State>,
@@ -203,7 +203,11 @@ pub fn init(
         monitor.mode.size().1,
         output.current_scale().fractional_scale()
     );
-    let cursor = Cursor::load(output.current_scale().fractional_scale());
+    let cursors = crate::cursor::Cursors::new(
+        &config.cursor.theme,
+        config.cursor.size,
+        output.current_scale().fractional_scale(),
+    );
     Ok((
         UdevData {
             session,
@@ -213,7 +217,7 @@ pub fn init(
             compositor,
             dmabuf_state,
             _dmabuf_global: dmabuf_global,
-            cursor,
+            cursors,
             touchpads: Vec::new(),
             loop_handle: handle,
             active: true,
@@ -232,9 +236,9 @@ impl UdevData {
         }
     }
 
-    /// Loads the pointer again, at the size for `scale`.
-    pub fn reload_cursor(&mut self, scale: f64) {
-        self.cursor = Cursor::load(scale);
+    /// Makes the cursors again, for `[cursor]` at `scale`.
+    pub fn reload_cursors(&mut self, settings: &crate::config::Cursor, scale: f64) {
+        self.cursors = crate::cursor::Cursors::new(&settings.theme, settings.size, scale);
     }
 }
 
@@ -443,10 +447,18 @@ fn render(state: &mut State) {
         .get_pointer()
         .map(|p| p.current_location())
         .unwrap_or_default();
-    elements.extend(
-        u.cursor
-            .elements(&mut u.renderer, &state.cursor, pointer, scale),
-    );
+    // The compositor's cursor during a grab, else the client's.
+    let shown = match state.grab_cursor {
+        Some(icon) => CursorImageStatus::Named(icon),
+        None => state.cursor.clone(),
+    };
+    elements.extend(cursor_elements(
+        &mut u.renderer,
+        &mut u.cursors,
+        &shown,
+        pointer,
+        scale,
+    ));
     if locked {
         // Only the locker, over black.
         elements.extend(
@@ -516,112 +528,42 @@ fn render(state: &mut State) {
 }
 
 /// The pointer: the client's own cursor surface when it sets one, otherwise
-/// the cursor theme's arrow (`XCURSOR_THEME`, `XCURSOR_SIZE`), otherwise a
-/// plain drawn one.
-struct Cursor {
-    image: MemoryRenderBuffer,
-    hotspot: Point<i32, Physical>,
-}
-
-impl Cursor {
-    fn load(scale: f64) -> Self {
-        let size = std::env::var("XCURSOR_SIZE")
-            .ok()
-            .and_then(|s| s.parse::<u32>().ok())
-            .unwrap_or(24);
-        let size = (size as f64 * scale).round() as u32;
-        let theme = std::env::var("XCURSOR_THEME").unwrap_or_else(|_| "default".into());
-        let themed = xcursor::CursorTheme::load(&theme)
-            .load_icon("default")
-            .or_else(|| xcursor::CursorTheme::load(&theme).load_icon("left_ptr"))
-            .and_then(|path| std::fs::read(path).ok())
-            .and_then(|bytes| xcursor::parser::parse_xcursor(&bytes))
-            .and_then(|images| {
-                images
-                    .into_iter()
-                    .min_by_key(|i| (i.size as i64 - size as i64).abs())
+/// the shape it named, from Patina's cursors or `[cursor] theme` (ADR-0032).
+fn cursor_elements(
+    renderer: &mut GlesRenderer,
+    cursors: &mut crate::cursor::Cursors,
+    status: &CursorImageStatus,
+    pointer: Point<f64, smithay::utils::Logical>,
+    scale: f64,
+) -> Vec<OutputElement> {
+    let at = pointer.to_physical(scale);
+    match status {
+        CursorImageStatus::Hidden => Vec::new(),
+        CursorImageStatus::Surface(surface) => {
+            let hotspot = with_states(surface, |states| {
+                states
+                    .data_map
+                    .get::<std::sync::Mutex<CursorImageAttributes>>()
+                    .and_then(|a| a.lock().ok().map(|a| a.hotspot))
+                    .unwrap_or_default()
             });
-        match themed {
-            Some(i) => Self {
-                image: MemoryRenderBuffer::from_slice(
-                    &i.pixels_rgba,
-                    Fourcc::Argb8888,
-                    (i.width as i32, i.height as i32),
-                    1,
-                    Transform::Normal,
-                    None,
-                ),
-                hotspot: (i.xhot as i32, i.yhot as i32).into(),
-            },
-            None => Self::drawn(size.max(8)),
+            let at = (at - hotspot.to_f64().to_physical(scale)).to_i32_round();
+            render_elements_from_surface_tree(renderer, surface, at, scale, 1.0, Kind::Cursor)
         }
-    }
-
-    /// A white arrow with a black edge, for systems without a cursor theme.
-    fn drawn(size: u32) -> Self {
-        let s = size as i32;
-        let mut pixels = vec![0u8; (s * s * 4) as usize];
-        for y in 0..s {
-            for x in 0..s {
-                // The arrow is the triangle x <= y, cut at three quarters.
-                let inside = x <= y && y < s * 3 / 4 + x / 3;
-                if !inside {
-                    continue;
-                }
-                let edge = x == 0 || x == y || y == s * 3 / 4 + x / 3 - 1;
-                let v = if edge { 0 } else { 255 };
-                let i = ((y * s + x) * 4) as usize;
-                pixels[i..i + 4].copy_from_slice(&[v, v, v, 255]);
-            }
-        }
-        Self {
-            image: MemoryRenderBuffer::from_slice(
-                &pixels,
-                Fourcc::Argb8888,
-                (s, s),
-                1,
-                Transform::Normal,
+        CursorImageStatus::Named(icon) => {
+            let image = cursors.get(*icon);
+            let at = at - image.hotspot.to_f64();
+            MemoryRenderBufferRenderElement::from_buffer(
+                renderer,
+                at,
+                &image.buffer,
                 None,
-            ),
-            hotspot: (0, 0).into(),
-        }
-    }
-
-    fn elements(
-        &self,
-        renderer: &mut GlesRenderer,
-        status: &CursorImageStatus,
-        pointer: Point<f64, smithay::utils::Logical>,
-        scale: f64,
-    ) -> Vec<OutputElement> {
-        let at = pointer.to_physical(scale);
-        match status {
-            CursorImageStatus::Hidden => Vec::new(),
-            CursorImageStatus::Surface(surface) => {
-                let hotspot = with_states(surface, |states| {
-                    states
-                        .data_map
-                        .get::<std::sync::Mutex<CursorImageAttributes>>()
-                        .and_then(|a| a.lock().ok().map(|a| a.hotspot))
-                        .unwrap_or_default()
-                });
-                let at = (at - hotspot.to_f64().to_physical(scale)).to_i32_round();
-                render_elements_from_surface_tree(renderer, surface, at, scale, 1.0, Kind::Cursor)
-            }
-            CursorImageStatus::Named(_) => {
-                let at = at - self.hotspot.to_f64();
-                MemoryRenderBufferRenderElement::from_buffer(
-                    renderer,
-                    at,
-                    &self.image,
-                    None,
-                    None,
-                    None,
-                    Kind::Cursor,
-                )
-                .map(|e| vec![OutputElement::Cursor(e)])
-                .unwrap_or_default()
-            }
+                None,
+                None,
+                Kind::Cursor,
+            )
+            .map(|e| vec![OutputElement::Cursor(e)])
+            .unwrap_or_default()
         }
     }
 }

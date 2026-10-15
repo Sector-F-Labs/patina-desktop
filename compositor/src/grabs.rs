@@ -7,10 +7,10 @@ use std::cell::RefCell;
 use smithay::{
     desktop::Window,
     input::pointer::{
-        AxisFrame, ButtonEvent, GestureHoldBeginEvent, GestureHoldEndEvent, GesturePinchBeginEvent,
-        GesturePinchEndEvent, GesturePinchUpdateEvent, GestureSwipeBeginEvent,
-        GestureSwipeEndEvent, GestureSwipeUpdateEvent, GrabStartData, MotionEvent, PointerGrab,
-        PointerInnerHandle, RelativeMotionEvent,
+        AxisFrame, ButtonEvent, CursorIcon, GestureHoldBeginEvent, GestureHoldEndEvent,
+        GesturePinchBeginEvent, GesturePinchEndEvent, GesturePinchUpdateEvent,
+        GestureSwipeBeginEvent, GestureSwipeEndEvent, GestureSwipeUpdateEvent, GrabStartData,
+        MotionEvent, PointerGrab, PointerInnerHandle, RelativeMotionEvent,
     },
     reexports::{
         wayland_protocols::xdg::shell::server::xdg_toplevel,
@@ -155,6 +155,7 @@ impl PointerGrab<State> for MoveGrab {
         handle.button(state, event);
         if released(handle) {
             handle.unset_grab(self, state, event.serial, event.time, true);
+            state.end_grab_cursor();
         }
     }
 
@@ -168,6 +169,19 @@ pub struct Edges {
     pub bottom: bool,
     pub left: bool,
     pub right: bool,
+}
+
+impl Edges {
+    /// The cursor a resize from these edges shows: a two-headed arrow
+    /// along the way they move.
+    pub fn cursor(self) -> CursorIcon {
+        match (self.top || self.bottom, self.left || self.right) {
+            (true, false) => CursorIcon::NsResize,
+            (false, true) => CursorIcon::EwResize,
+            _ if self.top == self.left => CursorIcon::NwseResize,
+            _ => CursorIcon::NeswResize,
+        }
+    }
 }
 
 impl From<xdg_toplevel::ResizeEdge> for Edges {
@@ -283,6 +297,7 @@ impl PointerGrab<State> for ResizeGrab {
             return;
         }
         handle.unset_grab(self, state, event.serial, event.time, true);
+        state.end_grab_cursor();
         let Some(toplevel) = self.window.toplevel() else {
             return;
         };

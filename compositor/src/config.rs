@@ -16,6 +16,7 @@ pub struct Config {
     pub scale: Option<f64>,
     pub keyboard: Keyboard,
     pub touchpad: Touchpad,
+    pub cursor: Cursor,
     pub media: Media,
     pub lock: Lock,
     /// What tapping Super on its own runs; "" for nothing.
@@ -172,6 +173,7 @@ impl Default for Config {
             scale: None,
             keyboard: Keyboard::default(),
             touchpad: Touchpad::default(),
+            cursor: Cursor::default(),
             media: Media::default(),
             lock: Lock::default(),
             launcher: "patina-launcher".into(),
@@ -190,6 +192,26 @@ impl Default for Keyboard {
             options: String::new(),
             repeat_delay: 200,
             repeat_rate: 25,
+        }
+    }
+}
+
+/// The pointer's look (ADR-0032).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct Cursor {
+    /// An installed cursor theme (as in /usr/share/icons) to use instead
+    /// of Patina's own; "" for Patina's.
+    pub theme: String,
+    /// Its size in pixels at scale 1, as XCURSOR_SIZE.
+    pub size: u32,
+}
+
+impl Default for Cursor {
+    fn default() -> Self {
+        Self {
+            theme: String::new(),
+            size: 24,
         }
     }
 }
@@ -358,6 +380,12 @@ impl crate::state::State {
         }
         if let Some(u) = self.udev.as_mut() {
             u.configure_touchpads(&config.touchpad);
+            if config.cursor != self.config.cursor {
+                u.reload_cursors(
+                    &config.cursor,
+                    self.output.current_scale().fractional_scale(),
+                );
+            }
         }
         self.config = config;
         self.needs_redraw = true;
@@ -375,7 +403,7 @@ impl crate::state::State {
         self.relayout_maximized();
         self.update_preferred_scale();
         if let Some(u) = self.udev.as_mut() {
-            u.reload_cursor(scale);
+            u.reload_cursors(&self.config.cursor, scale);
         }
         self.needs_redraw = true;
     }

@@ -73,6 +73,7 @@ mechanics of adding one.
 | [0029](0029-desktop-menu-chooses-the-skin.md) | A right click on the desktop opens the desktop's menu, which chooses the shell's skin | Accepted |
 | [0030](0030-wallpaper.md) | A wallpaper piece, chosen from the desktop's menu, with a Sector F Labs default in the skin's colours | Accepted |
 | [0031](0031-three-finger-drag.md) | Three-finger drag, on by default | Accepted |
+| [0032](0032-patina-cursors.md) | Patina's own cursors, by name through cursor-shape, and the compositor's during a grab | Accepted |
 
 ## Decision Relationship
 
@@ -113,6 +114,7 @@ flowchart TD
     S --> AC
     AC --> AD[0030: wallpaper]
     P --> AE[0031: three-finger drag]
+    P --> AF[0032: Patina cursors]
     A --> M[0013: Patina from develop]
 ```
 
