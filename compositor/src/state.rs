@@ -119,6 +119,8 @@ pub struct State {
     /// The cursor the compositor shows while it moves or resizes a window,
     /// whatever the client under it asks for (ADR-0032).
     pub grab_cursor: Option<smithay::input::pointer::CursorIcon>,
+    /// A screenshot's flash, fading out over what was taken.
+    pub flash: Option<crate::screenshot::Flash>,
     _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
     /// Or the hardware itself (ADR-0016).
     pub udev: Option<crate::udev::UdevData>,
@@ -224,6 +226,7 @@ impl State {
             _viewporter: smithay::wayland::viewporter::ViewporterState::new::<Self>(&dh),
             cursor: CursorImageStatus::default_named(),
             grab_cursor: None,
+            flash: None,
             _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState::new::<Self>(
                 &dh,
             ),

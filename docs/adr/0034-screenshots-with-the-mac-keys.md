@@ -30,11 +30,13 @@ it back (GLES on the hardware and in a window, pixman as the fallback).
 - A thread saves it as a PNG in the Pictures folder's `Screenshots` (`~/Pictures/Screenshots`),
   named as macOS names them: `Screenshot 2026-10-15 at 21.04.33.png`, with ` (2)` and on when two
   come in one second.
+- Once it's taken, a white flash fades out over what was taken (the screen, or the window), in
+  about a third of a second, drawn after the picture so it isn't in it.
 - For now there's no selection (Cmd+Shift+4's drag), no picking a window with the pointer, no
-  clipboard and no sound or flash; Super+Shift+4 takes the focused window outright.
+  clipboard and no sound; Super+Shift+4 takes the focused window outright.
 
 ## Consequences
 
 - Screenshots work in every backend without another program or protocol.
-- The only sign a screenshot was taken is the file, and a line in the compositor's log.
+- The flash shows it was taken; the file's name is in the compositor's log.
 - Other tools still can't capture the screen (no wlr-screencopy); offering it is separate.

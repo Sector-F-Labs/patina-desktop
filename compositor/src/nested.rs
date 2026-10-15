@@ -10,10 +10,7 @@ use std::time::Duration;
 use smithay::{
     backend::{
         input::{Axis, AxisSource},
-        renderer::{
-            Bind, damage::OutputDamageTracker, element::surface::WaylandSurfaceRenderElement,
-            pixman::PixmanRenderer,
-        },
+        renderer::{Bind, damage::OutputDamageTracker, pixman::PixmanRenderer},
     },
     desktop::{layer_map_for_output, space::render_output},
     input::pointer::AxisFrame,
@@ -153,6 +150,15 @@ pub fn render(state: &mut State) {
     let locked = state.locked();
     let lock_surface = state.lock_surface().cloned();
     let scale = state.output.current_scale().fractional_scale();
+    let ready = state
+        .nested
+        .as_ref()
+        .is_some_and(|n| n.configured && !n.frame_pending);
+    if !ready || !state.needs_redraw {
+        return;
+    }
+    state.needs_redraw = false;
+    let flash = state.flash_element();
     // Locked, only the locker, over black.
     let spaces: Vec<&smithay::desktop::Space<smithay::desktop::Window>> = if locked {
         Vec::new()
@@ -162,10 +168,6 @@ pub fn render(state: &mut State) {
     let Some(n) = state.nested.as_mut() else {
         return;
     };
-    if !n.configured || n.frame_pending || !state.needs_redraw {
-        return;
-    }
-    state.needs_redraw = false;
 
     let (w, h) = (n.size.0 as usize, n.size.1 as usize);
     if n.image.as_ref().map(|i| (i.width(), i.height())) != Some((w, h)) {
@@ -182,7 +184,7 @@ pub fn render(state: &mut State) {
         return;
     };
 
-    let lock_elements = crate::lock::elements(&mut n.renderer, lock_surface.as_ref(), scale);
+    let overlay = crate::screenshot::overlay(&mut n.renderer, lock_surface.as_ref(), scale, flash);
     let damaged = {
         let mut target = match n.renderer.bind(image) {
             Ok(t) => t,
@@ -191,14 +193,14 @@ pub fn render(state: &mut State) {
                 return;
             }
         };
-        match render_output::<_, WaylandSurfaceRenderElement<PixmanRenderer>, _, _>(
+        match render_output::<_, crate::screenshot::Overlay<PixmanRenderer>, _, _>(
             &state.output,
             &mut n.renderer,
             &mut target,
             1.0,
             n.age,
             spaces,
-            &lock_elements,
+            &overlay,
             &mut n.damage_tracker,
             BACKGROUND,
         ) {

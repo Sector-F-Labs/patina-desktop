@@ -12,13 +12,19 @@ use smithay::{
         renderer::{
             Bind, ExportMem, ImportAll, Offscreen, Renderer, Texture,
             damage::OutputDamageTracker,
-            element::{AsRenderElements, RenderElement, surface::WaylandSurfaceRenderElement},
+            element::{
+                AsRenderElements, Kind, RenderElement,
+                solid::{SolidColorBuffer, SolidColorRenderElement},
+                surface::WaylandSurfaceRenderElement,
+            },
         },
     },
     desktop::{Space, Window, space::space_render_elements},
     output::Output,
-    utils::{Physical, Point, Rectangle, Size, Transform},
+    render_elements,
+    utils::{Logical, Physical, Point, Rectangle, Size, Transform},
 };
+use std::time::{Duration, Instant};
 
 use crate::state::State;
 
@@ -81,6 +87,14 @@ impl State {
         };
         match picture {
             Ok(picture) => {
+                let area = match window {
+                    Some(window) => self.space.element_geometry(window),
+                    None => self.space.output_geometry(&self.output),
+                };
+                if let Some(area) = area {
+                    self.flash = Some(Flash::new(area));
+                    self.needs_redraw = true;
+                }
                 let _ = std::thread::Builder::new()
                     .name("screenshot".into())
                     .spawn(move || match save(&picture) {
@@ -90,6 +104,88 @@ impl State {
             }
             Err(e) => eprintln!("patina-compositor: screenshot: {e}"),
         }
+    }
+}
+
+/// How long the flash takes to fade, and how white it starts.
+const FLASH: Duration = Duration::from_millis(350);
+const FLASH_START: f32 = 0.7;
+
+/// A white flash over what a screenshot took, fading out, so it's seen to
+/// have happened. It's drawn after the picture is taken, so it isn't in it.
+pub struct Flash {
+    started: Instant,
+    area: Rectangle<i32, Logical>,
+    buffer: SolidColorBuffer,
+}
+
+impl Flash {
+    fn new(area: Rectangle<i32, Logical>) -> Self {
+        Self {
+            started: Instant::now(),
+            area,
+            buffer: SolidColorBuffer::new(area.size, [0.0; 4]),
+        }
+    }
+
+    /// How white the flash is `t` into it: fast at first, easing out.
+    fn opacity(t: Duration) -> f32 {
+        let left = 1.0 - (t.as_secs_f32() / FLASH.as_secs_f32()).min(1.0);
+        FLASH_START * left * left
+    }
+}
+
+render_elements! {
+    /// What's drawn over the desktop in a window: the locker, or a flash.
+    pub Overlay<R> where R: ImportAll;
+    Surface=WaylandSurfaceRenderElement<R>,
+    Flash=SolidColorRenderElement,
+}
+
+/// The flash, on top, then the locker, for a backend drawing into a window.
+pub fn overlay<R>(
+    renderer: &mut R,
+    lock_surface: Option<&smithay::reexports::wayland_server::protocol::wl_surface::WlSurface>,
+    scale: f64,
+    flash: Option<SolidColorRenderElement>,
+) -> Vec<Overlay<R>>
+where
+    R: Renderer + ImportAll,
+    R::TextureId: Clone + Texture + 'static,
+{
+    flash
+        .map(Overlay::Flash)
+        .into_iter()
+        .chain(
+            crate::lock::elements(renderer, lock_surface, scale)
+                .into_iter()
+                .map(Overlay::Surface),
+        )
+        .collect()
+}
+
+impl State {
+    /// The flash for this frame, if one is fading; asks for the next frame
+    /// while it lasts. Call once a frame, after `needs_redraw` is cleared.
+    pub fn flash_element(&mut self) -> Option<SolidColorRenderElement> {
+        let flash = self.flash.as_mut()?;
+        let t = flash.started.elapsed();
+        if t >= FLASH {
+            self.flash = None;
+            return None;
+        }
+        let a = Flash::opacity(t);
+        // Premultiplied white.
+        flash.buffer.update(flash.area.size, [a; 4]);
+        let scale = self.output.current_scale().fractional_scale();
+        self.needs_redraw = true;
+        Some(SolidColorRenderElement::from_buffer(
+            &flash.buffer,
+            flash.area.loc.to_physical_precise_round(scale),
+            scale,
+            1.0,
+            Kind::Unspecified,
+        ))
     }
 }
 
@@ -246,6 +342,14 @@ mod tests {
         std::fs::write(folder.join("a.png"), b"").unwrap();
         assert_eq!(free_name(&folder, "a"), folder.join("a (2).png"));
         std::fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn the_flash_fades_out() {
+        assert_eq!(Flash::opacity(Duration::ZERO), FLASH_START);
+        let half = Flash::opacity(FLASH / 2);
+        assert!(half > 0.0 && half < FLASH_START / 2.0, "eases out");
+        assert_eq!(Flash::opacity(FLASH), 0.0);
     }
 
     #[test]

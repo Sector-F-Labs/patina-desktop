@@ -8,10 +8,7 @@ use std::time::Duration;
 use smithay::{
     backend::{
         egl::EGLDevice,
-        renderer::{
-            ImportDma, ImportMemWl, damage::OutputDamageTracker,
-            element::surface::WaylandSurfaceRenderElement, gles::GlesRenderer,
-        },
+        renderer::{ImportDma, ImportMemWl, damage::OutputDamageTracker, gles::GlesRenderer},
         winit::{self as smithay_winit, WinitEvent, WinitGraphicsBackend},
     },
     desktop::{layer_map_for_output, space::render_output},
@@ -183,6 +180,11 @@ fn render(state: &mut State) {
     let locked = state.locked();
     let lock_surface = state.lock_surface().cloned();
     let scale = state.output.current_scale().fractional_scale();
+    if state.winit.is_none() {
+        return;
+    }
+    state.needs_redraw = false;
+    let flash = state.flash_element();
     // Locked, only the locker, over black.
     let spaces: Vec<&smithay::desktop::Space<smithay::desktop::Window>> = if locked {
         Vec::new()
@@ -192,7 +194,6 @@ fn render(state: &mut State) {
     let Some(w) = state.winit.as_mut() else {
         return;
     };
-    state.needs_redraw = false;
     let age = if w.full_redraw > 0 {
         w.full_redraw -= 1;
         0
@@ -201,15 +202,15 @@ fn render(state: &mut State) {
     };
     let damage = match w.backend.bind() {
         Ok((renderer, mut framebuffer)) => {
-            let lock_elements = crate::lock::elements(renderer, lock_surface.as_ref(), scale);
-            match render_output::<_, WaylandSurfaceRenderElement<GlesRenderer>, _, _>(
+            let overlay = crate::screenshot::overlay(renderer, lock_surface.as_ref(), scale, flash);
+            match render_output::<_, crate::screenshot::Overlay<GlesRenderer>, _, _>(
                 &state.output,
                 renderer,
                 &mut framebuffer,
                 1.0,
                 age,
                 spaces,
-                &lock_elements,
+                &overlay,
                 &mut w.damage_tracker,
                 BACKGROUND,
             ) {

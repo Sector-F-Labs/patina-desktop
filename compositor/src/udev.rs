@@ -69,6 +69,7 @@ render_elements! {
     pub OutputElement<=GlesRenderer>;
     Space=SpaceRenderElements<GlesRenderer, WaylandSurfaceRenderElement<GlesRenderer>>,
     Cursor=MemoryRenderBufferRenderElement<GlesRenderer>,
+    Flash=smithay::backend::renderer::element::solid::SolidColorRenderElement,
     Surface=WaylandSurfaceRenderElement<GlesRenderer>,
 }
 
@@ -438,8 +439,9 @@ pub fn schedule(state: &mut State) {
 fn render(state: &mut State) {
     let locked = state.locked();
     let lock_surface = state.lock_surface().cloned();
-    let Some(u) = state.udev.as_mut() else { return };
     state.needs_redraw = false;
+    let flash = state.flash_element();
+    let Some(u) = state.udev.as_mut() else { return };
     let scale = state.output.current_scale().fractional_scale();
 
     let mut elements: Vec<OutputElement> = Vec::new();
@@ -460,6 +462,7 @@ fn render(state: &mut State) {
         pointer,
         scale,
     ));
+    elements.extend(flash.map(OutputElement::Flash));
     if locked {
         // Only the locker, over black.
         elements.extend(
