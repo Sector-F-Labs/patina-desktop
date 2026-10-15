@@ -1,4 +1,4 @@
-//! The launcher's surface: a search box over the list of apps, in the
+//! The launcher's surface: the list of apps over a search box, in the
 //! active Patina skin. Typing filters, Up and Down move the selection,
 //! Enter or a click launches, and Escape or clicking elsewhere closes.
 
@@ -192,10 +192,11 @@ impl Shell for Launcher {
             v.window_stroke,
             StrokeKind::Inside,
         );
+        // Laid out from the bottom: the search box, then the list above it.
         let mut ui = ui.new_child(
             UiBuilder::new()
                 .max_rect(rect.shrink(MARGIN))
-                .layout(egui::Layout::top_down(egui::Align::Min)),
+                .layout(egui::Layout::bottom_up(egui::Align::Min)),
         );
 
         let search = ui.add(
@@ -224,6 +225,12 @@ impl Shell for Launcher {
             return;
         }
 
+        // The list reads top down, best match first, in the space left.
+        let mut ui = ui.new_child(
+            UiBuilder::new()
+                .max_rect(ui.available_rect_before_wrap())
+                .layout(egui::Layout::top_down(egui::Align::Min)),
+        );
         if matches.is_empty() {
             ui.weak("No apps match");
             return;
