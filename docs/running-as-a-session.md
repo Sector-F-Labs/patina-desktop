@@ -8,7 +8,7 @@ with GDM), and how to get back if something goes wrong.
 | Piece | State |
 |---|---|
 | Running nested, as a window on GNOME or another desktop (`make run`) | Works |
-| Running on the hardware itself: one monitor, keyboard, mouse and touchpad, GPU | **New, untested on real machines yet** |
+| Running on the hardware itself: one monitor, keyboard, mouse and touchpad, GPU | **Works** (tested on real hardware) |
 | A login-screen entry: `make install-session` | Works |
 | The session setup (`patina-compositor --session`) | Partly: the desktop's environment, not yet portals and helpers |
 
@@ -16,9 +16,9 @@ patina-compositor picks its backend when it starts. With a desktop to open a win
 (`WAYLAND_DISPLAY` set) it runs nested in it, with OpenGL ES where there's a GPU
 ([ADR-0015](adr/0015-gl-when-nested.md)) and in software otherwise
 ([ADR-0008](adr/0008-nested-software-backend.md)). Without one, at a text console or as the login
-session, it drives the machine itself ([ADR-0016](adr/0016-hardware-backend.md)). That backend is
-new: try it from a text console first ([below](#trying-it-without-logging-out-of-gnome)) before
-choosing it at the login screen.
+session, it drives the machine itself ([ADR-0016](adr/0016-hardware-backend.md)). The hardware
+backend works on real machines; try it from a text console first ([below](#trying-it-without-logging-out-of-gnome))
+before choosing it at the login screen.
 
 ## What the hardware backend does
 
@@ -210,8 +210,7 @@ GPU GNOME holds, so it exits with "Resource temporarily unavailable" and leaves 
 ## If something goes wrong
 
 - **The session fails to start and drops you back at the login screen.** Choose Ubuntu again. The
-  session's output is in the journal: `journalctl -b | grep patina`. Until the hardware backend
-  exists, this is what happens, with "running straight on the hardware isn't built yet" there.
+  session's output is in the journal: `journalctl -b | grep patina`. Check there for the actual error.
 - **The screen is frozen or black.** Switch to a text console (Ctrl+Alt+F3), log in, and run
   `pkill patina-compositor`; GDM comes back. If keys don't respond at all, a reboot returns you to
   the login screen, where you can choose Ubuntu.
