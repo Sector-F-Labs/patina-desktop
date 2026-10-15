@@ -19,7 +19,9 @@ use smithay::{
     },
     output::Output,
     reexports::{
-        calloop::{EventLoop, Interest, LoopSignal, Mode, PostAction, generic::Generic},
+        calloop::{
+            EventLoop, Interest, LoopHandle, LoopSignal, Mode, PostAction, generic::Generic,
+        },
         wayland_protocols::xdg::shell::server::xdg_toplevel,
         wayland_server::{
             Client, Display, DisplayHandle, Resource,
@@ -71,6 +73,8 @@ pub struct State {
     pub socket_name: OsString,
     pub display_handle: DisplayHandle,
     pub loop_signal: LoopSignal,
+    /// For timers, such as the end of a three-finger drag.
+    pub loop_handle: LoopHandle<'static, State>,
 
     pub space: Space<Window>,
     pub popups: PopupManager,
@@ -103,6 +107,8 @@ pub struct State {
     pub lock_shown: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Super is down, and nothing else has been pressed since.
     pub super_tap: bool,
+    /// A three-finger drag, holding the left button (ADR-0031).
+    pub drag: crate::drag::Drag,
     /// The scale the backend would choose by itself: the panel's density on
     /// the hardware, the parent desktop's when nested.
     pub auto_scale: f64,
@@ -178,6 +184,7 @@ impl State {
             start: Instant::now(),
             socket_name,
             loop_signal: event_loop.get_signal(),
+            loop_handle: event_loop.handle(),
             space,
             popups: PopupManager::default(),
             output,
@@ -205,6 +212,7 @@ impl State {
             ),
             lock_shown: Default::default(),
             super_tap: false,
+            drag: Default::default(),
             auto_scale,
             _fractional_scale: smithay::wayland::fractional_scale::FractionalScaleManagerState::new::<
                 Self,

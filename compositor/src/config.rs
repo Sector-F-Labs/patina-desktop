@@ -161,6 +161,9 @@ pub struct Touchpad {
     /// Pointer speed, -1.0 (slowest) to 1.0 (fastest); libinput's default
     /// is 0.
     pub speed: f64,
+    /// Three fingers moving drag, as macOS's accessibility setting has it
+    /// (ADR-0031). On by default.
+    pub three_finger_drag: bool,
 }
 
 impl Default for Config {
@@ -197,6 +200,7 @@ impl Default for Touchpad {
             tap: true,
             natural_scroll: true,
             speed: 0.0,
+            three_finger_drag: true,
         }
     }
 }

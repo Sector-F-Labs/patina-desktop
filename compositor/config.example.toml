@@ -39,6 +39,11 @@
 # Pointer speed, from -1.0 (slowest) to 1.0 (fastest).
 # speed = 0.0
 
+# Drag with three fingers, as macOS's accessibility setting has it: three
+# fingers moving hold the button down and move the pointer. Lift, and put
+# them back within half a second to carry on the drag.
+# three_finger_drag = true
+
 [media]
 # Percent of the screen's brightness range per press of a brightness key.
 # Brightness is set through the login session, so it needs no extra tools.

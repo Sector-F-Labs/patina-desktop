@@ -46,7 +46,9 @@ choosing it at the login screen.
   the screen, **Super+W** closes the focused window, **Super+Q** quits its app (closes all its windows), **Super+Space** switches
   keyboard layout, and **Super+Shift+R** reloads the config file. The
   brightness and volume keys work, and the volume menu fades in to show the level. A right click
-  on the desktop opens the desktop's menu, where the shell's skin is chosen.
+  on the desktop opens the desktop's menu, where the shell's skin and wallpaper are chosen. On the
+  touchpad, three fingers drag, as with macOS's accessibility setting: lift and put them back
+  within half a second to carry on (`three_finger_drag` in `[touchpad]` turns it off).
 
 ## Settings
 

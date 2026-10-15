@@ -72,6 +72,7 @@ mechanics of adding one.
 | [0028](0028-patina-lock.md) | Patina's own lock screen, patina-lock, replaces swaylock as the default | Accepted |
 | [0029](0029-desktop-menu-chooses-the-skin.md) | A right click on the desktop opens the desktop's menu, which chooses the shell's skin | Accepted |
 | [0030](0030-wallpaper.md) | A wallpaper piece, chosen from the desktop's menu, with a Sector F Labs default in the skin's colours | Accepted |
+| [0031](0031-three-finger-drag.md) | Three-finger drag, on by default | Accepted |
 
 ## Decision Relationship
 
@@ -111,6 +112,7 @@ flowchart TD
     K --> AC[0029: desktop menu chooses the skin]
     S --> AC
     AC --> AD[0030: wallpaper]
+    P --> AE[0031: three-finger drag]
     A --> M[0013: Patina from develop]
 ```
 

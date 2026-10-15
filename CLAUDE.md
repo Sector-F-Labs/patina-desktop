@@ -24,6 +24,8 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 ## Layout
 
 - `compositor/src/state.rs`: server side: protocols, placement, focus, input into the seat.
+- `compositor/src/drag.rs`: three-finger drag (ADR-0031): libinput swipes hold BTN_LEFT, with a
+  grace timer on `State::loop_handle` between strokes.
 - `compositor/src/winit.rs`: the window on the parent desktop with OpenGL ES (Smithay's winit
   backend) and linux-dmabuf (ADR-0015); tried first.
 - `compositor/src/nested.rs`: the fallback (no EGL, or `PATINA_RENDERER=pixman`): an sctk window,

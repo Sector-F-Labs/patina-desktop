@@ -4,8 +4,9 @@
 
 use smithay::{
     backend::input::{
-        AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputBackend, InputEvent,
-        KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
+        AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, GestureBeginEvent,
+        GestureSwipeUpdateEvent, InputBackend, InputEvent, KeyState, KeyboardKeyEvent,
+        PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
     },
     input::{
         keyboard::{FilterResult, ModifiersState, keysyms},
@@ -276,6 +277,29 @@ impl State {
     fn screen(&self) -> smithay::utils::Rectangle<i32, Logical> {
         self.space.output_geometry(&self.output).unwrap_or_default()
     }
+
+    /// Moves the pointer by `delta`, kept on screen: a mouse or touchpad
+    /// moving it, or a three-finger drag.
+    pub fn move_pointer_by(&mut self, delta: Point<f64, Logical>, time: u32) {
+        let screen = self.screen();
+        let current = self
+            .seat
+            .get_pointer()
+            .map(|p| p.current_location())
+            .unwrap_or_default();
+        let moved = current + delta;
+        let clamped = Point::from((
+            moved.x.clamp(
+                screen.loc.x as f64,
+                (screen.loc.x + screen.size.w - 1) as f64,
+            ),
+            moved.y.clamp(
+                screen.loc.y as f64,
+                (screen.loc.y + screen.size.h - 1) as f64,
+            ),
+        ));
+        self.pointer_motion(clamped, time);
+    }
 }
 
 /// Feeds one event into the seat. Returns a key action for the backend to
@@ -283,35 +307,32 @@ impl State {
 pub fn handle<B: InputBackend>(state: &mut State, event: InputEvent<B>) -> Option<KeyAction> {
     match event {
         InputEvent::PointerMotion { event } => {
-            let screen = state.screen();
-            let current = state
-                .seat
-                .get_pointer()
-                .map(|p| p.current_location())
-                .unwrap_or_default();
-            let moved = current + event.delta();
-            let clamped = Point::from((
-                moved.x.clamp(
-                    screen.loc.x as f64,
-                    (screen.loc.x + screen.size.w - 1) as f64,
-                ),
-                moved.y.clamp(
-                    screen.loc.y as f64,
-                    (screen.loc.y + screen.size.h - 1) as f64,
-                ),
-            ));
-            state.pointer_motion(clamped, event.time_msec());
+            state.move_pointer_by(event.delta(), event.time_msec());
         }
         InputEvent::PointerMotionAbsolute { event } => {
             let screen = state.screen();
             let pos = event.position_transformed(screen.size) + screen.loc.to_f64();
             state.pointer_motion(pos, event.time_msec());
         }
-        InputEvent::PointerButton { event } => state.pointer_button(
-            event.button_code(),
-            event.state() == ButtonState::Pressed,
-            event.time_msec(),
-        ),
+        InputEvent::PointerButton { event } => {
+            // A click between a drag's strokes drops what's dragged first.
+            if state.drag_between_strokes() {
+                state.end_drag();
+            }
+            state.pointer_button(
+                event.button_code(),
+                event.state() == ButtonState::Pressed,
+                event.time_msec(),
+            )
+        }
+        // Three fingers drag (ADR-0031); other swipes aren't used yet.
+        InputEvent::GestureSwipeBegin { event } => {
+            state.swipe_begin(event.fingers(), event.time_msec());
+        }
+        InputEvent::GestureSwipeUpdate { event } => {
+            state.swipe_update(event.delta(), event.time_msec());
+        }
+        InputEvent::GestureSwipeEnd { .. } => state.swipe_end(),
         InputEvent::PointerAxis { event } => {
             let mut frame = AxisFrame::new(event.time_msec()).source(event.source());
             for axis in [Axis::Horizontal, Axis::Vertical] {

@@ -5,6 +5,7 @@
 mod clients;
 mod config;
 mod dmabuf;
+mod drag;
 mod grabs;
 mod input;
 mod keyboard;
