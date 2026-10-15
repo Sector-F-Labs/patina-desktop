@@ -49,8 +49,9 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   what it reads). `shell/src/piece.rs` is what the bar's pieces share: one copy per display over a
   socket, and the bar's skin and edge.
 - `volume/`: patina-volume, the tray's volume menu, also flashed by the compositor after a
-  volume key (ADR-0021). `shell/src/audio.rs` (wpctl), `icons.rs` and `bar.rs` (the bar's skin and
-  edge for pieces the compositor starts) are shared.
+  volume key (`--flash`) or a brightness key (`--brightness`) (ADR-0021, ADR-0033).
+  `shell/src/audio.rs` (wpctl), `backlight.rs` (sysfs and logind), `icons.rs` and `bar.rs` (the
+  bar's skin and edge for pieces the compositor starts) are shared.
 - `lock/`: patina-lock, the lock screen (ADR-0028): `Options::lock` makes the host draw on
   ext-session-lock surfaces and unlock when the shell finishes; `pam.rs` declares the PAM calls.
   The compositor's side is `compositor/src/lock.rs` (ADR-0025).

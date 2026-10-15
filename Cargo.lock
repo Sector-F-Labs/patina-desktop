@@ -1842,6 +1842,7 @@ name = "patina-compositor"
 version = "0.1.0"
 dependencies = [
  "dirs 6.0.0",
+ "patina-shell",
  "resvg",
  "serde",
  "serde_ignored",

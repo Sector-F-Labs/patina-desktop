@@ -74,6 +74,7 @@ mechanics of adding one.
 | [0030](0030-wallpaper.md) | A wallpaper piece, chosen from the desktop's menu, with a Sector F Labs default in the skin's colours | Accepted |
 | [0031](0031-three-finger-drag.md) | Three-finger drag, on by default | Accepted |
 | [0032](0032-patina-cursors.md) | Patina's own cursors, by name through cursor-shape, and the compositor's during a grab | Accepted |
+| [0033](0033-volume-flash-holds-and-shows-brightness.md) | The volume flash holds through repeated keys, and shows brightness too | Accepted |
 
 ## Decision Relationship
 
@@ -115,6 +116,7 @@ flowchart TD
     AC --> AD[0030: wallpaper]
     P --> AE[0031: three-finger drag]
     P --> AF[0032: Patina cursors]
+    U --> AG[0033: flash holds, shows brightness]
     A --> M[0013: Patina from develop]
 ```
 

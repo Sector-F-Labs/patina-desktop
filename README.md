@@ -13,7 +13,8 @@ The first pieces of a desktop in the style of [Patina](https://github.com/Sector
   apps from their `.desktop` files, with icons, and filters them as you type. Up and Down choose,
   Enter or a click starts one, and Escape, clicking elsewhere or the button again closes it.
 - **patina-volume** (`volume/`): the volume menu, opened by the bar's speaker: mute, a slider and
-  the level. It also fades in briefly when the volume keys are used.
+  the level. It also fades in briefly when the volume or brightness keys are used, showing the
+  volume or the brightness, and stays up while they're pressed.
 - **patina-wifi** (`wifi/`): the Wi-Fi menu, opened by the bar's Wi-Fi icon: networks in range,
   joining (with a password box for new ones), disconnecting and Wi-Fi on and off, through
   NetworkManager.

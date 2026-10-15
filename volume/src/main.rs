@@ -1,9 +1,11 @@
 //! patina-volume: the volume menu of the Patina desktop's bar, which also
-//! flashes up when the volume keys are used (ADR-0021).
+//! flashes up when the volume or brightness keys are used (ADR-0021,
+//! ADR-0033).
 //!
 //! `patina-volume` opens the menu, or closes it if it's open; the bar's
-//! speaker runs it. `patina-volume --flash` shows it briefly, or keeps an
-//! open one up; the compositor runs it after a volume key.
+//! speaker runs it. `patina-volume --flash` shows the volume briefly, or
+//! keeps an open menu up, and `--brightness` the brightness; the compositor
+//! runs them after a key. Keys pressed again keep the one flash up.
 
 mod ui;
 
@@ -15,32 +17,36 @@ use patina_shell::calloop::channel::{self, Event};
 use patina_shell::piece::{self, Single};
 use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 
-use crate::ui::{Change, Mode, VolumeMenu};
+use crate::ui::{Change, Mode, Showing, VolumeMenu};
 
-const USAGE: &str = "usage: patina-volume [--flash]
+const USAGE: &str = "usage: patina-volume [--flash | --brightness]
 
 Opens the volume menu at the bar's right end, or closes it if it's open.
-With --flash, shows it briefly without taking the keyboard, as after a
-volume key, or keeps an open one up. PATINA_SKIN and PATINA_BAR_EDGE, as
-patina-bar sets them, choose the skin and which edge it opens from.";
+With --flash, shows the volume briefly without taking the keyboard, as
+after a volume key, or keeps an open one up; with --brightness, the
+screen's brightness, as after a brightness key. PATINA_SKIN and
+PATINA_BAR_EDGE, as patina-bar sets them, choose the skin and which edge it
+opens from.";
 
 const SIZE: (u32, u32) = (320, 56);
 /// Its distance from the bar and the screen's right edge.
 const GAP: i32 = 4;
-/// How often the level is read while it's shown, for changes made
-/// elsewhere.
+/// How often the levels are read while it's shown, for changes made
+/// elsewhere; a key reads them at once.
 const POLL: Duration = Duration::from_millis(400);
 
 enum Message {
     Volume(patina_shell::audio::Volume),
+    Brightness(Option<f32>),
     Toggle,
-    Flash,
+    Flash(Showing),
 }
 
 fn main() -> ExitCode {
-    let mode = match std::env::args().nth(1).as_deref() {
-        None => Mode::Menu,
-        Some("--flash") => Mode::Flash,
+    let (mode, showing) = match std::env::args().nth(1).as_deref() {
+        None => (Mode::Menu, Showing::Volume),
+        Some("--flash") => (Mode::Flash, Showing::Volume),
+        Some("--brightness") => (Mode::Flash, Showing::Brightness),
         Some("-h" | "--help") => {
             println!("{USAGE}");
             return ExitCode::SUCCESS;
@@ -54,7 +60,7 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    match run(mode) {
+    match run(mode, showing) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("patina-volume: {e}");
@@ -63,18 +69,20 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(mode: Mode) -> Result<(), String> {
+fn run(mode: Mode, showing: Showing) -> Result<(), String> {
     let (send, receive) = channel::channel::<Message>();
     let commands = send.clone();
-    let word = match mode {
-        Mode::Menu => "toggle",
-        Mode::Flash => "flash",
+    let word = match (mode, showing) {
+        (Mode::Menu, _) => "toggle",
+        (Mode::Flash, Showing::Volume) => "flash",
+        (Mode::Flash, Showing::Brightness) => "brightness",
     };
     // Already shown: tell that one, and stop.
     let Some(_single) = Single::start("patina-volume", word, move |word| {
         let message = match word.as_str() {
             "toggle" => Message::Toggle,
-            "flash" => Message::Flash,
+            "flash" => Message::Flash(Showing::Volume),
+            "brightness" => Message::Flash(Showing::Brightness),
             _ => return true,
         };
         commands.send(message).is_ok()
@@ -83,7 +91,9 @@ fn run(mode: Mode) -> Result<(), String> {
         return Ok(());
     };
 
-    // The level, read now and while shown; and changes, applied in order.
+    // The levels, read now, while shown, and at once when poked (after a
+    // key, so the number keeps up with the presses).
+    let (poke, poked) = mpsc::channel::<()>();
     std::thread::Builder::new()
         .name("poll".into())
         .spawn(move || {
@@ -93,19 +103,29 @@ fn run(mode: Mode) -> Result<(), String> {
                 {
                     return;
                 }
-                std::thread::sleep(POLL);
+                if send
+                    .send(Message::Brightness(patina_shell::backlight::level()))
+                    .is_err()
+                {
+                    return;
+                }
+                if let Err(mpsc::RecvTimeoutError::Disconnected) = poked.recv_timeout(POLL) {
+                    return;
+                }
             }
         })
         .map_err(|e| e.to_string())?;
+    // Changes, applied in order.
     let (changes, applied) = mpsc::channel::<Change>();
     std::thread::Builder::new()
-        .name("audio".into())
+        .name("apply".into())
         .spawn(move || {
             while let Ok(mut change) = applied.recv() {
                 // A dragged slider sends many levels; only the last matters.
                 while let Ok(next) = applied.try_recv() {
                     match (change, next) {
-                        (Change::Level(_), Change::Level(_)) => change = next,
+                        (Change::Level(_), Change::Level(_))
+                        | (Change::Brightness(_), Change::Brightness(_)) => change = next,
                         _ => {
                             apply(change);
                             change = next;
@@ -117,7 +137,7 @@ fn run(mode: Mode) -> Result<(), String> {
         })
         .map_err(|e| e.to_string())?;
 
-    let menu = VolumeMenu::new(mode, piece::skin("patina-volume"), changes);
+    let menu = VolumeMenu::new(mode, showing, piece::skin("patina-volume"), changes);
     let options = Options {
         namespace: "patina-volume".into(),
         layer: Layer::Overlay,
@@ -134,7 +154,7 @@ fn run(mode: Mode) -> Result<(), String> {
     let (host, event_loop) = Host::connect(options, menu)?;
     event_loop
         .handle()
-        .insert_source(receive, |event, _, host| {
+        .insert_source(receive, move |event, _, host| {
             match event {
                 Event::Msg(Message::Volume(volume)) => {
                     if host.shell.volume != Some(volume) {
@@ -143,7 +163,17 @@ fn run(mode: Mode) -> Result<(), String> {
                     }
                     return;
                 }
-                Event::Msg(Message::Flash) => host.shell.flash(),
+                Event::Msg(Message::Brightness(level)) => {
+                    if host.shell.brightness != level {
+                        host.shell.brightness = level;
+                        host.redraw_all();
+                    }
+                    return;
+                }
+                Event::Msg(Message::Flash(showing)) => {
+                    host.shell.flash(showing);
+                    let _ = poke.send(());
+                }
                 Event::Msg(Message::Toggle) => match host.shell.mode() {
                     Mode::Menu => host.shell.close(),
                     Mode::Flash => {
@@ -163,6 +193,11 @@ fn apply(change: Change) {
     match change {
         Change::Level(level) => patina_shell::audio::set_level(level),
         Change::Muted(muted) => patina_shell::audio::set_muted(muted),
+        Change::Brightness(level) => {
+            if let Err(e) = patina_shell::backlight::set(level) {
+                eprintln!("patina-volume: brightness: {e}");
+            }
+        }
     }
 }
 
