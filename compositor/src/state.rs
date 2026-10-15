@@ -313,6 +313,11 @@ impl State {
                 .seat
                 .get_keyboard()
                 .is_some_and(|k| k.modifier_state().logo);
+            // A right click on the desktop opens the desktop's menu there
+            // (ADR-0029).
+            if under.is_none() && button == grabs::BTN_RIGHT && !logo {
+                self.open_desktop_menu(pointer.current_location());
+            }
             if logo
                 && button == grabs::BTN_LEFT
                 && let Some((window, _)) = under
@@ -341,6 +346,14 @@ impl State {
             },
         );
         pointer.frame(self);
+    }
+
+    /// Runs `desktop_menu` with the pointer's position, in logical pixels.
+    fn open_desktop_menu(&self, at: Point<f64, Logical>) {
+        let command = &self.config.desktop_menu;
+        if !command.is_empty() {
+            self.spawn_client(&format!("{command} --at {:.0},{:.0}", at.x, at.y));
+        }
     }
 
     pub fn pointer_axis(&mut self, frame: AxisFrame) {

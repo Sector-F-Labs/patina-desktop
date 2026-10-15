@@ -19,6 +19,10 @@ The first pieces of a desktop in the style of [Patina](https://github.com/Sector
   NetworkManager.
 - **patina-lock** (`lock/`): the lock screen, in the bar's skin: the time, and a password box
   checked through PAM. The compositor runs it on Ctrl+Super+Q, Super+Escape and before sleep.
+- **patina-menu** (`menu/`): the desktop's menu, opened by a right click on the desktop. For now
+  it's the skin menu Patina apps have, for the whole shell: choosing a skin sets it in the bar's
+  config, the bar changes at once and the other pieces follow it when they next open. It also
+  copies the built-in skins to, and opens, the bar's skins folder, and opens the bar's config.
 - **patina-shell** (`shell/`): what the bar and launcher share, a layer-shell host for egui
   drawn in software.
 

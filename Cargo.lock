@@ -1866,6 +1866,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-menu"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "patina-shell",
+ "patina-ui",
+]
+
+[[package]]
 name = "patina-shell"
 version = "0.1.0"
 dependencies = [

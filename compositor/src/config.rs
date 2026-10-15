@@ -20,6 +20,9 @@ pub struct Config {
     pub lock: Lock,
     /// What tapping Super on its own runs; "" for nothing.
     pub launcher: String,
+    /// What a right click on the desktop runs, with `--at X,Y` (the
+    /// pointer) added; "" for nothing.
+    pub desktop_menu: String,
     /// Key combinations ("Alt+T") and the commands they run. A [bindings]
     /// section replaces these defaults.
     pub bindings: std::collections::BTreeMap<String, String>,
@@ -169,6 +172,7 @@ impl Default for Config {
             media: Media::default(),
             lock: Lock::default(),
             launcher: "patina-launcher".into(),
+            desktop_menu: "patina-menu".into(),
             bindings: default_bindings(),
         }
     }

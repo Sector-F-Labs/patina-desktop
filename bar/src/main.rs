@@ -10,9 +10,9 @@ mod launcher;
 mod tray;
 
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use patina_shell::calloop::{
     channel::{self, Event},
@@ -87,7 +87,7 @@ fn main() -> ExitCode {
         eprintln!("patina-bar: {w}");
     }
 
-    match run(options, bar) {
+    match run(options, bar, config_path) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("patina-bar: {e}");
@@ -101,7 +101,7 @@ fn usage_error() -> ExitCode {
     ExitCode::from(2)
 }
 
-fn run(options: Options, bar: bar::Bar) -> Result<(), String> {
+fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<(), String> {
     let (host, event_loop) = Host::connect(options, bar)?;
     let handle = event_loop.handle();
 
@@ -239,15 +239,38 @@ fn run(options: Options, bar: bar::Bar) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
 
-    // The clock changes on its own; redraw on each second.
+    // The clock changes on its own; redraw on each second. Then too, look
+    // for a new skin in the config file, as the desktop's menu sets it.
+    let mut seen = config_path.as_deref().and_then(modified);
     handle
-        .insert_source(Timer::from_duration(until_next_second()), |_, _, host| {
-            host.redraw_all();
-            TimeoutAction::ToDuration(until_next_second())
-        })
+        .insert_source(
+            Timer::from_duration(until_next_second()),
+            move |_, _, host| {
+                if let Some(path) = &config_path {
+                    let now = modified(path);
+                    if now != seen {
+                        seen = now;
+                        let (config, _) = config::load(path);
+                        let (changed, warnings) = host.shell.set_skin(&config.skin);
+                        for w in warnings {
+                            eprintln!("patina-bar: {w}");
+                        }
+                        if changed {
+                            host.restyle();
+                        }
+                    }
+                }
+                host.redraw_all();
+                TimeoutAction::ToDuration(until_next_second())
+            },
+        )
         .map_err(|e| e.to_string())?;
 
     host.run(event_loop)
+}
+
+fn modified(path: &Path) -> Option<SystemTime> {
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
 fn until_next_second() -> Duration {

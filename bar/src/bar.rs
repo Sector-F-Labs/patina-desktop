@@ -32,29 +32,10 @@ pub struct Bar {
 }
 
 impl Bar {
-    /// Finds `config.skin` among Patina's built-ins and the bar's own skins
-    /// folder. Problems are returned, never fatal.
+    /// Finds `config.skin` (see [`find_skin`]). Problems are returned,
+    /// never fatal.
     pub fn new(config: Config) -> (Self, Vec<String>) {
-        let dirs: Vec<_> = skin::app_dir("patina-bar").into_iter().collect();
-        let (skins, mut warnings) = skin::load_all(skin::BUILT_IN, &dirs);
-        let skin = match skins.into_iter().find(|s| s.name == config.skin) {
-            Some(s) => s,
-            None => {
-                if config.skin != skin::DEFAULT_SKIN {
-                    warnings.push(format!(
-                        "no skin called \"{}\"; using {}",
-                        config.skin,
-                        skin::DEFAULT_SKIN
-                    ));
-                }
-                Skin::default_skin()
-            }
-        };
-        warnings.extend(
-            skin.warnings
-                .iter()
-                .map(|w| format!("skin \"{}\": {w}", skin.name)),
-        );
+        let (skin, warnings) = find_skin(&config.skin);
         (
             Self {
                 config,
@@ -68,6 +49,18 @@ impl Bar {
             },
             warnings,
         )
+    }
+
+    /// Changes to the skin called `name`, as when the desktop's menu set it
+    /// in the config file; false if it's the skin already. Restyle after.
+    pub fn set_skin(&mut self, name: &str) -> (bool, Vec<String>) {
+        if name == self.config.skin {
+            return (false, Vec::new());
+        }
+        let (skin, warnings) = find_skin(name);
+        self.config.skin = name.to_string();
+        self.skin = skin;
+        (true, warnings)
     }
 
     /// The monitor dwl calls `output`, or, if dwl hasn't mentioned it (a
@@ -284,9 +277,14 @@ impl Shell for Bar {
 
     fn setup(&mut self, ctx: &egui::Context) {
         self.skin.apply(ctx);
-        if self.skin.follows_desktop() {
-            patina::appearance::watch(ctx);
-        }
+        // Watched whatever the skin, as the skin can change to one that
+        // follows the desktop; other skins set both of egui's themes, so
+        // the desktop's choice doesn't touch them.
+        patina::appearance::watch(ctx);
+    }
+
+    fn restyle(&mut self, ctx: &egui::Context) {
+        self.skin.apply(ctx);
     }
 
     fn ui(&mut self, ui: &mut Ui, output: &str) {
@@ -363,6 +361,31 @@ impl Shell for Bar {
             false,
         );
     }
+}
+
+/// The skin called `name` among Patina's built-ins and the bar's own skins
+/// folder, or Default, with any problems to report.
+fn find_skin(name: &str) -> (Skin, Vec<String>) {
+    let dirs: Vec<_> = skin::app_dir("patina-bar").into_iter().collect();
+    let (skins, mut warnings) = skin::load_all(skin::BUILT_IN, &dirs);
+    let skin = match skins.into_iter().find(|s| s.name == name) {
+        Some(s) => s,
+        None => {
+            if name != skin::DEFAULT_SKIN {
+                warnings.push(format!(
+                    "no skin called \"{name}\"; using {}",
+                    skin::DEFAULT_SKIN
+                ));
+            }
+            Skin::default_skin()
+        }
+    };
+    warnings.extend(
+        skin.warnings
+            .iter()
+            .map(|w| format!("skin \"{}\": {w}", skin.name)),
+    );
+    (skin, warnings)
 }
 
 /// Local time in `format`, or a note that the format is broken (chrono

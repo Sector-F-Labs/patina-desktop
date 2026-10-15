@@ -118,6 +118,7 @@ macro_rules! forward_the_rest {
 
 /// linux/input-event-codes.h
 pub const BTN_LEFT: u32 = 0x110;
+pub const BTN_RIGHT: u32 = 0x111;
 
 /// The grab ends when no button is held any more.
 fn released(handle: &PointerInnerHandle<'_, State>) -> bool {

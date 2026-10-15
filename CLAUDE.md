@@ -48,6 +48,9 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 - `lock/`: patina-lock, the lock screen (ADR-0028): `Options::lock` makes the host draw on
   ext-session-lock surfaces and unlock when the shell finishes; `pam.rs` declares the PAM calls.
   The compositor's side is `compositor/src/lock.rs` (ADR-0025).
+- `menu/`: patina-menu, the desktop's menu on a right click on the desktop (ADR-0029): the skin
+  menu, writing `skin` into the bar's config (`shell/src/bar.rs` `set_skin`); the bar polls the
+  file's mtime each second and restyles (`Host::restyle`).
 - `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`.
 
 ## Principle

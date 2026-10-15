@@ -13,6 +13,10 @@
 # What tapping Super on its own opens; "" for nothing.
 # launcher = "patina-launcher"
 
+# What a right click on the desktop opens, at the pointer: the desktop's menu,
+# where the shell's skin is chosen; "" for nothing.
+# desktop_menu = "patina-menu"
+
 [keyboard]
 # Layouts to switch between with Super+Space. Unset, the system's from
 # /etc/default/keyboard.

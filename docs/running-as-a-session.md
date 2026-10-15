@@ -45,7 +45,8 @@ choosing it at the login screen.
   narrow it, around its centre, **Ctrl+Super+Q** (as Ctrl+Cmd+Q on a Mac) or **Super+Escape** lock
   the screen, **Super+W** closes the focused window, **Super+Q** quits its app (closes all its windows), **Super+Space** switches
   keyboard layout, and **Super+Shift+R** reloads the config file. The
-  brightness and volume keys work, and the volume menu fades in to show the level.
+  brightness and volume keys work, and the volume menu fades in to show the level. A right click
+  on the desktop opens the desktop's menu, where the shell's skin is chosen.
 
 ## Settings
 

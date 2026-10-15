@@ -70,6 +70,7 @@ mechanics of adding one.
 | [0026](0026-lock-with-ctrl-super-q.md) | Lock with Ctrl+Super+Q, the Mac shortcut; Super+L tiles right again | Accepted |
 | [0027](0027-bar-tabs-are-the-window-list.md) | The bar's tabs are the one window list: Alt+Tab and closing follow them | Accepted |
 | [0028](0028-patina-lock.md) | Patina's own lock screen, patina-lock, replaces swaylock as the default | Accepted |
+| [0029](0029-desktop-menu-chooses-the-skin.md) | A right click on the desktop opens the desktop's menu, which chooses the shell's skin | Accepted |
 
 ## Decision Relationship
 
@@ -106,6 +107,8 @@ flowchart TD
     L --> AA[0027: bar tabs are the window list]
     Y -->|swaylock superseded by| AB[0028: patina-lock]
     K --> AB
+    K --> AC[0029: desktop menu chooses the skin]
+    S --> AC
     A --> M[0013: Patina from develop]
 ```
 
