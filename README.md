@@ -55,7 +55,8 @@ Window keys (on hardware): **Super** opens launcher, **Super+1–9** brings tab 
 half-screen tile, **Super+Shift+arrows** grow/shrink by 1/10 screen, **Super+Shift+K/J/L/H**
 resize around centre, drag a maximised/tiled window to restore under pointer, **Super+W** close
 window, **Super+Q** quit app, **Super+Space** switch keyboard layout, **Super+Shift+R** reload
-config, brightness/volume keys work with on-screen flash.
+config, **Super+Shift+3** or **Print** screenshots the desktop and **Super+Shift+4** the focused
+window (to ~/Pictures/Screenshots), brightness/volume keys work with on-screen flash.
 
 ## The bar's config
 

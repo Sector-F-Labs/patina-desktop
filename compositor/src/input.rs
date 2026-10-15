@@ -53,6 +53,23 @@ pub enum KeyAction {
     QuitApp,
     /// Lock the screen (Super+Escape).
     Lock,
+    /// Take a screenshot (Super+Shift+3 or 4, Print).
+    Screenshot(crate::screenshot::Shot),
+}
+
+/// The screenshot keys, from the key's base symbol so Shift and the layout
+/// don't change which digit it is: Super+Shift+3 or Print takes the desktop,
+/// Super+Shift+4 the focused window, as Cmd+Shift+3 and 4 do on a Mac.
+pub fn screenshot_key(modifiers: &ModifiersState, base: u32) -> Option<KeyAction> {
+    use crate::screenshot::Shot;
+    let only_super_shift = modifiers.logo && modifiers.shift && !modifiers.ctrl && !modifiers.alt;
+    let none = !modifiers.logo && !modifiers.shift && !modifiers.ctrl && !modifiers.alt;
+    match base {
+        keysyms::KEY_3 if only_super_shift => Some(KeyAction::Screenshot(Shot::Desktop)),
+        keysyms::KEY_4 if only_super_shift => Some(KeyAction::Screenshot(Shot::Window)),
+        keysyms::KEY_Print if none => Some(KeyAction::Screenshot(Shot::Desktop)),
+        _ => None,
+    }
 }
 
 /// The [bindings] command for a key, if one matches: exact modifiers, and
@@ -188,6 +205,7 @@ impl State {
                     .raw_latin_sym_or_raw_current_sym()
                     .map_or(sym, |s| s.raw());
                 let action = key_action(modifiers, sym)
+                    .or_else(|| screenshot_key(modifiers, base))
                     .or_else(|| binding(&state.config.combos(), modifiers, base));
                 // Locked, the keys go to the locker; only switching consoles
                 // and the brightness and volume keys still work.
@@ -266,6 +284,10 @@ impl State {
             }
             Some(KeyAction::Media(key)) => {
                 crate::media::press(key, &self.config.media, self.socket_name.clone());
+                None
+            }
+            Some(KeyAction::Screenshot(shot)) => {
+                self.screenshot(shot);
                 None
             }
             other => other,
@@ -385,6 +407,34 @@ mod tests {
             key_action(&mods(true, true), keysyms::KEY_XF86Switch_VT_12),
             Some(KeyAction::SwitchVt(12))
         );
+    }
+
+    #[test]
+    fn mac_keys_take_screenshots() {
+        use crate::screenshot::Shot;
+        let super_shift = ModifiersState {
+            logo: true,
+            shift: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            screenshot_key(&super_shift, keysyms::KEY_3),
+            Some(KeyAction::Screenshot(Shot::Desktop))
+        );
+        assert_eq!(
+            screenshot_key(&super_shift, keysyms::KEY_4),
+            Some(KeyAction::Screenshot(Shot::Window))
+        );
+        assert_eq!(
+            screenshot_key(&mods(false, false), keysyms::KEY_Print),
+            Some(KeyAction::Screenshot(Shot::Desktop))
+        );
+        let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        assert_eq!(screenshot_key(&logo, keysyms::KEY_3), None);
+        assert_eq!(screenshot_key(&mods(false, false), keysyms::KEY_3), None);
     }
 
     #[test]

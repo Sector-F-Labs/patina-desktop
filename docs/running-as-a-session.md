@@ -44,7 +44,9 @@ before choosing it at the login screen.
   tenth of the screen, **Super+Shift+K/J** grow and shrink it, and **Super+Shift+L/H** widen and
   narrow it, around its centre, **Ctrl+Super+Q** (as Ctrl+Cmd+Q on a Mac) or **Super+Escape** lock
   the screen, **Super+W** closes the focused window, **Super+Q** quits its app (closes all its windows), **Super+Space** switches
-  keyboard layout, and **Super+Shift+R** reloads the config file. The
+  keyboard layout, **Super+Shift+R** reloads the config file, and, as on a Mac,
+  **Super+Shift+3** (or **Print**) saves a screenshot of the desktop and **Super+Shift+4** one of
+  the focused window, in ~/Pictures/Screenshots (ADR-0034). The
   brightness and volume keys work, and the volume menu fades in to show the level (or the
   brightness), staying up while they're pressed. A right click
   on the desktop opens the desktop's menu, where the shell's skin and wallpaper are chosen. On the

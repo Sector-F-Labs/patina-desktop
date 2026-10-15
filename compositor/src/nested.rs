@@ -81,7 +81,7 @@ pub struct Nested {
     configured: bool,
     frame_pending: bool,
 
-    renderer: PixmanRenderer,
+    pub(crate) renderer: PixmanRenderer,
     image: Option<Image<'static, 'static>>,
     damage_tracker: OutputDamageTracker,
     /// How many frames old the image's contents are: 0 after a resize.

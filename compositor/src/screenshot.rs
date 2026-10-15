@@ -1,0 +1,305 @@
+//! Screenshots, with the Mac's keys (ADR-0034): Super+Shift+3 (or the
+//! Print key) takes the whole desktop, Super+Shift+4 the focused window.
+//! The compositor draws what it would show into an image of its own, with
+//! whichever renderer it's using, and a thread saves it as a PNG in
+//! ~/Pictures/Screenshots, named as macOS names them.
+
+use std::path::{Path, PathBuf};
+
+use smithay::{
+    backend::{
+        allocator::Fourcc,
+        renderer::{
+            Bind, ExportMem, ImportAll, Offscreen, Renderer, Texture,
+            damage::OutputDamageTracker,
+            element::{AsRenderElements, RenderElement, surface::WaylandSurfaceRenderElement},
+        },
+    },
+    desktop::{Space, Window, space::space_render_elements},
+    output::Output,
+    utils::{Physical, Point, Rectangle, Size, Transform},
+};
+
+use crate::state::State;
+
+/// What a screenshot takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Shot {
+    /// Everything on screen but the pointer (Super+Shift+3, Print).
+    Desktop,
+    /// The focused window, to its edges, without the desktop behind it
+    /// (Super+Shift+4).
+    Window,
+}
+
+/// Pixels as a PNG wants them: rows from the top, RGBA, not premultiplied.
+pub struct Picture {
+    pub width: u32,
+    pub height: u32,
+    pub rgba: Vec<u8>,
+}
+
+impl State {
+    /// Takes `shot` and saves it on a thread. Nothing happens without a
+    /// focused window to take.
+    pub fn screenshot(&mut self, shot: Shot) {
+        let window = match shot {
+            Shot::Desktop => None,
+            Shot::Window => match self.focused_window() {
+                Some(window) => Some(window),
+                None => {
+                    eprintln!("patina-compositor: no window to take a screenshot of");
+                    return;
+                }
+            },
+        };
+        let (space, output) = (&self.space, &self.output);
+        let window = window.as_ref();
+        let picture = if let Some(u) = self.udev.as_mut() {
+            take::<_, smithay::backend::renderer::gles::GlesTexture>(
+                &mut u.renderer,
+                space,
+                output,
+                window,
+            )
+        } else if let Some(w) = self.winit.as_mut() {
+            take::<_, smithay::backend::renderer::gles::GlesTexture>(
+                w.backend.renderer(),
+                space,
+                output,
+                window,
+            )
+        } else if let Some(n) = self.nested.as_mut() {
+            take::<_, smithay::reexports::pixman::Image<'static, 'static>>(
+                &mut n.renderer,
+                space,
+                output,
+                window,
+            )
+        } else {
+            return;
+        };
+        match picture {
+            Ok(picture) => {
+                let _ = std::thread::Builder::new()
+                    .name("screenshot".into())
+                    .spawn(move || match save(&picture) {
+                        Ok(path) => eprintln!("patina-compositor: saved {}", path.display()),
+                        Err(e) => eprintln!("patina-compositor: screenshot: {e}"),
+                    });
+            }
+            Err(e) => eprintln!("patina-compositor: screenshot: {e}"),
+        }
+    }
+}
+
+/// The desktop, or `window` alone, drawn by `renderer` into a `T`.
+fn take<R, T>(
+    renderer: &mut R,
+    space: &Space<Window>,
+    output: &Output,
+    window: Option<&Window>,
+) -> Result<Picture, String>
+where
+    R: Renderer + ImportAll + Offscreen<T> + Bind<T> + ExportMem,
+    R::TextureId: Clone + Texture + 'static,
+{
+    let scale = output.current_scale().fractional_scale();
+    match window {
+        None => {
+            let size = output.current_mode().ok_or("the output has no mode")?.size;
+            let elements = space_render_elements(renderer, [space], output, 1.0)
+                .map_err(|e| format!("{e:?}"))?;
+            draw::<R, T, _>(renderer, &elements, size, scale, crate::nested::BACKGROUND)
+        }
+        Some(window) => {
+            // The window's own edges, without the shadow a client may draw
+            // around them.
+            let geometry = window.geometry();
+            let size = geometry.size.to_physical_precise_round(scale);
+            let at = Point::<i32, Physical>::from((0, 0))
+                - geometry.loc.to_physical_precise_round(scale);
+            let elements: Vec<WaylandSurfaceRenderElement<R>> =
+                window.render_elements(renderer, at, scale.into(), 1.0);
+            draw::<R, T, _>(renderer, &elements, size, scale, [0.0; 4])
+        }
+    }
+}
+
+/// Draws `elements` over `clear` into a new `size` image and reads it back.
+fn draw<R, T, E>(
+    renderer: &mut R,
+    elements: &[E],
+    size: Size<i32, Physical>,
+    scale: f64,
+    clear: [f32; 4],
+) -> Result<Picture, String>
+where
+    R: Renderer + Offscreen<T> + Bind<T> + ExportMem,
+    R::TextureId: Texture,
+    E: RenderElement<R>,
+{
+    if size.w <= 0 || size.h <= 0 {
+        return Err(format!("nothing to take at {}x{}", size.w, size.h));
+    }
+    let buffer = size.to_logical(1).to_buffer(1, Transform::Normal);
+    // Abgr8888 is R, G, B, A in memory, as a PNG wants.
+    let mut target = renderer
+        .create_buffer(Fourcc::Abgr8888, buffer)
+        .map_err(|e| format!("no {}x{} image: {e:?}", size.w, size.h))?;
+    let mapping = {
+        let mut framebuffer = renderer.bind(&mut target).map_err(|e| format!("{e:?}"))?;
+        OutputDamageTracker::new(size, scale, Transform::Normal)
+            .render_output(renderer, &mut framebuffer, 0, elements, clear)
+            .map_err(|e| format!("drawing: {e:?}"))?;
+        renderer
+            .copy_framebuffer(&framebuffer, Rectangle::from_size(buffer), Fourcc::Abgr8888)
+            .map_err(|e| format!("reading back: {e:?}"))?
+    };
+    let mut rgba = renderer
+        .map_texture(&mapping)
+        .map_err(|e| format!("reading back: {e:?}"))?
+        .to_vec();
+    unpremultiply(&mut rgba);
+    Ok(Picture {
+        width: size.w as u32,
+        height: size.h as u32,
+        rgba,
+    })
+}
+
+/// Renderers blend premultiplied colour; a PNG's isn't.
+fn unpremultiply(rgba: &mut [u8]) {
+    for pixel in rgba.chunks_exact_mut(4) {
+        let a = pixel[3] as u32;
+        if a != 0 && a != 255 {
+            for c in &mut pixel[..3] {
+                *c = ((*c as u32 * 255 + a / 2) / a).min(255) as u8;
+            }
+        }
+    }
+}
+
+/// Writes `picture` into the screenshots folder; returns where.
+fn save(picture: &Picture) -> Result<PathBuf, String> {
+    let folder = folder().ok_or("no home folder")?;
+    std::fs::create_dir_all(&folder).map_err(|e| format!("{}: {e}", folder.display()))?;
+    let path = free_name(&folder, &name(chrono::Local::now()));
+    write_png(&path, picture).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(path)
+}
+
+/// ~/Pictures/Screenshots, or wherever the user's Pictures folder is.
+fn folder() -> Option<PathBuf> {
+    let pictures = dirs::picture_dir().or_else(|| Some(dirs::home_dir()?.join("Pictures")))?;
+    Some(pictures.join("Screenshots"))
+}
+
+/// "Screenshot 2026-10-15 at 21.04.33", as macOS names them.
+fn name(time: chrono::DateTime<chrono::Local>) -> String {
+    time.format("Screenshot %Y-%m-%d at %H.%M.%S").to_string()
+}
+
+/// `name`.png in `folder`, or "`name` (2).png" and on if it's taken (two
+/// in one second).
+fn free_name(folder: &Path, name: &str) -> PathBuf {
+    let mut path = folder.join(format!("{name}.png"));
+    let mut n = 2;
+    while path.exists() {
+        path = folder.join(format!("{name} ({n}).png"));
+        n += 1;
+    }
+    path
+}
+
+fn write_png(path: &Path, picture: &Picture) -> Result<(), String> {
+    let file = std::fs::File::create(path).map_err(|e| e.to_string())?;
+    let mut encoder =
+        png::Encoder::new(std::io::BufWriter::new(file), picture.width, picture.height);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
+    writer
+        .write_image_data(&picture.rgba)
+        .map_err(|e| e.to_string())?;
+    writer.finish().map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    #[test]
+    fn named_as_macos_names_them() {
+        let time = chrono::Local
+            .with_ymd_and_hms(2026, 10, 15, 9, 4, 33)
+            .unwrap();
+        assert_eq!(name(time), "Screenshot 2026-10-15 at 09.04.33");
+    }
+
+    #[test]
+    fn a_taken_name_gets_a_number() {
+        let folder = std::env::temp_dir().join(format!("patina-shots-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).unwrap();
+        assert_eq!(free_name(&folder, "a"), folder.join("a.png"));
+        std::fs::write(folder.join("a.png"), b"").unwrap();
+        assert_eq!(free_name(&folder, "a"), folder.join("a (2).png"));
+        std::fs::remove_dir_all(&folder).unwrap();
+    }
+
+    #[test]
+    fn colour_is_unpremultiplied() {
+        let mut rgba = [64, 32, 0, 128, 10, 20, 30, 255, 0, 0, 0, 0];
+        unpremultiply(&mut rgba);
+        assert_eq!(rgba, [128, 64, 0, 128, 10, 20, 30, 255, 0, 0, 0, 0]);
+    }
+
+    /// Red over the top half of a 4x2 picture, on blue: it should come
+    /// back the right way up, at its size.
+    fn upright<R, T>(renderer: &mut R)
+    where
+        R: Renderer + Offscreen<T> + Bind<T> + ExportMem,
+        R::TextureId: Texture,
+    {
+        use smithay::backend::renderer::element::solid::SolidColorRenderElement;
+        use smithay::backend::renderer::element::{Id, Kind};
+        use smithay::backend::renderer::utils::CommitCounter;
+        let red = SolidColorRenderElement::new(
+            Id::new(),
+            Rectangle::new((0, 0).into(), (4, 1).into()),
+            CommitCounter::default(),
+            [1.0, 0.0, 0.0, 1.0],
+            Kind::Unspecified,
+        );
+        let picture =
+            draw::<R, T, _>(renderer, &[red], (4, 2).into(), 1.0, [0.0, 0.0, 1.0, 1.0]).unwrap();
+        assert_eq!((picture.width, picture.height), (4, 2));
+        assert_eq!(&picture.rgba[..4], &[255, 0, 0, 255]);
+        assert_eq!(&picture.rgba[4 * 4..4 * 4 + 4], &[0, 0, 255, 255]);
+    }
+
+    /// Pixman, as the nested backend draws.
+    #[test]
+    fn pixman_draws_upright() {
+        let mut renderer = smithay::backend::renderer::pixman::PixmanRenderer::new().unwrap();
+        upright::<_, smithay::reexports::pixman::Image<'static, 'static>>(&mut renderer);
+    }
+
+    /// OpenGL ES, as on the hardware and in a window; needs a GPU.
+    #[test]
+    #[ignore]
+    fn gles_draws_upright() {
+        use smithay::backend::egl::{EGLContext, EGLDevice, EGLDisplay};
+        let device = EGLDevice::enumerate()
+            .unwrap()
+            .find(|d| d.try_get_render_node().ok().flatten().is_some())
+            .expect("a GPU");
+        // SAFETY: the display outlives the renderer, both in this test.
+        let display = unsafe { EGLDisplay::new(device) }.unwrap();
+        let context = EGLContext::new(&display).unwrap();
+        let mut renderer =
+            unsafe { smithay::backend::renderer::gles::GlesRenderer::new(context) }.unwrap();
+        upright::<_, smithay::backend::renderer::gles::GlesTexture>(&mut renderer);
+    }
+}

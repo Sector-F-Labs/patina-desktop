@@ -75,6 +75,7 @@ mechanics of adding one.
 | [0031](0031-three-finger-drag.md) | Three-finger drag, on by default | Accepted |
 | [0032](0032-patina-cursors.md) | Patina's own cursors, by name through cursor-shape, and the compositor's during a grab | Accepted |
 | [0033](0033-volume-flash-holds-and-shows-brightness.md) | The volume flash holds through repeated keys, and shows brightness too | Accepted |
+| [0034](0034-screenshots-with-the-mac-keys.md) | Screenshots with the Mac's keys, taken by the compositor | Accepted |
 
 ## Decision Relationship
 
@@ -117,6 +118,7 @@ flowchart TD
     P --> AE[0031: three-finger drag]
     P --> AF[0032: Patina cursors]
     U --> AG[0033: flash holds, shows brightness]
+    P --> AH[0034: screenshots]
     A --> M[0013: Patina from develop]
 ```
 

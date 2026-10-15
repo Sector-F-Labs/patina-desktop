@@ -382,7 +382,8 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             | KeyAction::Resize(_)
             | KeyAction::CloseWindow
             | KeyAction::QuitApp
-            | KeyAction::Lock,
+            | KeyAction::Lock
+            | KeyAction::Screenshot(_),
         )
         | None => {}
     }

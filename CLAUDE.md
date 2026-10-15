@@ -26,6 +26,8 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 - `compositor/src/state.rs`: server side: protocols, placement, focus, input into the seat.
 - `compositor/src/drag.rs`: three-finger drag (ADR-0031): libinput swipes hold BTN_LEFT, with a
   grace timer on `State::loop_handle` between strokes.
+- `compositor/src/screenshot.rs`: Super+Shift+3/4 and Print (ADR-0034): the desktop or the focused
+  window drawn offscreen with the backend's renderer, saved as a PNG on a thread.
 - `compositor/src/cursor.rs`: Patina's cursors (ADR-0032), SVG shapes rendered per scale; served by
   name through cursor-shape. `State::grab_cursor` overrides the client's during moves and resizes.
   `cargo test -p patina-compositor cursor -- --ignored` with PATINA_CURSOR_PREVIEW=file.png draws

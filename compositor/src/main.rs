@@ -15,6 +15,7 @@ mod maximize;
 mod media;
 mod nested;
 mod scale;
+mod screenshot;
 mod state;
 mod tabs;
 mod toplevels;
