@@ -150,6 +150,36 @@ pub struct Keyboard {
     pub repeat_delay: i32,
     /// Repeats per second.
     pub repeat_rate: i32,
+    /// What Caps Lock does, added to the xkb options in effect.
+    pub caps_lock: CapsLock,
+}
+
+/// What the Caps Lock key does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CapsLock {
+    /// Caps Lock, as the key says.
+    #[default]
+    #[serde(rename = "caps_lock")]
+    Lock,
+    /// Escape, as vim users like.
+    Escape,
+    /// Another Ctrl.
+    Ctrl,
+    /// Escape, and Escape becomes Caps Lock.
+    SwapEscape,
+}
+
+impl CapsLock {
+    /// The xkb option that does it, if any.
+    pub fn xkb_option(self) -> Option<&'static str> {
+        match self {
+            CapsLock::Lock => None,
+            CapsLock::Escape => Some("caps:escape"),
+            CapsLock::Ctrl => Some("ctrl:nocaps"),
+            CapsLock::SwapEscape => Some("caps:swapescape"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -192,6 +222,7 @@ impl Default for Keyboard {
             options: String::new(),
             repeat_delay: 200,
             repeat_rate: 25,
+            caps_lock: CapsLock::default(),
         }
     }
 }
@@ -426,7 +457,7 @@ mod tests {
     #[test]
     fn reads_every_section() {
         let (c, w) = parse(
-            "scale = 1.25\n[keyboard]\nlayout = \"us,se\"\nrepeat_rate = 40\n[touchpad]\nnatural_scroll = false\nspeed = 0.3\n",
+            "scale = 1.25\n[keyboard]\nlayout = \"us,se\"\nrepeat_rate = 40\ncaps_lock = \"escape\"\n[touchpad]\nnatural_scroll = false\nspeed = 0.3\n",
         )
         .unwrap();
         assert!(w.is_empty(), "{w:?}");
@@ -434,9 +465,18 @@ mod tests {
         assert_eq!(c.keyboard.layout, "us,se");
         assert_eq!(c.keyboard.repeat_rate, 40);
         assert_eq!(c.keyboard.repeat_delay, 200);
+        assert_eq!(c.keyboard.caps_lock, CapsLock::Escape);
         assert!(!c.touchpad.natural_scroll);
         assert!(c.touchpad.tap);
         assert_eq!(c.touchpad.speed, 0.3);
+    }
+
+    #[test]
+    fn caps_lock_defaults_to_itself_and_rejects_nonsense() {
+        assert_eq!(Config::default().keyboard.caps_lock, CapsLock::Lock);
+        let (c, _) = parse("[keyboard]\ncaps_lock = \"caps_lock\"\n").unwrap();
+        assert_eq!(c.keyboard.caps_lock.xkb_option(), None);
+        assert!(parse("[keyboard]\ncaps_lock = \"hyper\"\n").is_err());
     }
 
     #[test]

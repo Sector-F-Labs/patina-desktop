@@ -40,6 +40,9 @@ impl KeyboardSettings {
         if let Some(v) = env("XKB_DEFAULT_OPTIONS") {
             settings.options = Some(v);
         }
+        if let Some(caps) = config.caps_lock.xkb_option() {
+            settings.options = Some(with_option(settings.options.take(), caps));
+        }
         settings
     }
 
@@ -52,6 +55,21 @@ impl KeyboardSettings {
             options: self.options.clone(),
         }
     }
+}
+
+/// xkb `options` (comma-separated) with `option` added, replacing any
+/// other choice in its group (`caps:…` for `caps:escape`), so Caps Lock's
+/// setting wins over one from the system's options.
+fn with_option(options: Option<String>, option: &str) -> String {
+    let group = option.split(':').next().unwrap_or(option);
+    let mut kept: Vec<&str> = options
+        .as_deref()
+        .unwrap_or("")
+        .split(',')
+        .filter(|o| !o.is_empty() && o.split(':').next() != Some(group))
+        .collect();
+    kept.push(option);
+    kept.join(",")
 }
 
 /// Reads the `XKBMODEL="..."` style lines of `/etc/default/keyboard`.
@@ -90,6 +108,26 @@ mod tests {
                 variant: ",".into(),
                 options: Some("grp_led:scroll".into()),
             }
+        );
+    }
+
+    #[test]
+    fn caps_lock_joins_the_options_and_replaces_its_own_group() {
+        assert_eq!(
+            with_option(Some("grp_led:scroll".into()), "caps:escape"),
+            "grp_led:scroll,caps:escape"
+        );
+        assert_eq!(with_option(None, "caps:escape"), "caps:escape");
+        assert_eq!(
+            with_option(
+                Some("caps:ctrl_modifier,grp_led:scroll".into()),
+                "caps:escape"
+            ),
+            "grp_led:scroll,caps:escape"
+        );
+        assert_eq!(
+            with_option(Some("ctrl:swapcaps".into()), "ctrl:nocaps"),
+            "ctrl:nocaps"
         );
     }
 

@@ -29,6 +29,10 @@
 # repeat_delay = 200
 # repeat_rate = 25
 
+# What Caps Lock does: "caps_lock", "escape", "ctrl", or "swap_escape"
+# (Escape, and Escape becomes Caps Lock). Added to the options above.
+# caps_lock = "caps_lock"
+
 [touchpad]
 # Tap to click.
 # tap = true
