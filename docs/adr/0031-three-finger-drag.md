@@ -25,7 +25,9 @@ the compositor.
   accelerated the same way). Clients see an ordinary press, motion and release, so every drag works:
   moving and resizing windows, selecting text, dragging files.
 - Lifting starts a 500 ms grace; three fingers back down within it carry the drag on without a new
-  press. When it runs out, the button is released. A click during the grace drops first.
+  press. When it runs out, the button is released. A click during the grace drops first, and so
+  does one finger moving the pointer on (past 6 px of slack, as the next stroke's first finger
+  can land before the others): the user found the drag lingering when they carried on with one.
 - Other swipes (two, four fingers) are still ignored. `[touchpad] three_finger_drag` (on by
   default) turns it off; it's read live, so Super+Shift+R applies a change.
 - `compositor/src/drag.rs` holds it; the state gains an event-loop handle for the grace timer.

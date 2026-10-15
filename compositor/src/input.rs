@@ -307,6 +307,7 @@ impl State {
 pub fn handle<B: InputBackend>(state: &mut State, event: InputEvent<B>) -> Option<KeyAction> {
     match event {
         InputEvent::PointerMotion { event } => {
+            state.one_finger_moved(event.delta());
             state.move_pointer_by(event.delta(), event.time_msec());
         }
         InputEvent::PointerMotionAbsolute { event } => {

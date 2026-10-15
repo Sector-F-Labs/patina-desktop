@@ -1,9 +1,9 @@
 //! Three-finger drag, as macOS has it under Accessibility, but on by
 //! default (ADR-0031): three fingers moving on the touchpad hold the left
 //! button and move the pointer, so windows, text and files are dragged
-//! without pressing the pad. Lifting lets go after a moment, and putting
-//! three fingers back down within it carries the drag on, so a long drag
-//! can be made in strokes.
+//! without pressing the pad. Lifting lets go after a moment, or at once if
+//! one finger moves the pointer on; putting three fingers back down within
+//! it carries the drag on, so a long drag can be made in strokes.
 
 use std::time::Duration;
 
@@ -18,6 +18,10 @@ use crate::state::State;
 
 /// How long after the fingers lift the button is still held.
 const GRACE: Duration = Duration::from_millis(500);
+/// How far one finger may move between strokes, in logical pixels, before
+/// the drag drops: the first finger of the next stroke can land a moment
+/// before the others.
+const SLACK: f64 = 6.0;
 const FINGERS: u32 = 3;
 
 /// The drag's state; the left button is held from the first stroke's
@@ -30,6 +34,8 @@ pub struct Drag {
     held: bool,
     /// The timer that lets go, between strokes.
     release: Option<RegistrationToken>,
+    /// How far one finger has moved since the last stroke.
+    drift: f64,
 }
 
 /// What a swipe's start does.
@@ -49,6 +55,7 @@ impl Drag {
             return Start::Ignore;
         }
         self.stroking = true;
+        self.drift = 0.0;
         if self.held {
             Start::Continue
         } else {
@@ -57,8 +64,19 @@ impl Drag {
         }
     }
 
+    /// One finger moved `by` between strokes: true once that's past the
+    /// slack, and the drag should drop.
+    fn drifted(&mut self, by: f64) -> bool {
+        if !self.held || self.stroking {
+            return false;
+        }
+        self.drift += by;
+        self.drift > SLACK
+    }
+
     /// The fingers lifted: true if a drag is waiting to be let go.
     fn lift(&mut self) -> bool {
+        self.drift = 0.0;
         std::mem::take(&mut self.stroking) && self.held
     }
 }
@@ -120,6 +138,14 @@ impl State {
         }
     }
 
+    /// One finger moved `delta` between strokes: past the slack, that's the
+    /// pointer being moved, not the drag, so it drops at once.
+    pub fn one_finger_moved(&mut self, delta: Point<f64, Logical>) {
+        if self.drag.drifted(delta.x.abs() + delta.y.abs()) {
+            self.end_drag();
+        }
+    }
+
     /// Whether a drag holds the button between strokes.
     pub fn drag_between_strokes(&self) -> bool {
         self.drag.held && !self.drag.stroking
@@ -138,6 +164,20 @@ mod tests {
         assert_eq!(drag.start(3, true), Start::Continue);
         assert!(drag.lift());
         assert!(!drag.lift(), "a second lift without a stroke is nothing");
+    }
+
+    #[test]
+    fn one_finger_past_the_slack_between_strokes_drops_the_drag() {
+        let mut drag = Drag::default();
+        assert!(!drag.drifted(20.0), "no drag, nothing to drop");
+        drag.start(3, true);
+        assert!(!drag.drifted(20.0), "three fingers down: that's the drag");
+        drag.lift();
+        assert!(!drag.drifted(SLACK / 2.0), "a finger landing first");
+        assert!(drag.drifted(SLACK));
+        drag.start(3, true);
+        drag.lift();
+        assert!(!drag.drifted(SLACK / 2.0), "the slack starts again");
     }
 
     #[test]
