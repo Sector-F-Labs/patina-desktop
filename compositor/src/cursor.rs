@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use smithay::backend::allocator::Fourcc;
 use smithay::backend::renderer::element::memory::MemoryRenderBuffer;
 use smithay::input::pointer::CursorIcon;
-use smithay::utils::{Physical, Point, Transform};
+use smithay::utils::{Logical, Physical, Point, Size, Transform};
 
 /// The body's colour, and the edge around it.
 const INK: &str = "#15171b";
@@ -168,10 +168,15 @@ fn svg(body: &str) -> String {
 }
 
 /// A cursor image ready for the renderer: premultiplied BGRA (DRM's
-/// little-endian ARGB8888), and its hotspot.
+/// little-endian ARGB8888), its hotspot, and its size in pixels and in
+/// logical units. The renderer scales logical sizes by the output's scale,
+/// so the logical size is the one that scale maps back to the pixels
+/// exactly, and the image is drawn 1:1, not resampled.
 pub struct Image {
     pub buffer: MemoryRenderBuffer,
     pub hotspot: Point<i32, Physical>,
+    pub pixels: Size<i32, Physical>,
+    pub logical: Size<i32, Logical>,
 }
 
 /// Pixels `side` square, premultiplied BGRA, and the hotspot.
@@ -207,8 +212,10 @@ fn draw(shape: Shape, side: u32) -> Option<Pixels> {
 pub struct Cursors {
     /// An installed cursor theme to use instead, if any.
     theme: Option<String>,
-    /// The cursor's nominal size in pixels at this scale, as XCURSOR_SIZE
-    /// is at 1.
+    /// The cursor's size at scale 1, as XCURSOR_SIZE.
+    size: u32,
+    scale: f64,
+    /// And in pixels at this scale.
     pixels: u32,
     made: HashMap<CursorIcon, Image>,
 }
@@ -219,6 +226,8 @@ impl Cursors {
     pub fn new(theme: &str, size: u32, scale: f64) -> Self {
         Self {
             theme: (!theme.is_empty()).then(|| theme.to_string()),
+            size: size.max(8),
+            scale,
             pixels: ((size.max(8) as f64) * scale).round() as u32,
             made: HashMap::new(),
         }
@@ -234,7 +243,7 @@ impl Cursors {
 
     fn make(&self, icon: CursorIcon) -> Image {
         if let Some(theme) = &self.theme
-            && let Some(image) = themed(theme, icon, self.pixels)
+            && let Some(image) = themed(theme, icon, self.pixels, self.scale)
         {
             return image;
         }
@@ -253,13 +262,16 @@ impl Cursors {
                 None,
             ),
             hotspot: pixels.hotspot.into(),
+            pixels: (pixels.side as i32, pixels.side as i32).into(),
+            // size * scale, rounded, is `pixels`: exactly 1:1.
+            logical: (self.size as i32, self.size as i32).into(),
         }
     }
 }
 
 /// `icon` from the installed cursor theme `theme`, by its CSS name (or the
 /// arrow's old X name), at the size nearest `pixels`.
-fn themed(theme: &str, icon: CursorIcon, pixels: u32) -> Option<Image> {
+fn themed(theme: &str, icon: CursorIcon, pixels: u32, scale: f64) -> Option<Image> {
     let theme = xcursor::CursorTheme::load(theme);
     let path = theme.load_icon(icon.name()).or_else(|| {
         (icon == CursorIcon::Default)
@@ -280,6 +292,13 @@ fn themed(theme: &str, icon: CursorIcon, pixels: u32) -> Option<Image> {
             None,
         ),
         hotspot: (i.xhot as i32, i.yhot as i32).into(),
+        pixels: (i.width as i32, i.height as i32).into(),
+        // The theme's sizes are fixed, so this is as near 1:1 as it gets.
+        logical: (
+            (i.width as f64 / scale).round() as i32,
+            (i.height as f64 / scale).round() as i32,
+        )
+            .into(),
     })
 }
 

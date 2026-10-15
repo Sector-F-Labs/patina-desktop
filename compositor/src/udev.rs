@@ -552,14 +552,20 @@ fn cursor_elements(
         }
         CursorImageStatus::Named(icon) => {
             let image = cursors.get(*icon);
-            let at = at - image.hotspot.to_f64();
+            // On whole pixels, the whole image, at the logical size the
+            // scale maps back to its pixels: drawn 1:1, so it's as sharp as
+            // it was rendered.
+            let at = (at - image.hotspot.to_f64()).to_i32_round::<i32>().to_f64();
+            let src = smithay::utils::Rectangle::from_size(
+                (image.pixels.w as f64, image.pixels.h as f64).into(),
+            );
             MemoryRenderBufferRenderElement::from_buffer(
                 renderer,
                 at,
                 &image.buffer,
                 None,
-                None,
-                None,
+                Some(src),
+                Some(image.logical),
                 Kind::Cursor,
             )
             .map(|e| vec![OutputElement::Cursor(e)])
