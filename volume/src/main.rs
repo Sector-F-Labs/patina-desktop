@@ -128,6 +128,7 @@ fn run(mode: Mode) -> Result<(), String> {
         keyboard: keyboard_for(mode),
         per_output: false,
         toplevels: false,
+        click_through: false,
         lock: false,
     };
     let (host, event_loop) = Host::connect(options, menu)?;

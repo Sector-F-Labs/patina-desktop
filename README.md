@@ -19,10 +19,14 @@ The first pieces of a desktop in the style of [Patina](https://github.com/Sector
   NetworkManager.
 - **patina-lock** (`lock/`): the lock screen, in the bar's skin: the time, and a password box
   checked through PAM. The compositor runs it on Ctrl+Super+Q, Super+Escape and before sleep.
-- **patina-menu** (`menu/`): the desktop's menu, opened by a right click on the desktop. For now
-  it's the skin menu Patina apps have, for the whole shell: choosing a skin sets it in the bar's
-  config, the bar changes at once and the other pieces follow it when they next open. It also
-  copies the built-in skins to, and opens, the bar's skins folder, and opens the bar's config.
+- **patina-menu** (`menu/`): the desktop's menu, opened by a right click on the desktop. It's the
+  skin menu Patina apps have, for the whole shell: choosing a skin sets it in the bar's config,
+  the bar and wallpaper change at once and the other pieces follow it when they next open. It
+  also copies the built-in skins to, and opens, the bar's skins folder, opens the bar's config,
+  and chooses the wallpaper, from `~/Pictures/Wallpapers` and the system's backgrounds.
+- **patina-wallpaper** (`wallpaper/`): the wallpaper, on the background layer of every screen: the
+  bar config's `wallpaper` image, filling the screen, or by default the Sector F Labs flask and
+  name (in Ubuntu Mono) in the skin's colours.
 - **patina-shell** (`shell/`): what the bar and launcher share, a layer-shell host for egui
   drawn in software.
 
@@ -55,6 +59,7 @@ center = ["title"]
 right = ["tray", "clock"]
 clock = "%a %-d %b  %H:%M"  # strftime, as in date(1)
 launcher = "patina-launcher"  # what the Sector F button runs, through sh(1)
+wallpaper = ""              # an image for patina-wallpaper; "" for the Sector F default
 ```
 
 The modules are `launcher` (the Sector F flask, which runs `launcher` when clicked), `windows`

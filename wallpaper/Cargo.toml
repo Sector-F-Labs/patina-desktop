@@ -1,0 +1,13 @@
+[package]
+name = "patina-wallpaper"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's wallpaper: an image, or the skin's colour, on the background layer"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+egui = "0.35"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+patina-shell = { path = "../shell" }
+patina-ui = { workspace = true }

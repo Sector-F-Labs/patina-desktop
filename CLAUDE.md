@@ -50,7 +50,10 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   The compositor's side is `compositor/src/lock.rs` (ADR-0025).
 - `menu/`: patina-menu, the desktop's menu on a right click on the desktop (ADR-0029): the skin
   menu, writing `skin` into the bar's config (`shell/src/bar.rs` `set_skin`); the bar polls the
-  file's mtime each second and restyles (`Host::restyle`).
+  file's mtime each second and restyles (`Host::restyle`). Its Wallpaper submenu sets `wallpaper`.
+- `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,
+  or the default flask (`shell/src/logo.rs`, with Ubuntu Mono) in the skin's colours. `cargo test
+  -p patina-wallpaper -- --ignored` with PATINA_WALLPAPER_PREVIEW=dir renders the default per skin.
 - `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`.
 
 ## Principle

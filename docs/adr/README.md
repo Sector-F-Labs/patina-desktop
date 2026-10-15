@@ -71,6 +71,7 @@ mechanics of adding one.
 | [0027](0027-bar-tabs-are-the-window-list.md) | The bar's tabs are the one window list: Alt+Tab and closing follow them | Accepted |
 | [0028](0028-patina-lock.md) | Patina's own lock screen, patina-lock, replaces swaylock as the default | Accepted |
 | [0029](0029-desktop-menu-chooses-the-skin.md) | A right click on the desktop opens the desktop's menu, which chooses the shell's skin | Accepted |
+| [0030](0030-wallpaper.md) | A wallpaper piece, chosen from the desktop's menu, with a Sector F Labs default in the skin's colours | Accepted |
 
 ## Decision Relationship
 
@@ -109,6 +110,7 @@ flowchart TD
     K --> AB
     K --> AC[0029: desktop menu chooses the skin]
     S --> AC
+    AC --> AD[0030: wallpaper]
     A --> M[0013: Patina from develop]
 ```
 

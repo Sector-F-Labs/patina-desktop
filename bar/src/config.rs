@@ -42,6 +42,9 @@ pub struct Config {
     pub volume: String,
     /// What the tray's Wi-Fi icon runs, through sh(1).
     pub wifi: String,
+    /// The desktop's wallpaper, an image file, drawn by patina-wallpaper
+    /// (not the bar); "" for the skin's colour.
+    pub wallpaper: String,
 }
 
 impl Default for Config {
@@ -66,6 +69,7 @@ impl Default for Config {
             launcher: "patina-launcher".into(),
             volume: "patina-volume".into(),
             wifi: "patina-wifi".into(),
+            wallpaper: String::new(),
         }
     }
 }

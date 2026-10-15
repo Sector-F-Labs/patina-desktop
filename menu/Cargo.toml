@@ -3,10 +3,11 @@ name = "patina-menu"
 version = "0.1.0"
 edition = "2024"
 license = "BSD-3-Clause"
-description = "The Patina desktop's menu, opened by a right click on the desktop: for now the shell's skin"
+description = "The Patina desktop's menu, opened by a right click on the desktop: the shell's skin and wallpaper"
 repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [dependencies]
 egui = "0.35"
 patina-shell = { path = "../shell" }
 patina-ui = { workspace = true }
+dirs = "6"

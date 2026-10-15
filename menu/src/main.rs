@@ -3,6 +3,7 @@
 //! skin menu, for the whole shell.
 
 mod ui;
+mod wallpapers;
 
 use std::process::ExitCode;
 
@@ -69,6 +70,7 @@ fn run(at: egui::Pos2) -> Result<(), String> {
         keyboard: KeyboardInteractivity::Exclusive,
         per_output: false,
         toplevels: false,
+        click_through: false,
         lock: false,
     };
     let (host, event_loop) = Host::connect(options, DesktopMenu::new(at))?;

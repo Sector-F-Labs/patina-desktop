@@ -10,7 +10,6 @@ repository = "https://github.com/Sector-F-Labs/patina-desktop"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 dirs = "6"
 egui = "0.35"
-resvg = { version = "0.48.1", default-features = false }
 patina-shell = { path = "../shell" }
 patina-ui = { workspace = true }
 serde = { version = "1", features = ["derive"] }

@@ -5,9 +5,7 @@
 
 use std::process::{Command, Stdio};
 
-use egui::{ColorImage, Id, Sense, TextureHandle, TextureOptions, Ui, vec2};
-
-const LOGO: &str = include_str!("../assets/sector-f.svg");
+use egui::{Id, Sense, TextureHandle, TextureOptions, Ui, vec2};
 
 /// Space around the logo inside the button, in points: a Patina header
 /// bar's margin, so the logo is as tall as a title bar's contents.
@@ -51,33 +49,12 @@ fn texture(ctx: &egui::Context, pixels: u32) -> Option<TextureHandle> {
     if let Some(t) = ctx.data(|d| d.get_temp::<TextureHandle>(id)) {
         return Some(t);
     }
-    let image = rasterise(pixels)?;
+    let image = patina_shell::logo::rasterise(pixels)?;
     let texture = ctx.load_texture("sector-f-logo", image, TextureOptions::LINEAR);
     ctx.data_mut(|d| d.insert_temp(id, texture.clone()));
     Some(texture)
 }
 
-/// The logo as a white mask `pixels` square: only the alpha comes from the
-/// SVG.
-pub fn rasterise(pixels: u32) -> Option<ColorImage> {
-    let tree = resvg::usvg::Tree::from_str(LOGO, &resvg::usvg::Options::default()).ok()?;
-    let mut pixmap = resvg::tiny_skia::Pixmap::new(pixels, pixels)?;
-    let scale = pixels as f32 / tree.size().width().max(tree.size().height());
-    resvg::render(
-        &tree,
-        resvg::tiny_skia::Transform::from_scale(scale, scale),
-        &mut pixmap.as_mut(),
-    );
-    let rgba: Vec<u8> = pixmap
-        .data()
-        .chunks_exact(4)
-        .flat_map(|p| [p[3], p[3], p[3], p[3]])
-        .collect();
-    Some(ColorImage::from_rgba_premultiplied(
-        [pixels as usize, pixels as usize],
-        &rgba,
-    ))
-}
 
 /// Runs `command` through sh(1), detached from the bar: no stdin, and a
 /// thread reaps it so it never lingers as a zombie. `PATINA_SKIN` names the
@@ -98,24 +75,3 @@ pub fn run(command: &str, skin: &str, edge: &str) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_logo_renders_as_a_mask() {
-        let image = rasterise(64).expect("logo renders");
-        assert_eq!(image.size, [64, 64]);
-        let alpha: Vec<u8> = image.pixels.iter().map(|p| p.a()).collect();
-        let solid = alpha.iter().filter(|&&a| a == 255).count();
-        assert!(solid > 300, "only {solid} solid pixels");
-        assert!(alpha.contains(&0), "no background");
-        // A white mask, premultiplied: every channel equals alpha.
-        assert!(
-            image
-                .pixels
-                .iter()
-                .all(|p| p.r() == p.a() && p.g() == p.a() && p.b() == p.a())
-        );
-    }
-}
