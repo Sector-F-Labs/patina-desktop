@@ -19,6 +19,7 @@ use crate::links::{self, Target};
 use crate::man;
 use crate::search;
 use crate::tree::{self, Kind, Node};
+use crate::watch::{Changes, Watch};
 
 /// Reader's skins folder is `~/.config/reader/skins`.
 const APP: &str = "reader";
@@ -54,6 +55,8 @@ struct Tab {
     /// The system's man pages rather than a project.
     man: bool,
     nodes: Vec<Node>,
+    /// The project's folders, watched for changes.
+    folders: Vec<PathBuf>,
     filter: String,
     /// Folders open in the tree.
     expanded: HashSet<PathBuf>,
@@ -74,6 +77,7 @@ impl Tab {
             root: None,
             man: false,
             nodes: Vec::new(),
+            folders: Vec::new(),
             filter: String::new(),
             expanded: HashSet::new(),
             path: None,
@@ -89,8 +93,8 @@ impl Tab {
     /// A project, at `file` or its README.
     fn project(root: PathBuf, file: Option<PathBuf>) -> Self {
         let mut tab = Tab::empty();
-        tab.nodes = tree::scan(&root);
         tab.root = Some(root);
+        tab.rescan();
         if let Some(file) = file.filter(|f| f.is_file()).or_else(|| tree::first_file(&tab.nodes)) {
             tab.show(file);
         }
@@ -185,12 +189,54 @@ impl Tab {
     fn reload(&mut self) {
         if self.man {
             self.nodes = tree::man_pages();
-        } else if let Some(root) = self.root.clone() {
-            self.nodes = tree::scan(&root);
+        } else {
+            self.rescan();
         }
         if let Some(path) = self.path.clone() {
             self.show(path);
         }
+    }
+
+    /// Reads the project's tree and folders again.
+    fn rescan(&mut self) {
+        if let Some(root) = &self.root {
+            self.nodes = tree::scan(root);
+            self.folders = tree::folders(root);
+        }
+    }
+
+    /// The folders to watch: the project's, or a lone file's (watching its
+    /// folder catches editors that save by replacing the file). Not the
+    /// system's man pages.
+    fn watched(&self) -> Vec<&Path> {
+        match (&self.root, &self.path) {
+            _ if self.man => Vec::new(),
+            (Some(_), _) => self.folders.iter().map(PathBuf::as_path).collect(),
+            (None, Some(path)) => path.parent().into_iter().collect(),
+            (None, None) => Vec::new(),
+        }
+    }
+
+    /// Takes in what changed on disk: the tree scanned again if its
+    /// folders changed, the file on screen read again if it did, keeping
+    /// its place, history and notice. Whether the file was read again.
+    fn changed(&mut self, changes: &Changes) -> bool {
+        if self.man {
+            return false;
+        }
+        if let Some(root) = &self.root
+            && (changes.everything || changes.folders.iter().any(|f| f.starts_with(root)))
+        {
+            self.rescan();
+        }
+        let Some(path) = self.path.clone() else { return false };
+        if !changes.everything && !changes.paths.contains(&path) {
+            return false;
+        }
+        let (notice, reveal, current) = (self.notice.take(), self.reveal, self.found.current);
+        self.show(path);
+        (self.notice, self.reveal, self.found.current) = (notice, reveal, current);
+        true
     }
 
     /// `path` from the project's folder, for showing; a man page by its
@@ -234,6 +280,16 @@ impl Tab {
     fn open_elsewhere(&mut self, path: &Path) {
         if let Err(e) = patina::open::path(path) {
             self.notice = Some(format!("Can't open {}: {e}", path.display()));
+        }
+    }
+
+    /// Searches the file read again for `query`, staying at the same match
+    /// rather than going back to the first.
+    fn search_again(&mut self, query: &str, current: Option<usize>) {
+        self.search(query);
+        if !matches!(self.shown, Some(Shown::Markdown(_))) && self.found.total > 0 {
+            self.found.current = current.map(|c| c.min(self.found.total - 1)).or(Some(0));
+            self.found.scroll = false;
         }
     }
 
@@ -324,6 +380,8 @@ pub struct Reader {
     man_query: String,
     title: String,
     screenshot: Option<(PathBuf, bool)>,
+    /// Folders watched for changes; none if the system can't watch.
+    watch: Option<Watch>,
 }
 
 impl Reader {
@@ -388,6 +446,7 @@ impl Reader {
             man_query: String::new(),
             title: String::new(),
             screenshot: std::env::var_os("READER_SCREENSHOT").map(|p| (PathBuf::from(p), false)),
+            watch: Watch::new(&cc.egui_ctx).inspect_err(|e| eprintln!("reader: can't watch for changes: {e}")).ok(),
         };
         reader.apply_skin(&cc.egui_ctx);
         if reader.config.system_title_bar {
@@ -970,6 +1029,19 @@ impl Reader {
         });
     }
 
+    /// Watches the tabs' folders, and takes in what changed in them.
+    fn watch_files(&mut self, ctx: &egui::Context) {
+        let Some(watch) = &mut self.watch else { return };
+        watch.set(self.tabs.iter().flat_map(Tab::watched));
+        let Some(changes) = watch.changes(ctx) else { return };
+        for (i, tab) in self.tabs.iter_mut().enumerate() {
+            let current = tab.found.current;
+            if tab.changed(&changes) && i == self.tab && !self.query.is_empty() {
+                tab.search_again(&self.query, current);
+            }
+        }
+    }
+
     fn update_title(&mut self, ctx: &egui::Context) {
         let tab = &self.tabs[self.tab];
         let title = match &tab.path {
@@ -1024,6 +1096,7 @@ impl eframe::App for Reader {
         let style = self.skins[self.skin].frame_style(ui.visuals());
         let radius = if custom { frame::corner_radius(&ctx, style.radius) } else { 0 };
         self.keys(&ctx);
+        self.watch_files(&ctx);
         self.update_title(&ctx);
 
         let header = frame::header_frame(ui.style(), &style, radius);

@@ -29,6 +29,8 @@ changed. It's meant to become Patina's help viewer, opened when you choose Help 
   exist (`/usr/share/doc/…/examples`) open here if Reader shows them, else in Files.
 - The project as a tree, with only what Reader shows in it (no `target/`, `.git` or hidden
   folders), READMEs first; a filter to find a file by name (Ctrl+P, Enter opens the first).
+- Changes on disk show as they're saved: the file on screen is read again in place, and files
+  added or removed appear in the tree.
 - Back and forward (Alt+Left and Alt+Right, or the mouse's side buttons), Reload (Ctrl+R), Open
   Project (Ctrl+O, through the desktop's file chooser), and the last project and file read open
   again next time.

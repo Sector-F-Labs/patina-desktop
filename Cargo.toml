@@ -15,6 +15,7 @@ rfd = "0.17"
 serde = { version = "1", features = ["derive"] }
 toml = "1"
 image = { version = "0.25", default-features = false, features = ["png"] }
+notify = "8"
 
 [dev-dependencies]
 resvg = "0.48.1"

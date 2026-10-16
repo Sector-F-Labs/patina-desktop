@@ -1,7 +1,7 @@
 //! The project as the sidebar shows it: folders and the files Reader can
-//! show (markdown, man pages and Rust), read once when a project opens. Folders with
-//! nothing readable in them are left out, as are build output, version
-//! control and hidden folders.
+//! show (markdown, man pages and Rust), read when a project opens and again
+//! when its folders change. Folders with nothing readable in them are left
+//! out, as are build output, version control and hidden folders.
 
 use std::path::{Path, PathBuf};
 
@@ -59,7 +59,7 @@ pub fn scan(root: &Path) -> Vec<Node> {
             }
             let file_type = entry.file_type().ok()?;
             if file_type.is_dir() {
-                if SKIPPED.contains(&name.as_str()) {
+                if skipped(&name) {
                     return None;
                 }
                 let children = scan(&path);
@@ -72,6 +72,30 @@ pub fn scan(root: &Path) -> Vec<Node> {
         .collect();
     nodes.sort_by(|a, b| order(a).cmp(&order(b)).then_with(|| a.name().to_lowercase().cmp(&b.name().to_lowercase())));
     nodes
+}
+
+/// `root` and every folder under it that `scan` looks in, empty or not,
+/// as a file added to any of them shows in the tree.
+pub fn folders(root: &Path) -> Vec<PathBuf> {
+    let mut found = vec![root.to_path_buf()];
+    let mut i = 0;
+    while let Some(dir) = found.get(i).cloned() {
+        i += 1;
+        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        found.extend(
+            entries
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
+                .filter(|e| !skipped(&e.file_name().to_string_lossy()))
+                .map(|e| e.path()),
+        );
+    }
+    found
+}
+
+/// Hidden folders, and build output and dependencies.
+fn skipped(name: &str) -> bool {
+    name.starts_with('.') || SKIPPED.contains(&name)
 }
 
 /// Every man page on the system, a folder per section in order ("1 User
@@ -237,6 +261,18 @@ mod tests {
         assert_eq!(name, "1 User Commands");
         assert!(children.iter().any(|c| c.name() == "ls"), "ls is in section 1");
         assert!(children.iter().all(|c| matches!(c, Node::File { kind: Kind::Man, .. })));
+    }
+
+    #[test]
+    fn folders_are_those_scanned_empty_or_not() {
+        let root = project("folders");
+        let mut found: Vec<String> = folders(&root)
+            .iter()
+            .map(|f| f.strip_prefix(&root).unwrap().display().to_string())
+            .collect();
+        found.sort();
+        assert_eq!(found, ["", "docs", "docs/adr", "empty", "man", "src"]);
+        std::fs::remove_dir_all(&root).ok();
     }
 
     #[test]

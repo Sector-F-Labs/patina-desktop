@@ -9,6 +9,7 @@ mod links;
 mod man;
 mod search;
 mod tree;
+mod watch;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
