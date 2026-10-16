@@ -40,8 +40,7 @@ use smithay::{
         selection::{
             SelectionHandler,
             data_device::{
-                ClientDndGrabHandler, DataDeviceHandler, DataDeviceState, ServerDndGrabHandler,
-                set_data_device_focus,
+                DataDeviceHandler, DataDeviceState, ServerDndGrabHandler, set_data_device_focus,
             },
         },
         shell::{
@@ -123,6 +122,8 @@ pub struct State {
     pub grab_cursor: Option<smithay::input::pointer::CursorIcon>,
     /// A screenshot's flash, fading out over what was taken.
     pub flash: Option<crate::screenshot::Flash>,
+    /// What a client is dragging, drawn at the pointer.
+    pub dnd_icon: Option<crate::dnd::Icon>,
     _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
     /// Or the hardware itself (ADR-0016).
     pub udev: Option<crate::udev::UdevData>,
@@ -230,6 +231,7 @@ impl State {
             cursor: CursorImageStatus::default_named(),
             grab_cursor: None,
             flash: None,
+            dnd_icon: None,
             _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState::new::<Self>(
                 &dh,
             ),
@@ -625,6 +627,7 @@ impl CompositorHandler for State {
         }
 
         grabs::handle_commit(self, surface);
+        self.dnd_icon_commit(surface);
         self.popups.commit(surface);
         if let Some(PopupKind::Xdg(popup)) = self.popups.find_popup(surface)
             && !popup.is_initial_configure_sent()
@@ -836,7 +839,6 @@ impl DataDeviceHandler for State {
     }
 }
 
-impl ClientDndGrabHandler for State {}
 impl ServerDndGrabHandler for State {}
 impl OutputHandler for State {}
 

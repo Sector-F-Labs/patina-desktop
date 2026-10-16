@@ -63,7 +63,7 @@ this workspace is a Wayland client of it.
 `main.rs` (start-up, choosing the backend), `state.rs` (the protocols, placement, focus),
 `input.rs` and `keyboard.rs` (input and the compositor's own keys), `grabs.rs`, `maximize.rs`,
 `tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`,
-`night_light.rs` with `night_light/dbus.rs`,
+`night_light.rs` with `night_light/dbus.rs`, `dnd.rs` (the icon a drag shows),
 `cursor.rs`, `drag.rs`, `scale.rs`, `config.rs`, `clients.rs`, and the backends `winit.rs`,
 `nested.rs`, `udev.rs` with `dmabuf.rs`.
 

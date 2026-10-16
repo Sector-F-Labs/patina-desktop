@@ -185,6 +185,7 @@ fn render(state: &mut State) {
     }
     state.needs_redraw = false;
     let flash = state.flash_element();
+    let dnd_icon = state.dnd_icon_at();
     // Locked, only the locker, over black.
     let spaces: Vec<&smithay::desktop::Space<smithay::desktop::Window>> = if locked {
         Vec::new()
@@ -202,7 +203,13 @@ fn render(state: &mut State) {
     };
     let damage = match w.backend.bind() {
         Ok((renderer, mut framebuffer)) => {
-            let overlay = crate::screenshot::overlay(renderer, lock_surface.as_ref(), scale, flash);
+            let overlay = crate::screenshot::overlay(
+                renderer,
+                lock_surface.as_ref(),
+                scale,
+                flash,
+                dnd_icon.as_ref(),
+            );
             match render_output::<_, crate::screenshot::Overlay<GlesRenderer>, _, _>(
                 &state.output,
                 renderer,
@@ -245,6 +252,7 @@ fn render(state: &mut State) {
         });
     }
     crate::lock::send_frames(lock_surface.as_ref(), &output, time);
+    crate::dnd::send_frames(dnd_icon.as_ref(), &output, time);
     state.lock_drawn();
     state.space.refresh();
     state.popups.cleanup();

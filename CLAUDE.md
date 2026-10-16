@@ -44,6 +44,8 @@ current when that changes.
   only). `night_light/dbus.rs` serves `com.sectorflabs.Patina.NightLight`; `dbus-run-session --
   cargo test -p patina-compositor night_light -- --ignored` tests it on a bus of its own. The
   compositor reloads its config within a second of a save.
+- `compositor/src/dnd.rs`: drag and drop between clients is Smithay's; this draws the icon a
+  client drags (`State::dnd_icon`) at the pointer in every backend, moved by its attach offsets.
 - `compositor/src/cursor.rs`: Patina's cursors (ADR-0032), SVG shapes rendered per scale; served by
   name through cursor-shape. `State::grab_cursor` overrides the client's during moves and resizes.
   `cargo test -p patina-compositor cursor -- --ignored` with PATINA_CURSOR_PREVIEW=file.png draws

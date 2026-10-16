@@ -533,6 +533,7 @@ fn render(state: &mut State) {
     let lock_surface = state.lock_surface().cloned();
     state.needs_redraw = false;
     let flash = state.flash_element();
+    let dnd_icon = state.dnd_icon_at();
     let Some(u) = state.udev.as_mut() else { return };
     let scale = state.output.current_scale().fractional_scale();
 
@@ -554,6 +555,11 @@ fn render(state: &mut State) {
         pointer,
         scale,
     ));
+    elements.extend(
+        crate::dnd::elements(&mut u.renderer, dnd_icon.as_ref(), scale)
+            .into_iter()
+            .map(OutputElement::Surface),
+    );
     elements.extend(flash.map(OutputElement::Flash));
     if locked {
         // Only the locker, over black.
@@ -618,6 +624,7 @@ fn render(state: &mut State) {
         });
     }
     crate::lock::send_frames(lock_surface.as_ref(), &output, time);
+    crate::dnd::send_frames(dnd_icon.as_ref(), &output, time);
     state.lock_drawn();
     state.space.refresh();
     state.popups.cleanup();

@@ -142,20 +142,26 @@ render_elements! {
     Flash=SolidColorRenderElement,
 }
 
-/// The flash, on top, then the locker, for a backend drawing into a window.
+/// What's being dragged, on top, then the flash, then the locker, for a
+/// backend drawing into a window.
 pub fn overlay<R>(
     renderer: &mut R,
     lock_surface: Option<&smithay::reexports::wayland_server::protocol::wl_surface::WlSurface>,
     scale: f64,
     flash: Option<SolidColorRenderElement>,
+    dnd_icon: Option<&(
+        smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+        smithay::utils::Point<f64, smithay::utils::Logical>,
+    )>,
 ) -> Vec<Overlay<R>>
 where
     R: Renderer + ImportAll,
     R::TextureId: Clone + Texture + 'static,
 {
-    flash
-        .map(Overlay::Flash)
+    crate::dnd::elements(renderer, dnd_icon, scale)
         .into_iter()
+        .map(Overlay::Surface)
+        .chain(flash.map(Overlay::Flash))
         .chain(
             crate::lock::elements(renderer, lock_surface, scale)
                 .into_iter()

@@ -6,6 +6,7 @@ mod clients;
 mod config;
 mod cursor;
 mod dmabuf;
+mod dnd;
 mod drag;
 mod grabs;
 mod input;
