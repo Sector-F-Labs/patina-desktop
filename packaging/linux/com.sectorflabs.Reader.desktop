@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Reader
+GenericName=Documentation Reader
+Comment=Read a project's documentation, man pages and code
+Exec=reader %f
+Icon=com.sectorflabs.Reader
+Terminal=false
+StartupWMClass=com.sectorflabs.Reader
+Categories=Development;Documentation;Utility;
+Keywords=markdown;docs;man;manual;rust;source;help;
+MimeType=text/markdown;text/x-rust;text/troff;
