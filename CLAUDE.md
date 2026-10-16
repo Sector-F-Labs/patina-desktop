@@ -48,6 +48,9 @@ current when that changes.
   clients, and the `XwmHandler` that maps, places, moves and resizes X windows as `Window`s in
   the space. `focus.rs`: the keyboard focus is a `FocusTarget` (Wayland surface or X11 window, so
   the X input focus follows). `window_for` finds both kinds by their `wl_surface`.
+- `compositor/src/constraints.rs`: relative-pointer (ADR-0043) and pointer-constraints, so games (and
+  Xwayland's pointer-warp emulation) get mouse-look: `State::pointer_moved` sends relative motion
+  and holds a locked or confined pointer. Only libinput gives relative motion.
 - `compositor/src/fullscreen.rs`: fullscreen (ADR-0041): `State::fullscreen`, sized to the output,
   drawn over the layers by every backend and first under the pointer while it has the keyboard.
 - `compositor/src/dnd.rs`: drag and drop between clients is Smithay's; this draws the icon a

@@ -127,6 +127,9 @@ pub struct State {
     /// The window covering the screen, if one is (ADR-0041).
     pub fullscreen: Option<Window>,
     _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
+    /// Mouse-look for games (constraints.rs).
+    _relative_pointer: smithay::wayland::relative_pointer::RelativePointerManagerState,
+    _pointer_constraints: smithay::wayland::pointer_constraints::PointerConstraintsState,
     /// Or the hardware itself (ADR-0016).
     pub udev: Option<crate::udev::UdevData>,
     /// The window manager for X11 apps, once Xwayland is ready (ADR-0040).
@@ -241,6 +244,11 @@ impl State {
             _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState::new::<Self>(
                 &dh,
             ),
+            _relative_pointer: smithay::wayland::relative_pointer::RelativePointerManagerState::new::<
+                Self,
+            >(&dh),
+            _pointer_constraints:
+                smithay::wayland::pointer_constraints::PointerConstraintsState::new::<Self>(&dh),
             udev: None,
             xwm: None,
             xwayland_shell: smithay::wayland::xwayland_shell::XWaylandShellState::new::<Self>(&dh),

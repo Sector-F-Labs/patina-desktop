@@ -84,6 +84,7 @@ mechanics of adding one.
 | [0040](0040-xwayland.md) | X11 apps run through Xwayland, with the compositor as their window manager | Accepted |
 | [0041](0041-fullscreen.md) | Fullscreen windows cover the whole screen, over the bar, while they have the keyboard | Accepted |
 | [0042](0042-power-modes-through-power-profiles-daemon.md) | Power modes in Settings, through power-profiles-daemon | Accepted |
+| [0043](0043-games-lock-the-pointer.md) | Games lock or confine the pointer, and read the mouse's motion as such | Accepted |
 
 ## Decision Relationship
 

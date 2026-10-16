@@ -296,6 +296,12 @@ impl State {
     /// Moves the pointer by `delta`, kept on screen: a mouse or touchpad
     /// moving it, or a three-finger drag.
     pub fn move_pointer_by(&mut self, delta: Point<f64, Logical>, time: u32) {
+        let target = self.pointer_target(delta);
+        self.pointer_motion(target, time);
+    }
+
+    /// Where the pointer would be moved by `delta`, kept on screen.
+    pub fn pointer_target(&self, delta: Point<f64, Logical>) -> Point<f64, Logical> {
         let screen = self.screen();
         let current = self
             .seat
@@ -303,7 +309,7 @@ impl State {
             .map(|p| p.current_location())
             .unwrap_or_default();
         let moved = current + delta;
-        let clamped = Point::from((
+        Point::from((
             moved.x.clamp(
                 screen.loc.x as f64,
                 (screen.loc.x + screen.size.w - 1) as f64,
@@ -312,8 +318,7 @@ impl State {
                 screen.loc.y as f64,
                 (screen.loc.y + screen.size.h - 1) as f64,
             ),
-        ));
-        self.pointer_motion(clamped, time);
+        ))
     }
 }
 
@@ -323,7 +328,12 @@ pub fn handle<B: InputBackend>(state: &mut State, event: InputEvent<B>) -> Optio
     match event {
         InputEvent::PointerMotion { event } => {
             state.one_finger_moved(event.delta());
-            state.move_pointer_by(event.delta(), event.time_msec());
+            state.pointer_moved(
+                event.delta(),
+                event.delta_unaccel(),
+                event.time(),
+                event.time_msec(),
+            );
         }
         InputEvent::PointerMotionAbsolute { event } => {
             let screen = state.screen();

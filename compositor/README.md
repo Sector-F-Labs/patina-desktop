@@ -24,6 +24,8 @@ this workspace is a Wayland client of it.
 - **X11 apps** (Steam, Discord, Wine) run through Xwayland (ADR-0040), started with the
   compositor; their windows float, focus, tab and move like any other.
 - **Fullscreen** for games and videos that ask (ADR-0041): the whole screen, over the bar.
+- **Mouse-look** for games (ADR-0043): relative pointer motion, and the pointer locked or confined
+  to a window that asks, on the hardware.
 - **Night Light** on the hardware (ADR-0039): the CRTC's gamma ramp warmed in the evening, by
   `[night_light]`'s mode and schedule, fading in and out. Apps and scripts can hold it off over
   D-Bus; nested, the parent desktop's own night light applies.
@@ -68,7 +70,7 @@ this workspace is a Wayland client of it.
 `input.rs` and `keyboard.rs` (input and the compositor's own keys), `grabs.rs`, `maximize.rs`,
 `tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`,
 `night_light.rs` with `night_light/dbus.rs`, `xwayland.rs` and `focus.rs` (X11 windows and
-what has the keyboard), `fullscreen.rs`, `dnd.rs` (the icon a drag shows),
+what has the keyboard), `fullscreen.rs`, `constraints.rs` (pointer locks for games), `dnd.rs` (the icon a drag shows),
 `cursor.rs`, `drag.rs`, `scale.rs`, `config.rs`, `clients.rs`, and the backends `winit.rs`,
 `nested.rs`, `udev.rs` with `dmabuf.rs`.
 

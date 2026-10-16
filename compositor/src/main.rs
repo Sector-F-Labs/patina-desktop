@@ -4,6 +4,7 @@
 
 mod clients;
 mod config;
+mod constraints;
 mod cursor;
 mod dmabuf;
 mod dnd;
