@@ -26,7 +26,14 @@ changed. It's meant to become Patina's help viewer, opened when you choose Help 
 ```sh
 reader ~/Src/com/sectorflabs/patina-desktop        # a project
 reader docs/adr/0001-build-on-patina.md            # a file, in its repository
+reader --file docs/adr/0001-build-on-patina.md     # the same, named with --file
+reader ~/Src/project --file ~/Src/project/docs/x.md   # a file in a given project
+reader --single --file help.md                     # the file alone, no tree (-s)
 ```
+
+Single-file mode (`-s`, `--single`) shows the file alone, in a smaller window, as help will:
+links and Back still work, File → Project Tree brings the tree back, and the last project read
+isn't changed. Given a folder, it opens its README.
 
 | Rust in Steam Classic | A man page in Dark Orange |
 |---|---|

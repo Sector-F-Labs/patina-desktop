@@ -53,11 +53,14 @@ pub struct Reader {
     notice: Option<String>,
     title: String,
     screenshot: Option<(PathBuf, bool)>,
+    /// Single-file mode: no tree, and the last project read is left alone.
+    single: bool,
 }
 
 impl Reader {
-    /// Opens `root` at `file`, or the last project read.
-    pub fn new(cc: &eframe::CreationContext<'_>, root: Option<PathBuf>, file: Option<PathBuf>) -> Self {
+    /// Opens `root` at `file`, or the last project read; `single` shows
+    /// the file alone, without the tree.
+    pub fn new(cc: &eframe::CreationContext<'_>, root: Option<PathBuf>, file: Option<PathBuf>, single: bool) -> Self {
         patina::appearance::watch(&cc.egui_ctx);
         patina::markdown::install(&cc.egui_ctx);
         let config = Config::load();
@@ -81,6 +84,7 @@ impl Reader {
             notice: None,
             title: String::new(),
             screenshot: std::env::var_os("READER_SCREENSHOT").map(|p| (PathBuf::from(p), false)),
+            single,
             config,
         };
         reader.apply_skin(&cc.egui_ctx);
@@ -118,12 +122,14 @@ impl Reader {
         self.forward.clear();
         self.filter.clear();
         self.root = Some(root.clone());
-        self.config.last_root = Some(root);
+        if !self.single {
+            self.config.last_root = Some(root);
+        }
         self.path = None;
         self.shown = None;
         if let Some(file) = file.or_else(|| tree::first_file(&self.nodes)) {
             self.show(file);
-        } else {
+        } else if !self.single {
             self.config.save();
         }
     }
@@ -150,8 +156,11 @@ impl Reader {
         self.shown = Some(shown);
         self.path = Some(path.clone());
         self.reveal = true;
-        self.config.last_file = Some(path);
-        self.config.save();
+        // A single file, as help opens, isn't the project being read.
+        if !self.single {
+            self.config.last_file = Some(path);
+            self.config.save();
+        }
     }
 
     /// A markdown or source file, read from disk.
@@ -297,6 +306,10 @@ impl Reader {
         if ui.add_enabled(self.path.is_some(), egui::Button::new("Reload").shortcut_text(weak(ui, "Ctrl+R"))).clicked()
         {
             self.reload();
+        }
+        let mut tree = !self.single;
+        if ui.add(egui::Checkbox::new(&mut tree, "Project Tree")).changed() {
+            self.single = !tree;
         }
         let folder = self.path.as_ref().and_then(|p| p.parent()).map(Path::to_path_buf);
         if ui.add_enabled(folder.is_some(), egui::Button::new("Show in Files")).clicked()
@@ -588,21 +601,21 @@ impl eframe::App for Reader {
 
         let header = frame::header_frame(ui.style(), &style, radius);
         egui::Panel::top("header").frame(header).show(ui, |ui| self.header(ui, &style));
-        egui::Panel::left("tree")
-            .frame(
-                egui::Frame::side_top_panel(ui.style())
-                    .inner_margin(egui::Margin::symmetric(8, 0))
-                    .corner_radius(CornerRadius { sw: radius, ..Default::default() }),
-            )
-            .default_size(240.0)
-            .size_range(160.0..=480.0)
-            .show(ui, |ui| self.sidebar(ui));
+        if !self.single {
+            egui::Panel::left("tree")
+                .frame(
+                    egui::Frame::side_top_panel(ui.style())
+                        .inner_margin(egui::Margin::symmetric(8, 0))
+                        .corner_radius(CornerRadius { sw: radius, ..Default::default() }),
+                )
+                .default_size(240.0)
+                .size_range(160.0..=480.0)
+                .show(ui, |ui| self.sidebar(ui));
+        }
         egui::CentralPanel::default()
-            .frame(
-                egui::Frame::central_panel(ui.style())
-                    .inner_margin(egui::Margin::symmetric(24, 12))
-                    .corner_radius(CornerRadius { se: radius, ..Default::default() }),
-            )
+            .frame(egui::Frame::central_panel(ui.style()).inner_margin(egui::Margin::symmetric(24, 12)).corner_radius(
+                CornerRadius { se: radius, sw: if self.single { radius } else { 0 }, ..Default::default() },
+            ))
             .show(ui, |ui| self.content(ui));
 
         if custom {

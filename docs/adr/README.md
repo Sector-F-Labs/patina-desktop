@@ -12,3 +12,4 @@ skins and the markdown widget are Patina's own ADRs.
 | [0001](0001-a-read-only-reader-for-projects.md) | A read-only reader for a project's markdown and Rust, on Notebook's widget | Accepted |
 | [0002](0002-man-pages-through-the-systems-tools.md) | Man pages, formatted by the system's man tools | Accepted |
 | [0003](0003-source-on-the-code-background.md) | Source files on the skin's code background | Accepted |
+| [0004](0004-single-file-mode-and-file.md) | A single-file mode without the tree, and --file | Accepted |
