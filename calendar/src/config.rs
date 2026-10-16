@@ -16,12 +16,14 @@ pub struct Config {
     /// Calendars switched off in the sidebar, by href.
     pub hidden: Vec<String>,
     pub skin: Option<String>,
+    /// "light" or "dark" while the skin follows the desktop; anything else follows it.
+    pub light_dark: String,
     pub system_title_bar: bool,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { view: View::Week, hidden: Vec::new(), skin: None, system_title_bar: false }
+        Self { view: View::Week, hidden: Vec::new(), skin: None, light_dark: "system".into(), system_title_bar: false }
     }
 }
 
@@ -37,6 +39,14 @@ fn read<T: for<'de> Deserialize<'de> + Default>(file: &str) -> T {
 }
 
 impl Config {
+    pub fn theme(&self) -> egui::ThemePreference {
+        match self.light_dark.as_str() {
+            "light" => egui::ThemePreference::Light,
+            "dark" => egui::ThemePreference::Dark,
+            _ => egui::ThemePreference::System,
+        }
+    }
+
     pub fn load() -> Self {
         read("config.toml")
     }

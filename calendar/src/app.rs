@@ -62,7 +62,10 @@ enum Do {
     Today,
     Step(i32),
     SetSkin(String),
+    SetLightDark(String),
     ReloadSkins,
+    CopySkins,
+    OpenSkinsFolder,
     SystemTitleBar(bool),
 }
 
@@ -83,7 +86,8 @@ pub struct App {
     /// Scroll the time grid to this hour on the next frame.
     scroll_to: Option<f32>,
     dialog: Option<Dialog>,
-    error: Option<String>,
+    /// The latest message for the status bar.
+    status: Option<Status>,
     synced_at: Option<DateTime<Tz>>,
     last_refresh: f64,
     /// For editing a custom colour in a calendar's menu.
@@ -99,8 +103,48 @@ fn local_zone() -> Tz {
 /// The skin used until one is picked: the app's own, built into Patina.
 const HOME_SKIN: &str = "Calendar";
 
+/// The app's name for its config folder, and so its skins folder.
+const APP: &str = "calendar";
+
 fn load_skins() -> (Vec<Skin>, Vec<String>) {
-    skin::load_all(skin::BUILT_IN, &skin::app_dir("calendar").into_iter().collect::<Vec<_>>())
+    skin::load_all(skin::BUILT_IN, &skin::app_dir(APP).into_iter().collect::<Vec<_>>())
+}
+
+/// A message for the status bar.
+struct Status {
+    level: Level,
+    text: String,
+    /// From syncing, so the next sync that works clears it.
+    sync: bool,
+}
+
+#[allow(dead_code)] // Nothing warns yet.
+enum Level {
+    Error,
+    Warn,
+    Info,
+}
+
+impl Status {
+    fn error(text: impl Into<String>) -> Self {
+        Status { level: Level::Error, text: text.into(), sync: false }
+    }
+
+    fn info(text: impl Into<String>) -> Self {
+        Status { level: Level::Info, text: text.into(), sync: false }
+    }
+}
+
+/// What Copy built-in skins did, for the status bar.
+fn export_summary(copied: &[String], skipped: &[String]) -> String {
+    let mut parts = Vec::new();
+    if !copied.is_empty() {
+        parts.push(format!("Copied {}", copied.join(", ")));
+    }
+    if !skipped.is_empty() {
+        parts.push(format!("kept your existing {}", skipped.join(", ")));
+    }
+    parts.join("; ")
 }
 
 
@@ -139,14 +183,14 @@ impl App {
             mini_shown: today,
             scroll_to: Some(7.0),
             dialog: None,
-            error: None,
+            status: None,
             synced_at: None,
             last_refresh: 0.0,
             custom_color: Color32::from_rgb(0x00, 0x7A, 0xFF),
             screenshot,
         };
         app.adopt(cached);
-        app.skin().apply(&cc.egui_ctx);
+        app.apply_skin(&cc.egui_ctx);
         if app.account.is_set() {
             app.sync.send(Command::Refresh);
         } else if app.screenshot.is_none() {
@@ -281,11 +325,37 @@ impl App {
                 self.forced_skin = None;
                 self.config.skin = Some(name);
                 self.config.save();
-                self.skin().apply(ctx);
+                self.apply_skin(ctx);
+            }
+            Do::SetLightDark(value) => {
+                self.config.light_dark = value;
+                self.config.save();
+                self.apply_skin(ctx);
             }
             Do::ReloadSkins => {
                 (self.skins, self.skin_errors) = load_skins();
-                self.skin().apply(ctx);
+                self.apply_skin(ctx);
+            }
+            Do::CopySkins => {
+                let copied = skin::app_dir(APP)
+                    .ok_or_else(|| "no config folder".to_string())
+                    .and_then(|dir| skin::export_built_ins(&dir, skin::BUILT_IN));
+                self.status = Some(match copied {
+                    Ok(export) => {
+                        // The copies share the built-ins' names, so after a reload they're the
+                        // versions in use.
+                        (self.skins, self.skin_errors) = load_skins();
+                        self.apply_skin(ctx);
+                        Status::info(export_summary(&export.copied, &export.skipped))
+                    }
+                    Err(e) => Status::error(format!("Couldn't copy skins: {e}")),
+                });
+            }
+            Do::OpenSkinsFolder => {
+                if let Some(dir) = skin::app_dir(APP) {
+                    let _ = std::fs::create_dir_all(&dir);
+                    let _ = patina::open::path(&dir);
+                }
             }
             Do::SystemTitleBar(on) => {
                 self.config.system_title_bar = on;
@@ -300,7 +370,7 @@ impl App {
         let calendar =
             self.calendars.iter().find(|c| self.visible(&c.href)).or(self.calendars.first()).map(|c| c.href.clone());
         let Some(calendar) = calendar else {
-            self.error = Some("There's no calendar to add the event to yet".into());
+            self.status = Some(Status::error("There's no calendar to add the event to yet"));
             return;
         };
         self.dialog = Some(Dialog::Event { draft: Draft::new(&calendar, start, all_day), existing: None, error: None });
@@ -496,21 +566,62 @@ impl App {
                 actions.push(Do::SystemTitleBar(system));
             }
         });
+        // Patina's skin menu (its ADR-0017): only controls; what they did goes to the status bar.
         ui.menu_button("Skins", |ui| {
-            let current = self.skin().name.clone();
+            // Size the menu to its widest entry instead of wrapping entries to its first width.
+            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+            let current = self.skin();
             for skin in &self.skins {
-                if ui.radio(skin.name == current, &skin.name).clicked() {
+                let label = match &skin.author {
+                    Some(author) if skin.path.is_some() => format!("{} — {author}", skin.name),
+                    _ => skin.name.clone(),
+                };
+                let resp = ui.radio(skin.name == current.name, label);
+                let resp = match &skin.path {
+                    Some(path) => resp.on_hover_text(path.display().to_string()),
+                    None => resp,
+                };
+                if resp.clicked() {
                     actions.push(Do::SetSkin(skin.name.clone()));
                 }
             }
             ui.separator();
+            ui.add_enabled_ui(current.follows_desktop(), |ui| {
+                for (value, label) in [("system", "Follow desktop"), ("light", "Light"), ("dark", "Dark")] {
+                    // An unset or unknown setting follows the desktop.
+                    let on = match value {
+                        "system" => !matches!(self.config.light_dark.as_str(), "light" | "dark"),
+                        _ => self.config.light_dark == value,
+                    };
+                    if ui.radio(on, label).clicked() {
+                        actions.push(Do::SetLightDark(value.into()));
+                    }
+                }
+            });
+            ui.separator();
             if ui.button("Reload skins").clicked() {
                 actions.push(Do::ReloadSkins);
             }
-            for e in &self.skin_errors {
-                ui.colored_label(ui.visuals().error_fg_color, e);
+            if ui
+                .button("Copy built-in skins to folder")
+                .on_hover_text("Puts editable copies in the skins folder; never overwrites existing files")
+                .clicked()
+            {
+                actions.push(Do::CopySkins);
+            }
+            let folder = skin::app_dir(APP).map(|d| d.display().to_string()).unwrap_or_default();
+            if ui.button("Open skins folder").on_hover_text(folder).clicked() {
+                actions.push(Do::OpenSkinsFolder);
             }
         });
+    }
+
+    fn apply_skin(&self, ctx: &egui::Context) {
+        let skin = self.skin();
+        skin.apply(ctx);
+        if skin.follows_desktop() {
+            ctx.set_theme(self.config.theme());
+        }
     }
 
     fn sidebar(&mut self, ui: &mut egui::Ui) {
@@ -589,14 +700,36 @@ impl App {
         if let Some((href, color)) = recolor {
             self.set_color(&href, color);
         }
+    }
 
-        // Status at the bottom.
-        ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
-            ui.add_space(6.0);
-            ui.horizontal(|ui| {
+    /// Patina's status bar (its ADR-0016): the version, then the latest message coloured by its
+    /// level; on the right, the connection to the server.
+    fn status_bar(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            // Just the version: the app's name is already in the title bar and the window list,
+            // so repeating it here adds nothing.
+            ui.label(RichText::new(format!("v{}", env!("CARGO_PKG_VERSION"))).weak().small());
+            // Skins that failed to load stay until they load, ahead of any newer message.
+            let skin_errors = (!self.skin_errors.is_empty()).then(|| {
+                let n = self.skin_errors.len();
+                Status::error(format!("Couldn't load {n} skin{}", if n == 1 { "" } else { "s" }))
+            });
+            if let Some(status) = skin_errors.as_ref().or(self.status.as_ref()) {
+                ui.separator();
+                let color = match status.level {
+                    Level::Error => ui.visuals().error_fg_color,
+                    Level::Warn => ui.visuals().warn_fg_color,
+                    Level::Info => ui.visuals().weak_text_color(),
+                };
+                let resp = ui.label(RichText::new(&status.text).color(color).small());
+                if skin_errors.is_some() {
+                    resp.on_hover_text(self.skin_errors.join("\n"));
+                }
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if self.sync.busy {
-                    ui.spinner();
                     ui.label(RichText::new("Syncing…").weak().small());
+                    ui.spinner();
                 } else if !self.account.is_set() {
                     if ui.small_button("Set up account…").clicked() {
                         self.act(ui.ctx(), Do::Account);
@@ -924,9 +1057,12 @@ impl eframe::App for App {
                 Update::Synced(snapshot) => {
                     self.adopt(snapshot);
                     self.synced_at = Some(self.now());
-                    self.error = None;
+                    // A sync that works clears what the last one said went wrong.
+                    if self.status.as_ref().is_some_and(|s| s.sync) {
+                        self.status = None;
+                    }
                 }
-                Update::Error(e) => self.error = Some(e),
+                Update::Error(e) => self.status = Some(Status { sync: true, ..Status::error(e) }),
                 Update::Busy(_) => {}
             }
         }
@@ -954,31 +1090,23 @@ impl eframe::App for App {
             .frame(frame::header_frame(ui.style(), &style, radius))
             .show(ui, |ui| self.header(ui, &style));
 
-        if let Some(error) = self.error.clone() {
-            egui::Panel::bottom("error").show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.colored_label(ui.visuals().error_fg_color, error);
-                    if ui.small_button("Dismiss").clicked() {
-                        self.error = None;
-                    }
-                });
-            });
-        }
-
-        egui::Panel::left("sidebar")
+        // It spans the window, so it comes before the sidebar, and holds both bottom corners.
+        egui::Panel::bottom("status")
             .frame(
                 egui::Frame::side_top_panel(ui.style())
-                    .corner_radius(egui::CornerRadius { sw: radius, ..Default::default() }),
+                    .inner_margin(egui::Margin::symmetric(10, 4))
+                    .corner_radius(egui::CornerRadius { sw: radius, se: radius, ..Default::default() }),
             )
+            .show(ui, |ui| self.status_bar(ui));
+
+        egui::Panel::left("sidebar")
+            .frame(egui::Frame::side_top_panel(ui.style()))
             .default_size(230.0)
             .resizable(true)
             .show(ui, |ui| self.sidebar(ui));
 
         egui::CentralPanel::default()
-            .frame(
-                egui::Frame::central_panel(ui.style())
-                    .corner_radius(egui::CornerRadius { se: radius, ..Default::default() }),
-            )
+            .frame(egui::Frame::central_panel(ui.style()))
             .show(ui, |ui| {
                 let (from, to) = self.range();
                 let occurrences = self.occurrences(from, to);
