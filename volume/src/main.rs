@@ -36,7 +36,7 @@ const GAP: i32 = 4;
 const POLL: Duration = Duration::from_millis(400);
 
 enum Message {
-    Volume(patina_shell::audio::Volume),
+    Volume(patina_system::audio::Volume),
     Brightness(Option<f32>),
     Toggle,
     Flash(Showing),
@@ -98,13 +98,13 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
         .name("poll".into())
         .spawn(move || {
             loop {
-                if let Some(volume) = patina_shell::audio::get()
+                if let Some(volume) = patina_system::audio::get()
                     && send.send(Message::Volume(volume)).is_err()
                 {
                     return;
                 }
                 if send
-                    .send(Message::Brightness(patina_shell::backlight::level()))
+                    .send(Message::Brightness(patina_system::backlight::level()))
                     .is_err()
                 {
                     return;
@@ -192,10 +192,10 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
 
 fn apply(change: Change) {
     match change {
-        Change::Level(level) => patina_shell::audio::set_level(level),
-        Change::Muted(muted) => patina_shell::audio::set_muted(muted),
+        Change::Level(level) => patina_system::audio::set_level(level),
+        Change::Muted(muted) => patina_system::audio::set_muted(muted),
         Change::Brightness(level) => {
-            if let Err(e) = patina_shell::backlight::set(level) {
+            if let Err(e) = patina_system::backlight::set(level) {
                 eprintln!("patina-volume: brightness: {e}");
             }
         }

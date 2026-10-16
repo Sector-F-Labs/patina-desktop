@@ -1842,6 +1842,7 @@ dependencies = [
  "dirs 6.0.0",
  "egui",
  "patina-shell",
+ "patina-system",
  "patina-ui",
  "serde",
  "serde_ignored",
@@ -1855,6 +1856,7 @@ dependencies = [
  "chrono",
  "dirs 6.0.0",
  "patina-shell",
+ "patina-system",
  "png",
  "resvg",
  "serde",
@@ -1909,8 +1911,17 @@ dependencies = [
  "egui",
  "image",
  "patina-ui",
- "resvg",
  "smithay-client-toolkit 0.21.1",
+]
+
+[[package]]
+name = "patina-system"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "image",
+ "patina-shell",
+ "resvg",
  "zbus",
 ]
 
@@ -1934,6 +1945,7 @@ version = "0.1.0"
 dependencies = [
  "egui",
  "patina-shell",
+ "patina-system",
  "patina-ui",
 ]
 
@@ -1944,6 +1956,7 @@ dependencies = [
  "egui",
  "image",
  "patina-shell",
+ "patina-system",
  "patina-ui",
 ]
 
@@ -1953,6 +1966,7 @@ version = "0.1.0"
 dependencies = [
  "egui",
  "patina-shell",
+ "patina-system",
  "patina-ui",
 ]
 

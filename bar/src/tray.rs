@@ -5,7 +5,7 @@
 //! (ADR-0024).
 
 use egui::{Sense, Ui, vec2};
-use patina_shell::audio::Volume;
+use patina_system::audio::Volume;
 
 /// Space around the icon inside its button, as the launcher's.
 const PADDING: f32 = 10.0;
@@ -27,7 +27,7 @@ pub fn wifi(ui: &mut Ui, signal: Option<Option<u8>>, command: &str, skin: &str, 
     } else {
         v.text_color()
     };
-    patina_shell::icons::wifi(ui.painter(), rect.shrink(PADDING), strength, colour);
+    patina_system::icons::wifi(ui.painter(), rect.shrink(PADDING), strength, colour);
     let tip = match strength {
         Some(s) => format!("Wi-Fi {s}%"),
         None => "Wi-Fi not connected".into(),
@@ -53,7 +53,7 @@ pub fn speaker(ui: &mut Ui, volume: Option<Volume>, command: &str, skin: &str, e
     } else {
         v.text_color()
     };
-    patina_shell::icons::speaker(
+    patina_system::icons::speaker(
         ui.painter(),
         rect.shrink(PADDING),
         volume.level,
@@ -74,7 +74,7 @@ pub fn speaker(ui: &mut Ui, volume: Option<Volume>, command: &str, skin: &str, e
 /// The battery and its percentage, with the time left on hover; nothing
 /// on a machine without one. At 10% or under, while discharging, it's in
 /// the error colour.
-pub fn battery(ui: &mut Ui, battery: Option<patina_shell::power::Battery>) {
+pub fn battery(ui: &mut Ui, battery: Option<patina_system::power::Battery>) {
     let Some(b) = battery else { return };
     let v = ui.visuals().clone();
     let colour = if b.low() {
@@ -82,7 +82,7 @@ pub fn battery(ui: &mut Ui, battery: Option<patina_shell::power::Battery>) {
     } else {
         v.text_color()
     };
-    let charging = b.charge == patina_shell::power::Charge::Charging;
+    let charging = b.charge == patina_system::power::Charge::Charging;
     let text = format!("{}%", b.percent);
     let font = egui::TextStyle::Body.resolve(ui.style());
     let galley = ui.painter().layout_no_wrap(text, font, colour);
@@ -90,7 +90,7 @@ pub fn battery(ui: &mut Ui, battery: Option<patina_shell::power::Battery>) {
     let size = vec2(side * 0.7 + galley.size().x + 6.0, side);
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
     let icon = egui::Rect::from_min_size(rect.min, vec2(side * 0.7, side));
-    patina_shell::icons::battery(
+    patina_system::icons::battery(
         ui.painter(),
         icon.shrink2(vec2(2.0, side * 0.33)),
         b.percent,

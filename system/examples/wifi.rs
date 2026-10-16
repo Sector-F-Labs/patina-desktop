@@ -2,7 +2,7 @@
 //! D-Bus side on a machine: `cargo run -p patina-shell --example wifi`.
 
 fn main() {
-    let nm = match patina_shell::network::NetworkManager::new() {
+    let nm = match patina_system::network::NetworkManager::new() {
         Ok(nm) => nm,
         Err(e) => return eprintln!("no system bus: {e}"),
     };

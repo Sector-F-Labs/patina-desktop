@@ -49,7 +49,7 @@ fn texture(ctx: &egui::Context, pixels: u32) -> Option<TextureHandle> {
     if let Some(t) = ctx.data(|d| d.get_temp::<TextureHandle>(id)) {
         return Some(t);
     }
-    let image = patina_shell::logo::rasterise(pixels)?;
+    let image = patina_system::logo::rasterise(pixels)?;
     let texture = ctx.load_texture("sector-f-logo", image, TextureOptions::LINEAR);
     ctx.data_mut(|d| d.insert_temp(id, texture.clone()));
     Some(texture)

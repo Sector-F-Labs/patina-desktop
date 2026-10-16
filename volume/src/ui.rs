@@ -8,7 +8,7 @@ use egui::{Align, Layout, Sense, Slider, StrokeKind, Ui, UiBuilder, vec2};
 use patina::skin::Skin;
 use patina_shell::Shell;
 
-use patina_shell::audio::Volume;
+use patina_system::audio::Volume;
 
 /// Fade in, hold, fade out, in seconds, for a flash.
 const FADE_IN: f64 = 0.12;
@@ -138,7 +138,7 @@ impl VolumeMenu {
             );
         }
         if volume {
-            patina_shell::icons::speaker(
+            patina_system::icons::speaker(
                 ui.painter(),
                 icon.shrink(3.0),
                 level,
@@ -152,7 +152,7 @@ impl VolumeMenu {
                 }
             }
         } else {
-            patina_shell::icons::sun(ui.painter(), icon.shrink(3.0), level, v.text_color());
+            patina_system::icons::sun(ui.painter(), icon.shrink(3.0), level, v.text_color());
         }
 
         let percent = format!("{:>3}%", (level * 100.0).round() as i32);

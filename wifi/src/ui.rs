@@ -10,7 +10,7 @@ use egui::{
 };
 use patina::skin::Skin;
 use patina_shell::Shell;
-use patina_shell::network::{Network, Security, Wifi};
+use patina_system::network::{Network, Security, Wifi};
 
 const MARGIN: f32 = 12.0;
 const ROW: f32 = 40.0;
@@ -118,7 +118,7 @@ impl WifiMenu {
             );
         }
         let icon = Rect::from_center_size(rect.left_center() + vec2(18.0, 0.0), vec2(22.0, 22.0));
-        patina_shell::icons::wifi(ui.painter(), icon, Some(network.strength), v.text_color());
+        patina_system::icons::wifi(ui.painter(), icon, Some(network.strength), v.text_color());
         let name_colour = if network.active {
             v.strong_text_color()
         } else {
@@ -303,7 +303,7 @@ impl Shell for WifiMenu {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use patina_shell::network::Security;
+    use patina_system::network::Security;
     use std::sync::mpsc;
 
     fn network(ssid: &str, security: Security, active: bool, saved: bool) -> Network {

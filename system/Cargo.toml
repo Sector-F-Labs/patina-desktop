@@ -1,0 +1,18 @@
+[package]
+name = "patina-system"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "What the Patina desktop's pieces read and change on the machine (volume, Wi-Fi, battery, backlight), and the icons and logo they draw"
+
+[lib]
+name = "patina_system"
+
+[dependencies]
+egui = "0.35"
+resvg = { version = "0.48.1", default-features = false }
+zbus = "5"
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+patina-shell = { path = "../shell" }

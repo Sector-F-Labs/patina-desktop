@@ -185,7 +185,7 @@ impl Wallpaper {
 
         let pixels = (side * ui.ctx().pixels_per_point()).round().max(1.0) as u32;
         if self.logos.get(output).is_none_or(|(p, _)| *p != pixels)
-            && let Some(image) = patina_shell::logo::rasterise(pixels)
+            && let Some(image) = patina_system::logo::rasterise(pixels)
         {
             let texture =
                 ui.ctx()
@@ -226,7 +226,7 @@ impl Shell for Wallpaper {
         patina::appearance::watch(ctx);
         ctx.add_font(FontInsert::new(
             LETTERING,
-            FontData::from_static(patina_shell::logo::UBUNTU_MONO),
+            FontData::from_static(patina_system::logo::UBUNTU_MONO),
             vec![InsertFontFamily {
                 family: FontFamily::Name(LETTERING.into()),
                 priority: FontPriority::Highest,

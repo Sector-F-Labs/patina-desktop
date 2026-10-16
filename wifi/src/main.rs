@@ -8,7 +8,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use patina_shell::calloop::channel::{self, Event};
-use patina_shell::network::{NetworkManager, Wifi};
+use patina_system::network::{NetworkManager, Wifi};
 use patina_shell::piece::{self, Single};
 use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 

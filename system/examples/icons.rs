@@ -3,7 +3,8 @@
 //! `cargo run -p patina-shell --example icons -- out.png`.
 
 use egui::{Color32, Pos2, Rect, vec2};
-use patina_shell::{icons, raster::Painter};
+use patina_shell::raster::Painter;
+use patina_system::icons;
 
 fn main() {
     let out = std::env::args()

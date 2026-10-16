@@ -160,12 +160,12 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
         .chain(&host.shell.config.center)
         .any(|m| m == "tray")
     {
-        let (levels, volume) = channel::channel::<patina_shell::audio::Volume>();
+        let (levels, volume) = channel::channel::<patina_system::audio::Volume>();
         std::thread::Builder::new()
             .name("volume".into())
             .spawn(move || {
                 loop {
-                    if let Some(v) = patina_shell::audio::get()
+                    if let Some(v) = patina_system::audio::get()
                         && levels.send(v).is_err()
                     {
                         return;
@@ -192,7 +192,7 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
         std::thread::Builder::new()
             .name("wifi".into())
             .spawn(move || {
-                let Ok(nm) = patina_shell::network::NetworkManager::new() else {
+                let Ok(nm) = patina_system::network::NetworkManager::new() else {
                     return;
                 };
                 loop {
@@ -217,12 +217,12 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
 
     // The tray's battery, read every few seconds, so plugging in shows soon.
     if uses_tray {
-        let (readings, battery) = channel::channel::<Option<patina_shell::power::Battery>>();
+        let (readings, battery) = channel::channel::<Option<patina_system::power::Battery>>();
         std::thread::Builder::new()
             .name("battery".into())
             .spawn(move || {
                 loop {
-                    if readings.send(patina_shell::power::read()).is_err() {
+                    if readings.send(patina_system::power::read()).is_err() {
                         return;
                     }
                     std::thread::sleep(Duration::from_secs(5));

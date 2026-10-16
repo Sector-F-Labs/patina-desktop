@@ -18,4 +18,5 @@ zbus = "5"
 png = "0.18"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 patina-shell = { path = "../shell" }
+patina-system = { path = "../system" }
 smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop", "xkbcommon"] }

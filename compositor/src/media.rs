@@ -41,8 +41,8 @@ pub fn press(key: MediaKey, settings: &crate::config::Media, socket: std::ffi::O
         .spawn(move || {
             let step = settings.brightness_step as i64;
             let result = match key {
-                MediaKey::BrightnessUp => patina_shell::backlight::step(step),
-                MediaKey::BrightnessDown => patina_shell::backlight::step(-step),
+                MediaKey::BrightnessUp => patina_system::backlight::step(step),
+                MediaKey::BrightnessDown => patina_system::backlight::step(-step),
                 MediaKey::VolumeUp => run(&settings.volume_up),
                 MediaKey::VolumeDown => run(&settings.volume_down),
                 MediaKey::Mute => run(&settings.mute),

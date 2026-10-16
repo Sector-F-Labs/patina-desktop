@@ -19,11 +19,11 @@ pub struct Bar {
     pub config: Config,
     pub status: Status,
     /// The default output's volume, for the tray's speaker.
-    pub volume: Option<patina_shell::audio::Volume>,
+    pub volume: Option<patina_system::audio::Volume>,
     /// The Wi-Fi signal, for the tray's Wi-Fi icon (see tray::wifi).
     pub wifi: Option<Option<u8>>,
     /// The battery, for the tray; `None` without one.
-    pub battery: Option<patina_shell::power::Battery>,
+    pub battery: Option<patina_system::power::Battery>,
     skin: Skin,
     /// The open windows, from the compositor, in the order they opened.
     toplevels: Vec<Toplevel>,
