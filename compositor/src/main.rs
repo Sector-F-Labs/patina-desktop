@@ -39,7 +39,9 @@ WAYLAND_DISPLAY set to the compositor's socket. Apps are started from the
 bar's launcher.
 
 --session  run as the login session (the Patina entry at the login screen
-           starts it so): also tells systemd and D-Bus about the display.
+           starts it so). On the hardware, from a login screen or a text
+           console, it always tells systemd and D-Bus about the display, so
+           portals and other services started later reach it.
            See docs/running-as-a-session.md.";
 
 fn main() -> ExitCode {
@@ -79,7 +81,8 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
 
     // With a desktop to open a window on, run nested in it; without one
     // (a text console, or the login session), run on the hardware.
-    let mut state = if std::env::var_os("WAYLAND_DISPLAY").is_some() {
+    let nested = std::env::var_os("WAYLAND_DISPLAY").is_some();
+    let mut state = if nested {
         nested_state(&mut event_loop, display)?
     } else {
         let config = config::load_or_default();
@@ -117,7 +120,9 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
         state.socket_name.to_string_lossy()
     );
 
-    if session {
+    // On the hardware it's the desktop, however it was started; nested, the
+    // parent desktop's services must keep reaching the parent.
+    if session || !nested {
         export_to_session(&state);
     }
     // The wallpaper first, so it's there by the time the bar is.

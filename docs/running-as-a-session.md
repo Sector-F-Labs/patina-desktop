@@ -153,9 +153,11 @@ D-Bus session bus and `XDG_RUNTIME_DIR`. On top of that, the compositor:
 
 - sets `XDG_CURRENT_DESKTOP=Patina`, `XDG_SESSION_DESKTOP=patina` and `XDG_SESSION_TYPE=wayland`
   for its clients (always, nested or not);
-- with `--session`, exports those and `WAYLAND_DISPLAY` to systemd and D-Bus
-  (`dbus-update-activation-environment --systemd`), so services started later find the
-  compositor.
+- on the hardware (from GDM or a text console) or with `--session`, exports those and
+  `WAYLAND_DISPLAY` to systemd and D-Bus (`dbus-update-activation-environment --systemd`), so
+  services started later find the compositor. Without it, xdg-desktop-portal doesn't know it's in
+  Patina, falls back to GTK's backend, which can't find the display, and file choosers never
+  open.
 
 Still to do, so these don't work in the session yet:
 
