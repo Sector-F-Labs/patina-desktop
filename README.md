@@ -10,7 +10,8 @@ A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
   same skins as the Patina apps. It runs on any layer-shell compositor, including dwl, where it
   also shows dwl's tags.
 - **patina-launcher** (`launcher/`): opened by the bar's Sector F button (or Super key). It lists
-  the installed apps from their `.desktop` files, with icons, and filters them as you type. Up
+  the installed apps from their `.desktop` files, and folder apps in `~/Apps` (each
+  `Name.app` with an `app.toml`, ADR-0035), with icons, and filters them as you type. Up
   and Down choose, Enter or a click starts one, and Escape, clicking elsewhere or the button
   again closes it.
 - **patina-volume** (`volume/`): the volume menu, opened by the bar's speaker: mute, a slider

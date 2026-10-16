@@ -28,9 +28,9 @@ pub struct App {
     pub icon: Option<String>,
 }
 
-/// Every app worth listing, sorted by name. Where two directories have an
-/// entry with the same id, the first (the user's own) wins, as the spec
-/// says.
+/// Every app worth listing, sorted by name: the .desktop entries and the
+/// folder apps in `~/Apps` (ADR-0035). Where two directories have an entry
+/// with the same id, the first (the user's own) wins, as the spec says.
 pub fn load() -> Vec<App> {
     let locales = get_languages_from_env();
     let mut seen = std::collections::HashSet::new();
@@ -39,6 +39,9 @@ pub fn load() -> Vec<App> {
         .filter(|e| seen.insert(e.id().to_string()))
         .filter_map(|e| from_entry(&e, &locales))
         .collect();
+    if let Some(dir) = crate::folders::dir() {
+        apps.extend(crate::folders::load(&dir));
+    }
     apps.sort_by_key(|a| a.name.to_lowercase());
     apps
 }

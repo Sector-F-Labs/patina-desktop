@@ -1867,7 +1867,9 @@ dependencies = [
  "patina-shell",
  "patina-ui",
  "resvg",
+ "serde",
  "smithay-client-toolkit 0.21.1",
+ "toml",
 ]
 
 [[package]]

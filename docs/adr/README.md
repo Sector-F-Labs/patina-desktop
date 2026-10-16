@@ -76,6 +76,7 @@ mechanics of adding one.
 | [0032](0032-patina-cursors.md) | Patina's own cursors, by name through cursor-shape, and the compositor's during a grab | Accepted |
 | [0033](0033-volume-flash-holds-and-shows-brightness.md) | The volume flash holds through repeated keys, and shows brightness too | Accepted |
 | [0034](0034-screenshots-with-the-mac-keys.md) | Screenshots with the Mac's keys, taken by the compositor | Accepted |
+| [0035](0035-the-launcher-lists-folder-apps.md) | The launcher lists folder apps in ~/Apps | Accepted |
 
 ## Decision Relationship
 
@@ -119,13 +120,14 @@ flowchart TD
     P --> AF[0032: Patina cursors]
     U --> AG[0033: flash holds, shows brightness]
     P --> AH[0034: screenshots]
+    J --> AI[0035: folder apps in ~/Apps]
     A --> M[0013: Patina from develop]
 ```
 
 ## Revisit Triggers
 
-- An `~/Applications` folder of AppImages joins the launcher's list
-  ([ADR-0010](0010-launcher-reads-desktop-entries.md)).
+- Folder apps get their base from Patina OS's runner, or open files and links
+  ([ADR-0035](0035-the-launcher-lists-folder-apps.md)).
 - A surface that is large or animated draws too slowly on the CPU
   ([ADR-0002](0002-software-rendering.md)).
 - The compositor gets workspaces: the bar's tags move from dwl's stdin to the compositor

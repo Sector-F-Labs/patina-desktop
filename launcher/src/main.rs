@@ -4,6 +4,7 @@
 //! toggles it.
 
 mod apps;
+mod folders;
 mod icons;
 mod ui;
 

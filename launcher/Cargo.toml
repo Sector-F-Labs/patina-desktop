@@ -3,7 +3,7 @@ name = "patina-launcher"
 version = "0.1.0"
 edition = "2024"
 license = "BSD-3-Clause"
-description = "The Patina desktop's app launcher: installed apps from .desktop files, with search"
+description = "The Patina desktop's app launcher: installed apps from .desktop files and folder apps in ~/Apps, with search"
 repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [dependencies]
@@ -12,6 +12,8 @@ freedesktop-desktop-entry = { version = "0.8", default-features = false }
 freedesktop-icons = "0.4"
 image = { version = "0.25", default-features = false, features = ["png"] }
 libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+toml = "1"
 patina-shell = { path = "../shell" }
 patina-ui = { workspace = true }
 resvg = { version = "0.48.1", default-features = false }
