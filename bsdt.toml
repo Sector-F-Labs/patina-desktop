@@ -36,7 +36,10 @@ exclude = ["target"]
 
 [provision]
 # UnAmp comes from crates.io, with a launcher entry so wofi lists it.
+# The launcher comes from its own repository (ADR-0037), and goes beside the
+# compositor, which puts its own folder first on its clients' PATH.
 run = ["cargo build --release",
+       "cargo install --locked --git https://github.com/Sector-F-Labs/patina-launcher --root /tmp/patina-launcher patina-launcher && cp /tmp/patina-launcher/bin/patina-launcher target/release/",
        "cargo install --locked unamp",
        "mkdir -p $HOME/.local/share/applications && printf '[Desktop Entry]\\nType=Application\\nName=UnAmp\\nComment=Music player\\nExec=%s/.cargo/bin/unamp\\nCategories=AudioVideo;Audio;Player;\\n' $HOME > $HOME/.local/share/applications/unamp.desktop"]
 
