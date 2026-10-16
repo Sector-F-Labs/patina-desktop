@@ -18,6 +18,8 @@ painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in it
 - **`night_light.rs`**: Night Light's state, override and inhibitors through the compositor's
   `com.sectorflabs.Patina.NightLight` on the session bus (ADR-0039), for Settings,
   `patina-night-light` and apps wanting true colour.
+- **`power_profiles.rs`**: power modes (power-saver, balanced, performance) through
+  power-profiles-daemon on the system bus (ADR-0042), for Settings' Power page.
 - **`logo.rs`**: the Sector F flask (the bar's launcher button, the default wallpaper) and Ubuntu
   Mono, the wallpaper's lettering, rasterised as masks the skin tints.
 
@@ -28,5 +30,6 @@ the item out.
 ```sh
 cargo run -p patina-system --example wifi      # what NetworkManager reports
 cargo run -p patina-system --example battery
+cargo run -p patina-system --example power     # the power modes; an argument switches mode
 cargo run -p patina-system --example icons     # draws the tray's icons to a PNG
 ```

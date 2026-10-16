@@ -69,7 +69,7 @@ current when that changes.
   copy per display over a socket; `bar.rs`, the bar's skin, edge and config; `toplevels.rs`.
 - `system/`: patina-system: `audio.rs` (wpctl), `backlight.rs` (sysfs and logind), `network.rs`
   (NetworkManager with zbus; `cargo run -p patina-system --example wifi` prints what it reads),
-  `night_light.rs` (the compositor's Night Light over D-Bus), `power.rs` (battery), `icons.rs`
+  `night_light.rs` (the compositor's Night Light over D-Bus), `power_profiles.rs` (power modes), `power.rs` (battery), `icons.rs`
   (tray icons), `logo.rs` (the flask and Ubuntu Mono).
 - `compositor/src/toplevels.rs` and patina-shell's `toplevels.rs`: wlr-foreign-toplevel-management,
   server and client, for the bar's `windows` tabs (ADR-0012).
@@ -85,7 +85,8 @@ current when that changes.
   file's mtime each second and restyles (`Host::restyle`). Wallpaper… opens Settings at its page.
 - `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance, Wallpaper (sets
   `wallpaper`) and Night Light (writes `[night_light]` into the compositor's config with
-  `toml_edit`; state over D-Bus through `system/src/night_light.rs`). Also `patina-night-light`.
+  `toml_edit`; state over D-Bus through `system/src/night_light.rs`) and Power
+  (power-profiles-daemon through `system/src/power_profiles.rs`). Also `patina-night-light`.
   `cargo test -p patina-settings preview -- --ignored` with PATINA_SETTINGS_PREVIEW=dir draws
   each page in software, without opening a window.
 - `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,

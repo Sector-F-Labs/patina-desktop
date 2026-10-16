@@ -83,6 +83,7 @@ mechanics of adding one.
 | [0039](0039-night-light.md) | Night Light: the compositor warms the screen through the CRTC's gamma ramp, on the hardware only | Accepted |
 | [0040](0040-xwayland.md) | X11 apps run through Xwayland, with the compositor as their window manager | Accepted |
 | [0041](0041-fullscreen.md) | Fullscreen windows cover the whole screen, over the bar, while they have the keyboard | Accepted |
+| [0042](0042-power-modes-through-power-profiles-daemon.md) | Power modes in Settings, through power-profiles-daemon | Accepted |
 
 ## Decision Relationship
 

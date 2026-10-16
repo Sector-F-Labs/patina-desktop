@@ -15,12 +15,15 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   what the compositor says: whether this screen can be warmed, whether it's on now (with a button
   to turn it off until the schedule changes, or back), and which apps are holding it off.
 
+- **Power** (ADR-0042): the power modes this machine has (performance, balanced, power saver)
+  through power-profiles-daemon, why performance is held back, and which apps hold a mode.
+
 It wears the shell's skin and follows it when the desktop's menu changes it.
 
 ## How it fits in
 
 - **Started by** patina-menu: its Wallpaper… item runs `patina-settings --page wallpaper`, and
-  Settings… runs it at Appearance. `--page appearance|wallpaper|night-light`.
+  Settings… runs it at Appearance. `--page appearance|wallpaper|night-light|power`.
 - **Writes the files the settings live in**, keeping the rest of each: the bar's config
   (`skin`, `wallpaper`) through patina-shell, and `[night_light]` in the compositor's config with
   `toml_edit`. The bar, patina-wallpaper and the compositor watch those files and change at once.
@@ -37,7 +40,8 @@ patina-night-light inhibit -- darktable   # held off while a command runs
 
 ## Code
 
-`main.rs`, `app.rs` (the window, the Appearance and Wallpaper pages), `night_light.rs` (its page),
+`main.rs`, `app.rs` (the window, the Appearance and Wallpaper pages), `night_light.rs` and
+`power.rs` (theirs),
 `compositor_config.rs` (`[night_light]` read and written in place), `wallpapers.rs` (the images on
 offer and their thumbnails), `bin/patina-night-light.rs`.
 

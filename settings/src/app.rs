@@ -28,16 +28,23 @@ pub enum Page {
     Appearance,
     Wallpaper,
     NightLight,
+    Power,
 }
 
 impl Page {
-    const ALL: [Page; 3] = [Page::Appearance, Page::Wallpaper, Page::NightLight];
+    const ALL: [Page; 4] = [
+        Page::Appearance,
+        Page::Wallpaper,
+        Page::NightLight,
+        Page::Power,
+    ];
 
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "appearance" => Some(Page::Appearance),
             "wallpaper" => Some(Page::Wallpaper),
             "night-light" => Some(Page::NightLight),
+            "power" => Some(Page::Power),
             _ => None,
         }
     }
@@ -47,6 +54,7 @@ impl Page {
             Page::Appearance => "Appearance",
             Page::Wallpaper => "Wallpaper",
             Page::NightLight => "Night Light",
+            Page::Power => "Power",
         }
     }
 }
@@ -92,6 +100,7 @@ pub struct App {
     /// The flask, for the default wallpaper's tile.
     flask: Option<TextureHandle>,
     night_light: NightLightPage,
+    power: crate::power::PowerPage,
     message: Option<Message>,
 }
 
@@ -113,6 +122,7 @@ impl App {
             decoded: None,
             flask: None,
             night_light: NightLightPage::new(ctx),
+            power: crate::power::PowerPage::new(ctx),
             message: None,
         };
         app.follow_shell_skin(ctx);
@@ -520,6 +530,10 @@ impl App {
                 Page::NightLight => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.night_light.ui(ui, &mut self.message));
+                }
+                Page::Power => {
+                    egui::ScrollArea::vertical()
+                        .show(ui, |ui| self.power.ui(ui, &mut self.message));
                 }
             });
 
