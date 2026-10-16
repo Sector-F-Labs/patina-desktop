@@ -44,6 +44,10 @@ current when that changes.
   only). `night_light/dbus.rs` serves `com.sectorflabs.Patina.NightLight`; `dbus-run-session --
   cargo test -p patina-compositor night_light -- --ignored` tests it on a bus of its own. The
   compositor reloads its config within a second of a save.
+- `compositor/src/xwayland.rs`: X11 apps (ADR-0040): Xwayland spawned at start-up, `DISPLAY` for
+  clients, and the `XwmHandler` that maps, places, moves and resizes X windows as `Window`s in
+  the space. `focus.rs`: the keyboard focus is a `FocusTarget` (Wayland surface or X11 window, so
+  the X input focus follows). `window_for` finds both kinds by their `wl_surface`.
 - `compositor/src/dnd.rs`: drag and drop between clients is Smithay's; this draws the icon a
   client drags (`State::dnd_icon`) at the pointer in every backend, moved by its attach offsets;
   `action_choice` in state.rs makes a drop a copy with Ctrl, a move with Shift.

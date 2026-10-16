@@ -116,6 +116,8 @@ macro_rules! forward_the_rest {
     };
 }
 
+pub(crate) use forward_the_rest;
+
 /// linux/input-event-codes.h
 pub const BTN_LEFT: u32 = 0x110;
 pub const BTN_RIGHT: u32 = 0x111;

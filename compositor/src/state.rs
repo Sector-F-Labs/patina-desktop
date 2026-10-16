@@ -127,6 +127,9 @@ pub struct State {
     _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
     /// Or the hardware itself (ADR-0016).
     pub udev: Option<crate::udev::UdevData>,
+    /// The window manager for X11 apps, once Xwayland is ready (ADR-0040).
+    pub xwm: Option<smithay::xwayland::X11Wm>,
+    pub xwayland_shell: smithay::wayland::xwayland_shell::XWaylandShellState,
 }
 
 impl State {
@@ -236,6 +239,8 @@ impl State {
                 &dh,
             ),
             udev: None,
+            xwm: None,
+            xwayland_shell: smithay::wayland::xwayland_shell::XWaylandShellState::new::<Self>(&dh),
             display_handle: dh,
             nested,
             winit,
@@ -411,8 +416,13 @@ impl State {
     /// Asks the window of `surface` to close, as its own close button
     /// would.
     pub fn close_toplevel(&mut self, surface: &WlSurface) {
-        if let Some(toplevel) = self.window_for(surface).and_then(|w| w.toplevel().cloned()) {
+        let Some(window) = self.window_for(surface) else {
+            return;
+        };
+        if let Some(toplevel) = window.toplevel() {
             toplevel.send_close();
+        } else if let Some(x11) = window.x11_surface() {
+            let _ = x11.close();
         }
     }
 
@@ -435,7 +445,22 @@ impl State {
         for w in &above {
             self.space.raise_element(w, false);
         }
+        self.tell_x11_where(window, location);
         self.needs_redraw = true;
+    }
+
+    /// Where the next new window goes: down and right of the last, in the
+    /// area the bar leaves free.
+    pub fn cascade(&mut self) -> Point<i32, Logical> {
+        let zone = layer_map_for_output(&self.output).non_exclusive_zone();
+        let step = CASCADE_START + CASCADE_STEP * (self.placed % 8);
+        self.placed += 1;
+        (zone.loc.x + step, zone.loc.y + step).into()
+    }
+
+    /// Focuses and raises `window`.
+    pub fn focus_window(&mut self, window: Window) {
+        self.focus(Some(window), SERIAL_COUNTER.next_serial());
     }
 
     /// Puts the pointer in the middle of the screen, where it starts on the
@@ -464,7 +489,7 @@ impl State {
         }
         self.activate(None);
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
-        keyboard.set_focus(self, Some(layer.wl_surface().clone()), serial);
+        keyboard.set_focus(self, Some(layer.wl_surface().clone().into()), serial);
         self.needs_redraw = true;
     }
 
@@ -487,10 +512,14 @@ impl State {
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
         if let Some(window) = &window {
             self.space.raise_element(window, true);
+            self.raise_x11(window);
         }
         self.activate(window.as_ref());
-        let surface = window.and_then(|w| w.toplevel().map(|t| t.wl_surface().clone()));
-        keyboard.set_focus(self, surface, serial);
+        let target = window.and_then(|w| match w.x11_surface() {
+            Some(x) => Some(crate::focus::FocusTarget::X11(x.clone())),
+            None => w.toplevel().map(|t| t.wl_surface().clone().into()),
+        });
+        keyboard.set_focus(self, target, serial);
         self.needs_redraw = true;
     }
 
@@ -529,6 +558,16 @@ impl State {
         let Some(focused) = self.focused_window() else {
             return;
         };
+        // Every X app is the one Xwayland client: its windows go by the
+        // app's process instead.
+        if let Some(pid) = focused.x11_surface().and_then(|x| x.pid()) {
+            for window in self.space.elements() {
+                if let Some(x11) = window.x11_surface().filter(|x| x.pid() == Some(pid)) {
+                    let _ = x11.close();
+                }
+            }
+            return;
+        }
         let Some(client) = focused.toplevel().and_then(|t| t.wl_surface().client()) else {
             return;
         };
@@ -545,14 +584,18 @@ impl State {
 
     /// The window with the keyboard, if a window has it.
     pub fn focused_window(&self) -> Option<Window> {
+        use smithay::wayland::seat::WaylandFocus;
         let focus = self.seat.get_keyboard()?.current_focus()?;
-        self.window_for(&focus)
+        let surface = focus.wl_surface()?.into_owned();
+        self.window_for(&surface)
     }
 
+    /// The window drawn on `surface`, Wayland or X11.
     pub fn window_for(&self, surface: &WlSurface) -> Option<Window> {
+        use smithay::wayland::seat::WaylandFocus;
         self.space
             .elements()
-            .find(|w| w.toplevel().is_some_and(|t| t.wl_surface() == surface))
+            .find(|w| w.wl_surface().as_deref() == Some(surface))
             .cloned()
     }
 
@@ -594,6 +637,10 @@ impl CompositorHandler for State {
     }
 
     fn client_compositor_state<'a>(&self, client: &'a Client) -> &'a CompositorClientState {
+        // Xwayland's connection is made by Smithay, with its own data.
+        if let Some(xwayland) = client.get_data::<smithay::xwayland::XWaylandClientData>() {
+            return &xwayland.compositor_state;
+        }
         &client
             .get_data::<ClientState>()
             .expect("every client gets ClientState")
@@ -663,7 +710,10 @@ impl CompositorHandler for State {
                     // A launcher or lock screen asking for every key gets
                     // them once it's configured.
                     let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
-                    if keyboard.current_focus().as_ref() != Some(layer.wl_surface()) {
+                    if !keyboard
+                        .current_focus()
+                        .is_some_and(|f| f.is(layer.wl_surface()))
+                    {
                         self.focus_layer(&layer, SERIAL_COUNTER.next_serial());
                     }
                 }
@@ -689,14 +739,8 @@ impl XdgShellHandler for State {
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
         let window = Window::new_wayland_window(surface);
-        let zone = layer_map_for_output(&self.output).non_exclusive_zone();
-        let step = CASCADE_START + CASCADE_STEP * (self.placed % 8);
-        self.placed += 1;
-        self.space.map_element(
-            window.clone(),
-            (zone.loc.x + step, zone.loc.y + step),
-            false,
-        );
+        let location = self.cascade();
+        self.space.map_element(window.clone(), location, false);
         self.focus(Some(window), SERIAL_COUNTER.next_serial());
     }
 
@@ -801,7 +845,7 @@ impl WlrLayerShellHandler for State {
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
         let stranded = keyboard
             .current_focus()
-            .is_none_or(|f| !f.is_alive() || &f == surface.wl_surface());
+            .is_none_or(|f| !smithay::utils::IsAlive::alive(&f) || f.is(surface.wl_surface()));
         if stranded {
             self.focus_top_window();
         }
@@ -810,7 +854,7 @@ impl WlrLayerShellHandler for State {
 }
 
 impl SeatHandler for State {
-    type KeyboardFocus = WlSurface;
+    type KeyboardFocus = crate::focus::FocusTarget;
     type PointerFocus = WlSurface;
     type TouchFocus = WlSurface;
 
@@ -823,8 +867,11 @@ impl SeatHandler for State {
         self.needs_redraw = true;
     }
 
-    fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&WlSurface>) {
-        let client = focused.and_then(|s| self.display_handle.get_client(s.id()).ok());
+    fn focus_changed(&mut self, seat: &Seat<Self>, focused: Option<&crate::focus::FocusTarget>) {
+        use smithay::wayland::seat::WaylandFocus;
+        let client = focused
+            .and_then(|f| f.wl_surface())
+            .and_then(|s| self.display_handle.get_client(s.id()).ok());
         set_data_device_focus(&self.display_handle, seat, client);
     }
 }

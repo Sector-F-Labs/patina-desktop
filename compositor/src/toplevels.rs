@@ -126,20 +126,36 @@ fn announce(dh: &DisplayHandle, manager: &ZwlrForeignToplevelManagerV1, entry: &
     entry.handles.push(handle);
 }
 
+/// An X window's title and class, its app id here (ADR-0040).
+type TitleAndClass = (String, String);
+
 /// Brings clients up to date with `windows`; `focused` is the surface with
 /// the keyboard, which is the active window.
 pub fn refresh(state: &mut State) {
     let focused = state.seat.get_keyboard().and_then(|k| k.current_focus());
-    let windows: Vec<(WlSurface, bool)> = state
+    // X windows (ADR-0040) once Xwayland has given them a surface, with
+    // their title and class; Wayland ones' are read from their surface.
+    let windows: Vec<(WlSurface, bool, Option<TitleAndClass>)> = state
         .space
         .elements()
-        .filter_map(|w| Some((w.toplevel()?.wl_surface().clone(), is_maximized(w))))
+        .filter_map(|w| {
+            let x11 = w.x11_surface();
+            if x11.is_some_and(|x| x.is_override_redirect()) {
+                return None;
+            }
+            let surface = smithay::wayland::seat::WaylandFocus::wl_surface(w)?.into_owned();
+            Some((
+                surface,
+                is_maximized(w),
+                x11.map(|x| (x.title(), x.class())),
+            ))
+        })
         .collect();
     let dh = state.display_handle.clone();
     let this = &mut state.toplevels;
 
     this.entries.retain(|entry| {
-        let open = windows.iter().any(|(s, _)| s == &entry.surface);
+        let open = windows.iter().any(|(s, _, _)| s == &entry.surface);
         if !open {
             for handle in &entry.handles {
                 handle.closed();
@@ -148,9 +164,9 @@ pub fn refresh(state: &mut State) {
         open
     });
 
-    for (surface, maximized) in windows {
-        let (title, app_id) = describe(&surface);
-        let activated = focused.as_ref() == Some(&surface);
+    for (surface, maximized, x11) in windows {
+        let (title, app_id) = x11.unwrap_or_else(|| describe(&surface));
+        let activated = focused.as_ref().is_some_and(|f| f.is(&surface));
         match this.entries.iter_mut().find(|e| e.surface == surface) {
             None => {
                 let mut entry = Entry {

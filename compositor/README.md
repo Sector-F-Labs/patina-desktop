@@ -21,6 +21,8 @@ this workspace is a Wayland client of it.
   (ADR-0034); the brightness and volume keys change them and flash the volume menu (ADR-0020,
   ADR-0033); Super+Space switches keyboard layout; Super+Shift+R reloads the config.
 - **A right click on the empty desktop** opens patina-menu at the pointer (ADR-0029).
+- **X11 apps** (Steam, Discord, Wine) run through Xwayland (ADR-0040), started with the
+  compositor; their windows float, focus, tab and move like any other.
 - **Night Light** on the hardware (ADR-0039): the CRTC's gamma ramp warmed in the evening, by
   `[night_light]`'s mode and schedule, fading in and out. Apps and scripts can hold it off over
   D-Bus; nested, the parent desktop's own night light applies.
@@ -34,13 +36,14 @@ this workspace is a Wayland client of it.
   (`nested.rs`, `PATINA_RENDERER=pixman`, ADR-0008). Or on the hardware, as the login session or
   from a text console: DRM/KMS, GBM, GLES, libinput, and devices from logind through libseat
   (`udev.rs`, ADR-0016). Which one is decided by whether `WAYLAND_DISPLAY` is set when it starts.
-- **It starts the desktop.** At start-up it runs `patina-wallpaper` and `patina-bar`, then any
-  commands given on its command line. Its own keys run `patina-launcher`, `patina-menu --at X,Y`,
-  `patina-lock` and `patina-volume --flash`/`--brightness` (all configurable). Clients get
-  `WAYLAND_DISPLAY`, `XDG_CURRENT_DESKTOP=Patina`, and a `PATH` with the compositor's own folder
+- **It starts the desktop.** At start-up it runs Xwayland (when installed), `patina-wallpaper`
+  and `patina-bar`, then any commands given on its command line. Its own keys run
+  `patina-launcher`, `patina-menu --at X,Y`, `patina-lock` and `patina-volume
+  --flash`/`--brightness` (all configurable). Clients get `WAYLAND_DISPLAY`, `DISPLAY`
+  (Xwayland's), `XDG_CURRENT_DESKTOP=Patina`, and a `PATH` with the compositor's own folder
   first, so the pieces built beside it are found before installed copies (`clients.rs`).
 - **It tells the session about itself.** On the hardware (or with `--session`) it exports
-  `WAYLAND_DISPLAY` and `XDG_CURRENT_DESKTOP` to systemd and D-Bus, so services started later,
+  `WAYLAND_DISPLAY`, `DISPLAY` and `XDG_CURRENT_DESKTOP` to systemd and D-Bus, so services started later,
   such as xdg-desktop-portal and Files' file chooser, reach it.
 - **The protocols the other pieces rely on:** xdg-shell for apps; wlr-layer-shell for the bar,
   menus and wallpaper; wlr-foreign-toplevel-management for the bar's window tabs (ADR-0012);
@@ -63,7 +66,8 @@ this workspace is a Wayland client of it.
 `main.rs` (start-up, choosing the backend), `state.rs` (the protocols, placement, focus),
 `input.rs` and `keyboard.rs` (input and the compositor's own keys), `grabs.rs`, `maximize.rs`,
 `tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`,
-`night_light.rs` with `night_light/dbus.rs`, `dnd.rs` (the icon a drag shows),
+`night_light.rs` with `night_light/dbus.rs`, `xwayland.rs` and `focus.rs` (X11 windows and
+what has the keyboard), `dnd.rs` (the icon a drag shows),
 `cursor.rs`, `drag.rs`, `scale.rs`, `config.rs`, `clients.rs`, and the backends `winit.rs`,
 `nested.rs`, `udev.rs` with `dmabuf.rs`.
 

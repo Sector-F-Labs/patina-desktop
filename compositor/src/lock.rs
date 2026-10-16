@@ -68,7 +68,7 @@ impl State {
     fn focus_lock(&mut self) {
         let surface = self.lock_surface().cloned();
         if let Some(keyboard) = self.seat.get_keyboard() {
-            keyboard.set_focus(self, surface, SERIAL_COUNTER.next_serial());
+            keyboard.set_focus(self, surface.map(Into::into), SERIAL_COUNTER.next_serial());
         }
     }
 }

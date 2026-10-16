@@ -8,6 +8,7 @@ mod cursor;
 mod dmabuf;
 mod dnd;
 mod drag;
+mod focus;
 mod grabs;
 mod input;
 mod keyboard;
@@ -23,6 +24,7 @@ mod tabs;
 mod toplevels;
 mod udev;
 mod winit;
+mod xwayland;
 
 use std::process::{Command, ExitCode};
 
@@ -128,6 +130,8 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
         export_to_session(&state);
     }
     state.start_night_light();
+    // Before any client starts, so they all get DISPLAY.
+    state.start_xwayland();
     // The wallpaper first, so it's there by the time the bar is.
     state.spawn_client("patina-wallpaper");
     state.spawn_client("patina-bar");
@@ -206,6 +210,9 @@ fn export_to_session(state: &State) {
         .args(clients::DESKTOP_ENV.map(|(k, _)| k))
         .env("WAYLAND_DISPLAY", &state.socket_name)
         .envs(clients::DESKTOP_ENV);
+    if let Some(display) = xwayland::display() {
+        command.arg("DISPLAY").env("DISPLAY", display);
+    }
     match command.status() {
         Ok(s) if s.success() => {}
         Ok(s) => eprintln!("patina-compositor: dbus-update-activation-environment: {s}"),

@@ -37,8 +37,12 @@ pub fn command(socket: &OsStr, command: &str) -> Command {
         .env("WAYLAND_DISPLAY", socket)
         .envs(DESKTOP_ENV)
         .env_remove("WAYLAND_SOCKET")
-        .env_remove("DISPLAY")
         .stdin(Stdio::null());
+    // X11 apps reach Xwayland (ADR-0040); without it, not the parent's X.
+    match crate::xwayland::display() {
+        Some(display) => c.env("DISPLAY", display),
+        None => c.env_remove("DISPLAY"),
+    };
     c
 }
 

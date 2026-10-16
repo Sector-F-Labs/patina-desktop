@@ -17,6 +17,7 @@ deps: ## Show the system packages the build needs
 	@echo "Ubuntu/Debian: sudo apt install pkg-config libxkbcommon-dev libpixman-1-dev libudev-dev \\"
 	@echo "                   libinput-dev libseat-dev libgbm-dev libegl-dev libdrm-dev libwayland-dev"
 	@echo "FreeBSD:       pkg install pkgconf libxkbcommon pixman libudev-devd libinput seatd mesa-libs libdrm wayland"
+	@echo "To run X11 apps (Steam), Xwayland too: apt install xwayland, or pkg install xwayland."
 
 run: ## Run the compositor in a window on this desktop, with the bar
 	cargo build --workspace

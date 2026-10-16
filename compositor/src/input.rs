@@ -240,10 +240,9 @@ impl State {
                 None
             }
             Some(KeyAction::CloseWindow) => {
-                if let Some(surface) = self
-                    .focused_window()
-                    .and_then(|w| w.toplevel().map(|t| t.wl_surface().clone()))
-                {
+                if let Some(surface) = self.focused_window().and_then(|w| {
+                    smithay::wayland::seat::WaylandFocus::wl_surface(&w).map(|s| s.into_owned())
+                }) {
                     self.close_toplevel(&surface);
                 }
                 None

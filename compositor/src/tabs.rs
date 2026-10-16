@@ -37,9 +37,9 @@ impl State {
     /// Alt+Tab and Alt+Shift+Tab: activates the next or previous tab.
     pub fn cycle_tabs(&mut self, forward: bool) {
         let order = self.toplevels.order();
-        let focused = self
-            .focused_window()
-            .and_then(|w| w.toplevel().map(|t| t.wl_surface().clone()));
+        let focused = self.focused_window().and_then(|w| {
+            smithay::wayland::seat::WaylandFocus::wl_surface(&w).map(|s| s.into_owned())
+        });
         let at = focused.and_then(|f| order.iter().position(|s| *s == f));
         if let Some(next) = step(order.len(), at, forward) {
             self.activate_toplevel(&order[next]);
@@ -51,8 +51,8 @@ impl State {
     pub fn focus_after_close(&mut self, closing: &WlSurface) {
         let focus = self.seat.get_keyboard().and_then(|k| k.current_focus());
         let had_focus = focus.as_ref().is_none_or(|f| {
-            use smithay::reexports::wayland_server::Resource;
-            f == closing || !f.is_alive()
+            use smithay::utils::IsAlive;
+            f.is(closing) || !f.alive()
         });
         if !had_focus {
             return;
