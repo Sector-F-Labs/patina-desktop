@@ -17,4 +17,4 @@ skins and the markdown widget are Patina's own ADRs.
 | [0006](0006-search-in-the-title-bar.md) | Search the text on screen from the title bar | Accepted |
 | [0007](0007-links-in-man-pages.md) | References in man pages are links | Accepted |
 | [0008](0008-tabs-each-a-project.md) | Tabs, each a project or the manual, remembered | Accepted |
-| [0009](0009-watch-for-changes.md) | Watch the project's folders, and show changes as they're saved | Proposed |
+| [0009](0009-watch-for-changes.md) | Watch the project's folders, and show changes as they're saved | Accepted |
