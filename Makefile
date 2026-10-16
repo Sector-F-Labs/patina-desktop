@@ -9,7 +9,7 @@ ICONDIR := $(PREFIX)/share/icons/hicolor
 # Throwaway config, so test runs never touch yours.
 SCRATCH := target/scratch
 
-.PHONY: help run build test check install uninstall screenshot clean
+.PHONY: help run build test check install uninstall screenshot icon clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -31,6 +31,9 @@ check: test ## Run the tests and clippy
 screenshot: build ## docs/screenshot-markdown.png: this README, in a scratch config
 	@mkdir -p $(SCRATCH) docs
 	XDG_CONFIG_HOME=$(CURDIR)/$(SCRATCH) READER_SCREENSHOT=docs/screenshot-markdown.png target/release/reader README.md
+
+icon: ## docs/icon.png: the app icon at 120 px, for the README
+	scripts/icon.sh
 
 # For the current user; no sudo.
 install: build ## Install Reader and its launcher for the current user (PREFIX=~/.local)

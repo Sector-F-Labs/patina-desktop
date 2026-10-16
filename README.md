@@ -1,5 +1,7 @@
 # Reader
 
+![Reader's icon](docs/icon.png)
+
 A [Patina](https://github.com/Sector-F-Labs/patina) reader for a project's documentation and code.
 Point it at a folder, such as the Patina desktop's, and browse its markdown, shown exactly as
 Notebook shows it, its man pages, and its Rust source, highlighted. It only reads: nothing can be
