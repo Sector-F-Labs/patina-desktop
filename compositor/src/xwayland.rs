@@ -146,6 +146,15 @@ impl XwmHandler for State {
         }
         let window = Window::new_x11_window(surface.clone());
         let geometry = surface.geometry();
+        // A game that asked for fullscreen before showing, or sized itself
+        // to the screen (ADR-0041), goes straight there: Wine takes a
+        // configure anywhere else first as the window moving.
+        if surface.is_fullscreen() || self.is_screen(geometry) {
+            self.space
+                .map_element(window.clone(), self.screen().loc, false);
+            self.fullscreen(&window);
+            return;
+        }
         // Where it asked to be, as Steam's dialogs do; otherwise cascaded.
         let location = if geometry.loc != Point::from((0, 0)) {
             geometry.loc
@@ -155,11 +164,6 @@ impl XwmHandler for State {
         self.space.map_element(window.clone(), location, false);
         let _ = surface.configure(Rectangle::new(location, geometry.size));
         self.focus_window(window.clone());
-        // A game that asked for fullscreen before showing, or sized itself
-        // to the screen (ADR-0041).
-        if surface.is_fullscreen() || self.is_screen(geometry) {
-            self.fullscreen(&window);
-        }
     }
 
     fn mapped_override_redirect_window(&mut self, _: XwmId, surface: X11Surface) {

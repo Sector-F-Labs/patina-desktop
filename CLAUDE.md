@@ -13,6 +13,11 @@ To change patina-shell along with the desktop, clone it beside this repo and add
 `[patch."https://github.com/Sector-F-Labs/patina-shell"] patina-shell = { path = "../patina-shell" }`
 to a local, uncommitted `.cargo/config.toml`; push it, then `cargo update -p patina-shell` here.
 
+Smithay comes from the `patina-0.7` branch of Sector-F-Labs/smithay, a fork (ADR-0044): 0.7.0 with upstream's
+`_NET_ACTIVE_WINDOW` fix backported (Wine minimised fullscreen games without it). Fixes go there
+as commits on 0.7.0, then `cargo update -p smithay`; drop the `[patch.crates-io]` once a release
+has them.
+
 Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there, push
 `develop`, then `cargo update -p patina-ui` here. Never publish Patina without asking.
 

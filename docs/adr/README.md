@@ -85,6 +85,7 @@ mechanics of adding one.
 | [0041](0041-fullscreen.md) | Fullscreen windows cover the whole screen, over the bar, while they have the keyboard | Accepted |
 | [0042](0042-power-modes-through-power-profiles-daemon.md) | Power modes in Settings, through power-profiles-daemon | Accepted |
 | [0043](0043-games-lock-the-pointer.md) | Games lock or confine the pointer, and read the mouse's motion as such | Accepted |
+| [0044](0044-smithay-from-a-fork-for-x11-focus.md) | Smithay comes from a fork while 0.7 names the root window as the active one | Accepted |
 
 ## Decision Relationship
 

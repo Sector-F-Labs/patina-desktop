@@ -24,6 +24,8 @@ this workspace is a Wayland client of it.
 - **X11 apps** (Steam, Discord, Wine) run through Xwayland (ADR-0040), started with the
   compositor; their windows float, focus, tab and move like any other.
 - **Fullscreen** for games and videos that ask (ADR-0041): the whole screen, over the bar.
+  Smithay comes from a fork whose X11 window manager names the focused window as the active one,
+  so Wine's fullscreen games don't minimise themselves (ADR-0044).
 - **Mouse-look** for games (ADR-0043): relative pointer motion, and the pointer locked or confined
   to a window that asks, on the hardware.
 - **Night Light** on the hardware (ADR-0039): the CRTC's gamma ramp warmed in the evening, by
