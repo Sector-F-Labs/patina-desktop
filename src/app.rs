@@ -1,18 +1,23 @@
-//! The window: Patina's frame with File, Go and Skin menus, the project
-//! tree on the left with a filter, and the file on the right: markdown
-//! through Patina's read-only editor, Rust highlighted with line numbers.
+//! The window: Patina's frame with File, Go and Skin menus, tabs (each a
+//! project, or the system's manual) and a search field in the title bar,
+//! the tab's tree on the left with a filter, and its file on the right:
+//! markdown through Patina's read-only editor, man pages formatted by the
+//! system, Rust highlighted with line numbers.
 
 use std::collections::HashSet;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use egui::{Align, CornerRadius, Id, Key, Modifiers, RichText, Sense, Ui, vec2};
 use patina::frame::{self, FrameStyle, TitleBar};
 use patina::markdown::{Editor, embeds};
 use patina::skin::{self, Skin};
+use patina::tabs::{self, TabAction, TabStrip};
 
-use crate::config::Config;
+use crate::config::{Config, SavedTab};
 use crate::links::{self, Target};
 use crate::man;
+use crate::search;
 use crate::tree::{self, Kind, Node};
 
 /// Reader's skins folder is `~/.config/reader/skins`.
@@ -30,17 +35,26 @@ enum Shown {
     Error(String),
 }
 
-pub struct Reader {
-    config: Config,
-    skins: Vec<Skin>,
-    skin: usize,
-    skin_errors: Vec<String>,
+/// What search found in the file on screen: for man pages and source the
+/// places, for markdown only the count (the editor keeps the places).
+#[derive(Default)]
+struct Found {
+    marks: Vec<Range<usize>>,
+    /// Which one is current, from 0, and how many there are.
+    current: Option<usize>,
+    total: usize,
+    /// Bring the current one into view on the next frame.
+    scroll: bool,
+}
+
+/// A tab: a project, or the system's man pages, with its own tree,
+/// history and file on screen.
+struct Tab {
     root: Option<PathBuf>,
+    /// The system's man pages rather than a project.
+    man: bool,
     nodes: Vec<Node>,
     filter: String,
-    focus_filter: bool,
-    /// The name typed in Go's Man Page field.
-    man_query: String,
     /// Folders open in the tree.
     expanded: HashSet<PathBuf>,
     path: Option<PathBuf>,
@@ -51,39 +65,16 @@ pub struct Reader {
     reveal: bool,
     /// Something to say under the file, until the next one opens.
     notice: Option<String>,
-    title: String,
-    screenshot: Option<(PathBuf, bool)>,
-    /// Single-file mode: no tree, and the last project read is left alone.
-    single: bool,
-    /// System mode: the tree is every man page on the system, by section.
-    man: bool,
+    found: Found,
 }
 
-impl Reader {
-    /// Opens `root` at `file`, or the last project read; `single` shows
-    /// the file alone, without the tree; `man` shows the system's man pages
-    /// as the tree, at `file` or man(1).
-    pub fn new(
-        cc: &eframe::CreationContext<'_>,
-        root: Option<PathBuf>,
-        file: Option<PathBuf>,
-        single: bool,
-        man: bool,
-    ) -> Self {
-        patina::appearance::watch(&cc.egui_ctx);
-        patina::markdown::install(&cc.egui_ctx);
-        let config = Config::load();
-        let (skins, skin_errors) = load_skins();
-        let skin = skins.iter().position(|s| s.name == config.skin).unwrap_or(0);
-        let mut reader = Reader {
-            skins,
-            skin,
-            skin_errors,
+impl Tab {
+    fn empty() -> Self {
+        Tab {
             root: None,
+            man: false,
             nodes: Vec::new(),
             filter: String::new(),
-            focus_filter: false,
-            man_query: String::new(),
             expanded: HashSet::new(),
             path: None,
             shown: None,
@@ -91,100 +82,58 @@ impl Reader {
             forward: Vec::new(),
             reveal: false,
             notice: None,
-            title: String::new(),
-            screenshot: std::env::var_os("READER_SCREENSHOT").map(|p| (PathBuf::from(p), false)),
-            single,
-            man,
-            config,
-        };
-        reader.apply_skin(&cc.egui_ctx);
-        if reader.config.system_title_bar {
-            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true));
+            found: Found::default(),
         }
-        if man {
-            reader.nodes = tree::man_pages();
-            if let Some(page) = file.or_else(|| man::find("man")) {
-                reader.show(page);
+    }
+
+    /// A project, at `file` or its README.
+    fn project(root: PathBuf, file: Option<PathBuf>) -> Self {
+        let mut tab = Tab::empty();
+        tab.nodes = tree::scan(&root);
+        tab.root = Some(root);
+        if let Some(file) = file.filter(|f| f.is_file()).or_else(|| tree::first_file(&tab.nodes)) {
+            tab.show(file);
+        }
+        tab
+    }
+
+    /// The system's man pages, at `page` or man(1).
+    fn manual(page: Option<PathBuf>) -> Self {
+        let mut tab = Tab::empty();
+        tab.man = true;
+        tab.nodes = tree::man_pages();
+        if let Some(page) = page.filter(|p| p.is_file()).or_else(|| man::find("man")) {
+            tab.show(page);
+        }
+        tab
+    }
+
+    fn title(&self) -> String {
+        match (&self.root, self.man) {
+            (_, true) => "Manual".into(),
+            (Some(root), _) => {
+                root.file_name().map_or_else(|| root.display().to_string(), |n| n.to_string_lossy().into_owned())
             }
-            return reader;
-        }
-        // What was asked for, else where the last reading left off.
-        let (root, file) = match root {
-            Some(root) => (Some(root), file),
-            None => {
-                let last = reader.config.last_root.clone().filter(|r| r.is_dir());
-                let file = reader.config.last_file.clone().filter(|f| last.as_ref().is_some_and(|r| f.starts_with(r)));
-                (last, file)
-            }
-        };
-        if let Some(root) = root {
-            reader.open_project(root, file.filter(|f| f.is_file()));
-        }
-        reader
-    }
-
-    fn apply_skin(&self, ctx: &egui::Context) {
-        let skin = &self.skins[self.skin];
-        skin.apply(ctx);
-        if skin.follows_desktop() {
-            ctx.set_theme(self.config.theme());
+            (None, _) => "New Tab".into(),
         }
     }
 
-    /// Reads `root`'s tree and shows `file`, or the project's README.
-    fn open_project(&mut self, root: PathBuf, file: Option<PathBuf>) {
-        self.man = false;
-        self.nodes = tree::scan(&root);
-        self.expanded.clear();
-        self.back.clear();
-        self.forward.clear();
-        self.filter.clear();
-        self.root = Some(root.clone());
-        if self.remembers() {
-            self.config.last_root = Some(root);
-        }
-        self.path = None;
-        self.shown = None;
-        if let Some(file) = file.or_else(|| tree::first_file(&self.nodes)) {
-            self.show(file);
-        } else if self.remembers() {
-            self.config.save();
-        }
-    }
-
-    /// Man mode: every man page on the system as the tree, at man(1).
-    fn open_manual(&mut self) {
-        self.man = true;
-        self.root = None;
-        self.nodes = tree::man_pages();
-        self.expanded.clear();
-        self.back.clear();
-        self.forward.clear();
-        self.filter.clear();
-        self.path = None;
-        self.shown = None;
-        if let Some(page) = man::find("man") {
-            self.show(page);
-        }
-    }
-
-    /// Whether what's read is remembered for next time: not in single-file
-    /// or man mode, which help and lookups use.
-    fn remembers(&self) -> bool {
-        !self.single && !self.man
+    fn saved(&self) -> SavedTab {
+        SavedTab { root: self.root.clone(), man: self.man, file: self.path.clone() }
     }
 
     /// Shows `path`, read afresh from disk.
     fn show(&mut self, path: PathBuf) {
         self.notice = None;
-        let shown = match Kind::of(&path) {
+        self.found = Found::default();
+        self.shown = Some(match Kind::of(&path) {
             // The formatter reads the page itself, gzipped or not.
             Some(Kind::Man) => match man::render(&path) {
                 Ok(page) => Shown::Man(page),
                 Err(e) => Shown::Error(format!("Can't format {}: {e}", path.display())),
             },
-            kind => self.read(&path, kind),
-        };
+            kind => read(&path, kind),
+        });
         // Its folders open in the tree, so it can be seen there: a man
         // page's section, or the folders above a project's file.
         if self.man
@@ -199,29 +148,8 @@ impl Reader {
                 at = dir.parent();
             }
         }
-        self.shown = Some(shown);
-        self.path = Some(path.clone());
+        self.path = Some(path);
         self.reveal = true;
-        // A single file, as help opens, isn't the project being read.
-        if self.remembers() {
-            self.config.last_file = Some(path);
-            self.config.save();
-        }
-    }
-
-    /// A markdown or source file, read from disk.
-    fn read(&self, path: &Path, kind: Option<Kind>) -> Shown {
-        match (std::fs::read_to_string(path), kind) {
-            (Err(e), _) => Shown::Error(format!("Can't read {}: {e}", path.display())),
-            (Ok(text), Some(Kind::Markdown)) => {
-                let mut editor = Editor::new(Id::new(("document", path)));
-                editor.set_read_only(true);
-                editor.set_dir(path.parent().map(Path::to_path_buf));
-                editor.load(&text);
-                Shown::Markdown(Box::new(editor))
-            }
-            (Ok(text), _) => Shown::Rust(text),
-        }
     }
 
     /// Goes to `path`, keeping where it was for Back.
@@ -265,36 +193,10 @@ impl Reader {
         }
     }
 
-    /// Follows a link clicked in the document.
-    fn follow(&mut self, link: &str, ctx: &egui::Context) {
-        let Some(from) = self.path.clone() else { return };
-        match links::resolve(link, &from) {
-            Target::Web(url) => ctx.open_url(egui::OpenUrl::new_tab(url)),
-            Target::Read(path) if path.is_file() => self.go(path),
-            Target::Read(path) => self.notice = Some(format!("There's no {}", self.relative(&path))),
-            Target::Open(path) => {
-                if let Err(e) = patina::open::path(&path) {
-                    self.notice = Some(format!("Can't open {}: {e}", self.relative(&path)));
-                }
-            }
-            Target::Stay => {}
-        }
-    }
-
-    fn pick_folder(&mut self) {
-        let mut dialog = rfd::FileDialog::new().set_title("Open a Project");
-        if let Some(root) = &self.root {
-            dialog = dialog.set_directory(root);
-        }
-        if let Some(root) = dialog.pick_folder() {
-            self.open_project(root, None);
-        }
-    }
-
     /// `path` from the project's folder, for showing; a man page by its
-    /// name in man mode.
+    /// man name.
     fn relative(&self, path: &Path) -> String {
-        if self.man && Kind::of(path) == Some(Kind::Man) {
+        if Kind::of(path) == Some(Kind::Man) && (self.man || self.root.as_ref().is_none_or(|r| !path.starts_with(r))) {
             return man::label(path);
         }
         match &self.root {
@@ -303,74 +205,461 @@ impl Reader {
         }
     }
 
+    /// Follows a link clicked in a markdown document.
+    fn follow(&mut self, link: &str, ctx: &egui::Context) {
+        let Some(from) = self.path.clone() else { return };
+        match links::resolve(link, &from) {
+            Target::Web(url) => ctx.open_url(egui::OpenUrl::new_tab(url)),
+            Target::Read(path) if path.is_file() => self.go(path),
+            Target::Read(path) => self.notice = Some(format!("There's no {}", self.relative(&path))),
+            Target::Open(path) => self.open_elsewhere(&path),
+            Target::Stay => {}
+        }
+    }
+
+    /// Follows a reference clicked in a man page.
+    fn follow_man(&mut self, link: man::Link, ctx: &egui::Context) {
+        match link {
+            man::Link::Page(name) => match man::find(&name) {
+                Some(page) => self.go(page),
+                None => self.notice = Some(format!("No man page for {name}")),
+            },
+            man::Link::Web(url) => ctx.open_url(egui::OpenUrl::new_tab(url)),
+            man::Link::Path(path) if path.is_file() && Kind::of(&path).is_some() => self.go(path),
+            man::Link::Path(path) => self.open_elsewhere(&path),
+        }
+    }
+
+    /// A file Reader doesn't show, or a folder, in the desktop's app for it.
+    fn open_elsewhere(&mut self, path: &Path) {
+        if let Err(e) = patina::open::path(path) {
+            self.notice = Some(format!("Can't open {}: {e}", path.display()));
+        }
+    }
+
+    /// Searches the file on screen for `query`, from the top.
+    fn search(&mut self, query: &str) {
+        self.found = Found::default();
+        match &mut self.shown {
+            Some(Shown::Markdown(editor)) => {
+                editor.set_search(query);
+                if let Some((at, total)) = editor.find(true) {
+                    self.found = Found { current: Some(at - 1), total, ..Found::default() };
+                }
+            }
+            Some(Shown::Man(page)) => self.found = marks(search::find_all(&page.text, query)),
+            Some(Shown::Rust(text)) => self.found = marks(search::find_all(text, query)),
+            _ => {}
+        }
+    }
+
+    /// The next (or previous) place the search text is.
+    fn step(&mut self, forward: bool) {
+        if let Some(Shown::Markdown(editor)) = &mut self.shown {
+            if let Some((at, total)) = editor.find(forward) {
+                self.found = Found { current: Some(at - 1), total, ..Found::default() };
+            }
+            return;
+        }
+        let total = self.found.marks.len();
+        if total == 0 {
+            return;
+        }
+        let current = self.found.current.unwrap_or(0);
+        self.found.current = Some(if forward { (current + 1) % total } else { (current + total - 1) % total });
+        self.found.scroll = true;
+    }
+}
+
+/// Found places, the first current and brought into view.
+fn marks(marks: Vec<Range<usize>>) -> Found {
+    let total = marks.len();
+    Found { current: (total > 0).then_some(0), total, scroll: true, marks }
+}
+
+/// A markdown or source file, read from disk.
+fn read(path: &Path, kind: Option<Kind>) -> Shown {
+    match (std::fs::read_to_string(path), kind) {
+        (Err(e), _) => Shown::Error(format!("Can't read {}: {e}", path.display())),
+        (Ok(text), Some(Kind::Markdown)) => {
+            let mut editor = Editor::new(Id::new(("document", path)));
+            editor.set_read_only(true);
+            editor.set_dir(path.parent().map(Path::to_path_buf));
+            editor.load(&text);
+            Shown::Markdown(Box::new(editor))
+        }
+        (Ok(text), _) => Shown::Rust(text),
+    }
+}
+
+/// How the window was opened.
+pub enum Start {
+    /// Projects in tabs, those open last time, plus `root` at `file` if given.
+    Tabs { root: Option<PathBuf>, file: Option<PathBuf> },
+    /// One file alone, without the tree or tabs.
+    Single { root: Option<PathBuf>, file: Option<PathBuf> },
+    /// The system's man pages, at a page.
+    Manual { page: Option<PathBuf> },
+}
+
+pub struct Reader {
+    config: Config,
+    skins: Vec<Skin>,
+    skin: usize,
+    skin_errors: Vec<String>,
+    tabs: Vec<Tab>,
+    tab: usize,
+    /// Single-file mode: no tree or tabs.
+    single: bool,
+    /// Whether the tabs are remembered: not for single files or a manual
+    /// opened with --man, which help and lookups use.
+    remember: bool,
+    /// The search field in the title bar, and whether to focus it.
+    query: String,
+    focus_search: bool,
+    focus_filter: bool,
+    /// The name typed in Go's Man Page field.
+    man_query: String,
+    title: String,
+    screenshot: Option<(PathBuf, bool)>,
+}
+
+impl Reader {
+    pub fn new(cc: &eframe::CreationContext<'_>, start: Start) -> Self {
+        patina::appearance::watch(&cc.egui_ctx);
+        patina::markdown::install(&cc.egui_ctx);
+        let config = Config::load();
+        let (skins, skin_errors) = load_skins();
+        let skin = skins.iter().position(|s| s.name == config.skin).unwrap_or(0);
+        let (tabs, tab, single, remember) = match start {
+            Start::Single { root, file } => {
+                let tab = match (root, file) {
+                    (Some(root), file) => Tab::project(root, file),
+                    (None, Some(file)) => {
+                        let mut tab = Tab::empty();
+                        tab.show(file);
+                        tab
+                    }
+                    (None, None) => Tab::empty(),
+                };
+                (vec![tab], 0, true, false)
+            }
+            Start::Manual { page } => (vec![Tab::manual(page)], 0, false, false),
+            Start::Tabs { root, file } => {
+                let (mut tabs, mut tab) = restore(&config);
+                if let Some(root) = root {
+                    // An open tab on that project shows the file; else a new tab.
+                    match tabs.iter().position(|t| t.root.as_ref() == Some(&root)) {
+                        Some(i) => {
+                            if let Some(file) = file {
+                                tabs[i].go(file);
+                            }
+                            tab = i;
+                        }
+                        None => {
+                            tabs.retain(|t| t.root.is_some() || t.man);
+                            tabs.push(Tab::project(root, file));
+                            tab = tabs.len() - 1;
+                        }
+                    }
+                }
+                if tabs.is_empty() {
+                    tabs.push(Tab::empty());
+                }
+                let tab = tab.min(tabs.len() - 1);
+                (tabs, tab, false, true)
+            }
+        };
+        let mut reader = Reader {
+            config,
+            skins,
+            skin,
+            skin_errors,
+            tabs,
+            tab,
+            single,
+            remember,
+            query: String::new(),
+            focus_search: false,
+            focus_filter: false,
+            man_query: String::new(),
+            title: String::new(),
+            screenshot: std::env::var_os("READER_SCREENSHOT").map(|p| (PathBuf::from(p), false)),
+        };
+        reader.apply_skin(&cc.egui_ctx);
+        if reader.config.system_title_bar {
+            cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true));
+        }
+        reader.save();
+        reader
+    }
+
+    fn current(&mut self) -> &mut Tab {
+        &mut self.tabs[self.tab]
+    }
+
+    fn apply_skin(&self, ctx: &egui::Context) {
+        let skin = &self.skins[self.skin];
+        skin.apply(ctx);
+        if skin.follows_desktop() {
+            ctx.set_theme(self.config.theme());
+        }
+    }
+
+    /// Remembers the tabs, unless this window is for help or a lookup.
+    fn save(&mut self) {
+        if !self.remember {
+            return;
+        }
+        self.config.tabs = self.tabs.iter().map(Tab::saved).collect();
+        self.config.tab = self.tab;
+        self.config.last_root = None;
+        self.config.last_file = None;
+        self.config.save();
+    }
+
+    /// Puts `tab` in front: in place of an empty tab in front, else as a
+    /// new tab after it.
+    fn open_tab(&mut self, tab: Tab) {
+        if self.tabs[self.tab].root.is_none() && !self.tabs[self.tab].man {
+            self.tabs[self.tab] = tab;
+        } else {
+            self.tab += 1;
+            self.tabs.insert(self.tab, tab);
+        }
+        self.searched();
+        self.save();
+    }
+
+    fn pick_folder(&mut self) {
+        let mut dialog = rfd::FileDialog::new().set_title("Open a Project");
+        if let Some(root) = &self.tabs[self.tab].root {
+            dialog = dialog.set_directory(root);
+        }
+        if let Some(root) = dialog.pick_folder() {
+            match self.tabs.iter().position(|t| t.root.as_ref() == Some(&root)) {
+                Some(i) => self.tab = i,
+                None => self.open_tab(Tab::project(root, None)),
+            }
+            self.save();
+        }
+    }
+
+    /// The manual's tab, if one is open, else a new one.
+    fn open_manual(&mut self) {
+        match self.tabs.iter().position(|t| t.man) {
+            Some(i) => self.tab = i,
+            None => self.open_tab(Tab::manual(None)),
+        }
+    }
+
+    fn tab_action(&mut self, action: TabAction) {
+        match action {
+            TabAction::New => {
+                self.tab += 1;
+                self.tabs.insert(self.tab, Tab::empty());
+            }
+            TabAction::Show(i) => self.tab = i.min(self.tabs.len() - 1),
+            TabAction::Close(i) => {
+                self.tabs.remove(i);
+                if self.tabs.is_empty() {
+                    self.tabs.push(Tab::empty());
+                }
+                if i < self.tab || self.tab >= self.tabs.len() {
+                    self.tab = self.tab.saturating_sub(1);
+                }
+            }
+        }
+        self.searched();
+        self.save();
+    }
+
+    /// The file on screen changed (another tab, another file): search it
+    /// for what's in the field.
+    fn searched(&mut self) {
+        let query = self.query.clone();
+        if !query.is_empty() {
+            self.current().search(&query);
+        }
+    }
+
+    /// Goes to `path` in the tab in front, and remembers it.
+    fn go(&mut self, path: PathBuf) {
+        self.current().go(path);
+        self.searched();
+        self.save();
+    }
+
     fn keys(&mut self, ctx: &egui::Context) {
-        let (back, forward, open, reload, find, quit) = ctx.input_mut(|i| {
+        let (back, forward, open, reload, find, find_file, next, close, quit) = ctx.input_mut(|i| {
             let mouse_back = i.pointer.button_pressed(egui::PointerButton::Extra1);
             let mouse_forward = i.pointer.button_pressed(egui::PointerButton::Extra2);
+            let next = if i.consume_key(Modifiers::SHIFT, Key::F3) {
+                Some(false)
+            } else if i.consume_key(Modifiers::NONE, Key::F3) {
+                Some(true)
+            } else {
+                None
+            };
             (
                 i.consume_key(Modifiers::ALT, Key::ArrowLeft) || mouse_back,
                 i.consume_key(Modifiers::ALT, Key::ArrowRight) || mouse_forward,
                 i.consume_key(Modifiers::COMMAND, Key::O),
                 i.consume_key(Modifiers::COMMAND, Key::R) || i.consume_key(Modifiers::NONE, Key::F5),
                 i.consume_key(Modifiers::COMMAND, Key::F),
-                i.consume_key(Modifiers::COMMAND, Key::Q) || i.consume_key(Modifiers::COMMAND, Key::W),
+                i.consume_key(Modifiers::COMMAND, Key::P),
+                next,
+                i.consume_key(Modifiers::COMMAND, Key::W),
+                i.consume_key(Modifiers::COMMAND, Key::Q),
             )
         });
+        let tab = self.tab;
         if back {
-            self.back();
+            self.tabs[tab].back();
+            self.searched();
+            self.save();
         }
         if forward {
-            self.forward();
+            self.tabs[tab].forward();
+            self.searched();
+            self.save();
         }
         if open {
             self.pick_folder();
         }
         if reload {
-            self.reload();
+            self.tabs[tab].reload();
+            self.searched();
         }
         if find {
+            self.focus_search = true;
+        }
+        if find_file {
             self.focus_filter = true;
         }
-        if quit {
+        if let Some(forward) = next {
+            self.tabs[tab].step(forward);
+        }
+        if close && !self.single && self.tabs.len() > 1 {
+            self.tab_action(TabAction::Close(tab));
+        } else if close || quit {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+        if !self.single
+            && let Some(action) = tabs::keys(ctx, self.tabs.len(), self.tab)
+        {
+            self.tab_action(action);
+        }
+        if !self.single && ctx.input_mut(|i| i.consume_key(Modifiers::COMMAND, Key::T)) {
+            self.tab_action(TabAction::New);
         }
     }
 
     // ---- Drawing ----
 
-    fn header(&mut self, ui: &mut Ui, style: &FrameStyle) {
-        let title = self.title.clone();
-        TitleBar::new(&title, style).custom(!self.config.system_title_bar).menu_bar(true).show(
+    fn header(&mut self, ui: &mut Ui, style: &FrameStyle, span: egui::Rangef) {
+        let title = if self.single { self.title.clone() } else { String::new() };
+        let titles: Vec<String> = self.tabs.iter().map(Tab::title).collect();
+        let single = self.single;
+        let mut action = None;
+        let (custom, shown) = (!self.config.system_title_bar, self.tab);
+        // The bar's two sides each need the window: one at a time.
+        let this = std::cell::RefCell::new(&mut *self);
+        TitleBar::new(&title, style).custom(custom).menu_bar(true).show(
             ui,
             |ui| {
-                ui.menu_button("File", |ui| self.file_menu(ui));
-                ui.menu_button("Go", |ui| self.go_menu(ui));
-                ui.menu_button("Skin", |ui| self.skin_menu(ui));
+                ui.menu_button("File", |ui| this.borrow_mut().file_menu(ui));
+                ui.menu_button("Go", |ui| this.borrow_mut().go_menu(ui));
+                ui.menu_button("Skin", |ui| this.borrow_mut().skin_menu(ui));
+                if !single {
+                    action = TabStrip::new(&titles, shown, style).span(span).show(ui);
+                }
             },
-            |_| {},
+            |ui| this.borrow_mut().search_field(ui),
         );
+        if let Some(action) = action {
+            self.tab_action(action);
+        }
+    }
+
+    /// The title bar's search: Enter for the next match, Shift+Enter the
+    /// previous, Escape to clear; how many there are beside it.
+    fn search_field(&mut self, ui: &mut Ui) {
+        // The window's own colours, not the bar's: the bar sets its ink as
+        // every widget's text colour, which a field's background can hide.
+        let window = ui.ctx().global_style().visuals.clone();
+        let field = ui
+            .scope(|ui| {
+                *ui.visuals_mut() = window;
+                ui.add(egui::TextEdit::singleline(&mut self.query).hint_text("Search").desired_width(170.0))
+            })
+            .inner;
+        if std::mem::take(&mut self.focus_search) {
+            field.request_focus();
+            if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), field.id) {
+                let all = self.query.chars().count();
+                state.cursor.set_char_range(Some(egui::text::CCursorRange::two(
+                    egui::text::CCursor::new(0),
+                    egui::text::CCursor::new(all),
+                )));
+                state.store(ui.ctx(), field.id);
+            }
+        }
+        let query = self.query.clone();
+        if field.changed() {
+            if query.is_empty() {
+                self.current().search("");
+            } else {
+                self.current().search(&query);
+            }
+        }
+        if field.lost_focus() {
+            let (enter, shift, escape) =
+                ui.input(|i| (i.key_pressed(Key::Enter), i.modifiers.shift, i.key_pressed(Key::Escape)));
+            if escape {
+                self.query.clear();
+                self.current().search("");
+            } else if enter {
+                self.current().step(!shift);
+                // Keep the field, so Enter goes on finding.
+                field.request_focus();
+            }
+        }
+        let found = &self.tabs[self.tab].found;
+        if !query.is_empty() {
+            let text = match found.current {
+                Some(i) => format!("{} of {}", i + 1, found.total),
+                None => "No matches".to_string(),
+            };
+            ui.label(RichText::new(text).small().color(ui.visuals().weak_text_color()));
+        }
     }
 
     fn file_menu(&mut self, ui: &mut Ui) {
         if ui.add(egui::Button::new("Open Project…").shortcut_text(weak(ui, "Ctrl+O"))).clicked() {
             self.pick_folder();
         }
-        if ui.add_enabled(self.path.is_some(), egui::Button::new("Reload").shortcut_text(weak(ui, "Ctrl+R"))).clicked()
-        {
-            self.reload();
+        if !self.single && ui.add(egui::Button::new("New Tab").shortcut_text(weak(ui, "Ctrl+T"))).clicked() {
+            self.tab_action(TabAction::New);
+        }
+        let has_file = self.tabs[self.tab].path.is_some();
+        if ui.add_enabled(has_file, egui::Button::new("Reload").shortcut_text(weak(ui, "Ctrl+R"))).clicked() {
+            self.current().reload();
+            self.searched();
         }
         let mut tree = !self.single;
         if ui.add(egui::Checkbox::new(&mut tree, "Project Tree")).changed() {
             self.single = !tree;
         }
-        let folder = self.path.as_ref().and_then(|p| p.parent()).map(Path::to_path_buf);
+        let path = self.tabs[self.tab].path.clone();
+        let folder = path.as_ref().and_then(|p| p.parent()).map(Path::to_path_buf);
         if ui.add_enabled(folder.is_some(), egui::Button::new("Show in Files")).clicked()
             && let Some(folder) = folder
         {
             let _ = patina::open::path(&folder);
         }
-        if ui.add_enabled(self.path.is_some(), egui::Button::new("Copy Path")).clicked()
-            && let Some(path) = &self.path
+        if ui.add_enabled(path.is_some(), egui::Button::new("Copy Path")).clicked()
+            && let Some(path) = &path
         {
             ui.ctx().copy_text(path.display().to_string());
         }
@@ -382,36 +671,42 @@ impl Reader {
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Decorations(!patina_frame));
         }
         ui.separator();
+        if !self.single && ui.add(egui::Button::new("Close Tab").shortcut_text(weak(ui, "Ctrl+W"))).clicked() {
+            self.tab_action(TabAction::Close(self.tab));
+        }
         if ui.add(egui::Button::new("Quit").shortcut_text(weak(ui, "Ctrl+Q"))).clicked() {
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
         }
     }
 
     fn go_menu(&mut self, ui: &mut Ui) {
-        if ui
-            .add_enabled(!self.back.is_empty(), egui::Button::new("Back").shortcut_text(weak(ui, "Alt+Left")))
-            .clicked()
-        {
-            self.back();
+        let tab = &self.tabs[self.tab];
+        let (can_back, can_forward, man) = (!tab.back.is_empty(), !tab.forward.is_empty(), tab.man);
+        if ui.add_enabled(can_back, egui::Button::new("Back").shortcut_text(weak(ui, "Alt+Left"))).clicked() {
+            self.current().back();
+            self.searched();
+            self.save();
         }
-        if ui
-            .add_enabled(!self.forward.is_empty(), egui::Button::new("Forward").shortcut_text(weak(ui, "Alt+Right")))
-            .clicked()
-        {
-            self.forward();
+        if ui.add_enabled(can_forward, egui::Button::new("Forward").shortcut_text(weak(ui, "Alt+Right"))).clicked() {
+            self.current().forward();
+            self.searched();
+            self.save();
         }
         ui.separator();
-        let readme = tree::first_file(&self.nodes).filter(|_| !self.man);
+        let readme = tree::first_file(&self.tabs[self.tab].nodes).filter(|_| !man);
         if ui.add_enabled(readme.is_some(), egui::Button::new("Project README")).clicked()
             && let Some(readme) = readme
         {
             self.go(readme);
         }
-        if ui.add_enabled(!self.man, egui::Button::new("System Manual")).clicked() {
+        if ui.add(egui::Button::new("System Manual")).clicked() {
             self.open_manual();
         }
-        if ui.add(egui::Button::new("Find File").shortcut_text(weak(ui, "Ctrl+F"))).clicked() {
+        if ui.add(egui::Button::new("Find File").shortcut_text(weak(ui, "Ctrl+P"))).clicked() {
             self.focus_filter = true;
+        }
+        if ui.add(egui::Button::new("Search").shortcut_text(weak(ui, "Ctrl+F"))).clicked() {
+            self.focus_search = true;
         }
         ui.separator();
         ui.label("Man Page:");
@@ -421,7 +716,7 @@ impl Reader {
             let query = std::mem::take(&mut self.man_query);
             match man::find(&query) {
                 Some(page) => self.go(page),
-                None => self.notice = Some(format!("No man page for {query}")),
+                None => self.current().notice = Some(format!("No man page for {query}")),
             }
             ui.close();
         }
@@ -467,91 +762,63 @@ impl Reader {
 
     fn sidebar(&mut self, ui: &mut Ui) {
         ui.add_space(8.0);
-        if self.man {
+        let focus = std::mem::take(&mut self.focus_filter);
+        let tab = &mut self.tabs[self.tab];
+        if tab.man {
             ui.label(RichText::new("Manual").strong()).on_hover_text("Every man page on this system");
-        } else if let Some(root) = &self.root {
-            let name =
-                root.file_name().map_or_else(|| root.display().to_string(), |n| n.to_string_lossy().into_owned());
-            ui.label(RichText::new(name).strong()).on_hover_text(root.display().to_string());
+        } else if let Some(root) = &tab.root {
+            ui.label(RichText::new(tab.title()).strong()).on_hover_text(root.display().to_string());
+        } else {
+            return;
         }
         let filter = ui.add(
-            egui::TextEdit::singleline(&mut self.filter)
-                .hint_text(if self.man { "Find a page" } else { "Find a file" })
+            egui::TextEdit::singleline(&mut tab.filter)
+                .hint_text(if tab.man { "Find a page" } else { "Find a file" })
                 .desired_width(f32::INFINITY),
         );
-        if std::mem::take(&mut self.focus_filter) {
+        if focus {
             filter.request_focus();
         }
         if filter.has_focus() && ui.input(|i| i.key_pressed(Key::Escape)) {
-            self.filter.clear();
+            tab.filter.clear();
         }
         let enter = filter.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter));
         ui.add_space(4.0);
-        let nodes = tree::filtered(&self.nodes, &self.filter);
-        let filtering = !self.filter.trim().is_empty();
-        if enter
-            && filtering
-            && let Some(first) = first_match(&nodes)
-        {
-            self.go(first);
-        }
+        let nodes = tree::filtered(&tab.nodes, &tab.filter);
+        let filtering = !tab.filter.trim().is_empty();
         let mut picked = None;
+        if enter && filtering {
+            picked = first_match(&nodes);
+        }
         egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
             ui.spacing_mut().item_spacing.y = 1.0;
-            self.tree(ui, &nodes, 0, filtering, &mut picked);
+            draw_tree(ui, tab, &nodes, 0, filtering, &mut picked);
         });
-        self.reveal = false;
+        tab.reveal = false;
         if let Some(path) = picked {
             self.go(path);
         }
     }
 
-    fn tree(&mut self, ui: &mut Ui, nodes: &[Node], depth: usize, filtering: bool, picked: &mut Option<PathBuf>) {
-        for node in nodes {
-            match node {
-                Node::Folder { name, path, children } => {
-                    let open = filtering || self.expanded.contains(path);
-                    let resp = row(ui, depth, Mark::Folder(open), name, false);
-                    if resp.clicked() && !filtering && !self.expanded.remove(path) {
-                        self.expanded.insert(path.clone());
-                    }
-                    if open {
-                        self.tree(ui, children, depth + 1, filtering, picked);
-                    }
-                }
-                Node::File { name, path, kind } => {
-                    let current = self.path.as_ref() == Some(path);
-                    let mark = match kind {
-                        Kind::Markdown => "md",
-                        Kind::Man => "man",
-                        Kind::Rust => "rs",
-                    };
-                    let resp = row(ui, depth, Mark::Kind(mark), name, current);
-                    if current && self.reveal {
-                        resp.scroll_to_me(Some(Align::Center));
-                    }
-                    if resp.clicked() {
-                        *picked = Some(path.clone());
-                    }
-                }
-            }
-        }
-    }
-
     fn content(&mut self, ui: &mut Ui) {
-        let Some(path) = self.path.clone() else {
+        let tab_index = self.tab;
+        let Some(path) = self.tabs[tab_index].path.clone() else {
             self.welcome(ui);
             return;
         };
+        let tab = &mut self.tabs[tab_index];
         ui.horizontal(|ui| {
-            ui.label(RichText::new(self.relative(&path)).weak().small());
-            if let Some(notice) = &self.notice {
+            ui.label(RichText::new(tab.relative(&path)).weak().small());
+            if let Some(notice) = &tab.notice {
                 ui.colored_label(ui.visuals().error_fg_color, RichText::new(notice).small());
             }
         });
         ui.add_space(4.0);
         let mut link = None;
-        match &mut self.shown {
+        let mut man_link = None;
+        let scroll = std::mem::take(&mut tab.found.scroll);
+        let (marks, current) = (tab.found.marks.clone(), tab.found.current);
+        match &mut tab.shown {
             Some(Shown::Markdown(editor)) => {
                 egui::ScrollArea::vertical().id_salt(("markdown", &path)).auto_shrink(false).show(ui, |ui| {
                     // A readable column, centred in a wide window.
@@ -569,7 +836,11 @@ impl Reader {
             }
             Some(Shown::Man(page)) => {
                 egui::ScrollArea::both().id_salt(("man", &path)).auto_shrink(false).show(ui, |ui| {
-                    man::show(ui, page, Id::new(("man", &path)));
+                    let shown = man::show(ui, page, Id::new(("man", &path)), &marks, current);
+                    if scroll && let Some(at) = shown.current {
+                        ui.scroll_to_rect(at.expand(48.0), Some(Align::Center));
+                    }
+                    man_link = shown.clicked;
                 });
             }
             Some(Shown::Rust(text)) => {
@@ -581,7 +852,10 @@ impl Reader {
                     .show(ui, |ui| {
                         ui.set_min_size(ui.available_size());
                         egui::ScrollArea::both().id_salt(("rust", &path)).auto_shrink(false).show(ui, |ui| {
-                            embeds::code_file(ui, text, "rs", Id::new(("source", &path)));
+                            let at = embeds::code_file(ui, text, "rs", Id::new(("source", &path)), &marks, current);
+                            if scroll && let Some(at) = at {
+                                ui.scroll_to_rect(at.expand(48.0), Some(Align::Center));
+                            }
                         });
                     });
             }
@@ -590,29 +864,47 @@ impl Reader {
             }
             None => {}
         }
+        let before = tab.path.clone();
         if let Some(link) = link {
-            self.follow(&link, ui.ctx());
+            tab.follow(&link, ui.ctx());
+        }
+        if let Some(link) = man_link {
+            tab.follow_man(link, ui.ctx());
+        }
+        if self.tabs[tab_index].path != before {
+            self.searched();
+            self.save();
         }
     }
 
     fn welcome(&mut self, ui: &mut Ui) {
+        let empty_project = self.tabs[self.tab].root.is_some();
         ui.vertical_centered(|ui| {
             ui.add_space(ui.available_height() / 3.0);
             ui.heading("Reader");
-            ui.label(RichText::new("Point it at a project to read its documentation and code.").weak());
+            ui.label(RichText::new("Read a project's documentation and code, or the system's manual.").weak());
             ui.add_space(12.0);
-            if ui.button("Open Project…").clicked() {
-                self.pick_folder();
-            }
-            if self.root.is_some() {
+            ui.horizontal(|ui| {
+                // Centred: the pair's width, split around it.
+                let width = 260.0;
+                ui.add_space(((ui.available_width() - width) / 2.0).max(0.0));
+                if ui.button("Open Project…").clicked() {
+                    self.pick_folder();
+                }
+                if ui.button("System Manual").clicked() {
+                    self.open_manual();
+                }
+            });
+            if empty_project {
                 ui.add_space(8.0);
-                ui.label(RichText::new("Nothing to read here: no markdown or Rust files.").weak());
+                ui.label(RichText::new("Nothing to read here: no markdown, man pages or Rust.").weak());
             }
         });
     }
 
     fn update_title(&mut self, ctx: &egui::Context) {
-        let title = match &self.path {
+        let tab = &self.tabs[self.tab];
+        let title = match &tab.path {
             Some(path) if Kind::of(path) == Some(Kind::Man) => man::label(path),
             Some(path) => path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned()),
             None => "Reader".to_string(),
@@ -624,7 +916,7 @@ impl Reader {
     }
 
     /// In screenshot mode: waits for the page, saves the window to
-    /// `READER_SCREENSHOT` and quits.
+    /// `READER_SCREENSHOT` and quits. `READER_SEARCH` searches first.
     fn take_screenshot(&mut self, ctx: &egui::Context) {
         let Some((path, requested)) = &mut self.screenshot else { return };
         ctx.request_repaint();
@@ -647,6 +939,12 @@ impl Reader {
         } else if !*requested && ctx.input(|i| i.time) > 2.0 {
             *requested = true;
             ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(Default::default()));
+        } else if ctx.input(|i| i.time) > 0.5
+            && self.query.is_empty()
+            && let Ok(query) = std::env::var("READER_SEARCH")
+        {
+            self.query = query.clone();
+            self.current().search(&query);
         }
     }
 }
@@ -661,8 +959,13 @@ impl eframe::App for Reader {
         self.update_title(&ctx);
 
         let header = frame::header_frame(ui.style(), &style, radius);
-        egui::Panel::top("header").frame(header).show(ui, |ui| self.header(ui, &style));
-        if !self.single {
+        egui::Panel::top("header").frame(header).show(ui, |ui| {
+            // The bar's full height, padding and all, for the tabs to fill.
+            let span = (ui.max_rect() + header.inner_margin).y_range();
+            self.header(ui, &style, span);
+        });
+        let has_tree = !self.single && (self.tabs[self.tab].root.is_some() || self.tabs[self.tab].man);
+        if has_tree {
             egui::Panel::left("tree")
                 .frame(
                     egui::Frame::side_top_panel(ui.style())
@@ -675,7 +978,7 @@ impl eframe::App for Reader {
         }
         egui::CentralPanel::default()
             .frame(egui::Frame::central_panel(ui.style()).inner_margin(egui::Margin::symmetric(24, 12)).corner_radius(
-                CornerRadius { se: radius, sw: if self.single { radius } else { 0 }, ..Default::default() },
+                CornerRadius { se: radius, sw: if has_tree { 0 } else { radius }, ..Default::default() },
             ))
             .show(ui, |ui| self.content(ui));
 
@@ -696,6 +999,64 @@ impl eframe::App for Reader {
 
     fn persist_egui_memory(&self) -> bool {
         false
+    }
+}
+
+/// The tabs open last time, and which was in front; a config from before
+/// tabs opens its last project as one.
+fn restore(config: &Config) -> (Vec<Tab>, usize) {
+    let saved: Vec<SavedTab> = if config.tabs.is_empty() {
+        config
+            .last_root
+            .clone()
+            .map(|root| SavedTab { root: Some(root), man: false, file: config.last_file.clone() })
+            .into_iter()
+            .collect()
+    } else {
+        config.tabs.clone()
+    };
+    let tabs: Vec<Tab> = saved
+        .into_iter()
+        .filter_map(|t| match (t.man, t.root) {
+            (true, _) => Some(Tab::manual(t.file)),
+            (false, Some(root)) if root.is_dir() => Some(Tab::project(root, t.file)),
+            _ => None,
+        })
+        .collect();
+    (tabs, config.tab)
+}
+
+/// The tree's rows for `nodes`, folders opening and closing, a file
+/// clicked put in `picked`.
+fn draw_tree(ui: &mut Ui, tab: &mut Tab, nodes: &[Node], depth: usize, filtering: bool, picked: &mut Option<PathBuf>) {
+    for node in nodes {
+        match node {
+            Node::Folder { name, path, children } => {
+                let open = filtering || tab.expanded.contains(path);
+                let resp = row(ui, depth, Mark::Folder(open), name, false);
+                if resp.clicked() && !filtering && !tab.expanded.remove(path) {
+                    tab.expanded.insert(path.clone());
+                }
+                if open {
+                    draw_tree(ui, tab, children, depth + 1, filtering, picked);
+                }
+            }
+            Node::File { name, path, kind } => {
+                let current = tab.path.as_ref() == Some(path);
+                let mark = match kind {
+                    Kind::Markdown => "md",
+                    Kind::Man => "man",
+                    Kind::Rust => "rs",
+                };
+                let resp = row(ui, depth, Mark::Kind(mark), name, current);
+                if current && tab.reveal {
+                    resp.scroll_to_me(Some(Align::Center));
+                }
+                if resp.clicked() {
+                    *picked = Some(path.clone());
+                }
+            }
+        }
     }
 }
 
@@ -758,8 +1119,7 @@ fn load_skins() -> (Vec<Skin>, Vec<String>) {
     skin::load_all(skin::BUILT_IN, &skin::app_dir(APP).into_iter().collect::<Vec<_>>())
 }
 
-/// RGBA pixels as a PNG, for screenshot mode, without an image crate of
-/// our own: egui's loaders bring one in through Patina.
+/// RGBA pixels as a PNG, for screenshot mode.
 fn egui_png(out: &mut Vec<u8>, w: u32, h: u32, rgba: &[u8]) -> Result<(), String> {
     let image = image::RgbaImage::from_raw(w, h, rgba.to_vec()).ok_or("the screenshot has the wrong size")?;
     image.write_to(&mut std::io::Cursor::new(out), image::ImageFormat::Png).map_err(|e| e.to_string())

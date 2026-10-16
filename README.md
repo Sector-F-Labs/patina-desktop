@@ -19,8 +19,14 @@ changed. It's meant to become Patina's help viewer, opened when you choose Help 
 - **System mode** (`reader --man [PAGE]`, or Go → System Manual): the tree is every man page on
   the system, by section (1 User Commands, 8 System Administration, …), and nothing else; the
   filter finds a page among them. It opens PAGE (`ls`, `printf(3)`), else man(1).
+- **Tabs**, as in Notebook: each its own project, or the manual, with its own tree and history
+  (Ctrl+T, Ctrl+W, Ctrl+PageUp/PageDown, Alt+1 to 9). The tabs open last time open again.
+- **Search** in the title bar (Ctrl+F) through the text on screen: every match marked, the
+  current one selected; Enter or F3 for the next, Shift+Enter or Shift+F3 the previous.
+- **Links in man pages**: `printf(3)` opens that page, web addresses the browser, and paths that
+  exist (`/usr/share/doc/…/examples`) open here if Reader shows them, else in Files.
 - The project as a tree, with only what Reader shows in it (no `target/`, `.git` or hidden
-  folders), READMEs first; a filter to find a file by name (Ctrl+F, Enter opens the first).
+  folders), READMEs first; a filter to find a file by name (Ctrl+P, Enter opens the first).
 - Back and forward (Alt+Left and Alt+Right, or the mouse's side buttons), Reload (Ctrl+R), Open
   Project (Ctrl+O, through the desktop's file chooser), and the last project and file read open
   again next time.

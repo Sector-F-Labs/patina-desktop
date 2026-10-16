@@ -14,3 +14,6 @@ skins and the markdown widget are Patina's own ADRs.
 | [0003](0003-source-on-the-code-background.md) | Source files on the skin's code background | Accepted |
 | [0004](0004-single-file-mode-and-file.md) | A single-file mode without the tree, and --file | Accepted |
 | [0005](0005-the-systems-man-pages.md) | --man: the system's man pages as the tree | Accepted |
+| [0006](0006-search-in-the-title-bar.md) | Search the text on screen from the title bar | Accepted |
+| [0007](0007-links-in-man-pages.md) | References in man pages are links | Accepted |
+| [0008](0008-tabs-each-a-project.md) | Tabs, each a project or the manual, remembered | Accepted |

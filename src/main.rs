@@ -7,6 +7,7 @@ mod app;
 mod config;
 mod links;
 mod man;
+mod search;
 mod tree;
 
 use std::path::{Path, PathBuf};
@@ -125,7 +126,9 @@ fn main() -> ExitCode {
             },
             None => None,
         };
-        return run(None, page, args.single, true);
+        let start =
+            if args.single { app::Start::Single { root: None, file: page } } else { app::Start::Manual { page } };
+        return run(start, args.single);
     }
     let (root, file) = match resolve(&args) {
         Ok(found) => found,
@@ -134,10 +137,11 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    run(root, file, args.single, false)
+    let start = if args.single { app::Start::Single { root, file } } else { app::Start::Tabs { root, file } };
+    run(start, args.single)
 }
 
-fn run(root: Option<PathBuf>, file: Option<PathBuf>, single: bool, man: bool) -> ExitCode {
+fn run(start: app::Start, single: bool) -> ExitCode {
     let size = if single { [860.0, 760.0] } else { [1100.0, 760.0] };
     let options = eframe::NativeOptions {
         viewport: patina::frame::viewport(
@@ -150,11 +154,7 @@ fn run(root: Option<PathBuf>, file: Option<PathBuf>, single: bool, man: bool) ->
         ),
         ..Default::default()
     };
-    match eframe::run_native(
-        "reader",
-        options,
-        Box::new(move |cc| Ok(Box::new(app::Reader::new(cc, root, file, single, man)))),
-    ) {
+    match eframe::run_native("reader", options, Box::new(move |cc| Ok(Box::new(app::Reader::new(cc, start))))) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("reader: {e}");

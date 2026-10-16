@@ -1,5 +1,6 @@
 //! Reader's settings, in `~/.config/reader/config.toml`: the skin, the
-//! frame, and the project and file last read, to open again.
+//! frame, and the tabs open last, each a project (or the manual) and the
+//! file it was on, to open again.
 
 use std::path::PathBuf;
 
@@ -13,8 +14,23 @@ pub struct Config {
     pub light_dark: String,
     /// The desktop's title bar instead of Patina's.
     pub system_title_bar: bool,
+    pub tabs: Vec<SavedTab>,
+    /// The tab that was in front.
+    pub tab: usize,
+    /// Before tabs: the one project read last, opened as the first tab.
     pub last_root: Option<PathBuf>,
     pub last_file: Option<PathBuf>,
+}
+
+/// A tab as it's remembered.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SavedTab {
+    /// The project, or none for the manual or a new tab.
+    pub root: Option<PathBuf>,
+    /// The system's man pages rather than a project.
+    pub man: bool,
+    pub file: Option<PathBuf>,
 }
 
 impl Default for Config {
@@ -24,6 +40,8 @@ impl Default for Config {
             skin: "Notebook".into(),
             light_dark: "system".into(),
             system_title_bar: false,
+            tabs: Vec::new(),
+            tab: 0,
             last_root: None,
             last_file: None,
         }
@@ -71,7 +89,14 @@ mod tests {
 
     #[test]
     fn round_trips_and_fills_in_what_is_missing() {
-        let config = Config { last_root: Some("/p".into()), ..Config::default() };
+        let config = Config {
+            tabs: vec![
+                SavedTab { root: Some("/p".into()), man: false, file: Some("/p/README.md".into()) },
+                SavedTab { root: None, man: true, file: None },
+            ],
+            tab: 1,
+            ..Config::default()
+        };
         let text = toml::to_string(&config).unwrap();
         assert_eq!(toml::from_str::<Config>(&text).unwrap(), config);
         assert_eq!(toml::from_str::<Config>("skin = \"Default\"\n").unwrap().light_dark, "system");
