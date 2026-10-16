@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
-use egui::{Align, CornerRadius, Id, Key, Modifiers, RichText, Sense, Ui, vec2};
+use egui::{Align, CornerRadius, Id, Key, Modifiers, RichText, Sense, TextWrapMode, Ui, vec2};
 use patina::frame::{self, FrameStyle, TitleBar};
 use patina::markdown::{Editor, embeds};
 use patina::skin::{self, Skin};
@@ -307,6 +307,8 @@ pub struct Reader {
     skins: Vec<Skin>,
     skin: usize,
     skin_errors: Vec<String>,
+    /// The latest message for the status bar.
+    status: Option<Status>,
     tabs: Vec<Tab>,
     tab: usize,
     /// Single-file mode: no tree or tabs.
@@ -375,6 +377,7 @@ impl Reader {
             skins,
             skin,
             skin_errors,
+            status: None,
             tabs,
             tab,
             single,
@@ -722,11 +725,32 @@ impl Reader {
         }
     }
 
+    /// Rescans the built-in and user skins, keeping the one in use by name.
+    fn reload_skins(&mut self) {
+        let name = self.skins[self.skin].name.clone();
+        (self.skins, self.skin_errors) = load_skins();
+        self.skin = self.skins.iter().position(|s| s.name == name).unwrap_or(0);
+    }
+
     fn skin_menu(&mut self, ui: &mut Ui) {
+        // Size the menu to its widest entry instead of wrapping entries to its first width.
+        ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
         let ctx = ui.ctx().clone();
         let mut changed = false;
         for (i, skin) in self.skins.iter().enumerate() {
-            changed |= ui.radio_value(&mut self.skin, i, &skin.name).clicked();
+            let label = match &skin.author {
+                Some(author) if skin.path.is_some() => format!("{} — {author}", skin.name),
+                _ => skin.name.clone(),
+            };
+            let resp = ui.radio(self.skin == i, label);
+            let resp = match &skin.path {
+                Some(path) => resp.on_hover_text(path.display().to_string()),
+                None => resp,
+            };
+            if resp.clicked() {
+                self.skin = i;
+                changed = true;
+            }
         }
         ui.separator();
         ui.add_enabled_ui(self.skins[self.skin].follows_desktop(), |ui| {
@@ -739,25 +763,69 @@ impl Reader {
         });
         ui.separator();
         if ui.button("Reload Skins").clicked() {
-            let name = self.skins[self.skin].name.clone();
-            (self.skins, self.skin_errors) = load_skins();
-            self.skin = self.skins.iter().position(|s| s.name == name).unwrap_or(0);
+            self.reload_skins();
             changed = true;
         }
-        if let Some(dir) = skin::app_dir(APP)
-            && ui.button("Open Skins Folder").on_hover_text(dir.display().to_string()).clicked()
-        {
-            let _ = std::fs::create_dir_all(&dir);
-            let _ = patina::open::path(&dir);
-        }
-        for error in &self.skin_errors {
-            ui.colored_label(ui.visuals().error_fg_color, error);
+        if let Some(dir) = skin::app_dir(APP) {
+            if ui
+                .button("Copy built-in skins to folder")
+                .on_hover_text("Puts editable copies in the skins folder; never overwrites existing files")
+                .clicked()
+            {
+                self.status = Some(match skin::export_built_ins(&dir, skin::BUILT_IN) {
+                    Ok(export) => {
+                        // The copies share the built-ins' names, so after a reload they're the
+                        // versions in use.
+                        self.reload_skins();
+                        changed = true;
+                        let mut parts = Vec::new();
+                        if !export.copied.is_empty() {
+                            parts.push(format!("Copied {}", export.copied.join(", ")));
+                        }
+                        if !export.skipped.is_empty() {
+                            parts.push(format!("kept your existing {}", export.skipped.join(", ")));
+                        }
+                        Status::info(parts.join("; "))
+                    }
+                    Err(e) => Status::error(format!("Couldn't copy skins: {e}")),
+                });
+            }
+            if ui.button("Open Skins Folder").on_hover_text(dir.display().to_string()).clicked() {
+                let _ = std::fs::create_dir_all(&dir);
+                let _ = patina::open::path(&dir);
+            }
         }
         if changed {
             self.config.skin = self.skins[self.skin].name.clone();
             self.config.save();
             self.apply_skin(&ctx);
         }
+    }
+
+    /// The version on the left, then the latest message, colored by its level. Skin load errors
+    /// stay until the skins load cleanly.
+    fn status_bar(&self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            // Just the version: the app's name is already in the title bar and the window list, so
+            // repeating it here adds nothing.
+            ui.label(weak(ui, &format!("v{}", env!("CARGO_PKG_VERSION"))).small());
+            let skin_errors = (!self.skin_errors.is_empty()).then(|| {
+                let n = self.skin_errors.len();
+                (Status::error(format!("Couldn't load {n} skin{}", if n == 1 { "" } else { "s" })), true)
+            });
+            if let Some((status, list)) = skin_errors.or(self.status.clone().map(|s| (s, false))) {
+                ui.separator();
+                let color = match status.level {
+                    Level::Error => ui.visuals().error_fg_color,
+                    Level::Warn => ui.visuals().warn_fg_color,
+                    Level::Info => ui.visuals().weak_text_color(),
+                };
+                let resp = ui.label(RichText::new(status.text).color(color).small());
+                if list {
+                    resp.on_hover_text(self.skin_errors.join("\n"));
+                }
+            }
+        });
     }
 
     fn sidebar(&mut self, ui: &mut Ui) {
@@ -964,22 +1032,26 @@ impl eframe::App for Reader {
             let span = (ui.max_rect() + header.inner_margin).y_range();
             self.header(ui, &style, span);
         });
+        egui::Panel::bottom("status")
+            .frame(
+                egui::Frame::side_top_panel(ui.style())
+                    .inner_margin(egui::Margin::symmetric(10, 4))
+                    .corner_radius(CornerRadius { sw: radius, se: radius, ..Default::default() }),
+            )
+            .show(ui, |ui| self.status_bar(ui));
         let has_tree = !self.single && (self.tabs[self.tab].root.is_some() || self.tabs[self.tab].man);
         if has_tree {
             egui::Panel::left("tree")
                 .frame(
                     egui::Frame::side_top_panel(ui.style())
-                        .inner_margin(egui::Margin::symmetric(8, 0))
-                        .corner_radius(CornerRadius { sw: radius, ..Default::default() }),
+                        .inner_margin(egui::Margin::symmetric(8, 0)),
                 )
                 .default_size(240.0)
                 .size_range(160.0..=480.0)
                 .show(ui, |ui| self.sidebar(ui));
         }
         egui::CentralPanel::default()
-            .frame(egui::Frame::central_panel(ui.style()).inner_margin(egui::Margin::symmetric(24, 12)).corner_radius(
-                CornerRadius { se: radius, sw: if has_tree { 0 } else { radius }, ..Default::default() },
-            ))
+            .frame(egui::Frame::central_panel(ui.style()).inner_margin(egui::Margin::symmetric(24, 12)))
             .show(ui, |ui| self.content(ui));
 
         if custom {
@@ -1109,6 +1181,31 @@ fn first_match(nodes: &[Node]) -> Option<PathBuf> {
         Node::File { path, .. } => Some(path.clone()),
         Node::Folder { children, .. } => first_match(children),
     })
+}
+
+/// A message for the status bar.
+#[derive(Clone)]
+struct Status {
+    level: Level,
+    text: String,
+}
+
+#[derive(Clone, Copy)]
+#[allow(dead_code)] // Nothing warns yet.
+enum Level {
+    Error,
+    Warn,
+    Info,
+}
+
+impl Status {
+    fn error(text: impl Into<String>) -> Self {
+        Status { level: Level::Error, text: text.into() }
+    }
+
+    fn info(text: impl Into<String>) -> Self {
+        Status { level: Level::Info, text: text.into() }
+    }
 }
 
 fn weak(ui: &Ui, text: &str) -> RichText {
