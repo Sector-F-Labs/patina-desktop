@@ -24,49 +24,14 @@ pub fn find(name: &str, size: u16) -> Option<PathBuf> {
         .find()
 }
 
-/// Decodes the icon at `path` to `size` x `size` pixels, keeping its aspect
-/// ratio, centred.
+/// Decodes the icon at `path` (SVG or PNG) to `size` x `size` pixels,
+/// keeping its aspect ratio, centred.
 pub fn decode(path: &Path, size: u32) -> Option<ColorImage> {
-    let ext = path.extension()?.to_str()?.to_ascii_lowercase();
-    let rgba = match ext.as_str() {
-        "svg" | "svgz" => svg(path, size)?,
-        "png" => png(path, size)?,
-        _ => return None,
-    };
+    let rgba = patina_apps::icon::render(path, size)?;
     Some(ColorImage::from_rgba_premultiplied(
         [size as usize, size as usize],
         &rgba,
     ))
-}
-
-/// Premultiplied RGBA, as tiny-skia renders.
-fn svg(path: &Path, size: u32) -> Option<Vec<u8>> {
-    let data = std::fs::read(path).ok()?;
-    let tree = resvg::usvg::Tree::from_data(&data, &resvg::usvg::Options::default()).ok()?;
-    let mut pixmap = resvg::tiny_skia::Pixmap::new(size, size)?;
-    let (w, h) = (tree.size().width(), tree.size().height());
-    let scale = size as f32 / w.max(h);
-    let dx = (size as f32 - w * scale) / 2.0;
-    let dy = (size as f32 - h * scale) / 2.0;
-    let transform = resvg::tiny_skia::Transform::from_scale(scale, scale).post_translate(dx, dy);
-    resvg::render(&tree, transform, &mut pixmap.as_mut());
-    Some(pixmap.take())
-}
-
-/// Premultiplied RGBA, resized to fit.
-fn png(path: &Path, size: u32) -> Option<Vec<u8>> {
-    let image = image::open(path).ok()?.into_rgba8();
-    let fitted = image::imageops::resize(&image, size, size, image::imageops::FilterType::Triangle);
-    Some(
-        fitted
-            .pixels()
-            .flat_map(|p| {
-                let [r, g, b, a] = p.0;
-                let m = |c: u8| ((c as u16 * a as u16 + 127) / 255) as u8;
-                [m(r), m(g), m(b), a]
-            })
-            .collect(),
-    )
 }
 
 /// Looks up and decodes each `(index, icon name)` on a thread, sending each

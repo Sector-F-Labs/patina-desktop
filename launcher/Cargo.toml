@@ -10,11 +10,11 @@ repository = "https://github.com/Sector-F-Labs/patina-desktop"
 egui = "0.35"
 freedesktop-desktop-entry = { version = "0.8", default-features = false }
 freedesktop-icons = "0.4"
-image = { version = "0.25", default-features = false, features = ["png"] }
 libc = "0.2"
-serde = { version = "1", features = ["derive"] }
-toml = "1"
+patina-apps = { git = "ssh://divan@remotes.divanv.com/~/Remotes/src/com/sectorflabs/patina-apps", features = ["icon"] }
 patina-shell = { path = "../shell" }
 patina-ui = { workspace = true }
-resvg = { version = "0.48.1", default-features = false }
 smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop"] }
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }

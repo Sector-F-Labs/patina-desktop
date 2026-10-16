@@ -43,8 +43,9 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   anchor, size, keyboard and per-output surfaces (ADR-0011).
 - `shell/src/raster.rs`: CPU painter for egui meshes (ADR-0002).
 - `launcher/src/apps.rs`: .desktop entries, search, launch; `folders.rs`: folder apps,
-  `~/Apps/*.app/app.toml` (ADR-0035, Patina OS ADR-0004's format 1); `icons.rs`: theme lookup and
-  decoding on a thread; `ui.rs`: the surface. A second run closes the open one over a socket in
+  `~/Apps/*.app/app.toml` (ADR-0035, Patina OS ADR-0004's format 1), read by the patina-apps crate
+  that Files shares (ADR-0036; a private git dependency over ssh, `.cargo/config.toml`);
+  `icons.rs`: theme lookup and decoding on a thread; `ui.rs`: the surface. A second run closes the open one over a socket in
   XDG_RUNTIME_DIR. The bar passes its skin in `PATINA_SKIN`.
 - `compositor/src/toplevels.rs` and `shell/src/toplevels.rs`: wlr-foreign-toplevel-management,
   server and client, for the bar's `windows` tabs (ADR-0012).
