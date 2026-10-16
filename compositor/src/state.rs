@@ -837,6 +837,28 @@ impl DataDeviceHandler for State {
     fn data_device_state(&self) -> &DataDeviceState {
         &self.data_device_state
     }
+
+    /// A drop copies with Ctrl held and moves with Shift, as on GNOME;
+    /// otherwise the target's preference stands.
+    fn action_choice(
+        &mut self,
+        available: smithay::reexports::wayland_server::protocol::wl_data_device_manager::DndAction,
+        preferred: smithay::reexports::wayland_server::protocol::wl_data_device_manager::DndAction,
+    ) -> smithay::reexports::wayland_server::protocol::wl_data_device_manager::DndAction {
+        use smithay::reexports::wayland_server::protocol::wl_data_device_manager::DndAction;
+        let mods = self
+            .seat
+            .get_keyboard()
+            .map(|k| k.modifier_state())
+            .unwrap_or_default();
+        if mods.ctrl && available.contains(DndAction::Copy) {
+            DndAction::Copy
+        } else if mods.shift && available.contains(DndAction::Move) {
+            DndAction::Move
+        } else {
+            smithay::wayland::selection::data_device::default_action_chooser(available, preferred)
+        }
+    }
 }
 
 impl ServerDndGrabHandler for State {}
