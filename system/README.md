@@ -1,0 +1,29 @@
+# patina-system
+
+What the desktop's pieces read and change on the machine, and the drawings they share. It's the
+desktop-specific half of what was patina-shell; the generic half (the layer-shell host and the
+painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in its own repository
+(ADR-0037).
+
+- **`audio.rs`**: the default output's volume and mute through PipeWire's `wpctl`, for the
+  bar's speaker and patina-volume.
+- **`network.rs`**: Wi-Fi through NetworkManager on the system D-Bus (zbus): devices, access
+  points, saved connections, scanning, joining, the radio switch (ADR-0022). For the bar's
+  Wi-Fi icon and patina-wifi.
+- **`power.rs`**: the battery from `/sys/class/power_supply` (ADR-0024), for the tray.
+- **`backlight.rs`**: the screen's brightness, read from sysfs and set through logind's
+  SetBrightness without root (ADR-0020). The compositor's brightness keys and patina-volume's
+  flash use it.
+- **`icons.rs`**: the tray's small icons, drawn from shapes in a colour taken from the skin.
+- **`logo.rs`**: the Sector F flask (the bar's launcher button, the default wallpaper) and Ubuntu
+  Mono, the wallpaper's lettering, rasterised as masks the skin tints.
+
+The calls that wait on a program or D-Bus run off the UI thread. The Linux services
+(NetworkManager, wpctl, logind) are optional: where they're missing, the pieces say so or leave
+the item out.
+
+```sh
+cargo run -p patina-system --example wifi      # what NetworkManager reports
+cargo run -p patina-system --example battery
+cargo run -p patina-system --example icons     # draws the tray's icons to a PNG
+```

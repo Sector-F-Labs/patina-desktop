@@ -34,14 +34,18 @@ test: ## Run the tests
 check: test ## Run the tests and clippy, as before a commit or release
 	cargo clippy --workspace --all-targets -- -D warnings
 
-BINARIES := patina-bar patina-compositor patina-launcher patina-lock patina-menu patina-volume patina-wallpaper patina-wifi
+BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-volume patina-wallpaper patina-wifi
+# The launcher lives in its own repository (ADR-0037); install builds it from there.
+LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 
 install: build ## Install the binaries into $(PREFIX)/bin
 	install -d $(PREFIX)/bin
 	install -m 755 $(addprefix target/release/,$(BINARIES)) $(PREFIX)/bin/
+	cargo install --quiet --locked --git $(LAUNCHER) --root $(PREFIX) patina-launcher
 
 uninstall: ## Remove the installed binaries
 	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES))
+	-cargo uninstall --root $(PREFIX) patina-launcher
 
 # Login sessions and PAM services are only read from system folders, so
 # these two files need root. The binaries stay per user; run these without

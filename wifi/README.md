@@ -14,7 +14,7 @@ Disconnect. Escape, a click elsewhere or the icon again closes it.
 
 - **Started by** the bar's Wi-Fi icon (its `wifi` command), with the bar's skin and edge. A
   second run closes the open one (patina-shell's `Single`).
-- **Talks to NetworkManager** on the system D-Bus (patina-shell's `network.rs`, with zbus): the
+- **Talks to NetworkManager** on the system D-Bus (patina-system's `network.rs`, with zbus): the
   devices, access points and saved connections, scanning, activating and adding connections, and
   the radio switch. On Ubuntu, NetworkManager's polkit rules let the active session do this
   without a password prompt. The calls run off the UI thread.
@@ -31,5 +31,5 @@ password box).
 
 ```sh
 cargo run -p patina-wifi
-cargo run -p patina-shell --example wifi   # what NetworkManager reports, as text
+cargo run -p patina-system --example wifi   # what NetworkManager reports, as text
 ```

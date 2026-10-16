@@ -18,7 +18,7 @@ are used (ADR-0021, ADR-0033).
   second plain run closes the menu, a flash keeps an open one up or restarts its hold.
 - **Doesn't change anything itself on a key.** The compositor runs the `[media]` volume commands
   (`wpctl` by default) and steps the backlight; this only shows the result.
-- **Reads and sets** the default output's volume through `wpctl` (patina-shell's `audio.rs`),
+- **Reads and sets** the default output's volume through `wpctl` (patina-system's `audio.rs`),
   and the brightness through sysfs and logind (`backlight.rs`), both off the UI thread.
 
 ## Code

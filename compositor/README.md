@@ -47,7 +47,7 @@ this workspace is a Wayland client of it.
   `[touchpad]`, `[cursor]`, `[media]` (the volume commands, `wpctl` by default), `[lock]`, the
   launcher and desktop menu commands, and `[bindings]` from key combinations to commands. Every
   key is optional; a broken file falls back to the defaults and never stops the session.
-- **Shares code with the shell pieces** through patina-shell: the backlight (`backlight.rs`) for
+- **Shares code with the shell pieces** through patina-system: the backlight (`backlight.rs`) for
   the brightness keys.
 
 ## Code

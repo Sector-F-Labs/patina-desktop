@@ -8,6 +8,6 @@ repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [dependencies]
 egui = "0.35"
-patina-shell = { path = "../shell" }
+patina-shell = { workspace = true }
 patina-system = { path = "../system" }
 patina-ui = { workspace = true }

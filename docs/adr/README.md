@@ -51,7 +51,7 @@ mechanics of adding one.
 | [0007](0007-floating-first.md) | Floating windows first | Accepted |
 | [0008](0008-nested-software-backend.md) | Run nested, drawn in software with pixman | Proposed |
 | [0009](0009-one-workspace.md) | Keep the compositor and the bar in one cargo workspace | Accepted |
-| [0010](0010-launcher-reads-desktop-entries.md) | The launcher lists apps from .desktop files | Accepted |
+| [0010](0010-launcher-reads-desktop-entries.md) | The launcher lists apps from .desktop files | Accepted; moved with the launcher by [0037](0037-patina-shell-and-the-launcher-are-public.md) |
 | [0011](0011-shared-shell-crate.md) | Move the layer-shell host into patina-shell | Proposed |
 | [0012](0012-windows-through-foreign-toplevel.md) | The bar learns about windows through wlr-foreign-toplevel-management | Proposed |
 | [0013](0013-patina-from-develop.md) | Depend on Patina's develop branch | Accepted |
@@ -76,8 +76,9 @@ mechanics of adding one.
 | [0032](0032-patina-cursors.md) | Patina's own cursors, by name through cursor-shape, and the compositor's during a grab | Accepted |
 | [0033](0033-volume-flash-holds-and-shows-brightness.md) | The volume flash holds through repeated keys, and shows brightness too | Accepted |
 | [0034](0034-screenshots-with-the-mac-keys.md) | Screenshots with the Mac's keys, taken by the compositor | Accepted |
-| [0035](0035-the-launcher-lists-folder-apps.md) | The launcher lists folder apps in ~/Apps | Accepted |
-| [0036](0036-folder-apps-come-from-patina-apps.md) | Folder apps are read by patina-apps, a crate shared with Files | Accepted |
+| [0035](0035-the-launcher-lists-folder-apps.md) | The launcher lists folder apps in ~/Apps | Accepted; moved with the launcher by [0037](0037-patina-shell-and-the-launcher-are-public.md) |
+| [0036](0036-folder-apps-come-from-patina-apps.md) | Folder apps are read by patina-apps, a crate shared with Files | Accepted; moved with the launcher by [0037](0037-patina-shell-and-the-launcher-are-public.md) |
+| [0037](0037-patina-shell-and-the-launcher-are-public.md) | patina-shell and the launcher are public repositories of their own | Accepted |
 
 ## Decision Relationship
 
@@ -123,6 +124,8 @@ flowchart TD
     P --> AH[0034: screenshots]
     J --> AI[0035: folder apps in ~/Apps]
     AI --> AJ[0036: patina-apps crate]
+    K --> AK[0037: shell and launcher public]
+    AJ --> AK
     A --> M[0013: Patina from develop]
 ```
 

@@ -13,7 +13,7 @@ Mono, in the colours of the skin.
 - **What it draws** comes from the bar's config, `~/.config/patina-bar/config.toml`: `wallpaper`
   (an image, scaled to cover the screen) and `skin` (the default's colours). patina-menu writes
   both; the wallpaper watches the file and redraws when either changes.
-- **The default** is drawn from patina-shell's `logo.rs`, the same flask as the bar's launcher
+- **The default** is drawn from patina-system's `logo.rs`, the same flask as the bar's launcher
   button, tinted from the skin like everything else.
 
 ## Code

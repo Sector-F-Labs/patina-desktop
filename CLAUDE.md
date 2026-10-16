@@ -1,10 +1,17 @@
 # Patina desktop
 
 A cargo workspace (ADR-0009): `compositor/` is a floating Smithay compositor (ADR-0006, 0007),
-`bar/` is a layer-shell egui status bar skinned with Patina, `launcher/` is the app launcher the
-bar's Sector F button opens (ADR-0010), and `shell/` (patina-shell) is the layer-shell host and
-software painter they share (ADR-0011). The compositor puts its own folder first on its
-clients' PATH, so the bar and launcher are found beside it.
+`bar/` is a layer-shell egui status bar skinned with Patina, and the menus, lock screen and
+wallpaper beside it; `system/` (patina-system) is what they read and draw from the machine. Two
+parts live in public repositories of their own, by git (ADR-0037): **patina-shell**
+(github.com/Sector-F-Labs/patina-shell), the layer-shell host and software painter every piece
+is built on (ADR-0011), and **patina-launcher** (github.com/Sector-F-Labs/patina-launcher), the
+launcher the bar's Sector F button opens, which `make install` builds from there. The compositor
+puts its own folder first on its clients' PATH, so the pieces are found beside it.
+
+To change patina-shell along with the desktop, clone it beside this repo and add
+`[patch."https://github.com/Sector-F-Labs/patina-shell"] patina-shell = { path = "../patina-shell" }`
+to a local, uncommitted `.cargo/config.toml`; push it, then `cargo update -p patina-shell` here.
 
 Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there, push
 `develop`, then `cargo update -p patina-ui` here. Never publish Patina without asking.
@@ -42,32 +49,27 @@ current when that changes.
   pixman rendering copied into wl_shm, parent input → seat (ADR-0008). `State::nested` and
   `State::winit` are Options; exactly one is set. sctk traits are aliased (`Client*`) where their
   names clash with Smithay's.
-- `shell/src/host.rs`: layer-shell egui host (sctk), generic over a `Shell`; `Options` sets
-  anchor, size, keyboard and per-output surfaces (ADR-0011).
-- `shell/src/raster.rs`: CPU painter for egui meshes (ADR-0002).
-- `launcher/src/apps.rs`: .desktop entries, search, launch; `folders.rs`: folder apps,
-  `~/Apps/*.app/app.toml` (ADR-0035, Patina OS ADR-0004's format 1), read by the patina-apps crate
-  that Files shares (ADR-0036; a private git dependency over ssh, `.cargo/config.toml`);
-  `icons.rs`: theme lookup and decoding on a thread; `ui.rs`: the surface. A second run closes the open one over a socket in
-  XDG_RUNTIME_DIR. The bar passes its skin in `PATINA_SKIN`.
-- `compositor/src/toplevels.rs` and `shell/src/toplevels.rs`: wlr-foreign-toplevel-management,
+- patina-shell (its own repo): `host.rs`, the layer-shell egui host (sctk), generic over a
+  `Shell`, with `Options` for anchor, size, keyboard, per-output surfaces, lock and the window
+  fallback where there's no layer shell; `raster.rs`, the CPU painter (ADR-0002); `piece.rs`, one
+  copy per display over a socket; `bar.rs`, the bar's skin, edge and config; `toplevels.rs`.
+- `system/`: patina-system: `audio.rs` (wpctl), `backlight.rs` (sysfs and logind), `network.rs`
+  (NetworkManager with zbus; `cargo run -p patina-system --example wifi` prints what it reads),
+  `power.rs` (battery), `icons.rs` (tray icons), `logo.rs` (the flask and Ubuntu Mono).
+- `compositor/src/toplevels.rs` and patina-shell's `toplevels.rs`: wlr-foreign-toplevel-management,
   server and client, for the bar's `windows` tabs (ADR-0012).
-- `wifi/`: patina-wifi, the tray's Wi-Fi menu (ADR-0022), on `shell/src/network.rs`
-  (NetworkManager over the system bus with zbus; `cargo run -p patina-shell --example wifi` prints
-  what it reads). `shell/src/piece.rs` is what the bar's pieces share: one copy per display over a
-  socket, and the bar's skin and edge.
+- `wifi/`: patina-wifi, the tray's Wi-Fi menu (ADR-0022), on `system/src/network.rs`.
 - `volume/`: patina-volume, the tray's volume menu, also flashed by the compositor after a
   volume key (`--flash`) or a brightness key (`--brightness`) (ADR-0021, ADR-0033).
-  `shell/src/audio.rs` (wpctl), `backlight.rs` (sysfs and logind), `icons.rs` and `bar.rs` (the
-  bar's skin and edge for pieces the compositor starts) are shared.
+  On `system/src/audio.rs` and `backlight.rs`.
 - `lock/`: patina-lock, the lock screen (ADR-0028): `Options::lock` makes the host draw on
   ext-session-lock surfaces and unlock when the shell finishes; `pam.rs` declares the PAM calls.
   The compositor's side is `compositor/src/lock.rs` (ADR-0025).
 - `menu/`: patina-menu, the desktop's menu on a right click on the desktop (ADR-0029): the skin
-  menu, writing `skin` into the bar's config (`shell/src/bar.rs` `set_skin`); the bar polls the
+  menu, writing `skin` into the bar's config (patina-shell's `bar.rs` `set_skin`); the bar polls the
   file's mtime each second and restyles (`Host::restyle`). Its Wallpaper submenu sets `wallpaper`.
 - `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,
-  or the default flask (`shell/src/logo.rs`, with Ubuntu Mono) in the skin's colours. `cargo test
+  or the default flask (`system/src/logo.rs`, with Ubuntu Mono) in the skin's colours. `cargo test
   -p patina-wallpaper -- --ignored` with PATINA_WALLPAPER_PREVIEW=dir renders the default per skin.
 - `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`.
 

@@ -10,5 +10,5 @@ repository = "https://github.com/Sector-F-Labs/patina-desktop"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 egui = "0.35"
 libc = "0.2"
-patina-shell = { path = "../shell" }
+patina-shell = { workspace = true }
 patina-ui = { workspace = true }

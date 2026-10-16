@@ -4,7 +4,8 @@ Date: 2026-10-14
 
 ## Status
 
-Accepted
+Accepted; moved with the launcher to its own repository by
+[ADR-0037](0037-patina-shell-and-the-launcher-are-public.md)
 
 ## Context
 

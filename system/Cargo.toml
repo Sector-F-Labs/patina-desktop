@@ -15,4 +15,4 @@ zbus = "5"
 
 [dev-dependencies]
 image = { version = "0.25", default-features = false, features = ["png"] }
-patina-shell = { path = "../shell" }
+patina-shell = { workspace = true }

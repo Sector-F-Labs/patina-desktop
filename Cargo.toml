@@ -1,8 +1,10 @@
 [workspace]
 resolver = "3"
-members = ["bar", "compositor", "launcher", "lock", "menu", "shell", "system", "volume", "wallpaper", "wifi"]
+members = ["bar", "compositor", "lock", "menu", "system", "volume", "wallpaper", "wifi"]
 
 # Patina's develop branch, so desktop work can use Patina changes before
 # they're released.
 [workspace.dependencies]
 patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+# The layer-shell host the pieces are drawn on, published on its own (ADR-0037).
+patina-shell = { git = "https://github.com/Sector-F-Labs/patina-shell" }

@@ -9,7 +9,7 @@ A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
 - **[patina-bar](bar/README.md)** (`bar/`): a status bar in egui on a wlr-layer-shell surface, skinned with the
   same skins as the Patina apps. It runs on any layer-shell compositor, including dwl, where it
   also shows dwl's tags.
-- **[patina-launcher](launcher/README.md)** (`launcher/`): opened by the bar's Sector F button (or Super key). It lists
+- **[patina-launcher](https://github.com/Sector-F-Labs/patina-launcher)** (its own repository; `make install` builds it from there): opened by the bar's Sector F button (or Super key). It lists
   the installed apps from their `.desktop` files, and folder apps in `~/Apps` (each
   `Name.app` with an `app.toml`, ADR-0035), with icons, and filters them as you type. Up
   and Down choose, Enter or a click starts one, and Escape, clicking elsewhere or the button
@@ -30,9 +30,11 @@ A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
 - **[patina-wallpaper](wallpaper/README.md)** (`wallpaper/`): the wallpaper, on the background layer of every screen: the
   bar config's `wallpaper` image, filling the screen, or by default the Sector F Labs flask and
   name (in Ubuntu Mono) in the skin's colours.
-- **[patina-shell](shell/README.md)** (`shell/`): what every shell piece is built on: a layer-shell host for
-  egui drawn in software, one copy per display, the bar's skin and edge, and the volume, Wi-Fi,
-  battery and backlight they read.
+- **[patina-system](system/README.md)** (`system/`): what the pieces read and change on the
+  machine (volume, Wi-Fi, battery, backlight), and the tray's icons and the logo they draw.
+- **[patina-shell](https://github.com/Sector-F-Labs/patina-shell)** (its own repository): what
+  every shell piece is built on: a layer-shell host for egui drawn in software, one copy per
+  display, and the bar's skin and edge.
 
 Each crate's README says what it does on the desktop and how it fits with the others.
 
