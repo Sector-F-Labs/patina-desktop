@@ -74,6 +74,50 @@ pub fn scan(root: &Path) -> Vec<Node> {
     nodes
 }
 
+/// Every man page on the system, a folder per section in order ("1 User
+/// Commands"), each page named without its section. Where the same page
+/// is in more than one place, the first on the manpath wins, as for man.
+pub fn man_pages() -> Vec<Node> {
+    let mut sections: std::collections::BTreeMap<char, std::collections::BTreeMap<String, PathBuf>> =
+        Default::default();
+    for dir in crate::man::manpath() {
+        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let mut subdirs: Vec<PathBuf> = entries.filter_map(|e| e.ok()).map(|e| e.path()).collect();
+        subdirs.sort();
+        for sub in subdirs {
+            // man1 to man9 (and man3p and the like), not the translations.
+            let Some(section) = sub
+                .file_name()
+                .and_then(|n| n.to_str())
+                .and_then(|n| n.strip_prefix("man"))
+                .and_then(|n| n.chars().next())
+                .filter(|c| ('1'..='9').contains(c))
+            else {
+                continue;
+            };
+            let Ok(pages) = std::fs::read_dir(&sub) else { continue };
+            let section = sections.entry(section).or_default();
+            for page in pages.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| crate::man::is_page(p)) {
+                section.entry(crate::man::page_name(&page)).or_insert(page);
+            }
+        }
+    }
+    sections
+        .into_iter()
+        .filter(|(_, pages)| !pages.is_empty())
+        .map(|(section, pages)| {
+            let mut children: Vec<Node> =
+                pages.into_iter().map(|(name, path)| Node::File { name, path, kind: Kind::Man }).collect();
+            children.sort_by_key(|n| n.name().to_lowercase());
+            Node::Folder {
+                name: format!("{section} {}", crate::man::section_title(section)),
+                path: PathBuf::from(format!("man:{section}")),
+                children,
+            }
+        })
+        .collect()
+}
+
 /// Folders, then READMEs, then the other markdown, man pages, then code.
 fn order(node: &Node) -> u8 {
     match node {
@@ -183,6 +227,16 @@ mod tests {
         assert_eq!(names(&filtered(&nodes, "0001")), ["docs/[adr/[0001-x.md]]"]);
         assert!(filtered(&nodes, "nothing").is_empty());
         std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn the_systems_man_pages_by_section() {
+        let sections = man_pages();
+        // Every system Reader runs on has section 1.
+        let Some(Node::Folder { name, children, .. }) = sections.first() else { panic!("no sections") };
+        assert_eq!(name, "1 User Commands");
+        assert!(children.iter().any(|c| c.name() == "ls"), "ls is in section 1");
+        assert!(children.iter().all(|c| matches!(c, Node::File { kind: Kind::Man, .. })));
     }
 
     #[test]

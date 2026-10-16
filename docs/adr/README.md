@@ -13,3 +13,4 @@ skins and the markdown widget are Patina's own ADRs.
 | [0002](0002-man-pages-through-the-systems-tools.md) | Man pages, formatted by the system's man tools | Accepted |
 | [0003](0003-source-on-the-code-background.md) | Source files on the skin's code background | Accepted |
 | [0004](0004-single-file-mode-and-file.md) | A single-file mode without the tree, and --file | Accepted |
+| [0005](0005-the-systems-man-pages.md) | --man: the system's man pages as the tree | Accepted |

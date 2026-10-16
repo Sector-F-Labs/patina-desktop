@@ -58,6 +58,60 @@ pub fn find(name: &str) -> Option<PathBuf> {
     (out.status.success() && !path.is_empty()).then(|| PathBuf::from(path))
 }
 
+/// The folders man pages are installed in, from `manpath`, else the usual
+/// ones.
+pub fn manpath() -> Vec<PathBuf> {
+    let found = Command::new("manpath")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|p| !p.is_empty());
+    let path = found.unwrap_or_else(|| "/usr/local/share/man:/usr/local/man:/usr/share/man".into());
+    path.split(':').map(PathBuf::from).filter(|p| p.is_dir()).collect()
+}
+
+/// What each section holds, as man(1) names them.
+pub fn section_title(section: char) -> &'static str {
+    match section {
+        '1' => "User Commands",
+        '2' => "System Calls",
+        '3' => "Library Functions",
+        '4' => "Devices",
+        '5' => "File Formats",
+        '6' => "Games",
+        '7' => "Miscellaneous",
+        '8' => "System Administration",
+        '9' => "Kernel",
+        _ => "Other",
+    }
+}
+
+/// A page file's name without its section and compression: `ls.1.gz` is
+/// `ls`, `printf.3p` is `printf`.
+pub fn page_name(path: &Path) -> String {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let name = name.strip_suffix(".gz").unwrap_or(&name);
+    name.rsplit_once('.').map_or(name, |(stem, _)| stem).to_string()
+}
+
+/// A page as man names it: `ls(1)`, `printf(3p)`.
+pub fn label(path: &Path) -> String {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let name = name.strip_suffix(".gz").unwrap_or(&name);
+    match name.rsplit_once('.') {
+        Some((page, section)) => format!("{page}({section})"),
+        None => name.to_string(),
+    }
+}
+
+/// The tree's folder for the page's section (see `tree::man_pages`).
+pub fn section_folder(path: &Path) -> Option<PathBuf> {
+    let label = label(path);
+    let section = label.rsplit_once('(')?.1.chars().next()?;
+    Some(PathBuf::from(format!("man:{section}")))
+}
+
 /// Formats the page at `path`.
 pub fn render(path: &Path) -> Result<Page, String> {
     let mandoc = Command::new("mandoc").args(["-T", "utf8", "-O", &format!("width={WIDTH}")]).arg(path).output();
@@ -179,6 +233,20 @@ mod tests {
         let page = parse("é\u{8}éa");
         assert_eq!(page.text, "éa");
         assert_eq!(page.styles, vec![(0..2, Style::Bold)]);
+    }
+
+    #[test]
+    fn pages_are_labelled_as_man_names_them() {
+        assert_eq!(label(Path::new("/m/man1/ls.1.gz")), "ls(1)");
+        assert_eq!(label(Path::new("printf.3p")), "printf(3p)");
+        assert_eq!(section_folder(Path::new("printf.3p.gz")), Some(PathBuf::from("man:3")));
+    }
+
+    #[test]
+    fn page_names_drop_the_section() {
+        assert_eq!(page_name(Path::new("/m/man1/ls.1.gz")), "ls");
+        assert_eq!(page_name(Path::new("printf.3p")), "printf");
+        assert_eq!(page_name(Path::new("Algorithm::Diff.3pm.gz")), "Algorithm::Diff");
     }
 
     #[test]

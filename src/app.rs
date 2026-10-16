@@ -55,12 +55,21 @@ pub struct Reader {
     screenshot: Option<(PathBuf, bool)>,
     /// Single-file mode: no tree, and the last project read is left alone.
     single: bool,
+    /// System mode: the tree is every man page on the system, by section.
+    man: bool,
 }
 
 impl Reader {
     /// Opens `root` at `file`, or the last project read; `single` shows
-    /// the file alone, without the tree.
-    pub fn new(cc: &eframe::CreationContext<'_>, root: Option<PathBuf>, file: Option<PathBuf>, single: bool) -> Self {
+    /// the file alone, without the tree; `man` shows the system's man pages
+    /// as the tree, at `file` or man(1).
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        root: Option<PathBuf>,
+        file: Option<PathBuf>,
+        single: bool,
+        man: bool,
+    ) -> Self {
         patina::appearance::watch(&cc.egui_ctx);
         patina::markdown::install(&cc.egui_ctx);
         let config = Config::load();
@@ -85,11 +94,19 @@ impl Reader {
             title: String::new(),
             screenshot: std::env::var_os("READER_SCREENSHOT").map(|p| (PathBuf::from(p), false)),
             single,
+            man,
             config,
         };
         reader.apply_skin(&cc.egui_ctx);
         if reader.config.system_title_bar {
             cc.egui_ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true));
+        }
+        if man {
+            reader.nodes = tree::man_pages();
+            if let Some(page) = file.or_else(|| man::find("man")) {
+                reader.show(page);
+            }
+            return reader;
         }
         // What was asked for, else where the last reading left off.
         let (root, file) = match root {
@@ -116,22 +133,45 @@ impl Reader {
 
     /// Reads `root`'s tree and shows `file`, or the project's README.
     fn open_project(&mut self, root: PathBuf, file: Option<PathBuf>) {
+        self.man = false;
         self.nodes = tree::scan(&root);
         self.expanded.clear();
         self.back.clear();
         self.forward.clear();
         self.filter.clear();
         self.root = Some(root.clone());
-        if !self.single {
+        if self.remembers() {
             self.config.last_root = Some(root);
         }
         self.path = None;
         self.shown = None;
         if let Some(file) = file.or_else(|| tree::first_file(&self.nodes)) {
             self.show(file);
-        } else if !self.single {
+        } else if self.remembers() {
             self.config.save();
         }
+    }
+
+    /// Man mode: every man page on the system as the tree, at man(1).
+    fn open_manual(&mut self) {
+        self.man = true;
+        self.root = None;
+        self.nodes = tree::man_pages();
+        self.expanded.clear();
+        self.back.clear();
+        self.forward.clear();
+        self.filter.clear();
+        self.path = None;
+        self.shown = None;
+        if let Some(page) = man::find("man") {
+            self.show(page);
+        }
+    }
+
+    /// Whether what's read is remembered for next time: not in single-file
+    /// or man mode, which help and lookups use.
+    fn remembers(&self) -> bool {
+        !self.single && !self.man
     }
 
     /// Shows `path`, read afresh from disk.
@@ -145,7 +185,13 @@ impl Reader {
             },
             kind => self.read(&path, kind),
         };
-        // Its folders open in the tree, so it can be seen there.
+        // Its folders open in the tree, so it can be seen there: a man
+        // page's section, or the folders above a project's file.
+        if self.man
+            && let Some(section) = man::section_folder(&path)
+        {
+            self.expanded.insert(section);
+        }
         if let Some(root) = &self.root {
             let mut at = path.parent();
             while let Some(dir) = at.filter(|d| d.starts_with(root) && *d != root.as_path()) {
@@ -157,7 +203,7 @@ impl Reader {
         self.path = Some(path.clone());
         self.reveal = true;
         // A single file, as help opens, isn't the project being read.
-        if !self.single {
+        if self.remembers() {
             self.config.last_file = Some(path);
             self.config.save();
         }
@@ -209,7 +255,9 @@ impl Reader {
     }
 
     fn reload(&mut self) {
-        if let Some(root) = self.root.clone() {
+        if self.man {
+            self.nodes = tree::man_pages();
+        } else if let Some(root) = self.root.clone() {
             self.nodes = tree::scan(&root);
         }
         if let Some(path) = self.path.clone() {
@@ -243,8 +291,12 @@ impl Reader {
         }
     }
 
-    /// `path` from the project's folder, for showing.
+    /// `path` from the project's folder, for showing; a man page by its
+    /// name in man mode.
     fn relative(&self, path: &Path) -> String {
+        if self.man && Kind::of(path) == Some(Kind::Man) {
+            return man::label(path);
+        }
         match &self.root {
             Some(root) => path.strip_prefix(root).unwrap_or(path).display().to_string(),
             None => path.display().to_string(),
@@ -349,11 +401,14 @@ impl Reader {
             self.forward();
         }
         ui.separator();
-        let readme = tree::first_file(&self.nodes);
+        let readme = tree::first_file(&self.nodes).filter(|_| !self.man);
         if ui.add_enabled(readme.is_some(), egui::Button::new("Project README")).clicked()
             && let Some(readme) = readme
         {
             self.go(readme);
+        }
+        if ui.add_enabled(!self.man, egui::Button::new("System Manual")).clicked() {
+            self.open_manual();
         }
         if ui.add(egui::Button::new("Find File").shortcut_text(weak(ui, "Ctrl+F"))).clicked() {
             self.focus_filter = true;
@@ -412,13 +467,18 @@ impl Reader {
 
     fn sidebar(&mut self, ui: &mut Ui) {
         ui.add_space(8.0);
-        if let Some(root) = &self.root {
+        if self.man {
+            ui.label(RichText::new("Manual").strong()).on_hover_text("Every man page on this system");
+        } else if let Some(root) = &self.root {
             let name =
                 root.file_name().map_or_else(|| root.display().to_string(), |n| n.to_string_lossy().into_owned());
             ui.label(RichText::new(name).strong()).on_hover_text(root.display().to_string());
         }
-        let filter =
-            ui.add(egui::TextEdit::singleline(&mut self.filter).hint_text("Find a file").desired_width(f32::INFINITY));
+        let filter = ui.add(
+            egui::TextEdit::singleline(&mut self.filter)
+                .hint_text(if self.man { "Find a page" } else { "Find a file" })
+                .desired_width(f32::INFINITY),
+        );
         if std::mem::take(&mut self.focus_filter) {
             filter.request_focus();
         }
@@ -553,6 +613,7 @@ impl Reader {
 
     fn update_title(&mut self, ctx: &egui::Context) {
         let title = match &self.path {
+            Some(path) if Kind::of(path) == Some(Kind::Man) => man::label(path),
             Some(path) => path.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned()),
             None => "Reader".to_string(),
         };

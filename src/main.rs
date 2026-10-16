@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 const USAGE: &str = "usage: reader [-s | --single] [FOLDER | FILE] [--file FILE]
+       reader --man [PAGE]
 
 Opens FOLDER as a project to read, or the project FILE is in (the nearest
 folder above it with a .git, else its own folder) at FILE. --file FILE names
@@ -22,7 +23,10 @@ are shown.
 
 -s, --single   single-file mode: the file alone, without the project tree,
                in a smaller window; links and Back still work, and the last
-               project read isn't changed. A FOLDER opens its README.";
+               project read isn't changed. A FOLDER opens its README.
+--man          system mode: the tree is every man page on the system, by
+               section, and only that; PAGE (ls, printf(3)) opens first,
+               else man(1).";
 
 /// What the command line asks for.
 #[derive(Debug, Default, PartialEq)]
@@ -30,6 +34,9 @@ struct Args {
     path: Option<PathBuf>,
     file: Option<PathBuf>,
     single: bool,
+    /// System mode, perhaps with a page to open.
+    man: bool,
+    page: Option<String>,
 }
 
 enum Parsed {
@@ -46,14 +53,22 @@ fn parse(args: impl IntoIterator<Item = String>) -> Result<Parsed, String> {
             "-h" | "--help" => return Ok(Parsed::Help),
             "-V" | "--version" => return Ok(Parsed::Version),
             "-s" | "--single" => out.single = true,
+            "--man" => out.man = true,
             "--file" => {
                 let file = args.next().ok_or("--file needs a file")?;
                 out.file = Some(as_path(&file));
             }
             a if a.starts_with("--file=") => out.file = Some(as_path(&a["--file=".len()..])),
             a if a.starts_with('-') && a != "-" => return Err(format!("unknown option {a}")),
-            _ if out.path.is_none() => out.path = Some(as_path(&arg)),
+            _ if out.man && out.page.is_none() => out.page = Some(arg),
+            _ if !out.man && out.path.is_none() => out.path = Some(as_path(&arg)),
             _ => return Err(format!("one path at a time: {arg}")),
+        }
+    }
+    if out.man {
+        // A path given before --man was a page name.
+        if let Some(path) = out.path.take() {
+            out.page = out.page.or_else(|| path.file_name().map(|n| n.to_string_lossy().into_owned()));
         }
     }
     Ok(Parsed::Run(out))
@@ -99,6 +114,19 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if args.man {
+        let page = match &args.page {
+            Some(name) => match man::find(name) {
+                Some(page) => Some(page),
+                None => {
+                    eprintln!("reader: no man page for {name}");
+                    return ExitCode::from(2);
+                }
+            },
+            None => None,
+        };
+        return run(None, page, args.single, true);
+    }
     let (root, file) = match resolve(&args) {
         Ok(found) => found,
         Err(e) => {
@@ -106,7 +134,10 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    let single = args.single;
+    run(root, file, args.single, false)
+}
+
+fn run(root: Option<PathBuf>, file: Option<PathBuf>, single: bool, man: bool) -> ExitCode {
     let size = if single { [860.0, 760.0] } else { [1100.0, 760.0] };
     let options = eframe::NativeOptions {
         viewport: patina::frame::viewport(
@@ -122,7 +153,7 @@ fn main() -> ExitCode {
     match eframe::run_native(
         "reader",
         options,
-        Box::new(move |cc| Ok(Box::new(app::Reader::new(cc, root, file, single)))),
+        Box::new(move |cc| Ok(Box::new(app::Reader::new(cc, root, file, single, man)))),
     ) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
@@ -160,6 +191,9 @@ mod tests {
         assert!(parse(["--nope".to_string()]).is_err());
         assert!(parse(["/a".to_string(), "/b".to_string()]).is_err());
         assert!(matches!(parse(["-h".to_string()]), Ok(Parsed::Help)));
+        let man = run(&["--man", "printf(3)"]);
+        assert!(man.man && man.page.as_deref() == Some("printf(3)") && man.path.is_none());
+        assert!(run(&["--man"]).page.is_none());
     }
 
     #[test]
@@ -167,7 +201,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("reader-args-{}", std::process::id()));
         std::fs::create_dir_all(dir.join("docs")).unwrap();
         std::fs::write(dir.join("docs/a.md"), "").unwrap();
-        let both = Args { path: Some(dir.clone()), file: Some(dir.join("docs/a.md")), single: false };
+        let both = Args { path: Some(dir.clone()), file: Some(dir.join("docs/a.md")), ..Args::default() };
         assert_eq!(resolve(&both).unwrap(), (Some(dir.clone()), Some(dir.join("docs/a.md"))));
         let file_only = Args { file: Some(dir.join("docs/a.md")), ..Args::default() };
         assert_eq!(resolve(&file_only).unwrap().1, Some(dir.join("docs/a.md")));
