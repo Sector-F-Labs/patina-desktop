@@ -16,7 +16,7 @@ DEV_URL := http://127.0.0.1:$(DEV_PORT)/
 SCRATCH := target/scratch
 SCRATCH_ENV := XDG_CONFIG_HOME=$(CURDIR)/$(SCRATCH)/config XDG_DATA_HOME=$(CURDIR)/$(SCRATCH)/data XDG_CACHE_HOME=$(CURDIR)/$(SCRATCH)/cache
 
-.PHONY: help run dev build test check live-test dev-server dev-server-stop scratch screenshot icons install uninstall clean
+.PHONY: help run dev build test check live-test dev-server dev-server-stop scratch screenshot icons install uninstall clean icon
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -67,6 +67,9 @@ screenshot: dev-server ## Regenerate docs/screenshot-*.png against the dev serve
 
 icons: ## Render assets/calendar-icon-128.png from packaging/linux/calendar.svg
 	cargo run -q --example render_icon -- 128 assets/calendar-icon-128.png
+
+icon: ## docs/icon.png: the app icon at 120 px, for the README
+	scripts/icon.sh
 
 # For the current user; no sudo. The launcher's Exec gets the absolute path,
 # so it works even if $(BINDIR) isn't on the GNOME session's PATH. On

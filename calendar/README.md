@@ -1,4 +1,6 @@
-# <img src="packaging/linux/calendar.svg" width="40" align="top"> Calendar
+# Calendar
+
+![Calendar's icon](docs/icon.png)
 
 Calendar is a desktop calendar for a CalDAV server, made for [plan](../plan) on urd. It's built
 with [egui](https://github.com/emilk/egui) on [Patina](https://github.com/Sector-F-Labs/patina), so
