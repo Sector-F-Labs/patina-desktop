@@ -41,7 +41,7 @@ LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 install: build ## Install the binaries into $(PREFIX)/bin
 	install -d $(PREFIX)/bin
 	install -m 755 $(addprefix target/release/,$(BINARIES)) $(PREFIX)/bin/
-	cargo install --quiet --locked --git $(LAUNCHER) --root $(PREFIX) patina-launcher
+	cargo install --quiet --locked --force --git $(LAUNCHER) --root $(PREFIX) patina-launcher
 
 uninstall: ## Remove the installed binaries
 	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES))
