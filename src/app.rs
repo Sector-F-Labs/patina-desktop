@@ -754,7 +754,7 @@ impl Reader {
         }
         ui.separator();
         ui.add_enabled_ui(self.skins[self.skin].follows_desktop(), |ui| {
-            for (value, label) in [("system", "Follow Desktop"), ("light", "Light"), ("dark", "Dark")] {
+            for (value, label) in [("system", "Follow desktop"), ("light", "Light"), ("dark", "Dark")] {
                 if ui.radio(self.config.light_dark == value, label).clicked() {
                     self.config.light_dark = value.into();
                     changed = true;
@@ -762,7 +762,7 @@ impl Reader {
             }
         });
         ui.separator();
-        if ui.button("Reload Skins").clicked() {
+        if ui.button("Reload skins").clicked() {
             self.reload_skins();
             changed = true;
         }
@@ -790,7 +790,7 @@ impl Reader {
                     Err(e) => Status::error(format!("Couldn't copy skins: {e}")),
                 });
             }
-            if ui.button("Open Skins Folder").on_hover_text(dir.display().to_string()).clicked() {
+            if ui.button("Open skins folder").on_hover_text(dir.display().to_string()).clicked() {
                 let _ = std::fs::create_dir_all(&dir);
                 let _ = patina::open::path(&dir);
             }
