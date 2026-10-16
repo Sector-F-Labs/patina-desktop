@@ -4,7 +4,7 @@ Date: 2026-10-16
 
 ## Status
 
-Accepted
+Accepted; remembering one last project is superseded by [ADR-0008](0008-tabs-each-a-project.md)
 
 ## Context
 
