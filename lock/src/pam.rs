@@ -191,7 +191,10 @@ mod tests {
 
     #[test]
     fn full_name_is_the_first_gecos_field() {
-        assert_eq!(full_name("Divan Visagie,,,").as_deref(), Some("Divan Visagie"));
+        assert_eq!(
+            full_name("Divan Visagie,,,").as_deref(),
+            Some("Divan Visagie")
+        );
         assert_eq!(full_name(",,,"), None);
         assert_eq!(full_name(""), None);
     }

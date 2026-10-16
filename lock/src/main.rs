@@ -80,6 +80,7 @@ fn run() -> Result<(), String> {
         toplevels: false,
         click_through: false,
         lock: true,
+        window_fallback: false,
     };
     let (host, event_loop) = Host::connect(options, screen)?;
     event_loop

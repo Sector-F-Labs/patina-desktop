@@ -159,7 +159,11 @@ impl Shell for LockScreen {
         let now = chrono::Local::now();
         ui.vertical_centered(|ui| {
             ui.add_space(rect.height() * 0.28);
-            ui.label(RichText::new(now.format("%H:%M").to_string()).size(96.0).strong());
+            ui.label(
+                RichText::new(now.format("%H:%M").to_string())
+                    .size(96.0)
+                    .strong(),
+            );
             ui.label(RichText::new(now.format("%A %-d %B").to_string()).size(22.0));
             if !focused {
                 return;

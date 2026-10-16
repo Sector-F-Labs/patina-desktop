@@ -55,7 +55,6 @@ fn texture(ctx: &egui::Context, pixels: u32) -> Option<TextureHandle> {
     Some(texture)
 }
 
-
 /// Runs `command` through sh(1), detached from the bar: no stdin, and a
 /// thread reaps it so it never lingers as a zombie. `PATINA_SKIN` names the
 /// bar's skin and `PATINA_BAR_EDGE` its edge, `top` or `bottom`.
@@ -74,4 +73,3 @@ pub fn run(command: &str, skin: &str, edge: &str) {
         Err(e) => eprintln!("patina-bar: can't run {command}: {e}"),
     }
 }
-

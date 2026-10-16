@@ -72,6 +72,7 @@ fn run(at: egui::Pos2) -> Result<(), String> {
         toplevels: false,
         click_through: false,
         lock: false,
+        window_fallback: false,
     };
     let (host, event_loop) = Host::connect(options, DesktopMenu::new(at))?;
     host.run(event_loop)

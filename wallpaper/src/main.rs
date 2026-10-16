@@ -72,6 +72,7 @@ fn run() -> Result<(), String> {
         toplevels: false,
         click_through: true,
         lock: false,
+        window_fallback: false,
     };
     let (host, event_loop) = Host::connect(options, Wallpaper::new())?;
     let config = patina_shell::bar::config_path();

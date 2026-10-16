@@ -81,6 +81,7 @@ fn main() -> ExitCode {
         toplevels: true,
         click_through: false,
         lock: false,
+        window_fallback: false,
     };
     let (bar, skin_warnings) = bar::Bar::new(config);
     warnings.extend(skin_warnings);

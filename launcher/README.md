@@ -26,7 +26,10 @@ elsewhere or the button again closes it.
   launcher. Folder apps run from the home folder.
 - **Icons** (`icons.rs`) are looked up in the icon theme (Adwaita, then hicolor and pixmaps) or
   taken from the app's folder, and decoded on a thread, so the list shows at once.
-- **Drawn** on a layer-shell surface with the keyboard, through patina-shell.
+- **Drawn** on a layer-shell surface with the keyboard, through patina-shell. On a compositor
+  without layer shell (GNOME) it opens instead as a borderless window with the launcher centred,
+  closing on Escape, a click around it or switching away, as wofi does: bind a key to
+  `patina-launcher` in GNOME's settings or wbindkeys, and the same key closes it again.
 
 ## Code
 

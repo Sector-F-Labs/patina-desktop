@@ -96,6 +96,8 @@ fn run() -> Result<(), String> {
         toplevels: false,
         click_through: false,
         lock: false,
+        // On GNOME, which has no layer shell: a centred window, as wofi.
+        window_fallback: true,
     };
     let (host, event_loop) = Host::connect(options, launcher)?;
     event_loop
