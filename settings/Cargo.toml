@@ -1,0 +1,18 @@
+[package]
+name = "patina-settings"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's Settings: the skin, the wallpaper and Night Light"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+default-run = "patina-settings"
+
+[dependencies]
+eframe = "0.35"
+egui = "0.35"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+patina-shell = { workspace = true }
+patina-system = { path = "../system" }
+patina-ui = { workspace = true }
+dirs = "6"
+toml_edit = "0.25"

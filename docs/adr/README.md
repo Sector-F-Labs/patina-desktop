@@ -79,6 +79,8 @@ mechanics of adding one.
 | [0035](0035-the-launcher-lists-folder-apps.md) | The launcher lists folder apps in ~/Apps | Accepted; moved with the launcher by [0037](0037-patina-shell-and-the-launcher-are-public.md) |
 | [0036](0036-folder-apps-come-from-patina-apps.md) | Folder apps are read by patina-apps, a crate shared with Files | Accepted; moved with the launcher by [0037](0037-patina-shell-and-the-launcher-are-public.md) |
 | [0037](0037-patina-shell-and-the-launcher-are-public.md) | patina-shell and the launcher are public repositories of their own | Accepted |
+| [0038](0038-patina-settings.md) | A Settings app, patina-settings, for settings that need more than a menu | Accepted |
+| [0039](0039-night-light.md) | Night Light: the compositor warms the screen through the CRTC's gamma ramp, on the hardware only | Accepted |
 
 ## Decision Relationship
 

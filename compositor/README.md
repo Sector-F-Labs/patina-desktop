@@ -21,6 +21,9 @@ this workspace is a Wayland client of it.
   (ADR-0034); the brightness and volume keys change them and flash the volume menu (ADR-0020,
   ADR-0033); Super+Space switches keyboard layout; Super+Shift+R reloads the config.
 - **A right click on the empty desktop** opens patina-menu at the pointer (ADR-0029).
+- **Night Light** on the hardware (ADR-0039): the CRTC's gamma ramp warmed in the evening, by
+  `[night_light]`'s mode and schedule, fading in and out. Apps and scripts can hold it off over
+  D-Bus; nested, the parent desktop's own night light applies.
 - **Three-finger drag** on a touchpad, on by default (ADR-0031); Patina's own cursors at every
   scale (ADR-0032); fractional scaling (ADR-0018).
 
@@ -44,9 +47,14 @@ this workspace is a Wayland client of it.
   ext-session-lock for patina-lock (ADR-0025); cursor-shape; wp_fractional_scale and
   wp_viewporter; linux-dmabuf with the GL backends; data-device for copy and paste.
 - **Config:** `~/.config/patina-compositor/config.toml` (ADR-0019): scale, `[keyboard]`,
-  `[touchpad]`, `[cursor]`, `[media]` (the volume commands, `wpctl` by default), `[lock]`, the
-  launcher and desktop menu commands, and `[bindings]` from key combinations to commands. Every
-  key is optional; a broken file falls back to the defaults and never stops the session.
+  `[touchpad]`, `[cursor]`, `[media]` (the volume commands, `wpctl` by default), `[lock]`,
+  `[night_light]`, the launcher and desktop menu commands, and `[bindings]` from key combinations
+  to commands. Every key is optional; a broken file falls back to the defaults and never stops the
+  session. It's reloaded within a second of being saved (ADR-0039), so patina-settings only
+  writes it.
+- **On the session bus,** on the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
+  Uninhibit, SetOverride, and its state as properties), for patina-settings,
+  `patina-night-light` and apps that need true colour.
 - **Shares code with the shell pieces** through patina-system: the backlight (`backlight.rs`) for
   the brightness keys.
 
@@ -55,6 +63,7 @@ this workspace is a Wayland client of it.
 `main.rs` (start-up, choosing the backend), `state.rs` (the protocols, placement, focus),
 `input.rs` and `keyboard.rs` (input and the compositor's own keys), `grabs.rs`, `maximize.rs`,
 `tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`,
+`night_light.rs` with `night_light/dbus.rs`,
 `cursor.rs`, `drag.rs`, `scale.rs`, `config.rs`, `clients.rs`, and the backends `winit.rs`,
 `nested.rs`, `udev.rs` with `dmabuf.rs`.
 

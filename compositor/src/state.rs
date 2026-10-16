@@ -100,6 +100,8 @@ pub struct State {
     pub toplevels: ForeignToplevels,
     /// The settings from config.toml in use (ADR-0019).
     pub config: crate::config::Config,
+    /// Night Light (ADR-0039).
+    pub night_light: crate::night_light::NightLight,
     /// The lock screen (ADR-0025).
     pub lock: crate::lock::Lock,
     pub session_lock: smithay::wayland::session_lock::SessionLockManagerState,
@@ -210,6 +212,7 @@ impl State {
             data_device_state: DataDeviceState::new::<Self>(&dh),
             seat,
             toplevels: ForeignToplevels::new(&dh),
+            night_light: crate::night_light::NightLight::new(&config.night_light),
             config,
             lock: crate::lock::Lock::Unlocked,
             session_lock: smithay::wayland::session_lock::SessionLockManagerState::new::<Self, _>(

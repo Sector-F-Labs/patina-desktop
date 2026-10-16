@@ -3,7 +3,6 @@
 //! skin menu, for the whole shell.
 
 mod ui;
-mod wallpapers;
 
 use std::process::ExitCode;
 

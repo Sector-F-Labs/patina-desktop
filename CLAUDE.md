@@ -39,6 +39,11 @@ current when that changes.
 - `compositor/src/screenshot.rs`: Super+Shift+3/4 and Print (ADR-0034): the desktop or the focused
   window drawn offscreen with the backend's renderer, saved as a PNG on a thread; then a `Flash`
   each backend draws on top (`flash_element`, `overlay`).
+- `compositor/src/night_light.rs`: Night Light (ADR-0039): the colour maths, the `Schedule` trait,
+  fades, overrides and inhibitors; `UdevData::set_temperature` sets the CRTC's gamma ramp (hardware
+  only). `night_light/dbus.rs` serves `com.sectorflabs.Patina.NightLight`; `dbus-run-session --
+  cargo test -p patina-compositor night_light -- --ignored` tests it on a bus of its own. The
+  compositor reloads its config within a second of a save.
 - `compositor/src/cursor.rs`: Patina's cursors (ADR-0032), SVG shapes rendered per scale; served by
   name through cursor-shape. `State::grab_cursor` overrides the client's during moves and resizes.
   `cargo test -p patina-compositor cursor -- --ignored` with PATINA_CURSOR_PREVIEW=file.png draws
@@ -55,7 +60,8 @@ current when that changes.
   copy per display over a socket; `bar.rs`, the bar's skin, edge and config; `toplevels.rs`.
 - `system/`: patina-system: `audio.rs` (wpctl), `backlight.rs` (sysfs and logind), `network.rs`
   (NetworkManager with zbus; `cargo run -p patina-system --example wifi` prints what it reads),
-  `power.rs` (battery), `icons.rs` (tray icons), `logo.rs` (the flask and Ubuntu Mono).
+  `night_light.rs` (the compositor's Night Light over D-Bus), `power.rs` (battery), `icons.rs`
+  (tray icons), `logo.rs` (the flask and Ubuntu Mono).
 - `compositor/src/toplevels.rs` and patina-shell's `toplevels.rs`: wlr-foreign-toplevel-management,
   server and client, for the bar's `windows` tabs (ADR-0012).
 - `wifi/`: patina-wifi, the tray's Wi-Fi menu (ADR-0022), on `system/src/network.rs`.
@@ -67,7 +73,12 @@ current when that changes.
   The compositor's side is `compositor/src/lock.rs` (ADR-0025).
 - `menu/`: patina-menu, the desktop's menu on a right click on the desktop (ADR-0029): the skin
   menu, writing `skin` into the bar's config (patina-shell's `bar.rs` `set_skin`); the bar polls the
-  file's mtime each second and restyles (`Host::restyle`). Its Wallpaper submenu sets `wallpaper`.
+  file's mtime each second and restyles (`Host::restyle`). Wallpaper… opens Settings at its page.
+- `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance, Wallpaper (sets
+  `wallpaper`) and Night Light (writes `[night_light]` into the compositor's config with
+  `toml_edit`; state over D-Bus through `system/src/night_light.rs`). Also `patina-night-light`.
+  `cargo test -p patina-settings preview -- --ignored` with PATINA_SETTINGS_PREVIEW=dir draws
+  each page in software, without opening a window.
 - `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,
   or the default flask (`system/src/logo.rs`, with Ubuntu Mono) in the skin's colours. `cargo test
   -p patina-wallpaper -- --ignored` with PATINA_WALLPAPER_PREVIEW=dir renders the default per skin.

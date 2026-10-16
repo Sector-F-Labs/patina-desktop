@@ -97,6 +97,53 @@ pub struct UdevData {
     active: bool,
     /// A frame is queued, or held back, and the next must wait.
     frame_pending: bool,
+    /// The monitor's gamma ramp, for Night Light (ADR-0039); `None` when
+    /// its CRTC has none.
+    gamma: Option<Gamma>,
+}
+
+/// A CRTC's gamma ramp: as it was when we came, and the temperature it's
+/// warmed to now.
+struct Gamma {
+    crtc: crtc::Handle,
+    original: [Vec<u16>; 3],
+    /// In whole kelvin, so a fade's steps that round the same aren't set
+    /// twice.
+    shown: u32,
+}
+
+impl Gamma {
+    /// The ramp `crtc` has, if it has one.
+    fn read(drm: &DrmDevice, crtc: crtc::Handle) -> Option<Self> {
+        let size = drm.get_crtc(crtc).ok()?.gamma_length() as usize;
+        if size == 0 {
+            return None;
+        }
+        let mut ramps = [vec![0u16; size], vec![0u16; size], vec![0u16; size]];
+        let [r, g, b] = &mut ramps;
+        if let Err(e) = drm.get_gamma(crtc, r, g, b) {
+            eprintln!("patina-compositor: can't read the gamma ramp, so no night light: {e}");
+            return None;
+        }
+        // A ramp left all zeros by whoever was here before would blank
+        // the screen; start from a straight one instead.
+        if ramps.iter().all(|c| c.iter().all(|&v| v == 0)) {
+            let straight: Vec<u16> = (0..size)
+                .map(|i| (i * 0xffff / (size - 1).max(1)) as u16)
+                .collect();
+            ramps = [straight.clone(), straight.clone(), straight];
+        }
+        Some(Self {
+            crtc,
+            original: ramps,
+            shown: crate::night_light::NEUTRAL,
+        })
+    }
+
+    fn set(&self, drm: &DrmDevice, kelvin: u32) -> std::io::Result<()> {
+        let [r, g, b] = crate::night_light::warm_ramps(&self.original, kelvin as f64);
+        drm.set_gamma(self.crtc, &r, &g, &b)
+    }
 }
 
 /// A monitor to drive: its connector, a CRTC for it, and its mode.
@@ -140,6 +187,7 @@ pub fn init(
     let renderer = unsafe { GlesRenderer::new(context) }.map_err(|e| format!("gles: {e}"))?;
 
     let monitor = choose_monitor(&drm).ok_or("no monitor is connected")?;
+    let gamma = Gamma::read(&drm, monitor.crtc);
     let (output, auto_scale) = make_output(&monitor, config);
     let surface = drm
         .create_surface(monitor.crtc, monitor.mode, &[monitor.connector.handle()])
@@ -223,6 +271,7 @@ pub fn init(
             loop_handle: handle,
             active: true,
             frame_pending: false,
+            gamma,
         },
         output,
         auto_scale,
@@ -237,9 +286,50 @@ impl UdevData {
         }
     }
 
+    /// Whether Night Light can warm this monitor.
+    pub fn has_gamma(&self) -> bool {
+        self.gamma.is_some()
+    }
+
+    /// Warms the monitor to `kelvin` (6500 for neutral), now if the session
+    /// has the GPU, otherwise when it comes back.
+    pub fn set_temperature(&mut self, kelvin: f64) {
+        let Some(gamma) = self.gamma.as_mut() else {
+            return;
+        };
+        let kelvin = kelvin.round() as u32;
+        if kelvin == gamma.shown {
+            return;
+        }
+        gamma.shown = kelvin;
+        if self.active {
+            self.apply_gamma();
+        }
+    }
+
+    /// Sets the ramp for the temperature wanted.
+    fn apply_gamma(&mut self) {
+        let Some(gamma) = &self.gamma else { return };
+        if let Err(e) = gamma.set(&self.drm, gamma.shown) {
+            eprintln!("patina-compositor: can't set the gamma ramp: {e}");
+        }
+    }
+
     /// Makes the cursors again, for `[cursor]` at `scale`.
     pub fn reload_cursors(&mut self, settings: &crate::config::Cursor, scale: f64) {
         self.cursors = crate::cursor::Cursors::new(&settings.theme, settings.size, scale);
+    }
+}
+
+impl Drop for UdevData {
+    /// Leaves the ramp as we found it.
+    fn drop(&mut self) {
+        if let Some(gamma) = &self.gamma
+            && self.active
+            && gamma.shown != crate::night_light::NEUTRAL
+        {
+            let _ = gamma.set(&self.drm, crate::night_light::NEUTRAL);
+        }
     }
 }
 
@@ -412,6 +502,8 @@ fn session_event(state: &mut State, event: SessionEvent) {
             }
             u.active = true;
             u.frame_pending = false;
+            // Gamma doesn't survive another session having the GPU.
+            u.apply_gamma();
             state.needs_redraw = true;
         }
     }

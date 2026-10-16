@@ -14,6 +14,7 @@ mod lock;
 mod maximize;
 mod media;
 mod nested;
+mod night_light;
 mod scale;
 mod screenshot;
 mod state;
@@ -125,6 +126,7 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
     if session || !nested {
         export_to_session(&state);
     }
+    state.start_night_light();
     // The wallpaper first, so it's there by the time the bar is.
     state.spawn_client("patina-wallpaper");
     state.spawn_client("patina-bar");

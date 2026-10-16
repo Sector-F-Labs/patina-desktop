@@ -19,6 +19,7 @@ pub struct Config {
     pub cursor: Cursor,
     pub media: Media,
     pub lock: Lock,
+    pub night_light: NightLight,
     /// What tapping Super on its own runs; "" for nothing.
     pub launcher: String,
     /// What a right click on the desktop runs, with `--at X,Y` (the
@@ -107,6 +108,46 @@ impl Default for Lock {
             on_suspend: true,
         }
     }
+}
+
+/// Night Light (ADR-0039): the screen warmed through the gamma ramp, on
+/// the hardware.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct NightLight {
+    pub mode: NightLightMode,
+    /// When the schedule warms the screen, and when it stops: "HH:MM", local
+    /// time. `to` before `from` runs past midnight.
+    pub from: String,
+    pub to: String,
+    /// How warm, in kelvin: 6500 is neutral, 1700 the warmest.
+    pub temperature: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NightLightMode {
+    #[default]
+    Off,
+    Always,
+    /// From `from` to `to`, every day.
+    Schedule,
+}
+
+impl Default for NightLight {
+    fn default() -> Self {
+        Self {
+            mode: NightLightMode::Off,
+            from: "20:00".into(),
+            to: "06:00".into(),
+            temperature: 4000,
+        }
+    }
+}
+
+/// "HH:MM" as a time of day.
+pub fn time_of_day(text: &str) -> Option<chrono::NaiveTime> {
+    chrono::NaiveTime::parse_from_str(text.trim(), "%H:%M").ok()
 }
 
 /// The brightness and volume keys (ADR-0020).
@@ -206,6 +247,7 @@ impl Default for Config {
             cursor: Cursor::default(),
             media: Media::default(),
             lock: Lock::default(),
+            night_light: NightLight::default(),
             launcher: "patina-launcher".into(),
             desktop_menu: "patina-menu".into(),
             bindings: default_bindings(),
@@ -315,6 +357,29 @@ pub fn parse(text: &str) -> Result<(Config, Vec<String>), String> {
         config.keyboard.repeat_rate = Keyboard::default().repeat_rate;
         config.keyboard.repeat_delay = Keyboard::default().repeat_delay;
     }
+    let night = &mut config.night_light;
+    let defaults = NightLight::default();
+    for (name, value, default) in [
+        ("from", &mut night.from, defaults.from),
+        ("to", &mut night.to, defaults.to),
+    ] {
+        if time_of_day(value).is_none() {
+            warnings.push(format!(
+                "night light {name} {value:?} isn't a time like \"20:00\"; using {default}"
+            ));
+            *value = default;
+        }
+    }
+    if !(crate::night_light::WARMEST..=crate::night_light::NEUTRAL).contains(&night.temperature) {
+        warnings.push(format!(
+            "night light temperature {} is outside {} to {}; using {}",
+            night.temperature,
+            crate::night_light::WARMEST,
+            crate::night_light::NEUTRAL,
+            defaults.temperature
+        ));
+        night.temperature = defaults.temperature;
+    }
     Ok((config, warnings))
 }
 
@@ -378,32 +443,39 @@ pub fn load_or_default() -> Config {
 }
 
 impl crate::state::State {
-    /// Reads config.toml again and applies it: Super+Shift+R. If the file
-    /// has an error, the settings in use stay.
-    pub fn reload_config(&mut self) {
+    /// Reads config.toml again and applies it: on Super+Shift+R (`asked`),
+    /// and when the file is saved. If the file has an error, the settings in
+    /// use stay.
+    pub fn reload_config(&mut self, asked: bool) {
         let Some(path) = path() else { return };
         match load(&path) {
             Ok((config, warnings)) => {
                 for w in warnings {
                     eprintln!("patina-compositor: {}: {w}", path.display());
                 }
-                self.apply_config(config);
+                self.apply_config(config, asked);
                 eprintln!("patina-compositor: reloaded {}", path.display());
             }
             Err(e) => eprintln!("patina-compositor: {}: {e}; not reloaded", path.display()),
         }
     }
 
-    fn apply_config(&mut self, config: Config) {
+    /// Applies `config`. The keymap is set again only if `[keyboard]`
+    /// changed or the reload was `asked` for (which also picks up
+    /// /etc/default/keyboard), since setting it goes back to the first
+    /// layout, and a save of another setting mustn't do that.
+    fn apply_config(&mut self, config: Config, asked: bool) {
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
-        let settings = crate::keyboard::KeyboardSettings::load(&config.keyboard);
-        if let Err(e) = keyboard.set_xkb_config(self, settings.config()) {
-            eprintln!(
-                "patina-compositor: keyboard layout {:?}: {e:?}; keeping the current one",
-                settings.layout
-            );
+        if asked || config.keyboard != self.config.keyboard {
+            let settings = crate::keyboard::KeyboardSettings::load(&config.keyboard);
+            if let Err(e) = keyboard.set_xkb_config(self, settings.config()) {
+                eprintln!(
+                    "patina-compositor: keyboard layout {:?}: {e:?}; keeping the current one",
+                    settings.layout
+                );
+            }
+            keyboard.change_repeat_info(config.keyboard.repeat_rate, config.keyboard.repeat_delay);
         }
-        keyboard.change_repeat_info(config.keyboard.repeat_rate, config.keyboard.repeat_delay);
 
         let new_scale = scale(&config, self.auto_scale);
         if new_scale != self.output.current_scale().fractional_scale() {
@@ -418,7 +490,9 @@ impl crate::state::State {
                 );
             }
         }
+        self.night_light.configure(&config.night_light);
         self.config = config;
+        self.night_light_update();
         self.needs_redraw = true;
     }
 
@@ -532,6 +606,22 @@ mod tests {
         assert_eq!(c.sym, keysyms::KEY_Return);
         assert!(combo("Hyper+T").is_err());
         assert!(combo("Alt+").is_err());
+    }
+
+    #[test]
+    fn night_light_reads_times_and_rejects_bad_ones() {
+        let (c, w) = parse(
+            "[night_light]\nmode = \"schedule\"\nfrom = \"21:30\"\nto = \"7:00\"\ntemperature = 3000\n",
+        )
+        .unwrap();
+        assert!(w.is_empty(), "{w:?}");
+        assert_eq!(c.night_light.mode, NightLightMode::Schedule);
+        assert_eq!(c.night_light.from, "21:30");
+        assert_eq!(c.night_light.temperature, 3000);
+        let (c, w) = parse("[night_light]\nfrom = \"late\"\ntemperature = 900\n").unwrap();
+        assert_eq!(c.night_light, NightLight::default());
+        assert_eq!(w.len(), 2, "{w:?}");
+        assert!(parse("[night_light]\nmode = \"sometimes\"\n").is_err());
     }
 
     #[test]

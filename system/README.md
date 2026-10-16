@@ -15,6 +15,9 @@ painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in it
   SetBrightness without root (ADR-0020). The compositor's brightness keys and patina-volume's
   flash use it.
 - **`icons.rs`**: the tray's small icons, drawn from shapes in a colour taken from the skin.
+- **`night_light.rs`**: Night Light's state, override and inhibitors through the compositor's
+  `com.sectorflabs.Patina.NightLight` on the session bus (ADR-0039), for Settings,
+  `patina-night-light` and apps wanting true colour.
 - **`logo.rs`**: the Sector F flask (the bar's launcher button, the default wallpaper) and Ubuntu
   Mono, the wallpaper's lettering, rasterised as masks the skin tints.
 

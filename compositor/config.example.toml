@@ -1,9 +1,10 @@
 # Patina compositor settings.
 #
 # Everything here is commented out at its default, so this file changes
-# nothing until you edit it. Uncomment a line to change it, save, and press
-# Super+Shift+R to apply it without logging out. Mistakes are reported in the
-# session's log (journalctl -b | grep patina) and never stop the desktop.
+# nothing until you edit it. Uncomment a line to change it and save: it
+# applies within a second, or at once with Super+Shift+R. Mistakes are
+# reported in the session's log (journalctl -b | grep patina) and never stop
+# the desktop.
 
 # The screen's scale. Unset, it's chosen from the panel's density: 1.5 on most
 # laptops, 1 on desktop monitors, 2 on very dense panels. PATINA_SCALE in the
@@ -82,6 +83,17 @@
 # Lock before the machine sleeps (closing the lid, or a suspend), so the
 # desktop isn't shown on waking.
 # on_suspend = true
+
+[night_light]
+# Warm the screen in the evening, on the hardware (not when nested in another
+# desktop, which has its own). Settings changes these for you.
+#   "off", "always", or "schedule" (from `from` to `to` every day).
+# mode = "off"
+# from = "20:00"
+# to = "06:00"
+
+# How warm, in kelvin: 6500 is neutral, 1700 the warmest.
+# temperature = 4000
 
 # Keys that run commands: modifiers (Super, Alt, Ctrl, Shift) and a key, by
 # its name ("T", "Return", "F5"). Writing a [bindings] section replaces these

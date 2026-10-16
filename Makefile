@@ -34,7 +34,7 @@ test: ## Run the tests
 check: test ## Run the tests and clippy, as before a commit or release
 	cargo clippy --workspace --all-targets -- -D warnings
 
-BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-volume patina-wallpaper patina-wifi
+BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-night-light patina-settings patina-volume patina-wallpaper patina-wifi
 # The launcher lives in its own repository (ADR-0037); install builds it from there.
 LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 

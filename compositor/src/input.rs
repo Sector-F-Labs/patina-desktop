@@ -236,7 +236,7 @@ impl State {
                 None
             }
             Some(KeyAction::Reload) => {
-                self.reload_config();
+                self.reload_config(true);
                 None
             }
             Some(KeyAction::CloseWindow) => {

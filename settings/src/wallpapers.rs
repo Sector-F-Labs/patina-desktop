@@ -1,8 +1,9 @@
 //! The wallpapers on offer: images in the user's wallpapers folder, then
 //! the system's backgrounds (Ubuntu's and GNOME's, or the ports' on the
-//! BSDs).
+//! BSDs), and small pictures of them for the Wallpaper page.
 
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 
 /// Kinds patina-wallpaper decodes.
 const EXTENSIONS: &[&str] = &["jpg", "jpeg", "png", "webp"];
@@ -56,6 +57,37 @@ fn name(path: &Path) -> String {
     path.file_stem()
         .map(|s| s.to_string_lossy().replace('_', " "))
         .unwrap_or_default()
+}
+
+/// The thumbnails' longest side, in pixels.
+const THUMBNAIL: u32 = 320;
+
+/// Decodes a thumbnail of each of `paths` on a thread of its own, sending
+/// each as it's done (`None` for one that won't decode) and asking `ctx` to
+/// repaint.
+pub fn thumbnails(
+    paths: Vec<PathBuf>,
+    ctx: egui::Context,
+) -> mpsc::Receiver<(PathBuf, Option<egui::ColorImage>)> {
+    let (send, receive) = mpsc::channel();
+    let _ = std::thread::Builder::new()
+        .name("thumbnails".into())
+        .spawn(move || {
+            for path in paths {
+                let image = image::open(&path).ok().map(|i| {
+                    let small = i.thumbnail(THUMBNAIL, THUMBNAIL).to_rgba8();
+                    egui::ColorImage::from_rgba_unmultiplied(
+                        [small.width() as usize, small.height() as usize],
+                        small.as_raw(),
+                    )
+                });
+                if send.send((path, image)).is_err() {
+                    return;
+                }
+                ctx.request_repaint();
+            }
+        });
+    receive
 }
 
 #[cfg(test)]
