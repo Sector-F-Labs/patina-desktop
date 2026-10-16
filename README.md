@@ -2,38 +2,41 @@
 
 A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
 
-- **patina-compositor** (`compositor/`): a floating Wayland compositor built on
+- **[patina-compositor](compositor/README.md)** (`compositor/`): a floating Wayland compositor built on
   [Smithay](https://github.com/Smithay/smithay). It runs **nested** in a window on another
   desktop (OpenGL ES or `PATINA_RENDERER=pixman` software), or **on the hardware** as a login
   session (DRM/KMS, GBM, GLES, libinput, libseat). It starts patina-bar and patina-wallpaper.
-- **patina-bar** (`bar/`): a status bar in egui on a wlr-layer-shell surface, skinned with the
+- **[patina-bar](bar/README.md)** (`bar/`): a status bar in egui on a wlr-layer-shell surface, skinned with the
   same skins as the Patina apps. It runs on any layer-shell compositor, including dwl, where it
   also shows dwl's tags.
-- **patina-launcher** (`launcher/`): opened by the bar's Sector F button (or Super key). It lists
+- **[patina-launcher](launcher/README.md)** (`launcher/`): opened by the bar's Sector F button (or Super key). It lists
   the installed apps from their `.desktop` files, and folder apps in `~/Apps` (each
   `Name.app` with an `app.toml`, ADR-0035), with icons, and filters them as you type. Up
   and Down choose, Enter or a click starts one, and Escape, clicking elsewhere or the button
   again closes it.
-- **patina-volume** (`volume/`): the volume menu, opened by the bar's speaker: mute, a slider
+- **[patina-volume](volume/README.md)** (`volume/`): the volume menu, opened by the bar's speaker: mute, a slider
   and the level. It also fades in briefly when the volume or brightness keys are used, showing
   the volume or the brightness, and stays up while they're pressed.
-- **patina-wifi** (`wifi/`): the Wi-Fi menu, opened by the bar's Wi-Fi icon: networks in range,
+- **[patina-wifi](wifi/README.md)** (`wifi/`): the Wi-Fi menu, opened by the bar's Wi-Fi icon: networks in range,
   joining (with a password box for new ones), disconnecting and Wi-Fi on and off, through
   NetworkManager.
-- **patina-lock** (`lock/`): the lock screen, in the bar's skin: the time, and a password box
+- **[patina-lock](lock/README.md)** (`lock/`): the lock screen, in the bar's skin: the time, and a password box
   checked through PAM. The compositor runs it on Ctrl+Super+Q, Super+Escape and before sleep.
-- **patina-menu** (`menu/`): the desktop's menu, opened by a right click on the desktop. It's the
+- **[patina-menu](menu/README.md)** (`menu/`): the desktop's menu, opened by a right click on the desktop. It's the
   skin menu Patina apps have, for the whole shell: choosing a skin sets it in the bar's config,
   the bar and wallpaper change at once and the other pieces follow it when they next open. It
   also copies the built-in skins to, and opens, the bar's skins folder, opens the bar's config,
   and chooses the wallpaper, from `~/Pictures/Wallpapers` and the system's backgrounds.
-- **patina-wallpaper** (`wallpaper/`): the wallpaper, on the background layer of every screen: the
+- **[patina-wallpaper](wallpaper/README.md)** (`wallpaper/`): the wallpaper, on the background layer of every screen: the
   bar config's `wallpaper` image, filling the screen, or by default the Sector F Labs flask and
   name (in Ubuntu Mono) in the skin's colours.
-- **patina-shell** (`shell/`): what the bar and launcher share, a layer-shell host for egui
-  drawn in software.
+- **[patina-shell](shell/README.md)** (`shell/`): what every shell piece is built on: a layer-shell host for
+  egui drawn in software, one copy per display, the bar's skin and edge, and the volume, Wi-Fi,
+  battery and backlight they read.
 
-![patina-compositor running foot and patina-bar](docs/screenshot.png)
+Each crate's README says what it does on the desktop and how it fits with the others.
+
+![The Patina desktop: Files showing two folder apps in ~/Apps, the bar and the default wallpaper](docs/screenshot.png)
 
 ## Running
 

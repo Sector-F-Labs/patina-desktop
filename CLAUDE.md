@@ -23,6 +23,9 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 
 ## Layout
 
+Each crate has a README saying its role on the desktop and how it fits with the others; keep it
+current when that changes.
+
 - `compositor/src/state.rs`: server side: protocols, placement, focus, input into the seat.
 - `compositor/src/drag.rs`: three-finger drag (ADR-0031): libinput swipes hold BTN_LEFT, with a
   grace timer on `State::loop_handle` between strokes.

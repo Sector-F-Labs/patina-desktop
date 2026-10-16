@@ -1,0 +1,35 @@
+# patina-wifi
+
+The Wi-Fi menu in the bar's tray (ADR-0022): the networks in range, joining one, disconnecting,
+and Wi-Fi on and off.
+
+## On the desktop
+
+From the bar's Wi-Fi icon, at the bar's right end: a header with an on/off switch, then the
+networks in range, strongest first, with their signal and a padlock on secured ones. A click joins
+a saved or open network; a new secured one asks for its password first; the one you're on offers
+Disconnect. Escape, a click elsewhere or the icon again closes it.
+
+## How it fits in
+
+- **Started by** the bar's Wi-Fi icon (its `wifi` command), with the bar's skin and edge. A
+  second run closes the open one (patina-shell's `Single`).
+- **Talks to NetworkManager** on the system D-Bus (patina-shell's `network.rs`, with zbus): the
+  devices, access points and saved connections, scanning, activating and adding connections, and
+  the radio switch. On Ubuntu, NetworkManager's polkit rules let the active session do this
+  without a password prompt. The calls run off the UI thread.
+- **The bar's icon** reads the same module for the signal it shows.
+- Linux with NetworkManager only, for now; without a Wi-Fi device the menu says "No Wi-Fi
+  device".
+
+## Code
+
+`main.rs` (one copy, the D-Bus worker, the surface), `ui.rs` (the switch, the list, the
+password box).
+
+## Running
+
+```sh
+cargo run -p patina-wifi
+cargo run -p patina-shell --example wifi   # what NetworkManager reports, as text
+```
