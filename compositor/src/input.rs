@@ -293,12 +293,6 @@ impl State {
         }
     }
 
-    /// The output's area, for absolute positions and keeping the pointer on
-    /// screen.
-    fn screen(&self) -> smithay::utils::Rectangle<i32, Logical> {
-        self.space.output_geometry(&self.output).unwrap_or_default()
-    }
-
     /// Moves the pointer by `delta`, kept on screen: a mouse or touchpad
     /// moving it, or a three-finger drag.
     pub fn move_pointer_by(&mut self, delta: Point<f64, Logical>, time: u32) {

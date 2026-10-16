@@ -160,6 +160,7 @@ pub fn render(state: &mut State) {
     state.needs_redraw = false;
     let flash = state.flash_element();
     let dnd_icon = state.dnd_icon_at();
+    let fullscreen = state.fullscreen_drawn();
     // Locked, only the locker, over black.
     let spaces: Vec<&smithay::desktop::Space<smithay::desktop::Window>> = if locked {
         Vec::new()
@@ -191,6 +192,7 @@ pub fn render(state: &mut State) {
         scale,
         flash,
         dnd_icon.as_ref(),
+        fullscreen.as_ref(),
     );
     let damaged = {
         let mut target = match n.renderer.bind(image) {

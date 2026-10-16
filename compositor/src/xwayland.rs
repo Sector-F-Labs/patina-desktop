@@ -154,7 +154,12 @@ impl XwmHandler for State {
         };
         self.space.map_element(window.clone(), location, false);
         let _ = surface.configure(Rectangle::new(location, geometry.size));
-        self.focus_window(window);
+        self.focus_window(window.clone());
+        // A game that asked for fullscreen before showing, or sized itself
+        // to the screen (ADR-0041).
+        if surface.is_fullscreen() || self.is_screen(geometry) {
+            self.fullscreen(&window);
+        }
     }
 
     fn mapped_override_redirect_window(&mut self, _: XwmId, surface: X11Surface) {
@@ -193,6 +198,17 @@ impl XwmHandler for State {
         if let Some(h) = h {
             geometry.size.h = h as i32;
         }
+        let requested = Rectangle::new(
+            (x.unwrap_or(geometry.loc.x), y.unwrap_or(geometry.loc.y)).into(),
+            geometry.size,
+        );
+        // A game asking for the whole screen means fullscreen (ADR-0041).
+        if self.is_screen(requested)
+            && let Some(window) = self.x11_window(&surface)
+        {
+            self.fullscreen(&window);
+            return;
+        }
         // A window on screen stays where the compositor put it; one not
         // shown yet may say where it wants to be.
         match self
@@ -225,6 +241,25 @@ impl XwmHandler for State {
         {
             self.space.map_element(window, geometry.loc, false);
             self.needs_redraw = true;
+        }
+    }
+
+    fn fullscreen_request(&mut self, _: XwmId, surface: X11Surface) {
+        match self.x11_window(&surface) {
+            Some(window) => self.fullscreen(&window),
+            // Not shown yet: it goes fullscreen when it maps.
+            None => {
+                let _ = surface.set_fullscreen(true);
+            }
+        }
+    }
+
+    fn unfullscreen_request(&mut self, _: XwmId, surface: X11Surface) {
+        match self.x11_window(&surface) {
+            Some(window) => self.unfullscreen(&window),
+            None => {
+                let _ = surface.set_fullscreen(false);
+            }
         }
     }
 
@@ -269,6 +304,9 @@ impl State {
         let Some(window) = self.x11_window(surface) else {
             return;
         };
+        if self.fullscreen.as_ref() == Some(&window) {
+            self.fullscreen = None;
+        }
         self.space.unmap_elem(&window);
         self.needs_redraw = true;
         if surface.is_override_redirect() {

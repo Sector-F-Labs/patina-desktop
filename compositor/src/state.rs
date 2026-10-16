@@ -124,6 +124,8 @@ pub struct State {
     pub flash: Option<crate::screenshot::Flash>,
     /// What a client is dragging, drawn at the pointer.
     pub dnd_icon: Option<crate::dnd::Icon>,
+    /// The window covering the screen, if one is (ADR-0041).
+    pub fullscreen: Option<Window>,
     _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
     /// Or the hardware itself (ADR-0016).
     pub udev: Option<crate::udev::UdevData>,
@@ -235,6 +237,7 @@ impl State {
             grab_cursor: None,
             flash: None,
             dnd_icon: None,
+            fullscreen: None,
             _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState::new::<Self>(
                 &dh,
             ),
@@ -268,6 +271,7 @@ impl State {
                 .map(|(s, p)| (s, (p + origin).to_f64()))
         };
         layer_under(Layer::Overlay)
+            .or_else(|| self.fullscreen_under(pos))
             .or_else(|| layer_under(Layer::Top))
             .or_else(|| {
                 self.space.element_under(pos).and_then(|(window, origin)| {
@@ -742,6 +746,30 @@ impl XdgShellHandler for State {
         let location = self.cascade();
         self.space.map_element(window.clone(), location, false);
         self.focus(Some(window), SERIAL_COUNTER.next_serial());
+    }
+
+    fn fullscreen_request(
+        &mut self,
+        surface: ToplevelSurface,
+        _: Option<smithay::reexports::wayland_server::protocol::wl_output::WlOutput>,
+    ) {
+        if let Some(window) = self.window_for(surface.wl_surface()) {
+            self.fullscreen(&window);
+        } else {
+            // Not shown yet: it opens covering the screen.
+            let size = self.screen().size;
+            surface.with_pending_state(|s| {
+                s.states
+                    .set(smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State::Fullscreen);
+                s.size = Some(size);
+            });
+        }
+    }
+
+    fn unfullscreen_request(&mut self, surface: ToplevelSurface) {
+        if let Some(window) = self.window_for(surface.wl_surface()) {
+            self.unfullscreen(&window);
+        }
     }
 
     fn toplevel_destroyed(&mut self, toplevel: ToplevelSurface) {

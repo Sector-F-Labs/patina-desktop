@@ -48,6 +48,8 @@ current when that changes.
   clients, and the `XwmHandler` that maps, places, moves and resizes X windows as `Window`s in
   the space. `focus.rs`: the keyboard focus is a `FocusTarget` (Wayland surface or X11 window, so
   the X input focus follows). `window_for` finds both kinds by their `wl_surface`.
+- `compositor/src/fullscreen.rs`: fullscreen (ADR-0041): `State::fullscreen`, sized to the output,
+  drawn over the layers by every backend and first under the pointer while it has the keyboard.
 - `compositor/src/dnd.rs`: drag and drop between clients is Smithay's; this draws the icon a
   client drags (`State::dnd_icon`) at the pointer in every backend, moved by its attach offsets;
   `action_choice` in state.rs makes a drop a copy with Ctrl, a move with Shift.

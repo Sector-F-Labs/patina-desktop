@@ -534,6 +534,7 @@ fn render(state: &mut State) {
     state.needs_redraw = false;
     let flash = state.flash_element();
     let dnd_icon = state.dnd_icon_at();
+    let fullscreen = state.fullscreen_drawn();
     let Some(u) = state.udev.as_mut() else { return };
     let scale = state.output.current_scale().fractional_scale();
 
@@ -569,6 +570,12 @@ fn render(state: &mut State) {
                 .map(OutputElement::Surface),
         );
     } else {
+        // A fullscreen window over the bar.
+        elements.extend(
+            crate::fullscreen::elements(&mut u.renderer, fullscreen.as_ref(), scale)
+                .into_iter()
+                .map(OutputElement::Surface),
+        );
         match space_render_elements(&mut u.renderer, [&state.space], &state.output, 1.0) {
             Ok(space) => elements.extend(space.into_iter().map(OutputElement::Space)),
             Err(e) => eprintln!("patina-compositor: {e:?}"),

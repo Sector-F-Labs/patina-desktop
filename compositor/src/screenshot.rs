@@ -153,6 +153,10 @@ pub fn overlay<R>(
         smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
         smithay::utils::Point<f64, smithay::utils::Logical>,
     )>,
+    fullscreen: Option<&(
+        smithay::desktop::Window,
+        smithay::utils::Point<i32, smithay::utils::Logical>,
+    )>,
 ) -> Vec<Overlay<R>>
 where
     R: Renderer + ImportAll,
@@ -162,6 +166,11 @@ where
         .into_iter()
         .map(Overlay::Surface)
         .chain(flash.map(Overlay::Flash))
+        .chain(
+            crate::fullscreen::elements(renderer, fullscreen, scale)
+                .into_iter()
+                .map(Overlay::Surface),
+        )
         .chain(
             crate::lock::elements(renderer, lock_surface, scale)
                 .into_iter()

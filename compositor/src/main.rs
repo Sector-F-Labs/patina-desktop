@@ -9,6 +9,7 @@ mod dmabuf;
 mod dnd;
 mod drag;
 mod focus;
+mod fullscreen;
 mod grabs;
 mod input;
 mod keyboard;
