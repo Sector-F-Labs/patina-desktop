@@ -23,12 +23,14 @@ gui = true           # a desktop in a window; see [gui] in bsdt(1)
 
 [packages]
 # foot and wmenu are dwl's default terminal and launcher; grim takes
-# screenshots of the desktop for checking the bar.
+# screenshots of the desktop for checking the bar; xdotool drives X windows
+# (minimising one, as Wine does) for checking the window manager.
 # libxkbcommon, pixman and pkgconf are for building the compositor;
 # alsa-lib for building UnAmp, and alsa-plugins to reach the sound card
 # through FreeBSD's OSS.
 install = ["git", "rust", "pkgconf", "libxkbcommon", "pixman", "alsa-lib", "alsa-plugins",
-           "dwl", "foot", "wmenu", "wofi", "grim", "fastfetch", "firefox", "xwayland", "xterm"]
+           "dwl", "foot", "wmenu", "wofi", "grim", "fastfetch", "firefox", "xwayland", "xterm",
+           "xdotool"]
 
 [sync]
 # dest = "/home/bsdt/<project directory>"

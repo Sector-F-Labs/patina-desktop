@@ -29,10 +29,18 @@ into this repository (4.4 MB, with its warnings in every build) was ruled out fo
 - The workspace's `Cargo.toml` replaces crates.io's smithay with that branch in `[patch.crates-io]`,
   so the compositor's dependency still reads `version = "0.7"`.
 - Further fixes Patina needs from upstream before a release go on that branch as commits on 0.7.0.
+- **Added 2026-10-17:** upstream's `bf188f25`, for `set_suspended`: it writes `WM_STATE`, Iconic
+  or Normal, without unmapping the window. A fullscreen Wine game minimises itself when it loses
+  focus (Alt+Tab), and asks the window manager to as well; the compositor ignored that, so the
+  game was never told it was restored, and stayed frozen when focused again. Now the compositor
+  suspends a window that asks to be minimised (`minimize_request` in `xwayland.rs`), keeping it on
+  screen and in the bar's tabs, and unsuspends it when it's focused or asks to be restored, which
+  Wine takes as the game coming back. Truly unmapping it would lose its Wayland surface, and with
+  it the tab Alt+Tab returns to.
 
 ## Consequences
 
-- Fullscreen Wine games stay focused, and render.
+- Fullscreen Wine games stay focused, and render, and carry on after Alt+Tab away and back.
 - Another public repository to keep. Fixes there are backports, and each one has to be redone
   against upstream's API when we move to the next release.
 - When a Smithay release has the fix, the compositor moves to it, the `[patch.crates-io]` goes,

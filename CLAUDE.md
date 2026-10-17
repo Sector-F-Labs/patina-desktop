@@ -14,7 +14,8 @@ To change patina-shell along with the desktop, clone it beside this repo and add
 to a local, uncommitted `.cargo/config.toml`; push it, then `cargo update -p patina-shell` here.
 
 Smithay comes from the `patina-0.7` branch of Sector-F-Labs/smithay, a fork (ADR-0044): 0.7.0 with upstream's
-`_NET_ACTIVE_WINDOW` fix backported (Wine minimised fullscreen games without it). Fixes go there
+`_NET_ACTIVE_WINDOW` fix backported (Wine minimised fullscreen games without it), and its
+`set_suspended` writing `WM_STATE` (so a game minimised on Alt+Tab is restored). Fixes go there
 as commits on 0.7.0, then `cargo update -p smithay`; drop the `[patch.crates-io]` once a release
 has them.
 

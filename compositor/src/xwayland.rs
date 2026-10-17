@@ -267,6 +267,28 @@ impl XwmHandler for State {
         }
     }
 
+    /// A window asking to be minimised, as a Windows game under Wine does
+    /// when it loses focus in fullscreen. There's nowhere to minimise to, so
+    /// it stays where it is, but it's told it's iconic: Wine restores the
+    /// game when that ends, which focusing it again does (`restore_x11`).
+    fn minimize_request(&mut self, _: XwmId, surface: X11Surface) {
+        eprintln!(
+            "patina-compositor: {:?} asks to be minimised",
+            surface.title()
+        );
+        if let Err(e) = surface.set_suspended(true) {
+            eprintln!("patina-compositor: can't minimise {:?}: {e}", surface.title());
+        }
+    }
+
+    fn unminimize_request(&mut self, _: XwmId, surface: X11Surface) {
+        eprintln!(
+            "patina-compositor: {:?} asks to be restored",
+            surface.title()
+        );
+        let _ = surface.set_suspended(false);
+    }
+
     fn move_request(&mut self, _: XwmId, surface: X11Surface, _: u32) {
         let Some((start, window)) = self.x11_grab(&surface) else {
             return;
@@ -302,6 +324,17 @@ impl XwmHandler for State {
 }
 
 impl State {
+    /// An X window being focused that was minimised (`minimize_request`)
+    /// is restored, so Wine knows its game is back and carries on.
+    pub fn restore_x11(&self, window: &Window) {
+        if let Some(x) = window.x11_surface()
+            && x.is_minimized()
+        {
+            eprintln!("patina-compositor: restoring {:?}", x.title());
+            let _ = x.set_suspended(false);
+        }
+    }
+
     /// Takes an X window off the screen, and gives the keyboard on if it
     /// had it.
     fn forget_x11(&mut self, surface: &X11Surface) {

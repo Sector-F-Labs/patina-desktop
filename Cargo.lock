@@ -3468,7 +3468,7 @@ checksum = "5b3dc8af474f516a851ff4bd12db780f948b9250ad37211e4eec0bccea54e01b"
 [[package]]
 name = "smithay"
 version = "0.7.0"
-source = "git+https://github.com/Sector-F-Labs/smithay?branch=patina-0.7#b3c91c90e989779ba7f0a9b1a5262baf02b0fff7"
+source = "git+https://github.com/Sector-F-Labs/smithay?branch=patina-0.7#13901bddeac6c655395d1427c95fad6a25175641"
 dependencies = [
  "appendlist",
  "atomic_float",

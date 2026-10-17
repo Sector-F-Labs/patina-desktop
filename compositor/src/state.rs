@@ -528,6 +528,7 @@ impl State {
         if let Some(window) = &window {
             self.space.raise_element(window, true);
             self.raise_x11(window);
+            self.restore_x11(window);
         }
         self.activate(window.as_ref());
         let target = window.and_then(|w| match w.x11_surface() {
