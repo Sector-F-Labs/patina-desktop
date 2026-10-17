@@ -1,0 +1,66 @@
+.Dd October 17, 2026
+.Dt PATINA-VOLUME 1
+.Os
+.Sh NAME
+.Nm patina-volume
+.Nd the Patina desktop's volume menu
+.Sh SYNOPSIS
+.Nm
+.Op Fl -flash | -brightness
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is the volume menu in the bar's tray: a mute button, a slider and the
+level, at the bar's right end.
+It stays until Escape, a click elsewhere, or the speaker again.
+.Pp
+It also flashes up after a volume or brightness key: it fades in without
+taking the keyboard, shows what the key changed, holds while the keys keep
+coming, and fades out on its own.
+The keys themselves are handled by
+.Xr patina-compositor 1 ,
+which runs its
+.Ic [media]
+commands and then
+.Nm
+with
+.Fl -flash
+or
+.Fl -brightness ;
+.Nm
+only shows the result.
+.Pp
+Only one runs at a time.
+Running it while one is open passes the request on: a second plain run
+closes the menu, and a flash keeps an open one up or restarts its hold.
+.Pp
+The volume is the default output's, read and set with
+.Xr wpctl 1 ;
+the brightness is the backlight's.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl -flash
+Show the volume briefly, without taking the keyboard.
+.It Fl -brightness
+Show the screen's brightness briefly.
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN
+The skin to wear, as the bar sets it; otherwise the bar's config's.
+.It Ev PATINA_BAR_EDGE
+.Dq top
+or
+.Dq bottom :
+which edge to open from.
+.El
+.Sh SEE ALSO
+.Xr patina-bar 1 ,
+.Xr patina-compositor 1 ,
+.Xr wpctl 1 ,
+.Xr patina-desktop 7

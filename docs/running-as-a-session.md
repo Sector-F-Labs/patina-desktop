@@ -124,7 +124,8 @@ make install-session         # run it without sudo; it asks for your password it
 
 It installs the binaries (patina-compositor, patina-bar and the other pieces, and patina-launcher
 from its own repository) into
-`~/.local/bin`, as `make install` does, then the session entry into
+`~/.local/bin`, and their man pages into `~/.local/share/man` (`man patina-desktop` for the
+overview), as `make install` does, then the session entry into
 `/usr/share/wayland-sessions/patina.desktop`, which is the only part that needs root: GDM only
 reads sessions from that system folder. Don't run it as `sudo make install-session`; it refuses,
 since under sudo the binaries would go to root's home.

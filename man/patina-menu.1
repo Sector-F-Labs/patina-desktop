@@ -1,0 +1,53 @@
+.Dd October 17, 2026
+.Dt PATINA-MENU 1
+.Os
+.Sh NAME
+.Nm patina-menu
+.Nd the Patina desktop's menu
+.Sh SYNOPSIS
+.Nm
+.Op Fl -at Ar x , Ns Ar y
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is the menu a right click on the empty desktop opens.
+.Xr patina-compositor 1
+runs it, as its
+.Ic desktop_menu ,
+at the pointer.
+.Pp
+It offers the skins, Patina's built-ins and your own: choosing one sets
+.Ic skin
+in the bar's config, and the bar and wallpaper change at once, the other
+pieces when they next open.
+Below them are Wallpaper\&..., which opens
+.Xr patina-settings 1
+at its Wallpaper page; items to copy the built-in skins to the bar's skins
+folder, to open that folder, and to open the bar's config file; and
+Settings\&....
+A click elsewhere, Escape, or losing the keyboard closes it.
+.Pp
+Settings is started by the compositor, so it's listed on its Processes
+page; outside Patina's compositor the menu starts it itself.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl -at Ar x , Ns Ar y
+Where to open, in the screen's logical pixels; the top-left corner
+without it.
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ~/.config/patina-bar/config.toml
+Where the skin is written.
+.It Pa ~/.config/patina-bar/skins/
+Skins of your own.
+.El
+.Sh SEE ALSO
+.Xr patina-bar 1 ,
+.Xr patina-settings 1 ,
+.Xr patina-desktop 7

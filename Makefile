@@ -1,5 +1,7 @@
 VERSION := $(shell awk -F\" '/^version = / { print $$2; exit }' Cargo.toml)
 PREFIX ?= $(HOME)/.local
+# Under $(PREFIX)/share/man, man(1) finds the pages through PATH's bin folder.
+MANDIR ?= $(PREFIX)/share/man
 
 # grim inside the VM's dwl session, which bsdt runs headless.
 VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
@@ -32,20 +34,26 @@ build: ## Build a release binary
 test: ## Run the tests
 	cargo test --workspace
 
-check: test ## Run the tests and clippy, as before a commit or release
+check: test ## Run the tests and clippy, and lint the man pages, as before a commit or release
 	cargo clippy --workspace --all-targets -- -D warnings
+	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
+	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
 BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-night-light patina-session patina-settings patina-volume patina-wallpaper patina-wifi
 # The launcher lives in its own repository (ADR-0037); install builds it from there.
 LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 
-install: build ## Install the binaries into $(PREFIX)/bin
-	install -d $(PREFIX)/bin
+install: build ## Install the binaries into $(PREFIX)/bin, and their man pages into $(MANDIR)
+	install -d $(PREFIX)/bin $(MANDIR)/man1 $(MANDIR)/man7
 	install -m 755 $(addprefix target/release/,$(BINARIES)) $(PREFIX)/bin/
+	install -m 644 man/*.1 $(MANDIR)/man1/
+	install -m 644 man/*.7 $(MANDIR)/man7/
 	cargo install --quiet --locked --force --git $(LAUNCHER) --root $(PREFIX) patina-launcher
 
-uninstall: ## Remove the installed binaries
+uninstall: ## Remove the installed binaries and man pages
 	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES))
+	rm -f $(addprefix $(MANDIR)/man1/,$(notdir $(wildcard man/*.1)))
+	rm -f $(addprefix $(MANDIR)/man7/,$(notdir $(wildcard man/*.7)))
 	-cargo uninstall --root $(PREFIX) patina-launcher
 
 # Login sessions and PAM services are only read from system folders, so

@@ -1,0 +1,70 @@
+.Dd October 17, 2026
+.Dt PATINA-NIGHT-LIGHT 1
+.Os
+.Sh NAME
+.Nm patina-night-light
+.Nd Night Light from the command line
+.Sh SYNOPSIS
+.Nm
+.Op Cm status
+.Nm
+.Cm on | off | auto
+.Nm
+.Cm inhibit
+.Op Fl -reason Ar text
+.Fl -
+.Ar command
+.Op Ar arg ...
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+asks and tells
+.Xr patina-compositor 1
+about Night Light, which warms the screen in the evening by its
+.Ic [night_light]
+settings.
+Night Light is only on the hardware: nested in another desktop, that
+desktop's own applies, and
+.Nm
+says Night Light isn't served.
+.Bl -tag -width Ds
+.It Cm status
+Print whether it's on, the temperature in kelvin, the override, and why
+anything is holding it off.
+The default.
+.It Cm on , off
+Turn it on or off until the schedule next changes.
+.It Cm auto
+Follow the schedule again.
+.It Cm inhibit
+Hold it off while
+.Ar command
+runs, as a photo editor needing true colour would, giving
+.Ar text
+as the reason Settings shows, or the command's name without
+.Fl -reason .
+It comes back when the command exits, or if
+.Nm
+is killed.
+If the compositor can't be reached, the command runs anyway.
+.El
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh EXIT STATUS
+For
+.Cm inhibit ,
+the exit status of
+.Ar command ,
+or 127 when it can't be run.
+Otherwise 0, or 1 when the compositor can't be reached.
+.Sh EXAMPLES
+.Dl $ patina-night-light inhibit --reason \(dqEditing photos\(dq -- darktable
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-settings 1

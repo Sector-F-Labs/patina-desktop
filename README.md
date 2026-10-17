@@ -39,7 +39,9 @@ A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
   every shell piece is built on: a layer-shell host for egui drawn in software, one copy per
   display, and the bar's skin and edge.
 
-Each crate's README says what it does on the desktop and how it fits with the others.
+Each crate's README says what it does on the desktop and how it fits with the others. Each
+program has a man page, installed by `make install`; `man patina-desktop` is the overview: the
+pieces, the keys, where settings are kept, and restarting and recovering.
 
 ![The Patina desktop: Files showing two folder apps in ~/Apps, the bar and the default wallpaper](docs/screenshot.png)
 

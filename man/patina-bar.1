@@ -1,0 +1,134 @@
+.Dd October 17, 2026
+.Dt PATINA-BAR 1
+.Os
+.Sh NAME
+.Nm patina-bar
+.Nd the Patina desktop's bar
+.Sh SYNOPSIS
+.Nm
+.Op Fl c Ar config.toml
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is the bar along the bottom (or top) of the screen.
+Its buttons and icons open the launcher and the tray's menus, its tabs are
+the list of open windows, and its config file holds the settings the whole
+shell shares: the skin and the wallpaper.
+.Pp
+It holds modules on the left, in the centre and on the right:
+.Bl -tag -width launcher
+.It Ic launcher
+The Sector F flask, which opens the launcher.
+.It Ic windows
+A tab per open window.
+A click focuses it, a middle click closes it; the compositor's Alt+Tab
+and Super+1 to 9 follow the same order.
+.It Ic tray
+Wi-Fi, which opens
+.Xr patina-wifi 1 ;
+the speaker, which opens
+.Xr patina-volume 1 ;
+and the battery, red at 10% or less while discharging.
+.It Ic clock
+The time.
+.It Ic tags , layout , title , appid
+dwl's status, when the bar is dwl's status command.
+.El
+.Pp
+It's started by
+.Xr patina-compositor 1 ,
+and started again whenever it exits.
+It runs on any compositor with wlr-layer-shell, and as dwl's status
+command
+.Pq Ql dwl -s patina-bar ,
+reading dwl's status from its standard input.
+.Pp
+The menus and the launcher are opened with the bar's skin and edge in
+.Ev PATINA_SKIN
+and
+.Ev PATINA_BAR_EDGE .
+Under
+.Xr patina-compositor 1
+they're started by the compositor, so they're listed with their output in
+Settings' Processes page; anywhere else the bar starts them itself.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl c , -config Ar file
+Read
+.Ar file
+instead of
+.Pa ~/.config/patina-bar/config.toml .
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh CONFIGURATION
+.Pa ~/.config/patina-bar/config.toml ,
+TOML; every key is optional.
+The bar reads it again within a second of a change, and the other pieces
+read it when they open.
+.Xr patina-menu 1
+and
+.Xr patina-settings 1
+write
+.Ic skin
+and
+.Ic wallpaper ,
+keeping the rest of the file.
+.Bl -tag -width Ds
+.It Ic position
+.Dq bottom
+(the default) or
+.Dq top .
+.It Ic height
+In logical pixels; 41 by default.
+.It Ic skin
+A Patina skin by name: a built-in, or one in
+.Pa ~/.config/patina-bar/skins .
+.It Ic left , center , right
+The modules on each side, as lists:
+.Dl left = [\(dqlauncher\(dq, \(dqwindows\(dq]
+.It Ic clock
+A
+.Xr strftime 3
+format;
+.Dq %a %-d %b  %H:%M
+by default.
+.It Ic launcher , volume , wifi
+What the flask, the speaker and the Wi-Fi icon run, through
+.Xr sh 1 .
+.It Ic wallpaper
+An image file, drawn by
+.Xr patina-wallpaper 1 ;
+empty for the default.
+.It Ic tags , hide_vacant_tags
+A label per dwl tag, and whether to hide tags with no windows.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN , PATINA_BAR_EDGE
+Set for what the bar opens: its skin, and
+.Dq top
+or
+.Dq bottom .
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ~/.config/patina-bar/config.toml
+The settings above.
+.It Pa ~/.config/patina-bar/skins/
+Skins of your own.
+.El
+.Sh EXAMPLES
+Restart the bar after installing a new one; the compositor starts it
+again:
+.Pp
+.Dl $ pkill -x patina-bar
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-volume 1 ,
+.Xr patina-wallpaper 1 ,
+.Xr patina-wifi 1 ,
+.Xr patina-desktop 7

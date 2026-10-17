@@ -1,0 +1,48 @@
+.Dd October 17, 2026
+.Dt PATINA-WALLPAPER 1
+.Os
+.Sh NAME
+.Nm patina-wallpaper
+.Nd the Patina desktop's wallpaper
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+draws the wallpaper behind every window, on every screen: the image named
+by
+.Ic wallpaper
+in the bar's config, scaled to fill the screen, or without one the Sector
+F Labs flask and name in the colours of the bar's skin.
+It watches the config, and redraws when the wallpaper or the skin change.
+.Pp
+Clicks pass through it to the compositor, which opens
+.Xr patina-menu 1
+on a right click.
+.Pp
+.Xr patina-compositor 1
+starts it first, before the bar, and starts it again whenever it exits.
+The wallpaper is chosen in
+.Xr patina-settings 1 ,
+from
+.Pa ~/Pictures/Wallpapers
+and the system's backgrounds.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ~/.config/patina-bar/config.toml
+.Ic wallpaper ,
+an image file or empty for the default, and
+.Ic skin .
+.El
+.Sh SEE ALSO
+.Xr patina-bar 1 ,
+.Xr patina-settings 1 ,
+.Xr patina-desktop 7

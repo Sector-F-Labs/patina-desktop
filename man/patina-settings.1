@@ -1,0 +1,80 @@
+.Dd October 17, 2026
+.Dt PATINA-SETTINGS 1
+.Os
+.Sh NAME
+.Nm patina-settings
+.Nd the Patina desktop's Settings
+.Sh SYNOPSIS
+.Nm
+.Op Fl -page Ar page
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is the desktop's Settings window, for what needs more than the desktop's
+menu.
+Its pages:
+.Bl -tag -width "Night Light"
+.It Appearance
+The skin every piece of the shell wears, and its skins folder.
+.It Wallpaper
+The default, and the images in
+.Pa ~/Pictures/Wallpapers
+and the system's backgrounds.
+.It Night Light
+Off, always on, or on a schedule, and how warm.
+It shows whether this screen can be warmed, whether it's on now, with a
+button to turn it off until the schedule next changes, and which apps are
+holding it off.
+.It Power
+The power modes this machine has, through power-profiles-daemon, why
+performance is held back, and which apps hold a mode.
+.It Processes
+What the compositor started: each one's state, PID, uptime and restarts,
+with Restart and Stop.
+A click on a name opens a window following its output.
+Under
+.Xr patina-session 1 ,
+Restart Desktop restarts the compositor and everything with it, once
+confirmed.
+Settings can't restart itself.
+.El
+.Pp
+Settings changes the files the settings live in, keeping the rest of each:
+the bar's config for the skin and wallpaper, and
+.Ic [night_light]
+in the compositor's.
+Those watching them change at once.
+Night Light's state and the processes come from the compositor over the
+session bus; nested in another desktop, the pages say what isn't there.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl -page Ar page
+Open at
+.Ar page :
+.Cm appearance
+(the default),
+.Cm wallpaper ,
+.Cm night-light ,
+.Cm power
+or
+.Cm processes .
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ~/.config/patina-bar/config.toml
+.Ic skin
+and
+.Ic wallpaper .
+.It Pa ~/.config/patina-compositor/config.toml
+.Ic [night_light] .
+.El
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-menu 1 ,
+.Xr patina-night-light 1 ,
+.Xr patina-desktop 7

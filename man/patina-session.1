@@ -1,0 +1,85 @@
+.Dd October 17, 2026
+.Dt PATINA-SESSION 1
+.Os
+.Sh NAME
+.Nm patina-session
+.Nd the Patina desktop's login session
+.Sh SYNOPSIS
+.Nm
+.Op Ar compositor-argument ...
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is what the login screen runs for the Patina desktop.
+It runs
+.Xr patina-compositor 1
+with the arguments given, and starts it again when it asks to restart or
+when it crashes, so neither means logging in again.
+The login screen's entry runs it as
+.Ql patina-session --session .
+.Pp
+The compositor is found beside
+.Nm ,
+as
+.Ql make install
+puts them, or else on
+.Ev PATH .
+What happens when it exits depends on how:
+.Bl -tag -width "anything else"
+.It 0
+It quit
+.Pq Sy Ctrl+Alt+Backspace :
+the session ends.
+.It 75
+It asked to restart
+.Pq Sy Ctrl+Alt+Shift+Backspace , No or Restart Desktop in Xr patina-settings 1 :
+it is started again at once.
+Every window has closed; the desktop comes back.
+.It anything else
+It crashed: it is started again a second later.
+Three crashes within a minute end the session instead, rather than a
+loop the login screen never comes back from.
+.El
+.Pp
+SIGTERM, SIGHUP and SIGINT, as the login manager sends when the session
+ends, are passed on to the compositor, and
+.Nm
+exits once it has.
+.Pp
+While the screen is locked, the compositor keeps a marker in
+.Ev XDG_RUNTIME_DIR ;
+a compositor started again after a crash finds it and starts locked, so a
+crash never opens the desktop.
+.Nm
+removes the marker when the session ends.
+.Sh OPTIONS
+Any argument but these is passed to the compositor.
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SESSION
+Set for the compositor to this process's ID, so it knows a restart won't
+end the session.
+.It Ev XDG_RUNTIME_DIR
+Where the lock marker,
+.Pa patina-session- Ns Ar pid Ns Pa .locked ,
+is kept.
+.El
+.Sh EXIT STATUS
+0 when the compositor quits or the session is told to end; 1 when the
+compositor can't be started or crashed three times within a minute.
+.Sh EXAMPLES
+To end a session whose screen is stuck, from a text console:
+.Pp
+.Dl $ pkill patina-session
+.Pp
+Killing only the compositor counts as a crash, and restarts the desktop.
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-desktop 7

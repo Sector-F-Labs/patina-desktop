@@ -1,0 +1,274 @@
+.Dd October 17, 2026
+.Dt PATINA-COMPOSITOR 1
+.Os
+.Sh NAME
+.Nm patina-compositor
+.Nd the Patina desktop's Wayland compositor
+.Sh SYNOPSIS
+.Nm
+.Op Fl -session
+.Op Ar command ...
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is a floating Wayland compositor: it owns the screen, the keyboard and
+the pointer, places and draws windows, and starts the rest of the desktop
+as its clients.
+.Pp
+It runs one of two ways, chosen by whether
+.Ev WAYLAND_DISPLAY
+is set when it starts:
+.Bl -tag -width Ds
+.It Nested
+As a window on another desktop (GNOME, sway, dwl), drawn with OpenGL ES,
+or in software where there is none.
+It quits when that desktop goes.
+.It On the hardware
+From a text console or the login screen: it takes the GPU and the input
+devices through the login session, and shows one monitor, the laptop's
+panel first.
+.El
+.Pp
+At start-up it runs Xwayland, when installed, for X11 apps;
+.Xr patina-wallpaper 1
+and
+.Xr patina-bar 1 ;
+then each
+.Ar command
+given.
+Its keys run the launcher, the desktop's menu, the lock screen and the
+volume flash, as configured below.
+Every program it starts is listed with its output on Settings' Processes
+page
+.Pq Xr patina-settings 1 .
+The wallpaper and the bar are started again when they exit, unless they
+exit five times within thirty seconds.
+.Pp
+Windows float: each is placed once, cascading beside the bar, and a click
+focuses and raises it.
+The bar's tabs are the list of windows: Alt+Tab steps along them, and
+closing a window focuses its neighbouring tab.
+A window asking for fullscreen covers the whole screen, over the bar.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl -session
+Run as a login session: export
+.Ev WAYLAND_DISPLAY ,
+.Ev DISPLAY
+and
+.Ev XDG_CURRENT_DESKTOP
+to systemd and D-Bus, so services started later, such as
+xdg-desktop-portal, reach this desktop.
+On the hardware this is done anyway.
+.Xr patina-session 1
+passes it on from the login screen's entry.
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh KEYS
+.Bl -tag -width "Ctrl+Alt+Shift+Backspace"
+.It Super
+Tapped on its own: open the launcher.
+.It Super+1 No to Sy 9
+Bring forward the window in that tab of the bar.
+.It Alt+Tab , Alt+Shift+Tab
+Step to the next or previous tab.
+.It Super+W
+Close the focused window.
+.It Super+Q
+Quit the focused app: ask all its windows to close.
+.It Super+Up , Super+Down
+Maximise and restore the focused window; also Super+K and Super+J.
+.It Super+Left , Super+Right
+Fill the left or right half of the screen; also Super+H and Super+L.
+.It Super+Shift+ Ns Ar arrow
+Grow the focused window that way by a tenth of the screen.
+.It Super+Shift+K , Super+Shift+J
+Grow and shrink the focused window around its centre.
+.It Super+Shift+L , Super+Shift+H
+Widen and narrow it.
+.It Super+Escape , Ctrl+Super+Q
+Lock the screen.
+.It Super+Shift+3 , Print
+Save a screenshot of the desktop in
+.Pa ~/Pictures/Screenshots .
+.It Super+Shift+4
+Save a screenshot of the focused window.
+.It Super+Space
+Switch to the next keyboard layout.
+.It Super+Shift+R
+Read the config file again.
+.It Ctrl+Alt+F1 No to Sy F12
+Switch to that console, on the hardware.
+.It Ctrl+Alt+Backspace
+Quit, ending the session: the way out whatever state it's in.
+.It Ctrl+Alt+Shift+Backspace
+Restart the desktop without logging out, under
+.Xr patina-session 1 .
+Every window closes.
+Refused while the screen is locked.
+.El
+.Pp
+The brightness and volume keys change them, and
+.Xr patina-volume 1
+flashes up to show the level.
+Super and a drag moves any window.
+A right click on the empty desktop opens
+.Xr patina-menu 1 .
+On a touchpad, three fingers drag.
+While the screen is locked, only the console and media keys work.
+.Sh CONFIGURATION
+The settings are in
+.Pa ~/.config/patina-compositor/config.toml ,
+written on first start with every setting commented out at its default.
+Every key is optional.
+Saving the file applies it within a second; mistakes are reported in the
+log and never stop the desktop.
+.Bl -tag -width Ds
+.It Ic scale
+The screen's scale, such as 1.5.
+Unset, it's chosen from the panel's density, or the parent desktop's when
+nested.
+.It Ic launcher
+What tapping Super runs;
+.Dq patina-launcher
+by default, and
+.Dq
+for nothing.
+.It Ic desktop_menu
+What a right click on the desktop runs, given
+.Fl -at Ar x , Ns Ar y ;
+.Dq patina-menu
+by default.
+.It Ic [keyboard]
+.Ic layout , variant , model
+and
+.Ic options
+as in XKB, from
+.Pa /etc/default/keyboard
+when unset;
+.Ic repeat_delay
+(milliseconds) and
+.Ic repeat_rate
+(per second);
+.Ic caps_lock :
+.Dq caps_lock ,
+.Dq escape ,
+.Dq ctrl
+or
+.Dq swap_escape .
+.It Ic [touchpad]
+.Ic tap
+to click,
+.Ic natural_scroll ,
+.Ic speed
+from -1.0 to 1.0, and
+.Ic three_finger_drag .
+.It Ic [cursor]
+.Ic theme ,
+an installed cursor theme instead of Patina's own, and
+.Ic size
+in pixels at scale 1.
+.It Ic [media]
+.Ic brightness_step
+in percent;
+.Ic volume_up , volume_down , mute
+and
+.Ic mic_mute ,
+commands run through
+.Xr sh 1
+.Pq Xr wpctl 1 No by default ;
+and
+.Ic volume_menu ,
+what flashes up after a volume key.
+.It Ic [lock]
+.Ic command ,
+the lock screen
+.Pq Dq patina-lock ,
+any ext-session-lock locker; and
+.Ic on_suspend ,
+whether to lock before the machine sleeps.
+.It Ic [night_light]
+.Ic mode :
+.Dq off ,
+.Dq always
+or
+.Dq schedule ;
+.Ic from
+and
+.Ic to
+as
+.Dq HH:MM ;
+and
+.Ic temperature
+in kelvin, from 6500 (neutral) to 1700.
+On the hardware only.
+.It Ic [bindings]
+Keys that run commands, such as
+.Dl \(dqAlt+T\(dq = \(dqfoot\(dq
+Modifiers (Super, Alt, Ctrl, Shift) and a key by its name.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev WAYLAND_DISPLAY
+Set: run nested in that desktop.
+Unset: run on the hardware.
+.It Ev PATINA_SCALE
+The scale, over the config's.
+.It Ev PATINA_RENDERER
+.Dq pixman
+draws in software, nested.
+.It Ev PATINA_SESSION
+Set by
+.Xr patina-session 1 ,
+which will start the compositor again: restarting is allowed, and a
+screen locked before a crash starts locked.
+.El
+.Pp
+Its clients get
+.Ev WAYLAND_DISPLAY ,
+.Ev DISPLAY
+for Xwayland,
+.Ev XDG_CURRENT_DESKTOP Ns =Patina ,
+and a
+.Ev PATH
+with the compositor's own folder first.
+.Sh SESSION BUS
+.Bl -tag -width Ds
+.It com.sectorflabs.Patina.Processes
+What the compositor started: List, Restart, Stop, Log, Spawn, and
+RestartDesktop with the Supervised property.
+For
+.Xr patina-settings 1 ,
+and for
+.Xr patina-bar 1
+and
+.Xr patina-menu 1 ,
+which start what they open through Spawn.
+.It com.sectorflabs.Patina.NightLight
+Night Light's state, overrides and inhibitors, on the hardware; see
+.Xr patina-night-light 1 .
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ~/.config/patina-compositor/config.toml
+The settings above.
+.It Pa ~/Pictures/Screenshots/
+Screenshots.
+.El
+.Sh EXIT STATUS
+0 when it quits, 75 when it quits to be started again by
+.Xr patina-session 1 ,
+and 1 on an error.
+.Sh EXAMPLES
+Try it as a window on the current desktop, with a terminal:
+.Pp
+.Dl $ patina-compositor foot
+.Sh SEE ALSO
+.Xr patina-bar 1 ,
+.Xr patina-session 1 ,
+.Xr patina-settings 1 ,
+.Xr patina-desktop 7

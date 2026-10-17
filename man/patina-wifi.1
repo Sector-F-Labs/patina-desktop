@@ -1,0 +1,46 @@
+.Dd October 17, 2026
+.Dt PATINA-WIFI 1
+.Os
+.Sh NAME
+.Nm patina-wifi
+.Nd the Patina desktop's Wi-Fi menu
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is the Wi-Fi menu the bar's Wi-Fi icon opens, at the bar's right end.
+A switch at the top turns Wi-Fi on and off; below it are the networks in
+range, strongest first, with their signal and a padlock on secured ones.
+.Pp
+A click joins a saved or open network; a new secured one asks for its
+password first.
+The network you're on offers Disconnect.
+Escape, a click elsewhere, or the icon again closes it; running it while
+one is open closes that one.
+.Pp
+It talks to NetworkManager on the system bus, which on Ubuntu lets the
+active session change Wi-Fi without a password prompt.
+Without NetworkManager or a Wi-Fi device, it says so.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN
+The skin to wear, as the bar sets it; otherwise the bar's config's.
+.It Ev PATINA_BAR_EDGE
+.Dq top
+or
+.Dq bottom :
+which edge to open from.
+.El
+.Sh SEE ALSO
+.Xr nmcli 1 ,
+.Xr patina-bar 1 ,
+.Xr patina-desktop 7

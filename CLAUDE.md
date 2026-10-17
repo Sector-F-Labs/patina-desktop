@@ -37,7 +37,10 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 ## Layout
 
 Each crate has a README saying its role on the desktop and how it fits with the others; keep it
-current when that changes.
+current when that changes. Each installed binary has a man page in `man/` (mdoc), and
+`patina-desktop.7` is the overview: keys, files, restarting and recovering. Keep them current
+with options, keys, config and behaviour; `make check` lints them with mandoc, and `make install`
+puts them in `$(PREFIX)/share/man`.
 
 - `compositor/src/state.rs`: server side: protocols, placement, focus, input into the seat.
 - `compositor/src/drag.rs`: three-finger drag (ADR-0031): libinput swipes hold BTN_LEFT, with a

@@ -1,0 +1,139 @@
+.Dd October 17, 2026
+.Dt PATINA-DESKTOP 7
+.Os
+.Sh NAME
+.Nm patina-desktop
+.Nd the Patina desktop: its pieces, and how to look after them
+.Sh DESCRIPTION
+The Patina desktop is a floating Wayland desktop in the style of the Patina
+apps.
+It is made of small programs, each a separate process, so that one going
+wrong can be restarted without the others:
+.Bl -tag -width "patina-night-light(1)"
+.It Xr patina-session 1
+The login session.
+Runs the compositor, and starts it again when it restarts or crashes.
+.It Xr patina-compositor 1
+The compositor: the screen, keyboard and pointer, windows, and the
+desktop's own keys.
+It starts the wallpaper and the bar, and keeps track of every piece it
+starts.
+.It Xr patina-bar 1
+The bar: the launcher button, a tab per window, the tray and the clock.
+Its config file holds the settings the whole shell shares.
+.It Xr patina-wallpaper 1
+The wallpaper behind every window.
+.It Xr patina-menu 1
+The desktop's menu, on a right click on the empty desktop.
+.It Xr patina-volume 1
+The volume menu, which also flashes up after a volume or brightness key.
+.It Xr patina-wifi 1
+The Wi-Fi menu.
+.It Xr patina-lock 1
+The lock screen.
+.It Xr patina-settings 1
+Settings: the skin, wallpaper, Night Light, power modes, and the desktop's
+processes.
+.It Xr patina-night-light 1
+Night Light from the command line.
+.El
+.Pp
+The launcher, opened by the bar's flask button or by tapping Super, is
+.Xr patina-launcher 1 ,
+built from its own repository.
+.Sh STARTING THE DESKTOP
+.Bl -tag -width Ds
+.It \&At the login screen
+.Ql make install-session
+adds a
+.Dq Patina
+session to GDM, which runs
+.Ql patina-session --session .
+Choose it from the session button on the password screen.
+.It From a text console
+Log in and run
+.Nm patina-session ,
+or
+.Nm patina-compositor
+to have no restarts.
+.It Nested in another desktop
+Run
+.Nm patina-compositor
+from a terminal on GNOME, sway or dwl: it opens as a window there.
+This is how the pieces are tried during development.
+.El
+.Sh WHERE THINGS ARE KEPT
+.Bl -tag -width Ds
+.It Pa ~/.config/patina-compositor/config.toml
+The compositor's settings: scale, keyboard, touchpad, cursor, media keys,
+lock screen, Night Light and key bindings.
+Written with every setting commented out on first start.
+Saving it applies it within a second.
+See
+.Xr patina-compositor 1 .
+.It Pa ~/.config/patina-bar/config.toml
+The bar's settings, and the shell's: the skin and the wallpaper, which the
+desktop's menu and Settings write.
+See
+.Xr patina-bar 1 .
+.It Pa ~/.config/patina-bar/skins/
+Skins of your own, beside Patina's built-in ones.
+.It Pa ~/Pictures/Screenshots/
+Screenshots, from Super+Shift+3, Super+Shift+4 and Print.
+.It Pa ~/Pictures/Wallpapers/
+Images offered as wallpapers, with the system's backgrounds.
+.El
+.Sh RESTARTING AND RECOVERING
+.Bl -tag -width Ds
+.It A piece misbehaves
+Open Settings at its Processes page
+.Pq Ql patina-settings --page processes .
+It lists what the compositor started, with each one's state and output;
+Restart and Stop act on one.
+The wallpaper and the bar come back on their own when they exit, so
+.Ql pkill patina-bar
+also restarts the bar, from the binary now installed.
+.It The compositor is to be restarted
+Press
+.Sy Ctrl+Alt+Shift+Backspace ,
+or use Restart Desktop at the bottom of the Processes page.
+Every window closes and its app quits; the desktop comes back without
+logging out.
+This needs
+.Xr patina-session 1 ,
+as at the login screen.
+After
+.Ql make install ,
+that is all a change to the compositor takes.
+.It The compositor crashes
+.Xr patina-session 1
+starts it again a second later; three crashes within a minute end the
+session, back at the login screen.
+A screen that was locked is locked again.
+.It The screen is frozen or black
+Switch to a text console with Ctrl+Alt+F3, log in, and run
+.Ql pkill patina-session
+to end the session and return to the login screen.
+.Ql pkill patina-compositor
+only restarts the desktop.
+.It Leaving
+.Sy Ctrl+Alt+Backspace
+quits the compositor and ends the session, whatever state it's in.
+.El
+.Pp
+The pieces' output is in the session's log:
+.Ql journalctl -b | grep patina
+under GDM, with each line prefixed by the piece that wrote it.
+The Processes page shows the last 500 lines of each.
+.Sh SEE ALSO
+.Xr patina-bar 1 ,
+.Xr patina-compositor 1 ,
+.Xr patina-launcher 1 ,
+.Xr patina-lock 1 ,
+.Xr patina-menu 1 ,
+.Xr patina-night-light 1 ,
+.Xr patina-session 1 ,
+.Xr patina-settings 1 ,
+.Xr patina-volume 1 ,
+.Xr patina-wallpaper 1 ,
+.Xr patina-wifi 1

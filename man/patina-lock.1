@@ -1,0 +1,67 @@
+.Dd October 17, 2026
+.Dt PATINA-LOCK 1
+.Os
+.Sh NAME
+.Nm patina-lock
+.Nd the Patina desktop's lock screen
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+locks the session until your password is typed.
+Every screen shows the time and date in the bar's skin; the one with the
+keyboard also shows who is locked and a password box.
+Typing shows only dots; Enter checks the password through PAM, and a wrong
+one is cleared with
+.Dq Wrong password
+under the box.
+.Pp
+.Xr patina-compositor 1
+runs it, as its
+.Ic [lock] command ,
+on Super+Escape and Ctrl+Super+Q, and before the machine sleeps when
+.Ic on_suspend
+is set, so waking never shows the desktop.
+It needs a compositor with ext-session-lock.
+.Pp
+Once locked, the compositor draws and sends input only to the lock
+screen.
+If
+.Nm
+crashes, the session stays locked, and running it again takes over.
+A compositor restarted after a crash under
+.Xr patina-session 1
+starts locked and runs it.
+.Pp
+The password is checked with the PAM service
+.Pa patina-lock ,
+which
+.Ql make install-session
+installs; without it, PAM's
+.Pa other
+service is used.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN
+The skin to wear; otherwise the bar's config's.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa /etc/pam.d/patina-lock
+The PAM service the password is checked with.
+.It Pa ~/.config/patina-bar/config.toml
+Where the skin is read from.
+.El
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-desktop 7 ,
+.Xr pam 8
