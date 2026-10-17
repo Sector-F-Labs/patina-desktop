@@ -44,7 +44,8 @@ current when that changes.
 - `compositor/src/processes.rs`: what the compositor starts (ADR-0045): a global list, each child in
   a process group of its own with its output read and kept; the wallpaper and bar restarted when
   they exit. `processes/dbus.rs` serves `com.sectorflabs.Patina.Processes`, nested too; Settings'
-  Processes page restarts, stops and reads them through `system/src/processes.rs`.
+  Processes page restarts, stops and reads them through `system/src/processes.rs`, and the bar and
+  menu start what they open through its `Spawn`, falling back to starting it themselves.
 - `compositor/src/screenshot.rs`: Super+Shift+3/4 and Print (ADR-0034): the desktop or the focused
   window drawn offscreen with the backend's renderer, saved as a PNG on a thread; then a `Flash`
   each backend draws on top (`flash_element`, `overlay`).

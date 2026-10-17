@@ -93,6 +93,8 @@ struct Process {
     command: String,
     /// The compositor's socket, to start it again with.
     socket: OsString,
+    /// Variables of its own, from whoever asked for it (the bar's skin).
+    env: Vec<(String, String)>,
     kept: bool,
     /// Also its process group's ID.
     pid: Option<u32>,
@@ -142,9 +144,27 @@ fn name_of(command: &str) -> String {
     program.rsplit('/').next().unwrap_or(program).to_string()
 }
 
+/// Variables a caller can't set: the compositor's own say which desktop
+/// this is.
+const RESERVED: [&str; 4] = ["WAYLAND_DISPLAY", "WAYLAND_SOCKET", "DISPLAY", "PATH"];
+
 /// Starts `command_line` as a client of the compositor at `socket`; `kept`
 /// starts it again whenever it exits.
-pub fn spawn(socket: &OsStr, command_line: &str, kept: bool) {
+pub fn spawn(socket: &OsStr, command_line: &str, kept: bool) -> u32 {
+    spawn_with(socket, command_line, kept, Vec::new())
+}
+
+/// [`spawn`], with variables of its own besides the compositor's.
+pub fn spawn_with(
+    socket: &OsStr,
+    command_line: &str,
+    kept: bool,
+    env: Vec<(String, String)>,
+) -> u32 {
+    let env = env
+        .into_iter()
+        .filter(|(k, _)| !RESERVED.contains(&k.as_str()) && !k.starts_with("XDG_"))
+        .collect();
     let mut processes = processes();
     let id = processes.next;
     processes.next += 1;
@@ -153,6 +173,7 @@ pub fn spawn(socket: &OsStr, command_line: &str, kept: bool) {
         name: name_of(command_line),
         command: command_line.to_string(),
         socket: socket.to_os_string(),
+        env,
         kept,
         pid: None,
         status: Status::Exited("not started".into()),
@@ -167,12 +188,14 @@ pub fn spawn(socket: &OsStr, command_line: &str, kept: bool) {
     });
     start(&mut processes, id);
     processes.prune();
+    id
 }
 
 /// Runs process `id`, with threads reading its output and reaping it.
 fn start(processes: &mut Processes, id: u32) {
     let Some(p) = processes.get(id) else { return };
     let mut command = crate::clients::command(&p.socket, &p.command);
+    command.envs(p.env.iter().map(|(k, v)| (k, v)));
     // A group of its own, so stopping it reaches the program behind sh -c.
     command
         .stdout(Stdio::piped())

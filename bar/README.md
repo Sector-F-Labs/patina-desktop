@@ -25,7 +25,9 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   `toplevels.rs`), and asks the compositor to activate or close them.
 - **Opens the other pieces** by running their commands through `sh`, with `PATINA_SKIN` and
   `PATINA_BAR_EDGE` set so they match it and open from its edge: `launcher`, `volume` and `wifi`
-  in its config.
+  in its config. Under patina-compositor it asks the compositor to start them (`Spawn` on the
+  session bus), so they're listed in Settings' Processes page with their output (ADR-0045);
+  anywhere else, or without a session bus, it starts them itself.
 - **Owns the shared config**, `~/.config/patina-bar/config.toml` (`config.rs`): `position`,
   `height`, `skin`, the modules of each side, `clock` (a strftime format), the three commands,
   `tags`, and `wallpaper`, which patina-wallpaper draws. patina-menu writes `skin` and

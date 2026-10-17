@@ -55,20 +55,36 @@ fn texture(ctx: &egui::Context, pixels: u32) -> Option<TextureHandle> {
     Some(texture)
 }
 
-/// Runs `command` through sh(1), detached from the bar: no stdin, and a
-/// thread reaps it so it never lingers as a zombie. `PATINA_SKIN` names the
-/// bar's skin and `PATINA_BAR_EDGE` its edge, `top` or `bottom`.
+/// Runs `command` through sh(1), telling it the bar's skin
+/// (`PATINA_SKIN`) and edge (`PATINA_BAR_EDGE`, `top` or `bottom`). On a
+/// thread, so the bus never holds the bar up: Patina's compositor starts it,
+/// so it's among the desktop's processes (ADR-0045); under any other, or
+/// without a session bus, the bar does.
 pub fn run(command: &str, skin: &str, edge: &str) {
+    let (command, skin, edge) = (command.to_string(), skin.to_string(), edge.to_string());
+    std::thread::spawn(move || {
+        let env = [
+            ("PATINA_SKIN", skin.as_str()),
+            ("PATINA_BAR_EDGE", edge.as_str()),
+        ];
+        if patina_system::processes::spawn(&command, &env).is_err() {
+            run_here(&command, &env);
+        }
+    });
+}
+
+/// Runs `command` as the bar's own child, detached: no stdin, and reaped
+/// so it never lingers as a zombie.
+fn run_here(command: &str, env: &[(&str, &str)]) {
     match Command::new("sh")
         .arg("-c")
         .arg(command)
-        .env("PATINA_SKIN", skin)
-        .env("PATINA_BAR_EDGE", edge)
+        .envs(env.iter().copied())
         .stdin(Stdio::null())
         .spawn()
     {
         Ok(mut child) => {
-            std::thread::spawn(move || child.wait());
+            let _ = child.wait();
         }
         Err(e) => eprintln!("patina-bar: can't run {command}: {e}"),
     }

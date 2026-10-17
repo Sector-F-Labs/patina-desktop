@@ -129,8 +129,18 @@ impl DesktopMenu {
         }
     }
 
-    /// Opens Settings, at `page` if one is given, and closes.
+    /// Opens Settings, at `page` if one is given, and closes. Patina's
+    /// compositor starts it, so it's among the desktop's processes
+    /// (ADR-0045); under any other, the menu does.
     fn settings(&mut self, page: Option<&str>) {
+        let line = match page {
+            Some(page) => format!("{SETTINGS} --page {page}"),
+            None => SETTINGS.to_string(),
+        };
+        if patina_system::processes::spawn(&line, &[]).is_ok() {
+            self.done = true;
+            return;
+        }
         let mut command = std::process::Command::new(SETTINGS);
         if let Some(page) = page {
             command.args(["--page", page]);

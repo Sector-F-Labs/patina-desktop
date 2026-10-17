@@ -49,12 +49,19 @@ separate app (ADR-0027: a feature grows where it already lives).
   bound to keys) runs once. The twenty most recent of these stay in the list after they exit, with
   their logs, so a crash can still be read.
 - **On the session bus:** `com.sectorflabs.Patina.Processes` at `/com/sectorflabs/Patina/Processes`,
-  with `List()`, `Restart(id)`, `Stop(id)` and `Log(id, from)`. `Log` returns the lines from
+  with `List()`, `Restart(id)`, `Stop(id)`, `Log(id, from)` and `Spawn(command, env)`. `Log` returns the lines from
   sequence number `from` onwards and the number to ask from next, so a reader polls for only what's
   new. There are no signals: Settings polls, as it already does for the bar's config and for
   power modes. Unlike Night Light, it's served nested too (in the VM, or `make run`), since that's
   where the pieces are worked on most. If the name is taken (another Patina is running), it says
   so and the compositor runs on without it. The client side is `patina_system::processes`.
+- **The bar and the desktop's menu start what they open through `Spawn`** (added the same day):
+  the tray's Wi-Fi and volume menus, the launcher from the flask button, and Settings. The
+  compositor runs the command once, as one of its own clients, with the caller's variables (the
+  bar's `PATINA_SKIN` and `PATINA_BAR_EDGE`) besides its own; a caller can't set
+  `WAYLAND_DISPLAY`, `DISPLAY`, `PATH` or `XDG_*`. When the call fails (another compositor, or no
+  session bus) the caller starts the command itself, as before, so the tray never stops working
+  over D-Bus; only the listing is lost. The bar calls on a thread, so the bus never holds it up.
 - **Settings has a Processes page:** a table of the processes with their state, PID, uptime and
   restarts, a Restart button and a Stop button on each row, and a log window that opens on a click
   and follows new lines. Settings' own Restart is greyed out, since restarting it would close the
@@ -64,14 +71,16 @@ separate app (ADR-0027: a feature grows where it already lives).
 
 - Changing the bar or wallpaper is: build, then Restart in Settings, or kill it; it comes back from
   the binary now on disk. No logout.
-- Only what the compositor starts is listed. The bar starts the tray's Wi-Fi and volume menus
-  itself, and the desktop's menu starts Settings, so those don't show (Settings' row only shows when
-  it was opened another way). Routing them through the compositor would take a `Spawn(command)`
-  method that the bar and menu call. Xwayland isn't listed either: Smithay starts it.
+- Only what the compositor starts is listed. With `Spawn`, that's everything the desktop's own
+  pieces open; apps started by patina-launcher are its children and aren't listed, and nor is
+  Xwayland, which Smithay starts.
+- `Spawn` runs any command line for whoever asks on the session bus. That's no more than any
+  process of the user's can already do, but it means a piece's menus now depend on the bus being
+  there, which is why the fallback is kept.
 - Output from the pieces now passes through the compositor, line by line. A child that writes
   without newlines is held until it does, and a very chatty one costs the compositor a thread's
   reading.
-- Anyone on the session bus can stop or restart the desktop's pieces. That's the user's own
+- Anyone on the session bus can stop, restart or start the desktop's pieces. That's the user's own
   session, as with Night Light.
 - Restarting the compositor itself, and `patina-session`, are still to come; the page gets a
   "Restart desktop" button then.

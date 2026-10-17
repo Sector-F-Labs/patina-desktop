@@ -1,22 +1,33 @@
 //! The desktop's processes on the session bus (ADR-0045), for Settings'
-//! Processes page: `com.sectorflabs.Patina.Processes` at
-//! `/com/sectorflabs/Patina/Processes`. The list is global, so the
-//! interface reads and changes it from zbus's threads, with no trip
-//! through the event loop. There are no signals; readers poll.
+//! Processes page, and `Spawn` for the bar and the desktop's menu to start
+//! their menus and Settings here, so they're listed too:
+//! `com.sectorflabs.Patina.Processes` at `/com/sectorflabs/Patina/Processes`.
+//! The list is global, so the interface reads and changes it from zbus's
+//! threads, with no trip through the event loop. There are no signals;
+//! readers poll.
+
+use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
 
 pub const NAME: &str = "com.sectorflabs.Patina.Processes";
 pub const PATH: &str = "/com/sectorflabs/Patina/Processes";
 
 /// Claims the name and serves the interface while the connection lives.
-pub fn serve() -> Result<zbus::blocking::Connection, String> {
+/// What's spawned is a client of the compositor at `socket`.
+pub fn serve(socket: &OsStr) -> Result<zbus::blocking::Connection, String> {
+    let interface = Interface {
+        socket: socket.to_os_string(),
+    };
     zbus::blocking::connection::Builder::session()
         .and_then(|b| b.name(NAME))
-        .and_then(|b| b.serve_at(PATH, Interface))
+        .and_then(|b| b.serve_at(PATH, interface))
         .and_then(|b| b.build())
         .map_err(|e| e.to_string())
 }
 
-struct Interface;
+struct Interface {
+    socket: OsString,
+}
 
 fn failed(e: String) -> zbus::fdo::Error {
     zbus::fdo::Error::Failed(e)
@@ -37,6 +48,21 @@ impl Interface {
                 )
             })
             .collect()
+    }
+
+    /// Starts `command` through sh(1) as a client of the compositor, with
+    /// `env` besides its own variables (not WAYLAND_DISPLAY, DISPLAY, PATH
+    /// or XDG_*), and returns its id. It runs once.
+    fn spawn(&self, command: String, env: HashMap<String, String>) -> zbus::fdo::Result<u32> {
+        if command.trim().is_empty() {
+            return Err(zbus::fdo::Error::InvalidArgs("no command".into()));
+        }
+        Ok(super::spawn_with(
+            &self.socket,
+            &command,
+            false,
+            env.into_iter().collect(),
+        ))
     }
 
     fn restart(&self, id: u32) -> zbus::fdo::Result<()> {
@@ -65,7 +91,7 @@ mod tests {
     #[test]
     #[ignore = "needs a session bus of its own: run under dbus-run-session"]
     fn settings_lists_reads_restarts_and_stops() {
-        let _served = super::serve().expect("the name is free on a bus of our own");
+        let _served = super::serve("test".as_ref()).expect("the name is free on a bus of our own");
         super::super::spawn("test".as_ref(), "echo ready; sleep 30", true);
         let client = Processes::connect().unwrap();
         assert!(client.served().unwrap());
@@ -98,5 +124,20 @@ mod tests {
         client.stop(p.id).unwrap();
         wait(&|p| p.status == "stopped");
         assert!(client.log(9999, 0).is_err());
+
+        let env = [("PATINA_SKIN", "Platinum"), ("PATH", "/nowhere")];
+        let id = patina_system::processes::spawn("echo $PATINA_SKIN; command -v sh", &env).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let lines = loop {
+            let (_, lines) = client.log(id, 0).unwrap();
+            if lines.len() >= 3 || Instant::now() > deadline {
+                break lines;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        // Its own variable, but the compositor's PATH.
+        assert_eq!(lines[0], "Platinum", "{lines:?}");
+        assert!(lines[1].ends_with("/sh"), "{lines:?}");
+        assert!(patina_system::processes::spawn(" ", &[]).is_err());
     }
 }

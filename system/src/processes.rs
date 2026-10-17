@@ -1,7 +1,8 @@
 //! The desktop's processes, from outside the compositor (ADR-0045): what it
 //! started, their state and logs, and restarting or stopping them, through
 //! its `com.sectorflabs.Patina.Processes` on the session bus. For Settings'
-//! Processes page.
+//! Processes page; and [`spawn`], for the bar and the desktop's menu to
+//! start what they open on the compositor, where it's listed.
 
 use std::time::{Duration, SystemTime};
 
@@ -78,6 +79,15 @@ impl Processes {
             .collect())
     }
 
+    /// Starts `command` through sh(1) on the compositor, with `env` besides
+    /// its own variables; its id.
+    pub fn spawn(&self, command: &str, env: &[(&str, &str)]) -> Result<u32, String> {
+        let env: std::collections::HashMap<&str, &str> = env.iter().copied().collect();
+        self.proxy()?
+            .call("Spawn", &(command, env))
+            .map_err(|e| e.to_string())
+    }
+
     /// Stops process `id` and starts it again, or starts it if it's down.
     pub fn restart(&self, id: u32) -> Result<(), String> {
         self.proxy()?
@@ -99,4 +109,11 @@ impl Processes {
             .call("Log", &(id, from))
             .map_err(|e| e.to_string())
     }
+}
+
+/// Starts `command` through sh(1) as one of the compositor's processes, with
+/// `env` besides its own variables; its id. An error when nothing serves it
+/// (another desktop, or no session bus), for the caller to start it itself.
+pub fn spawn(command: &str, env: &[(&str, &str)]) -> Result<u32, String> {
+    Processes::connect()?.spawn(command, env)
 }

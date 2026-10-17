@@ -15,7 +15,9 @@ closes it.
 
 - **Started by** patina-compositor on a right click where no window is, as
   `patina-menu --at X,Y` (its `desktop_menu` command), at the pointer in logical pixels.
-- **Starts patina-settings**, found on the compositor's PATH like the menu itself.
+- **Starts patina-settings**, found on the compositor's PATH like the menu itself: through the
+  compositor's `Spawn` on the session bus, so it's among the desktop's processes (ADR-0045), or
+  itself where nothing serves that.
 - **Writes the skin** into the bar's config, `~/.config/patina-bar/config.toml`, through
   patina-shell (`bar::set`). It doesn't tell anyone: the bar and
   patina-wallpaper watch the file and change at once, and the launcher, menus and lock screen

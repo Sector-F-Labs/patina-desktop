@@ -134,7 +134,7 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
     }
     state.start_night_light();
     // Nested too: the VM and `make run` are where the pieces are worked on.
-    let _processes = processes::dbus::serve()
+    let _processes = processes::dbus::serve(&state.socket_name)
         .inspect_err(|e| eprintln!("patina-compositor: the process list isn't on D-Bus: {e}"));
     // Before any client starts, so they all get DISPLAY.
     state.start_xwayland();
