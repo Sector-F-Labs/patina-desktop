@@ -19,6 +19,128 @@ pub enum Position {
     Bottom,
 }
 
+/// One bar, or its parts apart (experimental): the launcher, the window
+/// list and the tray each on a surface of their own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Layout {
+    #[default]
+    Bar,
+    Split,
+}
+
+/// Where a part of the split bar goes: an edge, then where along it. Along
+/// the top or bottom it's a row ("bottom-left"); up the left or right side,
+/// a column ("left-bottom", the left edge at the bottom).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Spot {
+    TopLeft,
+    #[serde(alias = "top")]
+    TopCenter,
+    TopRight,
+    BottomLeft,
+    #[serde(alias = "bottom")]
+    BottomCenter,
+    BottomRight,
+    LeftTop,
+    #[serde(alias = "left", alias = "center-left")]
+    LeftCenter,
+    LeftBottom,
+    RightTop,
+    #[serde(alias = "right", alias = "center-right")]
+    RightCenter,
+    RightBottom,
+}
+
+/// Where along an axis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Along {
+    Start,
+    Middle,
+    End,
+}
+
+/// A screen edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+impl Side {
+    pub fn name(self) -> &'static str {
+        match self {
+            Side::Top => "top",
+            Side::Bottom => "bottom",
+            Side::Left => "left",
+            Side::Right => "right",
+        }
+    }
+}
+
+impl Spot {
+    /// The edge it's along.
+    pub fn side(self) -> Side {
+        use Spot::*;
+        match self {
+            TopLeft | TopCenter | TopRight => Side::Top,
+            BottomLeft | BottomCenter | BottomRight => Side::Bottom,
+            LeftTop | LeftCenter | LeftBottom => Side::Left,
+            RightTop | RightCenter | RightBottom => Side::Right,
+        }
+    }
+
+    /// Where along its edge: the start is the left or the top.
+    pub fn along(self) -> Along {
+        use Spot::*;
+        match self {
+            TopLeft | BottomLeft | LeftTop | RightTop => Along::Start,
+            TopCenter | BottomCenter | LeftCenter | RightCenter => Along::Middle,
+            TopRight | BottomRight | LeftBottom | RightBottom => Along::End,
+        }
+    }
+
+    /// A column, up the left or right side.
+    pub fn vertical(self) -> bool {
+        matches!(self.side(), Side::Left | Side::Right)
+    }
+
+    /// Across the screen: left, middle or right.
+    pub fn x(self) -> Along {
+        match self.side() {
+            Side::Left => Along::Start,
+            Side::Right => Along::End,
+            _ => self.along(),
+        }
+    }
+
+    /// Down the screen: top, middle or bottom.
+    pub fn y(self) -> Along {
+        match self.side() {
+            Side::Top => Along::Start,
+            Side::Bottom => Along::End,
+            _ => self.along(),
+        }
+    }
+
+    /// The row in the corner where this column's end meets the top or
+    /// bottom (`bottom-left` for `left-bottom`), which it stacks past; none
+    /// for a row, or a column in the middle.
+    pub fn corner_row(self) -> Option<Spot> {
+        use Spot::*;
+        Some(match self {
+            LeftTop => TopLeft,
+            LeftBottom => BottomLeft,
+            RightTop => TopRight,
+            RightBottom => BottomRight,
+            _ => return None,
+        })
+    }
+}
+
 /// What the window tabs show (ADR-0050).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -56,6 +178,13 @@ pub struct Config {
     pub right: Vec<String>,
     /// What each window's tab shows: "both", "icons" or "titles".
     pub window_tabs: WindowTabs,
+    /// "bar", or "split": the launcher, window list and tray apart.
+    pub layout: Layout,
+    /// Split, where each part goes: an edge, then where along it, as
+    /// "bottom-left" (a row) or "left-bottom" (a column); see `Spot`.
+    pub launcher_at: Spot,
+    pub windows_at: Spot,
+    pub tray_at: Spot,
     /// A strftime format, as in date(1).
     pub clock: String,
     /// What the launcher button runs, through sh(1).
@@ -90,6 +219,10 @@ impl Default for Config {
             center: vec!["title".into()],
             right: vec!["tray".into(), "clock".into(), "power".into()],
             window_tabs: WindowTabs::Both,
+            layout: Layout::Bar,
+            launcher_at: Spot::BottomLeft,
+            windows_at: Spot::BottomCenter,
+            tray_at: Spot::BottomRight,
             clock: "%a %-d %b  %H:%M".into(),
             launcher: "patina-launcher".into(),
             volume: "patina-volume".into(),
@@ -172,6 +305,28 @@ mod tests {
         let (c, w) = parse("window_tabs = \"pictures\"");
         assert_eq!(c.window_tabs, WindowTabs::Both);
         assert_eq!(w.len(), 1, "{w:?}");
+    }
+
+    #[test]
+    fn split_reads_its_edges() {
+        let (c, w) = parse("layout = \"split\"\nwindows_at = \"left\"\ntray_at = \"top-right\"\n");
+        assert!(w.is_empty(), "{w:?}");
+        assert_eq!(c.layout, Layout::Split);
+        assert_eq!(c.windows_at, Spot::LeftCenter, "the old name for it");
+        assert!(c.windows_at.vertical());
+        assert_eq!(c.tray_at, Spot::TopRight);
+        assert_eq!(c.launcher_at, Spot::BottomLeft);
+        let (c, w) = parse("launcher_at = \"center-right\"\nwindows_at = \"left-bottom\"\n");
+        assert!(w.is_empty(), "{w:?}");
+        assert_eq!(c.launcher_at, Spot::RightCenter);
+        assert_eq!(
+            (c.windows_at.x(), c.windows_at.y()),
+            (Along::Start, Along::End)
+        );
+        assert!(c.windows_at.vertical());
+        assert_eq!(c.windows_at.corner_row(), Some(Spot::BottomLeft));
+        assert!(!Spot::BottomLeft.vertical());
+        assert_eq!(parse("").0.layout, Layout::Bar);
     }
 
     #[test]

@@ -17,9 +17,9 @@ use crate::overlay::{Edge, Place};
 use crate::tooltip::Tooltip;
 use crate::ui::DesktopMenu;
 
-const USAGE: &str = "usage: patina-menu [--at X,Y] [--edge top|bottom]
+const USAGE: &str = "usage: patina-menu [--at X,Y] [--edge top|bottom|left|right]
                    [--item ID=LABEL | --separator ...]
-       patina-menu --tooltip TEXT [--at X,Y] [--edge top|bottom]
+       patina-menu --tooltip TEXT [--at X,Y] [--edge top|bottom|left|right]
 
 Without items, opens the desktop's menu at X,Y, in the screen's logical
 pixels (the top-left corner without it), as patina-compositor does on a
@@ -29,7 +29,8 @@ and the bar and the other pieces follow it.
 With items, opens a menu of them, in that order, and prints the ID of the
 one chosen; nothing if it's closed without a choice. --edge bottom counts Y
 up from the bottom of the screen and opens the menu upward from there, as
-from a bar at the bottom.
+from a bar at the bottom. --edge left or right counts X from that edge and
+opens the menu out to the side, as from a column of windows there.
 
 With --tooltip, shows TEXT centred on X past the edge, taking no clicks or
 keys, until its standard input closes.";
@@ -45,10 +46,9 @@ fn main() -> ExitCode {
                 Some(p) => place.at = p,
                 None => return usage_error(),
             },
-            "--edge" => match args.next().as_deref() {
-                Some("top") => place.edge = Edge::Top,
-                Some("bottom") => place.edge = Edge::Bottom,
-                _ => return usage_error(),
+            "--edge" => match args.next().as_deref().and_then(Edge::from_name) {
+                Some(edge) => place.edge = edge,
+                None => return usage_error(),
             },
             "--item" => match args.next().as_deref().and_then(items::choice) {
                 Some(item) => items.push(item),

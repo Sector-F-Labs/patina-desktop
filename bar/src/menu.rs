@@ -26,18 +26,13 @@ pub struct Chosen {
     pub choice: Choice,
 }
 
-/// How far past the bar's edge the menu opens.
-const SPACE: f32 = 4.0;
-
-/// patina-menu's arguments for a tab's menu: X from the screen's left, and
-/// `from_edge`, how far the bar reaches in from its edge (`top` or
-/// `bottom`).
-pub fn args(x: f32, from_edge: f32, edge: &str) -> Vec<String> {
+/// patina-menu's arguments for a tab's menu, opening at `at`.
+pub fn args(at: crate::split::Popup) -> Vec<String> {
     let mut args = vec![
         "--at".to_string(),
-        format!("{:.0},{:.0}", x, from_edge + SPACE),
+        format!("{:.0},{:.0}", at.x, at.y),
         "--edge".into(),
-        edge.into(),
+        at.edge.into(),
     ];
     for (_, id, label) in ITEMS {
         args.push("--item".into());
@@ -99,7 +94,12 @@ mod tests {
     #[test]
     fn the_menu_opens_past_the_bar_with_its_items() {
         assert_eq!(
-            args(212.4, 49.0, "bottom"),
+            args(crate::split::Popup {
+                edge: "bottom",
+                x: 212.4,
+                y: 53.0,
+                far: None
+            }),
             [
                 "--at",
                 "212,53",

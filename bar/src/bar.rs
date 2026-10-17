@@ -1,7 +1,7 @@
 //! The bar: dwl's status laid out in modules, left, centre and right, as
 //! waybar does, in the colours of the active Patina skin.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::sync::{Arc, mpsc};
@@ -97,6 +97,10 @@ pub struct Bar {
     /// Gaps from the compositor's config: floating, with rounded corners
     /// (ADR-0051).
     pub gaps: crate::gaps::Gaps,
+    /// The part of a split bar this draws, if it's split (experimental).
+    pub section: Option<crate::split::Section>,
+    /// The size a split part wants, from its last frame.
+    wanted: Cell<Option<(u32, u32)>>,
 }
 
 impl Bar {
@@ -121,6 +125,8 @@ impl Bar {
                 tips: Default::default(),
                 tooltip_shown: None,
                 gaps: crate::gaps::Gaps::default(),
+                section: None,
+                wanted: Cell::new(None),
             },
             warnings,
         )
@@ -245,41 +251,40 @@ impl Bar {
                 ui.label(&m.appid);
             }
             "tray" => {
-                let edge = match self.config.position {
-                    Position::Top => "top",
-                    Position::Bottom => "bottom",
-                };
+                let ctx = ui.ctx().clone();
+                let opening = |rect| self.opening(&ctx, rect);
                 // The tray's own spacing, tighter than between modules.
                 ui.scope(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    crate::tray::wifi(ui, self.wifi, &self.config.wifi, &self.skin.name, edge);
+                    ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                    crate::tray::wifi(ui, self.wifi, &self.config.wifi, &self.skin.name, &opening);
                     crate::tray::speaker(
                         ui,
                         self.volume,
                         &self.config.volume,
                         &self.skin.name,
-                        edge,
+                        &opening,
                     );
                     ui.add_space(4.0);
                     crate::tray::battery(ui, self.battery);
                 });
             }
             "launcher" => {
-                let edge = match self.config.position {
-                    Position::Top => "top",
-                    Position::Bottom => "bottom",
-                };
-                crate::launcher::button(ui, &self.config.launcher, &self.skin.name, edge)
+                let ctx = ui.ctx().clone();
+                let opening = |rect| self.opening(&ctx, rect);
+                crate::launcher::button(ui, &self.config.launcher, &self.skin.name, &opening)
             }
             "clock" => {
-                ui.label(clock(&self.config.clock));
+                // In a column, the hours over the minutes.
+                if ui.layout().main_dir().is_vertical() {
+                    ui.add(egui::Label::new(clock("%H\n%M")).halign(Align::Center));
+                } else {
+                    ui.label(clock(&self.config.clock));
+                }
             }
             "power" => {
-                let edge = match self.config.position {
-                    Position::Top => "top",
-                    Position::Bottom => "bottom",
-                };
-                crate::tray::power(ui, &self.config.power, &self.skin.name, edge);
+                let ctx = ui.ctx().clone();
+                let opening = |rect| self.opening(&ctx, rect);
+                crate::tray::power(ui, &self.config.power, &self.skin.name, &opening);
             }
             _ => {}
         }
@@ -360,7 +365,7 @@ impl Bar {
             builder = builder.sizing_pass().invisible();
         }
         let mut child = ui.new_child(builder);
-        child.spacing_mut().item_spacing.x = GAP;
+        child.spacing_mut().item_spacing = vec2(GAP, GAP / 2.0);
         for name in modules {
             self.module(&mut child, name, m);
         }
@@ -416,6 +421,9 @@ impl Bar {
                     .span(span)
                     .own_menu(&mut open_menu)
                     .own_tooltip(&mut hover_tab)
+                    // On the bar, a line sets the tabs off from the launcher
+                    // before them; split, they stand alone.
+                    .separator(self.section.is_none())
                     .show(ui)
             })
             .inner;
@@ -423,7 +431,7 @@ impl Bar {
             crate::tooltip::note(ui, rect, titles[i].as_str());
         }
         if let Some((i, at)) = menu_at {
-            self.open_tab_menu(i, at);
+            self.open_tab_menu(ui.ctx(), i, at);
         }
         let request = match action {
             Some(TabAction::Show(i)) => self
@@ -448,12 +456,7 @@ impl Bar {
         let hovered = crate::tooltip::take(ui);
         match self.tips.frame(output, hovered, std::time::Instant::now()) {
             crate::tooltip::Action::Show(tip) => {
-                let args = crate::tooltip::args(
-                    &tip.text,
-                    self.gaps.gap as f32 + tip.rect.center().x,
-                    self.gaps.gap as f32 + self.config.height as f32,
-                    self.edge(),
-                );
+                let args = crate::tooltip::args(&tip.text, self.popup(ui.ctx(), tip.rect.center()));
                 self.tooltip_shown = crate::tooltip::Shown::start(&args);
             }
             crate::tooltip::Action::Hide => self.tooltip_shown = None,
@@ -462,24 +465,42 @@ impl Bar {
         }
     }
 
-    /// The edge the bar is on, as the pieces it opens are told.
+    /// The edge the bar is on, as the pieces it opens are told (they open
+    /// from the top or the bottom, unless told where their button is).
     fn edge(&self) -> &'static str {
-        match self.config.position {
-            Position::Top => "top",
-            Position::Bottom => "bottom",
+        let top = match self.section.and_then(|s| s.spot(&self.config)) {
+            None => self.config.position == Position::Top,
+            Some(spot) => spot.y() == crate::config::Along::Start,
+        };
+        if top { "top" } else { "bottom" }
+    }
+
+    /// Where a piece opened by the button at `rect` goes: from the bar's
+    /// edge, at the button.
+    fn opening(&self, ctx: &egui::Context, rect: Rect) -> crate::launcher::Opening {
+        crate::launcher::Opening {
+            edge: self.edge(),
+            at: Some(self.popup(ctx, rect.center()).env()),
         }
     }
 
-    /// Opens tab `i`'s menu in patina-menu, at `at` along the bar, just
-    /// past its edge (ADR-0056).
-    fn open_tab_menu(&self, i: usize, at: egui::Pos2) {
+    /// Where a menu or tooltip for `point` on this surface opens, just past
+    /// its edge, wherever the bar or its part is on the screen.
+    fn popup(&self, ctx: &egui::Context, point: egui::Pos2) -> crate::split::Popup {
+        crate::split::placement(self.section, &self.config, self.gaps).popup(
+            point,
+            ctx.content_rect().size(),
+            patina_shell::output_size(ctx),
+        )
+    }
+
+    /// Opens tab `i`'s menu in patina-menu, at `at` on the bar, just past
+    /// its edge (ADR-0056).
+    fn open_tab_menu(&self, ctx: &egui::Context, i: usize, at: egui::Pos2) {
         let (Some(t), Some(send)) = (self.toplevels.get(i), self.tab_menu.clone()) else {
             return;
         };
-        // The bar's surface starts the gap in from the screen's left and
-        // its edge (ADR-0051).
-        let gap = self.gaps.gap as f32;
-        let args = crate::menu::args(gap + at.x, gap + self.config.height as f32, self.edge());
+        let args = crate::menu::args(self.popup(ctx, at));
         crate::menu::open(args, t.id, t.app_id.clone(), move |chosen| {
             let _ = send.send(chosen);
         });
@@ -506,7 +527,10 @@ impl Bar {
         std::thread::spawn(move || {
             match patina_system::apps::new_window_command(&patina_system::apps::entries(), &app_id)
             {
-                Some(command) => crate::launcher::run(&command, &skin, edge),
+                Some(command) => {
+                    let opening = crate::launcher::Opening { edge, at: None };
+                    crate::launcher::run(&command, &skin, &opening)
+                }
                 None => eprintln!("patina-bar: no .desktop entry or program for {app_id:?}"),
             }
         });
@@ -543,12 +567,175 @@ impl Shell for Bar {
     }
 
     fn ui(&mut self, ui: &mut Ui, output: &str) {
-        self.draw(ui, output);
+        match self.section {
+            Some(section) => self.draw_part(ui, output, section),
+            None => self.draw(ui, output),
+        }
         self.tooltip(ui, output);
+    }
+
+    fn wanted_size(&self) -> Option<(u32, u32)> {
+        self.wanted.get()
     }
 }
 
 impl Bar {
+    /// A part of a split bar: an island of the bar's colour, as big as what
+    /// it shows, which it then asks its surface to be (experimental).
+    fn draw_part(&mut self, ui: &mut Ui, output: &str, section: crate::split::Section) {
+        use crate::split::Section;
+        let m = self.monitor(output);
+        let full = ui.max_rect();
+        let v = ui.visuals().clone();
+        let line = v.widgets.noninteractive.bg_stroke;
+        if matches!(section, Section::Reserve(_)) {
+            // It only keeps the edge's space.
+            self.wanted.set(None);
+            return;
+        }
+        let vertical = section.spot(&self.config).is_some_and(|s| s.vertical());
+        let island = full;
+        let radius = if self.gaps.floating() {
+            self.gaps.radius
+        } else {
+            8.0
+        }
+        .min(island.width().min(island.height()) / 2.0);
+        ui.painter().rect_filled(island, radius, v.panel_fill);
+        ui.painter()
+            .rect_stroke(island, radius, line, egui::StrokeKind::Inside);
+        let inner = island.shrink(line.width);
+        let height = self.config.height.max(1);
+        match section {
+            Section::Reserve(_) => {}
+            Section::Windows if vertical => {
+                self.windows_column(ui, inner);
+                let rows = self.toplevels.len().max(1) as f32;
+                let length = rows * inner.width() + 2.0 * line.width;
+                self.wanted.set(Some((height, length.ceil() as u32)));
+            }
+            Section::Windows => {
+                // Each tab as wide as a full bar's would be at most, or an
+                // icon's.
+                let per = if self.config.window_tabs == crate::config::WindowTabs::Icons {
+                    44.0
+                } else {
+                    180.0
+                };
+                let tabs = inner.shrink2(vec2(GAP, 0.0));
+                let row = UiBuilder::new()
+                    .max_rect(tabs)
+                    .layout(Layout::left_to_right(Align::Center));
+                ui.scope_builder(row, |ui| self.windows(ui));
+                let width = self.toplevels.len().max(1) as f32 * per + 2.0 * GAP;
+                self.wanted.set(Some((width.ceil() as u32, height)));
+            }
+            Section::Launcher | Section::Tray if vertical => {
+                let modules = crate::split::modules(section, &self.config);
+                let used = self.row(
+                    ui,
+                    inner.shrink2(vec2(0.0, GAP / 2.0)),
+                    Layout::top_down(Align::Center),
+                    &modules,
+                    &m,
+                    false,
+                );
+                let length = used.height() + GAP + 2.0 * line.width;
+                self.wanted
+                    .set(Some((height, length.ceil().max(1.0) as u32)));
+            }
+            Section::Launcher | Section::Tray => {
+                let modules = crate::split::modules(section, &self.config);
+                // The launcher is its button alone.
+                let pad = if section == Section::Launcher {
+                    0.0
+                } else {
+                    GAP
+                };
+                let used = self.row(
+                    ui,
+                    inner.shrink2(vec2(pad, 0.0)),
+                    Layout::left_to_right(Align::Center),
+                    &modules,
+                    &m,
+                    false,
+                );
+                let width = used.width() + 2.0 * pad + 2.0 * line.width;
+                self.wanted
+                    .set(Some((width.ceil().max(1.0) as u32, height)));
+            }
+        }
+    }
+
+    /// The window list as a column of icons, split on the left or right:
+    /// a click focuses a window, a middle click closes it, a right click
+    /// opens its menu, and hovering shows its name and title.
+    fn windows_column(&self, ui: &mut Ui, rect: Rect) {
+        let side = rect.width();
+        let v = ui.visuals().clone();
+        let mut request = None;
+        let mut menu_at = None;
+        for (i, t) in self.toplevels.iter().enumerate() {
+            let cell = Rect::from_min_size(
+                egui::pos2(rect.left(), rect.top() + i as f32 * side),
+                vec2(side, side),
+            );
+            let response =
+                ui.interact(cell, egui::Id::new(("window-column", t.id)), Sense::click());
+            let fill = if t.activated {
+                v.extreme_bg_color
+            } else if response.hovered() {
+                v.widgets.hovered.weak_bg_fill
+            } else {
+                Color32::TRANSPARENT
+            };
+            ui.painter().rect_filled(cell.shrink(3.0), 6.0, fill);
+            let name = self.app_name(&t.app_id);
+            let mark = Rect::from_center_size(cell.center(), vec2(22.0, 22.0));
+            match self.icon(ui.ctx(), &t.app_id) {
+                Some(texture) => {
+                    let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+                    ui.painter().image(texture, mark, uv, Color32::WHITE);
+                }
+                None => {
+                    let letter = name
+                        .as_deref()
+                        .unwrap_or(&t.app_id)
+                        .chars()
+                        .next()
+                        .map(|c| c.to_uppercase().to_string())
+                        .unwrap_or_default();
+                    ui.painter()
+                        .rect_filled(mark, 5.0, v.widgets.inactive.bg_fill);
+                    ui.painter().text(
+                        mark.center(),
+                        egui::Align2::CENTER_CENTER,
+                        letter,
+                        egui::TextStyle::Body.resolve(ui.style()),
+                        v.text_color(),
+                    );
+                }
+            }
+            if response.hovered() {
+                let title = tab_title(name.as_deref(), &t.title, &t.app_id);
+                crate::tooltip::note(ui, cell, title);
+            }
+            if response.clicked() {
+                request = Some(ToplevelRequest::Activate(t.id));
+            } else if response.middle_clicked() {
+                request = Some(ToplevelRequest::Close(t.id));
+            } else if response.secondary_clicked() {
+                menu_at = Some((i, response.interact_pointer_pos().unwrap_or(cell.center())));
+            }
+        }
+        if let Some(request) = request {
+            self.requests.borrow_mut().push(request);
+        }
+        if let Some((i, at)) = menu_at {
+            self.open_tab_menu(ui.ctx(), i, at);
+        }
+    }
+
     fn draw(&mut self, ui: &mut Ui, output: &str) {
         let m = self.monitor(output);
         let rect = ui.max_rect();
@@ -697,6 +884,8 @@ mod tests {
             tips: Default::default(),
             tooltip_shown: None,
             gaps: crate::gaps::Gaps::default(),
+            section: None,
+            wanted: Cell::new(None),
         }
     }
 
@@ -809,6 +998,91 @@ mod tests {
                 .collect();
             let file = dir.join(format!("{name}.png"));
             image::save_buffer(&file, &rgba, w as u32, h as u32, image::ColorType::Rgba8).unwrap();
+        }
+    }
+
+    /// Draws each part of a split bar as PNGs in PATINA_BAR_PREVIEW, at the
+    /// size each asks for: `cargo test -p patina-bar preview_split --
+    /// --ignored`.
+    #[test]
+    #[ignore = "reads the installed apps' icons"]
+    fn preview_split() {
+        use crate::split::Section;
+        let dir = std::path::PathBuf::from(std::env::var("PATINA_BAR_PREVIEW").unwrap());
+        let apps = [
+            ("firefox", "Patina — Mozilla Firefox"),
+            ("org.gnome.Nautilus", "Home"),
+            ("com.sectorflabs.Teleprinter", "~"),
+        ];
+        for (name, section, edge, size) in [
+            ("split-windows", Section::Windows, "bottom", (600, 41)),
+            ("split-launcher", Section::Launcher, "bottom", (41, 41)),
+            ("split-tray", Section::Tray, "bottom", (260, 41)),
+            ("split-column", Section::Windows, "center-left", (41, 200)),
+            ("split-tray-column", Section::Tray, "center-left", (41, 200)),
+        ] {
+            let mut b = bar(&format!(
+                "layout = \"split\"\nwindows_at = \"{edge}\"\ntray_at = \"{edge}\"\nright = [\"clock\", \"power\"]"
+            ));
+            b.section = Some(section);
+            let (ask, asked) = mpsc::channel();
+            b.ask_app = Some(ask);
+            let windows: Vec<Toplevel> = apps
+                .iter()
+                .enumerate()
+                .map(|(i, (app_id, title))| Toplevel {
+                    app_id: app_id.to_string(),
+                    ..window(i as u64, title, i == 0)
+                })
+                .collect();
+            b.toplevels_changed(&windows);
+            let ctx = egui::Context::default();
+            b.setup(&ctx);
+            let mut painter = patina_shell::raster::Painter::default();
+            let (mut w, mut h) = size;
+            let mut pixels = Vec::new();
+            for _ in 0..4 {
+                if let Some(wanted) = b.wanted_size() {
+                    (w, h) = (wanted.0 as usize, wanted.1 as usize);
+                }
+                pixels = vec![0u32; w * h];
+                let input = egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        vec2(w as f32, h as f32),
+                    )),
+                    max_texture_side: Some(8192),
+                    ..Default::default()
+                };
+                let out = ctx.run_ui(input, |ui| b.ui(ui, "A"));
+                let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+                painter.paint(
+                    &mut pixels,
+                    w,
+                    h,
+                    out.pixels_per_point,
+                    &primitives,
+                    &out.textures_delta,
+                );
+                for question in asked.try_iter() {
+                    b.app_found(crate::icons::installed(question));
+                }
+            }
+            let rgba: Vec<u8> = pixels
+                .iter()
+                .flat_map(|p| {
+                    let [b, g, r, a] = p.to_le_bytes();
+                    [r, g, b, a]
+                })
+                .collect();
+            image::save_buffer(
+                dir.join(format!("{name}.png")),
+                &rgba,
+                w as u32,
+                h as u32,
+                image::ColorType::Rgba8,
+            )
+            .unwrap();
         }
     }
 

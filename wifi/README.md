@@ -33,3 +33,6 @@ password box).
 cargo run -p patina-wifi
 cargo run -p patina-system --example wifi   # what NetworkManager reports, as text
 ```
+
+It opens at the bar's button that opened it, from `PATINA_OPEN_AT` (patina-shell's
+`piece::opening`, ADR-0063), or on the bar's edge without it.

@@ -5,14 +5,29 @@
 
 use egui::{Align2, Area, Frame, Id, Order, Pos2, Ui};
 
-/// Which screen edge `at`'s Y counts from, and so which way the menu opens:
-/// down from a point (the top, or no edge), or up from it (the bottom, as
-/// from a bar there).
+/// Which screen edge `at` counts from, and so which way the menu opens:
+/// down from a point (the top, or no edge), up from it (the bottom, as from
+/// a bar there), or out to the side from a column on the left or right,
+/// where X counts from that edge and Y from the top.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Edge {
     #[default]
     Top,
     Bottom,
+    Left,
+    Right,
+}
+
+impl Edge {
+    pub fn from_name(name: &str) -> Option<Self> {
+        Some(match name {
+            "top" => Edge::Top,
+            "bottom" => Edge::Bottom,
+            "left" => Edge::Left,
+            "right" => Edge::Right,
+            _ => return None,
+        })
+    }
 }
 
 /// Where a menu opens.
@@ -39,10 +54,14 @@ pub fn show(ui: &Ui, id: &str, place: Place, items: impl FnOnce(&mut Ui)) {
     let ctx = ui.ctx().clone();
     let screen = ctx.content_rect();
     let (pivot, pos) = match place.edge {
-        Edge::Top => (Align2::LEFT_TOP, place.at),
+        Edge::Top | Edge::Left => (Align2::LEFT_TOP, place.at),
         Edge::Bottom => (
             Align2::LEFT_BOTTOM,
             egui::pos2(place.at.x, screen.bottom() - place.at.y),
+        ),
+        Edge::Right => (
+            Align2::RIGHT_TOP,
+            egui::pos2(screen.right() - place.at.x, place.at.y),
         ),
     };
     Area::new(Id::new(id))

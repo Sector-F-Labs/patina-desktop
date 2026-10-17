@@ -113,19 +113,15 @@ impl Tips {
     }
 }
 
-/// How far past the bar's edge a tooltip shows.
-const SPACE: f32 = 4.0;
-
-/// patina-menu's arguments for `text`, centred on X from the screen's
-/// left, past the bar, which reaches `from_edge` in from its edge.
-pub fn args(text: &str, x: f32, from_edge: f32, edge: &str) -> Vec<String> {
+/// patina-menu's arguments for `text`, centred on `at` past the bar.
+pub fn args(text: &str, at: crate::split::Popup) -> Vec<String> {
     vec![
         "--tooltip".into(),
         text.into(),
         "--at".into(),
-        format!("{:.0},{:.0}", x, from_edge + SPACE),
+        format!("{:.0},{:.0}", at.x, at.y),
         "--edge".into(),
-        edge.into(),
+        at.edge.into(),
     ]
 }
 
@@ -216,7 +212,15 @@ mod tests {
     #[test]
     fn the_tooltip_shows_past_the_bar() {
         assert_eq!(
-            args("Muted", 412.3, 49.0, "bottom"),
+            args(
+                "Muted",
+                crate::split::Popup {
+                    edge: "bottom",
+                    x: 412.3,
+                    y: 53.0,
+                    far: None
+                }
+            ),
             ["--tooltip", "Muted", "--at", "412,53", "--edge", "bottom"]
         );
     }

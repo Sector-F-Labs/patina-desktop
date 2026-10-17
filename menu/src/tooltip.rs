@@ -63,6 +63,11 @@ impl Shell for Tooltip {
                 Align2::CENTER_BOTTOM,
                 egui::pos2(self.place.at.x, screen.bottom() - self.place.at.y),
             ),
+            Edge::Left => (Align2::LEFT_CENTER, self.place.at),
+            Edge::Right => (
+                Align2::RIGHT_CENTER,
+                egui::pos2(screen.right() - self.place.at.x, self.place.at.y),
+            ),
         };
         Area::new(Id::new("tooltip"))
             .order(Order::Tooltip)

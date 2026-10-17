@@ -29,3 +29,6 @@ question).
 ```sh
 cargo run -p patina-power
 ```
+
+It opens at the bar's button that opened it, from `PATINA_OPEN_AT` (patina-shell's
+`piece::opening`, ADR-0063), or on the bar's edge without it.

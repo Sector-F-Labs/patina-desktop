@@ -11,12 +11,28 @@ use patina_system::audio::Volume;
 /// Space around the icon inside its button, as the launcher's.
 const PADDING: f32 = 10.0;
 
+/// The side of a square button in `ui`: as thick as the bar, across a row
+/// or a column, whatever room is left along it.
+pub fn side(ui: &Ui) -> f32 {
+    if ui.layout().main_dir().is_vertical() {
+        ui.available_width()
+    } else {
+        ui.available_height()
+    }
+}
+
 /// The Wi-Fi icon; runs `command` when it's clicked. `signal` is `None`
 /// without a Wi-Fi device (then there's no icon), `Some(None)` when off or
 /// not connected.
-pub fn wifi(ui: &mut Ui, signal: Option<Option<u8>>, command: &str, skin: &str, edge: &str) {
+pub fn wifi(
+    ui: &mut Ui,
+    signal: Option<Option<u8>>,
+    command: &str,
+    skin: &str,
+    opening: &dyn Fn(egui::Rect) -> crate::launcher::Opening,
+) {
     let Some(strength) = signal else { return };
-    let side = ui.available_height();
+    let side = side(ui);
     let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
     let v = ui.visuals();
     if response.hovered() {
@@ -35,13 +51,18 @@ pub fn wifi(ui: &mut Ui, signal: Option<Option<u8>>, command: &str, skin: &str, 
     };
     crate::tooltip::hover(ui, &response, tip);
     if response.clicked() {
-        crate::launcher::run(command, skin, edge);
+        crate::launcher::run(command, skin, &opening(rect));
     }
 }
 
 /// The power button; runs `command`, the power menu, when it's clicked.
-pub fn power(ui: &mut Ui, command: &str, skin: &str, edge: &str) {
-    let side = ui.available_height();
+pub fn power(
+    ui: &mut Ui,
+    command: &str,
+    skin: &str,
+    opening: &dyn Fn(egui::Rect) -> crate::launcher::Opening,
+) {
+    let side = side(ui);
     let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
     let v = ui.visuals();
     if response.hovered() {
@@ -56,15 +77,21 @@ pub fn power(ui: &mut Ui, command: &str, skin: &str, edge: &str) {
     patina_system::icons::power(ui.painter(), rect.shrink(PADDING), colour);
     crate::tooltip::hover(ui, &response, "Lock, log out, restart or shut down");
     if response.clicked() {
-        crate::launcher::run(command, skin, edge);
+        crate::launcher::run(command, skin, &opening(rect));
     }
 }
 
 /// The speaker; runs `command` when it's clicked. Nothing without a sound
 /// output.
-pub fn speaker(ui: &mut Ui, volume: Option<Volume>, command: &str, skin: &str, edge: &str) {
+pub fn speaker(
+    ui: &mut Ui,
+    volume: Option<Volume>,
+    command: &str,
+    skin: &str,
+    opening: &dyn Fn(egui::Rect) -> crate::launcher::Opening,
+) {
     let Some(volume) = volume else { return };
-    let side = ui.available_height();
+    let side = side(ui);
     let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
     let v = ui.visuals();
     if response.hovered() {
@@ -90,7 +117,7 @@ pub fn speaker(ui: &mut Ui, volume: Option<Volume>, command: &str, skin: &str, e
     };
     crate::tooltip::hover(ui, &response, tip);
     if response.clicked() {
-        crate::launcher::run(command, skin, edge);
+        crate::launcher::run(command, skin, &opening(rect));
     }
 }
 
@@ -109,10 +136,20 @@ pub fn battery(ui: &mut Ui, battery: Option<patina_system::power::Battery>) {
     let text = format!("{}%", b.percent);
     let font = egui::TextStyle::Body.resolve(ui.style());
     let galley = ui.painter().layout_no_wrap(text, font, colour);
-    let side = ui.available_height();
-    let size = vec2(side * 0.7 + galley.size().x + 6.0, side);
+    let side = side(ui);
+    // In a column there's no room for the percentage: it's on hover.
+    let column = ui.layout().main_dir().is_vertical();
+    let size = if column {
+        vec2(side, side)
+    } else {
+        vec2(side * 0.7 + galley.size().x + 6.0, side)
+    };
     let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
-    let icon = egui::Rect::from_min_size(rect.min, vec2(side * 0.7, side));
+    let icon = if column {
+        egui::Rect::from_center_size(rect.center(), vec2(side * 0.7, side))
+    } else {
+        egui::Rect::from_min_size(rect.min, vec2(side * 0.7, side))
+    };
     patina_system::icons::battery(
         ui.painter(),
         icon.shrink2(vec2(2.0, side * 0.33)),
@@ -121,10 +158,47 @@ pub fn battery(ui: &mut Ui, battery: Option<patina_system::power::Battery>) {
         colour,
         v.panel_fill,
     );
-    ui.painter().galley(
-        egui::pos2(icon.right() + 4.0, rect.center().y - galley.size().y / 2.0),
-        galley,
-        colour,
-    );
+    if !column {
+        ui.painter().galley(
+            egui::pos2(icon.right() + 4.0, rect.center().y - galley.size().y / 2.0),
+            galley,
+            colour,
+        );
+    }
     crate::tooltip::hover(ui, &response, b.describe());
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `side` in a `w` by `h` space laid out by `layout`.
+    fn side_in(w: f32, h: f32, layout: egui::Layout) -> f32 {
+        let ctx = egui::Context::default();
+        let mut found = 0.0;
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            let rect = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), vec2(w, h));
+            let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect).layout(layout));
+            found = side(&child);
+            // Past the room left in the row, as the last button of a
+            // cramped tray is.
+            child.allocate_space(vec2(w + 20.0, 1.0));
+            found = found.min(side(&child));
+        });
+        found
+    }
+
+    /// A button at the end of a row with no room left once drew tiny, or
+    /// flipped (a negative size): it's as thick as the bar regardless.
+    #[test]
+    fn a_button_is_as_thick_as_the_bar_whatever_room_is_left() {
+        assert_eq!(
+            side_in(30.0, 41.0, egui::Layout::left_to_right(egui::Align::Center)),
+            41.0
+        );
+        assert_eq!(
+            side_in(41.0, 30.0, egui::Layout::top_down(egui::Align::Center)),
+            41.0
+        );
+    }
 }

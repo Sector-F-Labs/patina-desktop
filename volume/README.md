@@ -31,3 +31,6 @@ are used (ADR-0021, ADR-0033).
 cargo run -p patina-volume                 # the menu
 cargo run -p patina-volume -- --flash      # the flash
 ```
+
+It opens at the bar's button that opened it, from `PATINA_OPEN_AT` (patina-shell's
+`piece::opening`, ADR-0063), or on the bar's edge without it.

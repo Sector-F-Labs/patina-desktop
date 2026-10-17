@@ -28,7 +28,8 @@ closes it.
   the pointer and stay on screen near the edges.
 - **A menu of items** with `--item ID=LABEL` (and `--separator`): it prints the chosen ID and
   exits, or prints nothing if closed. `--edge bottom` counts Y from the bottom and opens upward,
-  as patina-bar asks for a tab's menu (`bar/src/menu.rs`).
+  as patina-bar asks for a tab's menu (`bar/src/menu.rs`); `--edge left` or `right` counts X
+  from that side and opens outward, for a split bar's columns (ADR-0063).
 - **A tooltip** with `--tooltip TEXT`: click-through, no keyboard, centred on X; it goes when its
   standard input closes, which is how patina-bar hides it (`bar/src/tooltip.rs`).
 

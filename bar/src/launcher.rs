@@ -11,10 +11,20 @@ use egui::{Id, Sense, TextureHandle, TextureOptions, Ui, vec2};
 /// bar's margin, so the logo is as tall as a title bar's contents.
 const PADDING: f32 = 8.0;
 
+/// Where a piece the bar opens goes: the bar's edge (`PATINA_BAR_EDGE`),
+/// and where on the screen the button that opened it is
+/// (`PATINA_OPEN_AT`, as patina-shell's `piece::opening` reads it), so it
+/// opens from the button.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Opening {
+    pub edge: &'static str,
+    pub at: Option<String>,
+}
+
 /// Draws the button; runs `command` when it's clicked, telling it the bar's
-/// skin and edge, so the launcher matches and opens from the bar.
-pub fn button(ui: &mut Ui, command: &str, skin: &str, edge: &str) {
-    let side = ui.available_height();
+/// skin and where the button is, so the launcher matches and opens from it.
+pub fn button(ui: &mut Ui, command: &str, skin: &str, opening: &dyn Fn(egui::Rect) -> Opening) {
+    let side = crate::tray::side(ui);
     let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
     let v = ui.visuals();
     if response.hovered() {
@@ -39,7 +49,7 @@ pub fn button(ui: &mut Ui, command: &str, skin: &str, edge: &str) {
         );
     }
     if response.clicked() {
-        run(command, skin, edge);
+        run(command, skin, &opening(rect));
     }
 }
 
@@ -56,17 +66,20 @@ fn texture(ctx: &egui::Context, pixels: u32) -> Option<TextureHandle> {
 }
 
 /// Runs `command` through sh(1), telling it the bar's skin
-/// (`PATINA_SKIN`) and edge (`PATINA_BAR_EDGE`, `top` or `bottom`). On a
-/// thread, so the bus never holds the bar up: Patina's compositor starts it,
-/// so it's among the desktop's processes (ADR-0045); under any other, or
-/// without a session bus, the bar does.
-pub fn run(command: &str, skin: &str, edge: &str) {
-    let (command, skin, edge) = (command.to_string(), skin.to_string(), edge.to_string());
+/// (`PATINA_SKIN`), edge (`PATINA_BAR_EDGE`, `top` or `bottom`) and where
+/// to open (`PATINA_OPEN_AT`). On a thread, so the bus never holds the bar
+/// up: Patina's compositor starts it, so it's among the desktop's processes
+/// (ADR-0045); under any other, or without a session bus, the bar does.
+pub fn run(command: &str, skin: &str, opening: &Opening) {
+    let (command, skin, opening) = (command.to_string(), skin.to_string(), opening.clone());
     std::thread::spawn(move || {
-        let env = [
+        let mut env = vec![
             ("PATINA_SKIN", skin.as_str()),
-            ("PATINA_BAR_EDGE", edge.as_str()),
+            ("PATINA_BAR_EDGE", opening.edge),
         ];
+        if let Some(at) = &opening.at {
+            env.push(("PATINA_OPEN_AT", at.as_str()));
+        }
         if patina_system::processes::spawn(&command, &env).is_err() {
             run_here(&command, &env);
         }

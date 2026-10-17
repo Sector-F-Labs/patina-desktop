@@ -75,13 +75,15 @@ fn run() -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     let menu = WifiMenu::new(piece::skin("patina-wifi"), commands);
+    // At the button that opened it, or on the bar's edge (ADR-0063).
+    let (anchor, margin, exclusive_zone) = piece::opening(SIZE, GAP, Anchor::RIGHT);
     let options = Options {
         namespace: "patina-wifi".into(),
         layer: Layer::Overlay,
-        anchor: piece::bar_edge() | Anchor::RIGHT,
+        anchor,
         size: SIZE,
-        exclusive_zone: 0,
-        margin: (GAP, GAP, GAP, GAP),
+        exclusive_zone,
+        margin,
         keyboard: KeyboardInteractivity::Exclusive,
         per_output: false,
         toplevels: false,

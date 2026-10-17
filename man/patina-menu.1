@@ -9,13 +9,13 @@
 .Op Fl -at Ar x , Ns Ar y
 .Nm
 .Op Fl -at Ar x , Ns Ar y
-.Op Fl -edge Cm top | bottom
+.Op Fl -edge Cm top | bottom | left | right
 .Fl -item Ar id Ns = Ns Ar label
 .Op Fl -item Ar id Ns = Ns Ar label | Fl -separator ...
 .Nm
 .Fl -tooltip Ar text
 .Op Fl -at Ar x , Ns Ar y
-.Op Fl -edge Cm top | bottom
+.Op Fl -edge Cm top | bottom | left | right
 .Nm
 .Fl h | V
 .Sh DESCRIPTION
@@ -69,13 +69,20 @@ or by ending.
 .It Fl -at Ar x , Ns Ar y
 Where to open, in the screen's logical pixels; the top-left corner
 without it.
-.It Fl -edge Cm top | bottom
+.It Fl -edge Cm top | bottom | left | right
 Which screen edge
 .Ar y
 counts from: with
 .Cm bottom ,
 from the bottom, and the menu opens upward from there, as from a bar at the
 bottom.
+With
+.Cm left
+or
+.Cm right ,
+.Ar x
+counts from that edge instead, and the menu opens out to the side, as from
+a split bar's column there.
 .Cm top
 by default.
 .It Fl -item Ar id Ns = Ns Ar label

@@ -92,6 +92,11 @@ Read
 .Ar file
 instead of
 .Pa ~/.config/patina-bar/config.toml .
+.It Fl -section Cm launcher | windows | tray | reserve- Ns Ar edge
+Draw one part of a split bar (see
+.Ic layout ) .
+The bar starts these itself, with its pipe on their standard input, and
+they end when it closes; there's no need to run them by hand.
 .It Fl h , -help
 Print a short usage message.
 .It Fl V , -version
@@ -132,6 +137,48 @@ its app's icon and its title (the default);
 .Dq icons ,
 narrow tabs with only the icon and the title on hover; or
 .Dq titles .
+.It Ic layout
+.Dq bar ,
+one bar along an edge (the default); or
+.Dq split
+(experimental): its parts each on their own, the launcher, the window list
+and the rest
+.Pq the tray, the clock, the power button ,
+where
+.Ic launcher_at ,
+.Ic windows_at
+and
+.Ic tray_at
+say.
+The bar draws the window list and runs the other parts as
+.Ql patina-bar --section ;
+each edge with a part on it is kept clear of windows by a pixel-thin strip
+that takes no clicks.
+The bar starts itself again, laid out anew, within a second of a change to
+these keys.
+.It Ic launcher_at , windows_at , tray_at
+Where each part of a split bar goes: an edge, then where along it.
+Along the top or bottom a part is a row:
+.Dq top-left ,
+.Dq top-center ,
+.Dq top-right ,
+.Dq bottom-left ,
+.Dq bottom-center
+or
+.Dq bottom-right .
+Up a side it's a column, the window list one of icons:
+.Dq left-top ,
+.Dq left-center ,
+.Dq left-bottom ,
+.Dq right-top ,
+.Dq right-center
+or
+.Dq right-bottom .
+A column at a side's end sits past a row in that corner, and a part sharing
+the launcher's spot lines up after it; other parts in one spot overlap.
+By default the launcher is at the bottom left, the window list in the
+bottom centre and the tray at the bottom right.
+Settings' Bar page places them by dragging them on a map of the screen.
 .It Ic skin
 A Patina skin by name: a built-in, or one in
 .Pa ~/.config/patina-bar/skins .

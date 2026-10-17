@@ -47,6 +47,16 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
 - **Skins** are Patina's, built in or in `~/.config/patina-bar/skins`, and through the bar they
   are the whole shell's.
 
+## Split (experimental)
+
+With `layout = "split"` (ADR-0063) the launcher, the window list and the tray each sit on their
+own, at `launcher_at`, `windows_at` and `tray_at`: an edge, then where along it (`bottom-left` is
+a row, `left-bottom` a column). This process draws the window list and runs the others as
+`patina-bar --section`, which end when its pipe to them closes; each edge with a part on it is
+kept by a pixel-thin `reserve-EDGE` section. `split.rs` places every surface and turns a point on
+it into a place on the screen, which menus, tooltips and the pieces the bar opens
+(`PATINA_OPEN_AT`) open at. Settings' Bar page places the parts by dragging.
+
 ## Code
 
 `main.rs` (start-up, threads reading dwl, volume, Wi-Fi and the battery), `bar.rs` (the modules

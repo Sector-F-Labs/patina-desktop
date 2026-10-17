@@ -11,7 +11,8 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   buttons; and gaps (ADR-0051), on or off, their size and the floating bar's corner radius,
   written to `[gaps]` in the compositor's config.
 - **Bar** (ADR-0050): what the window tabs show (icons and titles, icons, titles), which edge the
-  bar is on, and the button that opens its config file for everything else.
+  bar is on, and the button that opens its config file for everything else; and its layout, one
+  bar or split (ADR-0063), each part dragged to its spot on a map of the screen.
 - **Wallpaper**: the default "Sector F Labs" and the images in `~/Pictures/Wallpapers` and the
   system's backgrounds, as thumbnails decoded off the UI thread.
 - **Night Light** (ADR-0039): off, always on, or on a schedule, and the warmth. It also shows

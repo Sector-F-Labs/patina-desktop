@@ -10,6 +10,7 @@ mod gaps;
 mod icons;
 mod launcher;
 mod menu;
+mod split;
 mod tooltip;
 mod tray;
 
@@ -24,22 +25,30 @@ use patina_shell::calloop::{
 };
 use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 
-use crate::config::Position;
+use crate::config::{Layout, Position};
+use crate::split::Section;
 
-const USAGE: &str = "usage: patina-bar [-c config.toml]
+const USAGE: &str = "usage: patina-bar [-c config.toml] [--section launcher|windows|tray]
 
 A status bar for dwl. Run it as dwl's status command, so it reads dwl's
 status from stdin:
 
     dwl -s patina-bar
 
-The config defaults to ~/.config/patina-bar/config.toml.";
+The config defaults to ~/.config/patina-bar/config.toml. With layout =
+\"split\" in it (experimental), the bar draws the window list and runs
+the launcher and the tray as `patina-bar --section`, each on its own.";
 
 fn main() -> ExitCode {
     let mut config_path = config::default_path();
+    let mut section_arg = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--section" => match args.next().as_deref().and_then(Section::from_name) {
+                Some(s) => section_arg = Some(s),
+                None => return usage_error(),
+            },
             "-c" | "--config" => match args.next() {
                 Some(p) => config_path = Some(PathBuf::from(p)),
                 None => return usage_error(),
@@ -68,30 +77,50 @@ fn main() -> ExitCode {
         }
         None => (config::Config::default(), Vec::new()),
     };
-    let height = config.height.max(1);
     let gaps = gaps::read();
+    // Split, this one draws the window list and runs the other parts.
+    let section = match (config.layout, section_arg) {
+        (Layout::Split, Some(s)) => Some(s),
+        (Layout::Split, None) => Some(Section::Windows),
+        // A part left over from a split bar that's whole again goes.
+        (Layout::Bar, Some(_)) => return ExitCode::SUCCESS,
+        (Layout::Bar, None) => None,
+    };
+    let parts = if config.layout == Layout::Split && section_arg.is_none() {
+        let mut parts = vec![Section::Launcher, Section::Tray];
+        parts.extend(split::reserved(&config).into_iter().map(Section::Reserve));
+        start_parts(&parts, config_path.as_deref())
+    } else {
+        Vec::new()
+    };
+    let place = split::placement(section, &config, gaps);
     let options = Options {
-        namespace: "patina-bar".into(),
+        namespace: match section {
+            Some(s) => format!("patina-bar-{}", s.name()),
+            None => "patina-bar".into(),
+        },
         layer: Layer::Top,
-        anchor: anchor(config.position),
-        size: (0, height),
-        exclusive_zone: height as i32,
-        margin: gaps.margin(config.position == Position::Top),
+        anchor: place.anchor,
+        size: place.size,
+        exclusive_zone: place.exclusive_zone,
+        margin: place.margin,
         keyboard: KeyboardInteractivity::None,
         per_output: true,
-        toplevels: true,
-        click_through: false,
+        toplevels: matches!(section, None | Some(Section::Windows)),
+        // A reserve only keeps an edge's space.
+        click_through: matches!(section, Some(Section::Reserve(_))),
         lock: false,
         window_fallback: false,
     };
     let (mut bar, skin_warnings) = bar::Bar::new(config);
     bar.gaps = gaps;
+    bar.section = section;
     warnings.extend(skin_warnings);
     for w in &warnings {
         eprintln!("patina-bar: {w}");
     }
 
-    match run(options, bar, config_path) {
+    match run(options, bar, config_path, parts, section_arg.is_some()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("patina-bar: {e}");
@@ -109,12 +138,64 @@ fn anchor(position: Position) -> Anchor {
     edge | Anchor::LEFT | Anchor::RIGHT
 }
 
+/// Starts the split bar's other parts (the launcher, the tray, and the
+/// reserves keeping their edges) as `patina-bar --section`, each with its
+/// standard input a pipe from this one: they end when it closes, as this
+/// process ends or restarts.
+fn start_parts(parts: &[Section], config_path: Option<&Path>) -> Vec<std::process::Child> {
+    let program = std::env::args()
+        .next()
+        .unwrap_or_else(|| "patina-bar".into());
+    parts
+        .iter()
+        .filter_map(|section| {
+            let mut command = std::process::Command::new(&program);
+            command
+                .args(["--section", &section.name()])
+                .stdin(std::process::Stdio::piped());
+            if let Some(path) = config_path {
+                command.arg("-c").arg(path);
+            }
+            match command.spawn() {
+                Ok(child) => Some(child),
+                Err(e) => {
+                    eprintln!("patina-bar: can't start the {}: {e}", section.name());
+                    None
+                }
+            }
+        })
+        .collect()
+}
+
+/// Starts this bar again in its place, as its layout changed: the parts it
+/// ran end as their pipes close, and the new one starts its own.
+fn restart(parts: &mut Vec<std::process::Child>) -> ! {
+    use std::os::unix::process::CommandExt;
+    // Each part ends as its pipe closes; waited for, so none is left a
+    // zombie of the new bar, which never knew it.
+    for mut part in parts.drain(..) {
+        drop(part.stdin.take());
+        let _ = part.wait();
+    }
+    let mut args = std::env::args();
+    let program = args.next().unwrap_or_else(|| "patina-bar".into());
+    let e = std::process::Command::new(program).args(args).exec();
+    eprintln!("patina-bar: can't restart: {e}");
+    std::process::exit(1)
+}
+
 fn usage_error() -> ExitCode {
     eprintln!("{USAGE}");
     ExitCode::from(2)
 }
 
-fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<(), String> {
+fn run(
+    options: Options,
+    bar: bar::Bar,
+    config_path: Option<PathBuf>,
+    mut parts: Vec<std::process::Child>,
+    is_part: bool,
+) -> Result<(), String> {
     let (mut host, event_loop) = Host::connect(options, bar)?;
     let handle = event_loop.handle();
 
@@ -129,6 +210,8 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
             loop {
                 line.clear();
                 match stdin.read_until(b'\n', &mut line) {
+                    // A part of a split bar ends with the bar that ran it.
+                    Ok(0) | Err(_) if is_part => std::process::exit(0),
                     Ok(0) | Err(_) => return,
                     // Titles are whatever the window set, so not always UTF-8.
                     Ok(_) => {
@@ -177,24 +260,21 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
         })
         .map_err(|e| e.to_string())?;
 
-    let uses_tray = host
-        .shell
-        .config
-        .right
-        .iter()
-        .chain(&host.shell.config.left)
-        .chain(&host.shell.config.center)
-        .any(|m| m == "tray");
+    let modules: Vec<String> = match host.shell.section {
+        Some(section) => split::modules(section, &host.shell.config),
+        None => {
+            let c = &host.shell.config;
+            c.left
+                .iter()
+                .chain(&c.center)
+                .chain(&c.right)
+                .cloned()
+                .collect()
+        }
+    };
+    let uses_tray = modules.iter().any(|m| m == "tray");
     // The tray's speaker follows the volume, read once a second.
-    if host
-        .shell
-        .config
-        .right
-        .iter()
-        .chain(&host.shell.config.left)
-        .chain(&host.shell.config.center)
-        .any(|m| m == "tray")
-    {
+    if uses_tray {
         let (levels, volume) = channel::channel::<patina_system::audio::Volume>();
         std::thread::Builder::new()
             .name("volume".into())
@@ -287,13 +367,25 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
         .insert_source(
             Timer::from_duration(until_next_second()),
             move |_, _, host| {
+                let split = host.shell.section.is_some();
                 if let Some(path) = &config_path {
                     let now = modified(path);
                     if now != seen {
                         seen = now;
                         let (config, _) = config::load(path);
+                        let current = &host.shell.config;
+                        let relaid = config.layout != current.layout
+                            || (config.layout == Layout::Split
+                                && (config.windows_at != current.windows_at
+                                    || config.launcher_at != current.launcher_at
+                                    || config.tray_at != current.tray_at
+                                    || config.height != current.height));
+                        // The parts go with the bar that ran them.
+                        if relaid && !is_part {
+                            restart(&mut parts);
+                        }
                         host.shell.config.window_tabs = config.window_tabs;
-                        if config.position != host.shell.config.position {
+                        if !split && config.position != host.shell.config.position {
                             host.shell.config.position = config.position;
                             host.set_anchor(anchor(config.position));
                             let top = config.position == Position::Top;
@@ -313,9 +405,14 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
                     gaps_seen = now;
                     let gaps = gaps::read();
                     if gaps != host.shell.gaps {
+                        if split && !is_part {
+                            restart(&mut parts);
+                        }
                         host.shell.gaps = gaps;
-                        let top = host.shell.config.position == Position::Top;
-                        host.set_margin(gaps.margin(top));
+                        if !split {
+                            let top = host.shell.config.position == Position::Top;
+                            host.set_margin(gaps.margin(top));
+                        }
                     }
                 }
                 host.redraw_all();

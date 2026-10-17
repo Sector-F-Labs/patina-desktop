@@ -138,13 +138,15 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     let menu = VolumeMenu::new(mode, showing, piece::skin("patina-volume"), changes);
+    // At the button that opened it, or on the bar's edge (ADR-0063).
+    let (anchor, margin, exclusive_zone) = piece::opening(SIZE, GAP, Anchor::RIGHT);
     let options = Options {
         namespace: "patina-volume".into(),
         layer: Layer::Overlay,
-        anchor: piece::bar_edge() | Anchor::RIGHT,
+        anchor,
         size: SIZE,
-        exclusive_zone: 0,
-        margin: (GAP, GAP, GAP, GAP),
+        exclusive_zone,
+        margin,
         keyboard: keyboard_for(mode),
         per_output: false,
         toplevels: false,

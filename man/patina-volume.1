@@ -58,6 +58,14 @@ The skin to wear, as the bar sets it; otherwise the bar's config's.
 or
 .Dq bottom :
 which edge to open from.
+.It Ev PATINA_OPEN_AT
+Where the bar's button that opened it is, as
+.Ql edge,x,y Ns Op ,far
+in logical pixels: it opens just past it, centred on it and turned towards
+the side of the screen with more room.
+Without it, it opens on
+.Ev PATINA_BAR_EDGE Ns 's
+edge.
 .El
 .Sh SEE ALSO
 .Xr patina-bar 1 ,
