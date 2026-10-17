@@ -97,6 +97,8 @@ mechanics of adding one.
 | [0053](0053-tiling-decided-by-patina-tiler.md) | Tiling is decided by patina-tiler, a process the compositor keeps running | Accepted |
 | [0054](0054-drag-the-line-between-tiled-windows.md) | Dragging the line between tiled windows resizes both | Accepted |
 | [0055](0055-new-window-from-a-tab.md) | A window's tab opens a new window of its app | Accepted |
+| [0056](0056-the-bars-menus-open-in-patina-menu.md) | The bar's menus open in patina-menu | Accepted |
+| [0057](0057-the-bars-tooltips-open-in-patina-menu.md) | The bar's tooltips open in patina-menu too | Accepted |
 
 ## Decision Relationship
 

@@ -13,8 +13,10 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   closes it; the compositor's Alt+Tab and Super+1–9 follow the same order. Each shows its app's
   icon, its title, or both, by `window_tabs` (ADR-0050); `apps.rs` matches the window's app id
   to its `.desktop` entry, and `icons.rs` finds the icon through the icon theme, on a thread.
-  A tab's right-click menu has New Window, which runs the entry's `new-window` action, or its
-  Exec (ADR-0055).
+  A tab's right-click menu opens in patina-menu, so it isn't cut off at the bar's edge
+  (`menu.rs`, ADR-0056): New Window, which runs the entry's `new-window` action, or its Exec
+  (ADR-0055), and Close Window. Tooltips, the tabs' titles and the tray's, show in
+  `patina-menu --tooltip` past the bar's edge too (`tooltip.rs`, ADR-0057); egui's own are off.
 - `tray`: Wi-Fi (opens patina-wifi), the speaker (opens patina-volume) and the battery
   (ADR-0021, ADR-0022, ADR-0024).
 - `clock`, and under dwl `tags`, `layout`, `title` and `appid`.

@@ -33,7 +33,8 @@ pub fn wifi(ui: &mut Ui, signal: Option<Option<u8>>, command: &str, skin: &str, 
         Some(s) => format!("Wi-Fi {s}%"),
         None => "Wi-Fi not connected".into(),
     };
-    if response.on_hover_text(tip).clicked() {
+    crate::tooltip::hover(ui, &response, tip);
+    if response.clicked() {
         crate::launcher::run(command, skin, edge);
     }
 }
@@ -53,10 +54,8 @@ pub fn power(ui: &mut Ui, command: &str, skin: &str, edge: &str) {
         v.text_color()
     };
     patina_system::icons::power(ui.painter(), rect.shrink(PADDING), colour);
-    if response
-        .on_hover_text("Lock, log out, restart or shut down")
-        .clicked()
-    {
+    crate::tooltip::hover(ui, &response, "Lock, log out, restart or shut down");
+    if response.clicked() {
         crate::launcher::run(command, skin, edge);
     }
 }
@@ -89,7 +88,7 @@ pub fn speaker(ui: &mut Ui, volume: Option<Volume>, command: &str, skin: &str, e
     } else {
         format!("Volume {}%", (volume.level * 100.0).round() as i32)
     };
-    let response = response.on_hover_text(tip);
+    crate::tooltip::hover(ui, &response, tip);
     if response.clicked() {
         crate::launcher::run(command, skin, edge);
     }
@@ -127,5 +126,5 @@ pub fn battery(ui: &mut Ui, battery: Option<patina_system::power::Battery>) {
         galley,
         colour,
     );
-    response.on_hover_text(b.describe());
+    crate::tooltip::hover(ui, &response, b.describe());
 }

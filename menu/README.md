@@ -2,7 +2,9 @@
 
 The desktop's menu, opened by a right click on the empty desktop (ADR-0029). It's the quick way
 to style the whole shell: the skin every piece wears, and the way into Settings (ADR-0038), where
-the wallpaper is chosen (ADR-0030).
+the wallpaper is chosen (ADR-0030). It's also a menu of any items (ADR-0056), for pieces too
+small to hold their own menus: the bar's window tabs open theirs in it. And it's the bar's
+tooltips (ADR-0057).
 
 ## On the desktop
 
@@ -24,13 +26,20 @@ closes it.
   read it when they next open.
 - **Drawn** on a transparent layer-shell surface over the whole screen, so the menu can sit at
   the pointer and stay on screen near the edges.
+- **A menu of items** with `--item ID=LABEL` (and `--separator`): it prints the chosen ID and
+  exits, or prints nothing if closed. `--edge bottom` counts Y from the bottom and opens upward,
+  as patina-bar asks for a tab's menu (`bar/src/menu.rs`).
+- **A tooltip** with `--tooltip TEXT`: click-through, no keyboard, centred on X; it goes when its
+  standard input closes, which is how patina-bar hides it (`bar/src/tooltip.rs`).
 
 ## Code
 
-`main.rs`, `ui.rs` (the menu).
+`main.rs` (the arguments), `overlay.rs` (placing and closing, for every menu), `ui.rs` (the
+desktop's menu), `items.rs` (a menu of items), `tooltip.rs`.
 
 ## Running
 
 ```sh
 cargo run -p patina-menu -- --at 200,150
+cargo run -p patina-menu -- --at 300,45 --edge bottom --item new=New --item close=Close
 ```

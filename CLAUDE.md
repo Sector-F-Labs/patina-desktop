@@ -141,7 +141,11 @@ puts them in `$(PREFIX)/share/man`.
   -p patina-wallpaper -- --ignored` with PATINA_WALLPAPER_PREVIEW=dir renders the default per skin.
 - `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`;
   `bar/src/apps.rs`: a window's `.desktop` entry by app id, for its tab's icon (`icons.rs`) and
-  New Window in the tab's menu (ADR-0055, through Patina's `TabStrip::tab_menu`).
+  New Window in the tab's menu (ADR-0055). The tab's menu opens in patina-menu
+  (`bar/src/menu.rs`, ADR-0056: `TabStrip::own_menu` reports the right click, and patina-menu
+  `--item`s print the choice), since the bar's surface is too thin for egui menus. Tooltips
+  likewise (`bar/src/tooltip.rs`, ADR-0057): sites call `tooltip::hover`, and after the delay
+  the bar runs `patina-menu --tooltip`, ended by closing its stdin; egui's tooltips are off.
 
 ## Principle
 

@@ -167,7 +167,14 @@ mod tests {
 #[ignore = "reads the installed apps"]
 fn installed_commands() {
     let known = entries();
-    for app_id in ["firefox", "org.gnome.Nautilus", "foot", "teleprinter", "steam", "code"] {
+    for app_id in [
+        "firefox",
+        "org.gnome.Nautilus",
+        "foot",
+        "teleprinter",
+        "steam",
+        "code",
+    ] {
         println!("{app_id}: {:?}", new_window_command(&known, app_id));
     }
 }

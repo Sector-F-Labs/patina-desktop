@@ -2,15 +2,15 @@
 //! of the whole shell (the bar's, which the other pieces follow), and
 //! the way into Settings, which chooses the wallpaper (ADR-0030, ADR-0038).
 //!
-//! It's drawn on a transparent surface over the whole screen, so it can
-//! sit at the pointer and stay on screen near the edges, and a click
-//! anywhere else, Escape, or losing the keyboard closes it.
+//! It closes as every menu here does (`overlay.rs`).
 
 use std::path::PathBuf;
 
-use egui::{Area, Frame, Id, Order, Pos2, RichText, Ui};
+use egui::{Pos2, RichText, Ui};
 use patina::skin::{self, Skin};
 use patina_shell::Shell;
+
+use crate::overlay::{self, Place};
 
 /// The bar's skins folder, where the shell's own skins go.
 const APP: &str = "patina-bar";
@@ -169,38 +169,16 @@ impl Shell for DesktopMenu {
     }
 
     fn ui(&mut self, ui: &mut Ui, _: &str) {
-        if ui.input(|i| i.focused) {
-            self.had_focus = true;
-        } else if self.had_focus {
+        if overlay::closing(ui, &mut self.had_focus) {
             self.done = true;
             return;
         }
-        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
-            self.done = true;
-            return;
-        }
-        let ctx = ui.ctx().clone();
-        Area::new(Id::new("desktop-menu"))
-            .order(Order::Foreground)
-            .fixed_pos(self.at)
-            .constrain(true)
-            .show(&ctx, |ui| {
-                Frame::menu(ui.style()).show(ui, |ui| self.items(ui))
-            });
-        // Outside the menu and its submenu: on the transparent background.
-        // The layer is looked up after `input`, which holds the context's
-        // lock that `layer_id_at` takes too.
-        let pressed = ui.input(|i| {
-            i.pointer
-                .any_pressed()
-                .then(|| i.pointer.interact_pos())
-                .flatten()
-        });
-        let outside = pressed.is_some_and(|p| {
-            ctx.layer_id_at(p)
-                .is_none_or(|layer| layer.order == Order::Background)
-        });
-        if outside {
+        let place = Place {
+            at: self.at,
+            ..Default::default()
+        };
+        overlay::show(ui, "desktop-menu", place, |ui| self.items(ui));
+        if overlay::pressed_outside(ui) {
             self.done = true;
         }
     }

@@ -48,6 +48,11 @@ pub struct Bar {
     /// The window tabs' icons by app id, and where to ask for one.
     icons: RefCell<HashMap<String, Icon>>,
     pub ask_icon: Option<mpsc::Sender<(String, u32)>>,
+    /// What's hovered, and the tooltip showing for it (ADR-0057).
+    tips: crate::tooltip::Tips,
+    tooltip_shown: Option<crate::tooltip::Shown>,
+    /// Where the window tabs' menus send what's chosen (ADR-0056).
+    pub tab_menu: Option<patina_shell::calloop::channel::Sender<crate::menu::Chosen>>,
     /// Gaps from the compositor's config: floating, with rounded corners
     /// (ADR-0051).
     pub gaps: crate::gaps::Gaps,
@@ -70,6 +75,9 @@ impl Bar {
                 requests: RefCell::new(Vec::new()),
                 icons: RefCell::new(HashMap::new()),
                 ask_icon: None,
+                tab_menu: None,
+                tips: Default::default(),
+                tooltip_shown: None,
                 gaps: crate::gaps::Gaps::default(),
             },
             warnings,
@@ -325,13 +333,10 @@ impl Bar {
         let mut style = self.skin.frame_style(ui.visuals());
         style.title_bar = ui.visuals().panel_fill;
         let span = ui.max_rect().y_range();
-        let mut new_window = None;
-        let mut menu = |ui: &mut Ui, i: usize| {
-            if ui.button("New Window").clicked() {
-                new_window = Some(i);
-                ui.close();
-            }
-        };
+        let mut menu_at = None;
+        let mut open_menu = |i: usize, at: egui::Pos2| menu_at = Some((i, at));
+        let mut hovered_tab = None;
+        let mut hover_tab = |i: usize, rect: egui::Rect| hovered_tab = Some((i, rect));
         // TabStrip zeroes the item spacing; keep that from the next module.
         let action = ui
             .scope(|ui| {
@@ -342,12 +347,16 @@ impl Bar {
                     .icons(&icons)
                     .label(label)
                     .span(span)
-                    .tab_menu(&mut menu)
+                    .own_menu(&mut open_menu)
+                    .own_tooltip(&mut hover_tab)
                     .show(ui)
             })
             .inner;
-        if let Some(t) = new_window.and_then(|i| self.toplevels.get(i)) {
-            self.open_new_window(&t.app_id);
+        if let Some((i, rect)) = hovered_tab {
+            crate::tooltip::note(ui, rect, titles[i]);
+        }
+        if let Some((i, at)) = menu_at {
+            self.open_tab_menu(i, at);
         }
         let request = match action {
             Some(TabAction::Show(i)) => self
@@ -366,16 +375,67 @@ impl Bar {
 }
 
 impl Bar {
+    /// Shows, hides or waits to show the tooltip for what was hovered on
+    /// `output` this frame, in patina-menu past the bar's edge (ADR-0057).
+    fn tooltip(&mut self, ui: &Ui, output: &str) {
+        let hovered = crate::tooltip::take(ui);
+        match self.tips.frame(output, hovered, std::time::Instant::now()) {
+            crate::tooltip::Action::Show(tip) => {
+                let args = crate::tooltip::args(
+                    &tip.text,
+                    self.gaps.gap as f32 + tip.rect.center().x,
+                    self.gaps.gap as f32 + self.config.height as f32,
+                    self.edge(),
+                );
+                self.tooltip_shown = crate::tooltip::Shown::start(&args);
+            }
+            crate::tooltip::Action::Hide => self.tooltip_shown = None,
+            crate::tooltip::Action::Wait(after) => ui.ctx().request_repaint_after(after),
+            crate::tooltip::Action::Nothing => {}
+        }
+    }
+
+    /// The edge the bar is on, as the pieces it opens are told.
+    fn edge(&self) -> &'static str {
+        match self.config.position {
+            Position::Top => "top",
+            Position::Bottom => "bottom",
+        }
+    }
+
+    /// Opens tab `i`'s menu in patina-menu, at `at` along the bar, just
+    /// past its edge (ADR-0056).
+    fn open_tab_menu(&self, i: usize, at: egui::Pos2) {
+        let (Some(t), Some(send)) = (self.toplevels.get(i), self.tab_menu.clone()) else {
+            return;
+        };
+        // The bar's surface starts the gap in from the screen's left and
+        // its edge (ADR-0051).
+        let gap = self.gaps.gap as f32;
+        let args = crate::menu::args(gap + at.x, gap + self.config.height as f32, self.edge());
+        crate::menu::open(args, t.id, t.app_id.clone(), move |chosen| {
+            let _ = send.send(chosen);
+        });
+    }
+
+    /// Does what was chosen in a tab's menu.
+    pub fn tab_menu_chosen(&mut self, chosen: crate::menu::Chosen) {
+        match chosen.choice {
+            crate::menu::Choice::NewWindow => self.open_new_window(&chosen.app_id),
+            crate::menu::Choice::Close => self
+                .requests
+                .get_mut()
+                .push(ToplevelRequest::Close(chosen.window)),
+        }
+    }
+
     /// Opens another window of `app_id`'s app, as its `.desktop` entry
     /// says (its New Window action, if it has one), on a thread, since
     /// that reads the installed entries.
     fn open_new_window(&self, app_id: &str) {
         let app_id = app_id.to_string();
         let skin = self.skin.name.clone();
-        let edge = match self.config.position {
-            Position::Top => "top",
-            Position::Bottom => "bottom",
-        };
+        let edge = self.edge();
         std::thread::spawn(move || {
             match crate::apps::new_window_command(&crate::apps::entries(), &app_id) {
                 Some(command) => crate::launcher::run(&command, &skin, edge),
@@ -383,6 +443,12 @@ impl Bar {
             }
         });
     }
+}
+
+/// egui's own tooltips would be cut off at the bar's edge: they never
+/// show, and the bar's show in patina-menu instead (ADR-0057).
+fn no_egui_tooltips(ctx: &egui::Context) {
+    ctx.all_styles_mut(|s| s.interaction.tooltip_delay = f32::INFINITY);
 }
 
 impl Shell for Bar {
@@ -396,6 +462,7 @@ impl Shell for Bar {
 
     fn setup(&mut self, ctx: &egui::Context) {
         self.skin.apply(ctx);
+        no_egui_tooltips(ctx);
         // Watched whatever the skin, as the skin can change to one that
         // follows the desktop; other skins set both of egui's themes, so
         // the desktop's choice doesn't touch them.
@@ -404,9 +471,17 @@ impl Shell for Bar {
 
     fn restyle(&mut self, ctx: &egui::Context) {
         self.skin.apply(ctx);
+        no_egui_tooltips(ctx);
     }
 
     fn ui(&mut self, ui: &mut Ui, output: &str) {
+        self.draw(ui, output);
+        self.tooltip(ui, output);
+    }
+}
+
+impl Bar {
+    fn draw(&mut self, ui: &mut Ui, output: &str) {
         let m = self.monitor(output);
         let rect = ui.max_rect();
         let v = ui.visuals();
@@ -549,6 +624,9 @@ mod tests {
             requests: RefCell::new(Vec::new()),
             icons: RefCell::new(HashMap::new()),
             ask_icon: None,
+            tab_menu: None,
+            tips: Default::default(),
+            tooltip_shown: None,
             gaps: crate::gaps::Gaps::default(),
         }
     }

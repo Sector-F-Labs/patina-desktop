@@ -10,6 +10,8 @@ mod dwl;
 mod gaps;
 mod icons;
 mod launcher;
+mod menu;
+mod tooltip;
 mod tray;
 
 use std::io::{BufRead, BufReader};
@@ -162,6 +164,17 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
             if let Event::Msg((app_id, image)) = event {
                 host.shell.icon_found(app_id, image);
                 host.redraw_all();
+            }
+        })
+        .map_err(|e| e.to_string())?;
+
+    // What's chosen in the window tabs' menus, opened in patina-menu.
+    let (chosen, tab_menus) = channel::channel::<menu::Chosen>();
+    host.shell.tab_menu = Some(chosen);
+    handle
+        .insert_source(tab_menus, |event, _, host| {
+            if let Event::Msg(chosen) = event {
+                host.shell.tab_menu_chosen(chosen);
             }
         })
         .map_err(|e| e.to_string())?;

@@ -3,10 +3,19 @@
 .Os
 .Sh NAME
 .Nm patina-menu
-.Nd the Patina desktop's menu
+.Nd the Patina desktop's menu, and menus for the other pieces
 .Sh SYNOPSIS
 .Nm
 .Op Fl -at Ar x , Ns Ar y
+.Nm
+.Op Fl -at Ar x , Ns Ar y
+.Op Fl -edge Cm top | bottom
+.Fl -item Ar id Ns = Ns Ar label
+.Op Fl -item Ar id Ns = Ns Ar label | Fl -separator ...
+.Nm
+.Fl -tooltip Ar text
+.Op Fl -at Ar x , Ns Ar y
+.Op Fl -edge Cm top | bottom
 .Nm
 .Fl h | V
 .Sh DESCRIPTION
@@ -30,11 +39,58 @@ A click elsewhere, Escape, or losing the keyboard closes it.
 .Pp
 Settings is started by the compositor, so it's listed on its Processes
 page; outside Patina's compositor the menu starts it itself.
+.Pp
+Given items,
+.Nm
+is instead a menu of them, for a piece too small to hold its own menu, as
+.Xr patina-bar 1
+is: a window tab's right click opens New Window and Close Window this way,
+so the menu isn't cut off at the bar's edge.
+It shows the items in order, prints the
+.Ar id
+of the one chosen on its standard output and exits; closed without a
+choice, it prints nothing.
+It wears the bar's skin.
+.Pp
+With
+.Fl -tooltip ,
+.Nm
+is a tooltip saying
+.Ar text ,
+centred on
+.Ar x
+past
+.Ar y ,
+for the bar's tooltips: it takes no clicks or keys, and goes when its
+standard input closes, so whatever started it ends it by closing the pipe,
+or by ending.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl -at Ar x , Ns Ar y
 Where to open, in the screen's logical pixels; the top-left corner
 without it.
+.It Fl -edge Cm top | bottom
+Which screen edge
+.Ar y
+counts from: with
+.Cm bottom ,
+from the bottom, and the menu opens upward from there, as from a bar at the
+bottom.
+.Cm top
+by default.
+.It Fl -item Ar id Ns = Ns Ar label
+An item saying
+.Ar label ,
+which prints
+.Ar id
+when chosen; without a label, it says
+.Ar id .
+.It Fl -separator
+A line between items.
+.It Fl -tooltip Ar text
+Show
+.Ar text
+as a tooltip until standard input closes.
 .It Fl h , -help
 Print a short usage message.
 .It Fl V , -version
@@ -47,6 +103,12 @@ Where the skin is written.
 .It Pa ~/.config/patina-bar/skins/
 Skins of your own.
 .El
+.Sh EXAMPLES
+A menu above a bar at the bottom, 300 pixels in:
+.Bd -literal -offset indent
+patina-menu --at 300,45 --edge bottom \
+    --item new-window='New Window' --item close='Close Window'
+.Ed
 .Sh SEE ALSO
 .Xr patina-bar 1 ,
 .Xr patina-settings 1 ,
