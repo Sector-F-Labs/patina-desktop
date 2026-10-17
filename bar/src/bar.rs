@@ -288,7 +288,8 @@ impl Bar {
 
 impl Bar {
     /// The open windows as Patina tabs, the active one shown: a click
-    /// activates a window, its cross or a middle click closes it.
+    /// activates a window, its cross or a middle click closes it, and its
+    /// menu opens another window of its app (ADR-0055).
     fn windows(&self, ui: &mut Ui) {
         if self.toplevels.is_empty() {
             return;
@@ -324,6 +325,13 @@ impl Bar {
         let mut style = self.skin.frame_style(ui.visuals());
         style.title_bar = ui.visuals().panel_fill;
         let span = ui.max_rect().y_range();
+        let mut new_window = None;
+        let mut menu = |ui: &mut Ui, i: usize| {
+            if ui.button("New Window").clicked() {
+                new_window = Some(i);
+                ui.close();
+            }
+        };
         // TabStrip zeroes the item spacing; keep that from the next module.
         let action = ui
             .scope(|ui| {
@@ -334,9 +342,13 @@ impl Bar {
                     .icons(&icons)
                     .label(label)
                     .span(span)
+                    .tab_menu(&mut menu)
                     .show(ui)
             })
             .inner;
+        if let Some(t) = new_window.and_then(|i| self.toplevels.get(i)) {
+            self.open_new_window(&t.app_id);
+        }
         let request = match action {
             Some(TabAction::Show(i)) => self
                 .toplevels
@@ -350,6 +362,26 @@ impl Bar {
         if let Some(request) = request {
             self.requests.borrow_mut().push(request);
         }
+    }
+}
+
+impl Bar {
+    /// Opens another window of `app_id`'s app, as its `.desktop` entry
+    /// says (its New Window action, if it has one), on a thread, since
+    /// that reads the installed entries.
+    fn open_new_window(&self, app_id: &str) {
+        let app_id = app_id.to_string();
+        let skin = self.skin.name.clone();
+        let edge = match self.config.position {
+            Position::Top => "top",
+            Position::Bottom => "bottom",
+        };
+        std::thread::spawn(move || {
+            match crate::apps::new_window_command(&crate::apps::entries(), &app_id) {
+                Some(command) => crate::launcher::run(&command, &skin, edge),
+                None => eprintln!("patina-bar: no .desktop entry or program for {app_id:?}"),
+            }
+        });
     }
 }
 

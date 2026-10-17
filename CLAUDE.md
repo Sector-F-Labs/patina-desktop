@@ -139,7 +139,9 @@ puts them in `$(PREFIX)/share/man`.
 - `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,
   or the default flask (`system/src/logo.rs`, with Ubuntu Mono) in the skin's colours. `cargo test
   -p patina-wallpaper -- --ignored` with PATINA_WALLPAPER_PREVIEW=dir renders the default per skin.
-- `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`.
+- `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`;
+  `bar/src/apps.rs`: a window's `.desktop` entry by app id, for its tab's icon (`icons.rs`) and
+  New Window in the tab's menu (ADR-0055, through Patina's `TabStrip::tab_menu`).
 
 ## Principle
 

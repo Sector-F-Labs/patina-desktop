@@ -3,6 +3,7 @@
 //! Run it as dwl's status command, `dwl -s patina-bar`, and it reads dwl's
 //! status lines from stdin.
 
+mod apps;
 mod bar;
 mod config;
 mod dwl;

@@ -26,6 +26,14 @@ A tab per open window, with its app's icon and its title, as
 says.
 A click focuses it, a middle click closes it; the compositor's Alt+Tab
 and Super+1 to 9 follow the same order.
+A right click opens its menu: New Window opens another window of its app,
+by the
+.Pa .desktop
+entry's
+.Dq new-window
+action if it has one, else by its
+.Ic Exec ;
+and Close Window.
 The icon is the one the app's
 .Pa .desktop
 entry names, found by the window's app id.

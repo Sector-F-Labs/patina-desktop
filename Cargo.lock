@@ -2838,7 +2838,7 @@ dependencies = [
 [[package]]
 name = "patina-ui"
 version = "0.1.9"
-source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#9ae07ec5a87476e5eeadf33d4990442d51748d50"
+source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#6553db297d16af18f932d5a197f82ee2e584c467"
 dependencies = [
  "dirs 7.0.0",
  "egui",
