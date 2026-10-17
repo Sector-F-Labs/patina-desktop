@@ -2,7 +2,8 @@
 //! less the bar's zone) or its left or right half, and remembers where it
 //! was so restoring puts it back (ADR-0014, ADR-0023). Dragging a placed
 //! window restores it under the pointer, as GNOME and macOS do. Super with
-//! the arrows or vim keys places the focused window as Ubuntu does.
+//! the arrows or vim keys places the focused window as Ubuntu does. A tiler
+//! on D-Bus may place a window anywhere (ADR-0049), as a `Rect`.
 
 use std::cell::RefCell;
 
@@ -22,6 +23,8 @@ pub enum Placement {
     Maximized,
     Left,
     Right,
+    /// Wherever a tiler put it (ADR-0049).
+    Rect(Rectangle<i32, Logical>),
 }
 
 /// Resizing around the centre (Super+Shift+K/J/L/H).
@@ -74,6 +77,7 @@ pub fn rect_for(placement: Placement, area: Rectangle<i32, Logical>) -> Rectangl
             (area.loc.x + left, area.loc.y).into(),
             Size::from((area.size.w - left, area.size.h)),
         ),
+        Placement::Rect(rect) => rect,
     }
 }
 
@@ -166,11 +170,39 @@ pub fn restored_under_pointer(
     Point::from((x.round() as i32, rect.loc.y))
 }
 
-/// The xdg states a placement shows: maximised, or tiled on the sides
-/// that touch the screen's edges, so apps can square those corners.
+/// The xdg states a window filling `rect` of `area` shows: maximised if
+/// it's all of it, otherwise tiled on the sides that touch the area's
+/// edges, so apps can square those corners.
+pub fn states_for(
+    rect: Rectangle<i32, Logical>,
+    area: Rectangle<i32, Logical>,
+) -> Vec<xdg_toplevel::State> {
+    use xdg_toplevel::State as S;
+    if rect == area {
+        return vec![S::Maximized];
+    }
+    [
+        (rect.loc.x == area.loc.x, S::TiledLeft),
+        (
+            rect.loc.x + rect.size.w == area.loc.x + area.size.w,
+            S::TiledRight,
+        ),
+        (rect.loc.y == area.loc.y, S::TiledTop),
+        (
+            rect.loc.y + rect.size.h == area.loc.y + area.size.h,
+            S::TiledBottom,
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(touches, state)| touches.then_some(state))
+    .collect()
+}
+
+/// Shows `rect` of `area` in `toplevel`'s xdg states, or none for a
+/// floating window.
 fn set_states(
     toplevel: &smithay::wayland::shell::xdg::ToplevelSurface,
-    placement: Option<Placement>,
+    placed: Option<(Rectangle<i32, Logical>, Rectangle<i32, Logical>)>,
 ) {
     use xdg_toplevel::State as S;
     toplevel.with_pending_state(|s| {
@@ -183,21 +215,17 @@ fn set_states(
         ] {
             s.states.unset(state);
         }
-        let set: &[S] = match placement {
-            Some(Placement::Maximized) => &[S::Maximized],
-            Some(Placement::Left) => &[S::TiledLeft, S::TiledTop, S::TiledBottom],
-            Some(Placement::Right) => &[S::TiledRight, S::TiledTop, S::TiledBottom],
-            None => &[],
-        };
-        for state in set {
-            s.states.set(*state);
+        if let Some((rect, area)) = placed {
+            for state in states_for(rect, area) {
+                s.states.set(state);
+            }
         }
     });
 }
 
 impl State {
     /// The area a maximised window fills.
-    fn work_area(&self) -> Rectangle<i32, Logical> {
+    pub fn work_area(&self) -> Rectangle<i32, Logical> {
         layer_map_for_output(&self.output).non_exclusive_zone()
     }
 
@@ -218,7 +246,7 @@ impl State {
             ),
         };
         *slot.0.borrow_mut() = Some((placement, before));
-        set_states(toplevel, Some(placement));
+        set_states(toplevel, Some((rect, area)));
         toplevel.with_pending_state(|s| s.size = Some(rect.size));
         if toplevel.is_initial_configure_sent() {
             toplevel.send_pending_configure();
@@ -252,11 +280,15 @@ impl State {
         self.needs_redraw = true;
     }
 
-    /// Super with an arrow or vim key, on the focused window.
+    /// Super with an arrow or vim key, on the focused window; a tiler on
+    /// D-Bus decides instead, if there is one (ADR-0049).
     pub fn snap(&mut self, snap: Snap) {
         let Some(window) = self.focused_window() else {
             return;
         };
+        if self.tiling.delegate_snap(&window, snap) {
+            return;
+        }
         match after_snap(placement(&window), snap) {
             Some(p) => self.place_as(&window, p),
             None => self.unmaximize(&window, None),
@@ -378,6 +410,7 @@ impl State {
     /// changed: the output resized or rescaled, or the bar came or went.
     pub fn relayout_maximized(&mut self) {
         let area = self.work_area();
+        self.announce_work_area(area);
         let placed: Vec<(Window, Placement)> = self
             .space
             .elements()
@@ -422,6 +455,7 @@ impl State {
         let Some(initial) = self.space.element_location(&window) else {
             return;
         };
+        self.drag_started(&window);
         // The arrow while a window moves, as on macOS, whatever the title
         // bar under it last asked for.
         self.grab_cursor = Some(smithay::input::pointer::CursorIcon::Default);
@@ -453,6 +487,22 @@ mod tests {
         assert_eq!(left, Rectangle::new((0, 0).into(), (641, 759).into()));
         assert_eq!(right, Rectangle::new((641, 0).into(), (640, 759).into()));
         assert_eq!(rect_for(Placement::Maximized, area()), area());
+    }
+
+    #[test]
+    fn apps_are_told_which_sides_touch_the_work_area() {
+        use xdg_toplevel::State as S;
+        let area = Rectangle::new((0, 40).into(), (1200, 760).into());
+        assert_eq!(states_for(area, area), [S::Maximized]);
+        assert_eq!(
+            states_for(rect_for(Placement::Left, area), area),
+            [S::TiledLeft, S::TiledTop, S::TiledBottom]
+        );
+        // A tiler's middle third touches only the top and bottom.
+        let middle = Rectangle::new((400, 40).into(), (400, 760).into());
+        assert_eq!(states_for(middle, area), [S::TiledTop, S::TiledBottom]);
+        let floating = Rectangle::new((100, 100).into(), (400, 300).into());
+        assert!(states_for(floating, area).is_empty());
     }
 
     #[test]

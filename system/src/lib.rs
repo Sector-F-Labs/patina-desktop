@@ -5,8 +5,8 @@
 //! the tray's icons (`icons`), the Sector F flask and lettering (`logo`),
 //! Night Light's controls on the compositor (`night_light`), and power modes
 //! through power-profiles-daemon (`power_profiles`), the processes the
-//! compositor starts (`processes`), and locking, logging out, restarting and
-//! shutting down (`session`).
+//! compositor starts (`processes`), locking, logging out, restarting and
+//! shutting down (`session`), and the compositor's tiling (`tiling`).
 
 pub mod audio;
 pub mod backlight;
@@ -18,3 +18,4 @@ pub mod power;
 pub mod power_profiles;
 pub mod processes;
 pub mod session;
+pub mod tiling;

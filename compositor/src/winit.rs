@@ -255,7 +255,12 @@ fn render(state: &mut State) {
         return;
     }
     state.needs_redraw = false;
-    let flash = state.flash_element();
+    // A screenshot's flash, then where a drop would tile (ADR-0049).
+    let flash: Vec<_> = state
+        .flash_element()
+        .into_iter()
+        .chain(state.preview_element())
+        .collect();
     let dnd_icon = state.dnd_icon_at();
     let fullscreen = state.fullscreen_drawn();
     // Locked, only the locker, over black.

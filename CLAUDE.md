@@ -74,6 +74,12 @@ puts them in `$(PREFIX)/share/man`.
 - `compositor/src/constraints.rs`: relative-pointer (ADR-0043) and pointer-constraints, so games (and
   Xwayland's pointer-warp emulation) get mouse-look: `State::pointer_moved` sends relative motion
   and holds a locked or confined pointer. Only libinput gives relative motion.
+- `compositor/src/tiling.rs`: drag-to-tile as on Ubuntu (ADR-0049): `MoveGrab` calls `drag_moved`/
+  `drag_ended`; the edge `zone`, the preview (`preview_element`, drawn with the flash by every
+  backend). `tiling/dbus.rs` serves `com.sectorflabs.Patina.Tiling`; while someone owns
+  `com.sectorflabs.Patina.Tiler` the compositor only reports and obeys (`Placement::Rect`).
+  Client: `system/src/tiling.rs`, example tiler `system/examples/thirds.rs`. `dbus-run-session --
+  cargo test -p patina-compositor tiling -- --ignored` tests it on a bus of its own.
 - `compositor/src/fullscreen.rs`: fullscreen (ADR-0041): `State::fullscreen`, sized to the output,
   drawn over the layers by every backend and first under the pointer while it has the keyboard.
 - `compositor/src/dnd.rs`: drag and drop between clients is Smithay's; this draws the icon a

@@ -567,7 +567,12 @@ fn render(state: &mut State) {
     let locked = state.locked();
     let lock_surface = state.lock_surface().cloned();
     state.needs_redraw = false;
-    let flash = state.flash_element();
+    // A screenshot's flash, then where a drop would tile (ADR-0049).
+    let flash: Vec<_> = state
+        .flash_element()
+        .into_iter()
+        .chain(state.preview_element())
+        .collect();
     let dnd_icon = state.dnd_icon_at();
     let fullscreen = state.fullscreen_drawn();
     let Some(u) = state.udev.as_mut() else { return };
@@ -596,7 +601,7 @@ fn render(state: &mut State) {
             .into_iter()
             .map(OutputElement::Surface),
     );
-    elements.extend(flash.map(OutputElement::Flash));
+    elements.extend(flash.into_iter().map(OutputElement::Flash));
     if locked {
         // Only the locker, over black.
         elements.extend(

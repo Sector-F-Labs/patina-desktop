@@ -13,6 +13,11 @@ this workspace is a Wayland client of it.
 - **Placing windows from the keyboard** (ADR-0014, ADR-0023): Super+Up/Down maximise and
   restore, Super+Left/Right tile half-screen, Super+Shift+arrows grow and shrink, dragging a
   placed window restores it under the pointer.
+- **Tiling by dragging, as on Ubuntu** (ADR-0049): a window dragged to the left or right edge
+  fills that half, to the top the screen, with a preview first. Any app can take the decisions
+  over: while it owns `com.sectorflabs.Patina.Tiler` on the session bus, the compositor reports
+  drags and Super+arrows and places windows where told (`patina_system::tiling`; `cargo run -p
+  patina-system --example thirds` tiles in thirds).
 - **Moving between windows** follows the bar's tabs (ADR-0027): Alt+Tab steps along them,
   Super+1–9 picks one, closing a window focuses its neighbouring tab. Super+W closes a window,
   Super+Q quits the app.
@@ -74,7 +79,8 @@ this workspace is a Wayland client of it.
   writes it.
 - **On the session bus:** `org.freedesktop.ScreenSaver` (`idle/dbus.rs`), for apps holding the
   screen on; `com.sectorflabs.Patina.Session` (`session/dbus.rs`), Lock and LogOut for
-  patina-power (ADR-0048). On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
+  patina-power (ADR-0048); `com.sectorflabs.Patina.Tiling` (`tiling/dbus.rs`, ADR-0049), drags,
+  windows and placing them, for tilers. On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
   Uninhibit, SetOverride, and its state as properties), for patina-settings,
   `patina-night-light` and apps that need true colour.
 - **Shares code with the shell pieces** through patina-system: the backlight (`backlight.rs`) for
@@ -84,7 +90,7 @@ this workspace is a Wayland client of it.
 
 `main.rs` (start-up, choosing the backend), `state.rs` (the protocols, placement, focus),
 `input.rs` and `keyboard.rs` (input and the compositor's own keys), `grabs.rs`, `maximize.rs`,
-`tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`,
+`tiling.rs` with `tiling/dbus.rs`, `tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`,
 `night_light.rs` with `night_light/dbus.rs`, `idle.rs` with `idle/dbus.rs`, `xwayland.rs` and `focus.rs` (X11 windows and
 what has the keyboard), `fullscreen.rs`, `constraints.rs` (pointer locks for games), `dnd.rs` (the icon a drag shows),
 `cursor.rs`, `drag.rs`, `scale.rs`, `config.rs`, `clients.rs`, and the backends `winit.rs`,

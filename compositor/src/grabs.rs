@@ -145,6 +145,7 @@ impl PointerGrab<State> for MoveGrab {
         handle.motion(state, None, event);
         let location = self.initial.to_f64() + (event.location - self.start.location);
         state.place(&self.window, location.to_i32_round());
+        state.drag_moved(&self.window, event.location);
         state.needs_redraw = true;
     }
 
@@ -158,6 +159,7 @@ impl PointerGrab<State> for MoveGrab {
         if released(handle) {
             handle.unset_grab(self, state, event.serial, event.time, true);
             state.end_grab_cursor();
+            state.drag_ended(&self.window, handle.current_location());
         }
     }
 

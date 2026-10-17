@@ -47,6 +47,9 @@ exit five times within thirty seconds.
 .Pp
 Windows float: each is placed once, cascading beside the bar, and a click
 focuses and raises it.
+Dragging a window against the left or right edge of the screen tiles it to
+that half, and against the top maximises it, with a preview of where it
+will go; dragging it away restores it.
 The bar's tabs are the list of windows: Alt+Tab steps along them, and
 closing a window focuses its neighbouring tab.
 A window asking for fullscreen covers the whole screen, over the bar.
@@ -274,6 +277,14 @@ Inhibit and UnInhibit, which hold the screen on until let go of or until
 the caller leaves the bus; SimulateUserActivity, as if there were input;
 and GetActive, whether the screen is off.
 Not served where another desktop already has the name.
+.It com.sectorflabs.Patina.Tiling
+Drags and the work area as signals; Windows, WorkArea, Place, Restore,
+ShowPreview and HidePreview.
+While a program owns
+.Sy com.sectorflabs.Patina.Tiler ,
+that program decides how dragged windows tile and what Super with an arrow
+does; the compositor only reports them and places windows where it's told,
+until the program leaves the bus.
 .El
 .Sh FILES
 .Bl -tag -width Ds

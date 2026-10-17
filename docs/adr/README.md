@@ -90,6 +90,7 @@ mechanics of adding one.
 | [0046](0046-patina-session-restarts-the-compositor.md) | patina-session runs the compositor, and starts it again when it restarts or crashes | Accepted |
 | [0047](0047-the-screen-turns-off-without-input.md) | The screen turns off after a while without input, unless something is playing | Accepted |
 | [0048](0048-a-power-menu-on-the-bar.md) | A power menu at the bar's right end: lock, log out, restart and shut down | Accepted |
+| [0049](0049-tiling-by-dragging-decided-over-d-bus.md) | Tiling by dragging, as on Ubuntu, with the decisions open to any app over D-Bus | Proposed |
 
 ## Decision Relationship
 

@@ -132,6 +132,8 @@ pub struct State {
     pub dnd_icon: Option<crate::dnd::Icon>,
     /// The window covering the screen, if one is (ADR-0041).
     pub fullscreen: Option<Window>,
+    /// Tiling by dragging, and the tiler deciding it (ADR-0049).
+    pub tiling: crate::tiling::Tiling,
     _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
     /// Mouse-look for games (constraints.rs).
     _relative_pointer: smithay::wayland::relative_pointer::RelativePointerManagerState,
@@ -252,6 +254,7 @@ impl State {
             flash: None,
             dnd_icon: None,
             fullscreen: None,
+            tiling: Default::default(),
             _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState::new::<Self>(
                 &dh,
             ),

@@ -68,7 +68,7 @@ impl ForeignToplevels {
 }
 
 /// What a client should see of `surface`'s window.
-fn describe(surface: &WlSurface) -> (String, String) {
+pub fn describe(surface: &WlSurface) -> (String, String) {
     with_states(surface, |states| {
         states
             .data_map
