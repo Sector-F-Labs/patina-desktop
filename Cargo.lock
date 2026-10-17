@@ -221,7 +221,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
  "x11rb",
 ]
 
@@ -862,7 +862,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.3",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -1184,7 +1184,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2817,7 +2817,7 @@ dependencies = [
 [[package]]
 name = "patina-shell"
 version = "0.1.0"
-source = "git+https://github.com/Sector-F-Labs/patina-shell#e440533f534f770291d33f9192938d3178f2931b"
+source = "git+https://github.com/Sector-F-Labs/patina-shell#05f0f8afa423c10434164e0cd4a7bba1c6424409"
 dependencies = [
  "egui",
  "patina-ui",
@@ -2847,7 +2847,7 @@ dependencies = [
 [[package]]
 name = "patina-ui"
 version = "0.1.9"
-source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#2e9e91163f2864754f847526e537e285a896a198"
+source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#a133a710ccf7f3adef95b7d15bca2464139fea75"
 dependencies = [
  "dirs 7.0.0",
  "egui",
@@ -3384,7 +3384,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3836,7 +3836,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.5",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
