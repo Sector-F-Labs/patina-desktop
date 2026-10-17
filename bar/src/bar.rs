@@ -691,7 +691,12 @@ impl Bar {
             };
             ui.painter().rect_filled(cell.shrink(3.0), 6.0, fill);
             let name = self.app_name(&t.app_id);
-            let mark = Rect::from_center_size(cell.center(), vec2(22.0, 22.0));
+            // At the size it was drawn for, on whole pixels: anything else
+            // blurs it.
+            let corner = cell.center() - vec2(ICON, ICON) / 2.0;
+            let corner =
+                egui::emath::GuiRounding::round_to_pixels(corner, ui.ctx().pixels_per_point());
+            let mark = Rect::from_min_size(corner, vec2(ICON, ICON));
             match self.icon(ui.ctx(), &t.app_id) {
                 Some(texture) => {
                     let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));

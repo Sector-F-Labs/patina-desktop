@@ -25,8 +25,12 @@ fn load(name: &str, size: u32) -> Option<ColorImage> {
     let file = if path.is_absolute() {
         path.exists().then(|| path.to_path_buf())
     } else {
+        // A size at least twice as big, scaled down: themes have 16, 24,
+        // 32, 48..., and the nearest to an odd size (18) is often smaller,
+        // which would be blurred scaling up.
+        let source = (size * 2).max(32).min(u16::MAX as u32) as u16;
         freedesktop_icons::lookup(name)
-            .with_size(size.min(u16::MAX as u32) as u16)
+            .with_size(source)
             .with_theme(THEME)
             .with_cache()
             .find()
