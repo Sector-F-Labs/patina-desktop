@@ -1,0 +1,11 @@
+[package]
+name = "patina-tiler"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's tiler: decides how dragged windows and Super+arrows tile, over the compositor's D-Bus tiling"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+patina-system = { path = "../system" }
+zbus = "5"

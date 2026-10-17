@@ -4,8 +4,9 @@
 //! Signals say what the pointer and keys do: `DragStarted(id)`,
 //! `DragMotion(id, x, y)`, `DragEnded(id, x, y)` with the pointer in the
 //! desktop's logical pixels, `SnapRequested(id, direction)` for Super with
-//! an arrow while a tiler decides, and `WorkAreaChanged(x, y, w, h)`.
-//! Methods: `Windows()`, `WorkArea()`, `Gap()`, `Place(id, x, y, w, h)`,
+//! an arrow, and `WorkAreaChanged(x, y, w, h)`.
+//! Methods: `Windows()`, `WorkArea()`, `Gap()`, `Screen()`,
+//! `Place(id, x, y, w, h)`,
 //! `Restore(id)`, `ShowPreview(x, y, w, h)` and `HidePreview()`.
 //!
 //! Whoever owns `com.sectorflabs.Patina.Tiler` decides; the bus's own name
@@ -43,6 +44,7 @@ pub enum Request {
     Windows(Reply<Vec<WindowRow>>),
     WorkArea(Reply<Rect>),
     Gap(Reply<i32>),
+    Screen(Reply<Rect>),
     Place {
         id: u64,
         area: Rect,
@@ -225,6 +227,12 @@ impl Interface {
         self.ask(Request::Gap)
     }
 
+    /// The whole screen, bar and all, for where the pointer reaches its
+    /// edges.
+    fn screen(&self) -> zbus::fdo::Result<Rect> {
+        self.ask(Request::Screen)
+    }
+
     /// Tiles window `id` at this rectangle; all of the work area fills it,
     /// tiled, not maximised. Dragging it, or `Restore`, puts it back as it
     /// was.
@@ -278,7 +286,6 @@ impl Interface {
     ) -> zbus::Result<()>;
 
     /// Super with an arrow on window `id`: "up", "down", "left" or "right".
-    /// Only sent while a tiler decides.
     #[zbus(signal)]
     async fn snap_requested(
         emitter: &zbus::object_server::SignalEmitter<'_>,
@@ -340,6 +347,9 @@ mod tests {
                     Request::Gap(reply) => {
                         let _ = reply.send(8);
                     }
+                    Request::Screen(reply) => {
+                        let _ = reply.send((0, 0, 1200, 800));
+                    }
                     Request::Place { id, area, reply } => {
                         got.push(format!("place {id} {area:?}"));
                         let _ = reply.send(if id == 7 {
@@ -374,6 +384,7 @@ mod tests {
             let tiling = client::Tiling::new(&other).unwrap();
             assert_eq!(tiling.work_area().unwrap(), (0, 40, 1200, 760));
             assert_eq!(tiling.gap().unwrap(), 8);
+            assert_eq!(tiling.screen().unwrap(), (0, 0, 1200, 800));
             tiling.show_preview((0, 40, 400, 760)).unwrap();
             tiling.place(7, (0, 40, 400, 760)).unwrap();
             assert!(tiling.place(8, (0, 40, 400, 760)).is_err());

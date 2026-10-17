@@ -4,7 +4,9 @@ Date: 2026-10-17
 
 ## Status
 
-Proposed
+Proposed. The compositor's own policy as the default is superseded by
+[ADR-0053](0053-tiling-decided-by-patina-tiler.md): patina-tiler decides, and the compositor
+only reports and places.
 
 ## Context
 

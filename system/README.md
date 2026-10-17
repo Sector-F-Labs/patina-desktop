@@ -23,6 +23,9 @@ painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in it
 - **`processes.rs`**: the processes the compositor started, their logs, and restarting or stopping
   them, through its `com.sectorflabs.Patina.Processes` on the session bus (ADR-0045), for Settings'
   Processes page.
+- **`tiling.rs`**: the compositor's `com.sectorflabs.Patina.Tiling` (ADR-0049, ADR-0053): drags and
+  Super+arrows in, placing windows and the preview out, and holding the Tiler name, for
+  patina-tiler and other tilers (`cargo run -p patina-system --example thirds`).
 - **`logo.rs`**: the Sector F flask (the bar's launcher button, the default wallpaper) and Ubuntu
   Mono, the wallpaper's lettering, rasterised as masks the skin tints.
 

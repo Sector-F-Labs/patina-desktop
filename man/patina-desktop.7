@@ -16,8 +16,10 @@ Runs the compositor, and starts it again when it restarts or crashes.
 .It Xr patina-compositor 1
 The compositor: the screen, keyboard and pointer, windows, and the
 desktop's own keys.
-It starts the wallpaper and the bar, and keeps track of every piece it
-starts.
+It starts the wallpaper, the bar and the tiler, and keeps track of every
+piece it starts.
+.It Xr patina-tiler 1
+How windows tile: dragged to an edge, or with Super and an arrow.
 .It Xr patina-bar 1
 The bar: the launcher button, a tab per window, the tray and the clock.
 Its config file holds the settings the whole shell shares.
@@ -93,7 +95,8 @@ Open Settings at its Processes page
 .Pq Ql patina-settings --page processes .
 It lists what the compositor started, with each one's state and output;
 Restart and Stop act on one.
-The wallpaper and the bar come back on their own when they exit, so
+The wallpaper, the bar and the tiler come back on their own when they exit,
+so
 .Ql pkill patina-bar
 also restarts the bar, from the binary now installed.
 .It The compositor is to be restarted
@@ -104,6 +107,7 @@ Every window closes and its app quits; the desktop comes back without
 logging out.
 This needs
 .Xr patina-session 1 ,
+.Xr patina-tiler 1 ,
 as at the login screen.
 After
 .Ql make install ,

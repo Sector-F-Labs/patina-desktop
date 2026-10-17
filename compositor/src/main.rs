@@ -44,8 +44,8 @@ use crate::state::State;
 const USAGE: &str = "usage: patina-compositor [--session] [command ...]
 
 Opens a window on the current Wayland desktop and runs a Patina desktop in
-it: patina-wallpaper and patina-bar, then each command given, with
-WAYLAND_DISPLAY set to the compositor's socket. Apps are started from the
+it: patina-wallpaper, patina-bar and patina-tiler, then each command given,
+with WAYLAND_DISPLAY set to the compositor's socket. Apps are started from the
 bar's launcher.
 
 --session  run as the login session (the Patina entry at the login screen
@@ -153,6 +153,8 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     // The wallpaper first, so it's there by the time the bar is.
     state.keep_client("patina-wallpaper");
     state.keep_client("patina-bar");
+    // Tiling's decisions (ADR-0053).
+    state.keep_client("patina-tiler");
     for command in commands {
         state.spawn_client(command);
     }

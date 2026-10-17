@@ -2828,6 +2828,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-tiler"
+version = "0.1.0"
+dependencies = [
+ "patina-system",
+ "zbus",
+]
+
+[[package]]
 name = "patina-ui"
 version = "0.1.9"
 source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#9ae07ec5a87476e5eeadf33d4990442d51748d50"

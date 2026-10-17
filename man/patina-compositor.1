@@ -31,9 +31,10 @@ panel first.
 .El
 .Pp
 At start-up it runs Xwayland, when installed, for X11 apps;
-.Xr patina-wallpaper 1
+.Xr patina-wallpaper 1 ,
+.Xr patina-bar 1
 and
-.Xr patina-bar 1 ;
+.Xr patina-tiler 1 ;
 then each
 .Ar command
 given.
@@ -42,17 +43,18 @@ volume flash, as configured below.
 Every program it starts is listed with its output on Settings' Processes
 page
 .Pq Xr patina-settings 1 .
-The wallpaper and the bar are started again when they exit, unless they
-exit five times within thirty seconds.
+The wallpaper, the bar and the tiler are started again when they exit,
+unless they exit five times within thirty seconds.
 .Pp
 Windows float: each is placed once, cascading beside the bar, and a click
 focuses and raises it.
-Dragging a window against the left or right edge of the screen tiles it to
-that half, and against the top fills the screen with it, with a preview of
-where it will go; dragging it away restores it.
-Filling tiles the window on every side; only the app's own maximise button
-(or a double click on its title bar) maximises it, edge to edge even with
-gaps.
+How windows tile is
+.Xr patina-tiler 1 Ns 's
+to decide: the compositor reports drags and Super with an arrow over the
+session bus, and places windows where it's told.
+Dragging a tiled window away restores it.
+Only the app's own maximise button (or a double click on its title bar)
+maximises a window, edge to edge even with gaps.
 The bar's tabs are the list of windows: Alt+Tab steps along them, and
 closing a window focuses its neighbouring tab.
 A window asking for fullscreen covers the whole screen, over the bar.
@@ -91,6 +93,9 @@ Fill the screen with the focused window, tiled, and restore it; also
 Super+K and Super+J.
 .It Super+Left , Super+Right
 Fill the left or right half of the screen; also Super+H and Super+L.
+These four are
+.Xr patina-tiler 1 Ns 's
+to decide, and do as it says.
 .It Super+Shift+ Ns Ar arrow
 Grow the focused window that way by a tenth of the screen.
 .It Super+Shift+K , Super+Shift+J
@@ -294,15 +299,17 @@ the caller leaves the bus; SimulateUserActivity, as if there were input;
 and GetActive, whether the screen is off.
 Not served where another desktop already has the name.
 .It com.sectorflabs.Patina.Tiling
-Drags and the work area as signals; Windows, WorkArea, Gap, Place,
-Restore, ShowPreview and HidePreview.
+Drags, Super with an arrow and the work area as signals; Windows,
+WorkArea, Gap, Screen, Place, Restore, ShowPreview and HidePreview.
 With gaps on, WorkArea is already inside the outer gaps, and Gap is the
 gap to leave between windows.
-While a program owns
-.Sy com.sectorflabs.Patina.Tiler ,
-that program decides how dragged windows tile and what Super with an arrow
-does; the compositor only reports them and places windows where it's told,
-until the program leaves the bus.
+The owner of
+.Sy com.sectorflabs.Patina.Tiler
+decides how dragged windows tile and what Super with an arrow does:
+.Xr patina-tiler 1 ,
+or a program that takes the name from it until it leaves the bus.
+The compositor only reports them and places windows where it's told; with
+no tiler, windows don't tile.
 .El
 .Sh FILES
 .Bl -tag -width Ds
@@ -323,4 +330,5 @@ Try it as a window on the current desktop, with a terminal:
 .Xr patina-bar 1 ,
 .Xr patina-session 1 ,
 .Xr patina-settings 1 ,
+.Xr patina-tiler 1 ,
 .Xr patina-desktop 7

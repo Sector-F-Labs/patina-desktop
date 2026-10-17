@@ -1,9 +1,8 @@
-//! Maximising and tiling: a placed window fills the work area (the output
-//! less the bar's zone) or its left or right half, and remembers where it
-//! was so restoring puts it back (ADR-0014, ADR-0023). Dragging a placed
-//! window restores it under the pointer, as GNOME and macOS do. Super with
-//! the arrows or vim keys places the focused window as Ubuntu does. A tiler
-//! on D-Bus may place a window anywhere (ADR-0049), as a `Rect`.
+//! Placing windows: maximised at the app's request, or filling or tiled
+//! where the tiler says (ADR-0014, ADR-0049, ADR-0053), each remembering
+//! where it was so restoring puts it back. Dragging a placed window restores
+//! it under the pointer, as GNOME and macOS do. Super with the arrows or vim
+//! keys goes to the tiler; with Shift, it grows and shrinks the window here.
 
 use std::cell::RefCell;
 
@@ -27,9 +26,7 @@ pub enum Placement {
     /// Tiled upward (dragged to the top, or Super+Up): it fills the area
     /// inside the gaps as a tiled window, not a maximised one.
     Fill,
-    Left,
-    Right,
-    /// Wherever a tiler put it (ADR-0049).
+    /// Wherever the tiler put it (ADR-0049).
     Rect(Rectangle<i32, Logical>),
 }
 
@@ -72,23 +69,16 @@ pub fn is_maximized(window: &Window) -> bool {
     placement(window) == Some(Placement::Maximized)
 }
 
-/// The rectangle `placement` fills in `area` (the tiling area; a
-/// maximised window is given the work area itself), with `gap` between the
-/// halves (ADR-0051). Halves split the width, the left one taking the odd
-/// pixel.
+/// The rectangle `placement` fills: maximised, the `work_area`; filling,
+/// the `tiling_area` inside the gaps; tiled, where the tiler put it.
 pub fn rect_for(
     placement: Placement,
-    area: Rectangle<i32, Logical>,
-    gap: i32,
+    work_area: Rectangle<i32, Logical>,
+    tiling_area: Rectangle<i32, Logical>,
 ) -> Rectangle<i32, Logical> {
-    let left = (area.size.w - gap + 1) / 2;
     match placement {
-        Placement::Maximized | Placement::Fill => area,
-        Placement::Left => Rectangle::new(area.loc, Size::from((left, area.size.h))),
-        Placement::Right => Rectangle::new(
-            (area.loc.x + left + gap, area.loc.y).into(),
-            Size::from((area.size.w - left - gap, area.size.h)),
-        ),
+        Placement::Maximized => work_area,
+        Placement::Fill => tiling_area,
         Placement::Rect(rect) => rect,
     }
 }
@@ -100,20 +90,6 @@ pub fn inset(area: Rectangle<i32, Logical>, gap: i32) -> Rectangle<i32, Logical>
         (area.loc.x + gap, area.loc.y + gap).into(),
         Size::from((area.size.w - 2 * gap, area.size.h - 2 * gap)),
     )
-}
-
-/// What `snap` does to a window placed as `now`, Ubuntu's way: up
-/// fills the screen (tiled, not maximised); down restores; left and right tile to that half, or restore
-/// from the other one.
-pub fn after_snap(now: Option<Placement>, snap: Snap) -> Option<Placement> {
-    use Placement::*;
-    match (snap, now) {
-        (Snap::Up, _) => Some(Fill),
-        (Snap::Down, _) => None,
-        (Snap::Left, Some(Right)) | (Snap::Right, Some(Left)) => None,
-        (Snap::Left, _) => Some(Left),
-        (Snap::Right, _) => Some(Right),
-    }
 }
 
 /// `rect` grown by `step` toward `toward`: that edge moves out, the
@@ -261,10 +237,7 @@ impl State {
 
     /// Where `placement` puts a window now.
     pub fn placed_rect(&self, placement: Placement) -> Rectangle<i32, Logical> {
-        match placement {
-            Placement::Maximized => self.work_area(),
-            _ => rect_for(placement, self.tiling_area(), self.config.gap()),
-        }
+        rect_for(placement, self.work_area(), self.tiling_area())
     }
 
     /// Places `window` as `placement`, remembering where it was the first
@@ -319,19 +292,13 @@ impl State {
         self.needs_redraw = true;
     }
 
-    /// Super with an arrow or vim key, on the focused window; a tiler on
-    /// D-Bus decides instead, if there is one (ADR-0049).
+    /// Super with an arrow or vim key, on the focused window: the tiler
+    /// decides what it does (ADR-0053).
     pub fn snap(&mut self, snap: Snap) {
         let Some(window) = self.focused_window() else {
             return;
         };
-        if self.tiling.delegate_snap(&window, snap) {
-            return;
-        }
-        match after_snap(placement(&window), snap) {
-            Some(p) => self.place_as(&window, p),
-            None => self.unmaximize(&window, None),
-        }
+        self.tiling.snap_requested(&window, snap);
     }
 
     /// Grows the focused window toward `toward` by a tenth of the work area
@@ -520,27 +487,16 @@ mod tests {
     }
 
     #[test]
-    fn halves_split_the_work_area() {
-        let left = rect_for(Placement::Left, area(), 0);
-        let right = rect_for(Placement::Right, area(), 0);
-        assert_eq!(left, Rectangle::new((0, 0).into(), (641, 759).into()));
-        assert_eq!(right, Rectangle::new((641, 0).into(), (640, 759).into()));
-        assert_eq!(rect_for(Placement::Maximized, area(), 0), area());
-    }
-
-    #[test]
-    fn gaps_go_around_and_between_tiled_windows() {
+    fn placements_fill_their_area() {
         let tiled = inset(area(), 8);
         assert_eq!(tiled, Rectangle::new((8, 8).into(), (1265, 743).into()));
-        let left = rect_for(Placement::Left, tiled, 8);
-        let right = rect_for(Placement::Right, tiled, 8);
-        assert_eq!(left, Rectangle::new((8, 8).into(), (629, 743).into()));
-        assert_eq!(right, Rectangle::new((645, 8).into(), (628, 743).into()));
-        assert_eq!(right.loc.x - (left.loc.x + left.size.w), 8, "between them");
-        assert_eq!(rect_for(Placement::Fill, tiled, 8), tiled);
+        assert_eq!(rect_for(Placement::Maximized, area(), tiled), area());
+        assert_eq!(rect_for(Placement::Fill, area(), tiled), tiled);
+        let half = Rectangle::new((8, 8).into(), (629, 743).into());
+        assert_eq!(rect_for(Placement::Rect(half), area(), tiled), half);
         // Off the work area's edges, they keep their rounded corners: not
         // tiled, and filling isn't maximising.
-        assert!(states_for(Placement::Left, left, area()).is_empty());
+        assert!(states_for(Placement::Rect(half), half, area()).is_empty());
         assert!(states_for(Placement::Fill, tiled, area()).is_empty());
         // A gap never eats a small screen.
         assert_eq!(
@@ -561,8 +517,9 @@ mod tests {
             states_for(Placement::Fill, area, area),
             [S::TiledLeft, S::TiledRight, S::TiledTop, S::TiledBottom]
         );
+        let left = Rectangle::new((0, 40).into(), (600, 760).into());
         assert_eq!(
-            states_for(Placement::Left, rect_for(Placement::Left, area, 0), area),
+            states_for(Placement::Rect(left), left, area),
             [S::TiledLeft, S::TiledTop, S::TiledBottom]
         );
         // A tiler's middle third touches only the top and bottom.
@@ -643,25 +600,6 @@ mod tests {
         assert_eq!(grown_at_corner.loc, Point::from((0, 0)));
         let huge = resized_around_centre(rect, area, 5000, 5000, none, none);
         assert_eq!(huge, area);
-    }
-
-    #[test]
-    fn snapping_follows_ubuntu() {
-        use Placement::*;
-        assert_eq!(after_snap(None, Snap::Up), Some(Fill));
-        assert_eq!(after_snap(Some(Left), Snap::Up), Some(Fill));
-        assert_eq!(after_snap(Some(Fill), Snap::Down), None);
-        assert_eq!(after_snap(Some(Maximized), Snap::Down), None);
-        assert_eq!(after_snap(Some(Left), Snap::Down), None);
-        assert_eq!(after_snap(None, Snap::Left), Some(Left));
-        assert_eq!(after_snap(Some(Maximized), Snap::Left), Some(Left));
-        assert_eq!(
-            after_snap(Some(Right), Snap::Left),
-            None,
-            "back from the other half"
-        );
-        assert_eq!(after_snap(Some(Left), Snap::Right), None);
-        assert_eq!(after_snap(Some(Left), Snap::Left), Some(Left));
     }
 
     #[test]

@@ -1,9 +1,10 @@
 //! The client side of the compositor's tiling on the session bus
-//! (ADR-0049): `com.sectorflabs.Patina.Tiling`. Anyone may list and place
-//! windows and watch drags; a tiler `claim`s the Tiler name, and from then
-//! on the compositor leaves the decisions to it: it reports drags and
-//! Super+arrows, and places windows where it's told, until the tiler leaves
-//! the bus. `examples/thirds.rs` is a whole tiler.
+//! (ADR-0049, ADR-0053): `com.sectorflabs.Patina.Tiling`. Anyone may list
+//! and place windows and watch drags. The compositor decides nothing: it
+//! reports drags and Super+arrows, and places windows where it's told.
+//! patina-tiler decides, holding the Tiler name with `claim_default`; a
+//! tiler that `claim`s it takes over until it leaves the bus, and then
+//! patina-tiler decides again. `examples/thirds.rs` is a whole tiler.
 
 use zbus::blocking::{Connection, Proxy};
 
@@ -21,8 +22,8 @@ pub struct Window {
     pub id: u64,
     pub app_id: String,
     pub title: String,
-    /// "", "maximized" (by the app), "fill", "left", "right", or "rect"
-    /// (placed by a tiler).
+    /// "", "maximized" (by the app), "fill" (all of the work area) or
+    /// "rect" (placed by a tiler).
     pub placement: String,
     pub rect: Rect,
 }
@@ -77,6 +78,12 @@ impl<'a> Tiling<'a> {
         self.proxy.call("Gap", &())
     }
 
+    /// The whole screen, bar and all, for where the pointer meets its
+    /// edges.
+    pub fn screen(&self) -> zbus::Result<Rect> {
+        self.proxy.call("Screen", &())
+    }
+
     /// Tiles window `id` at `rect`; all of the work area fills it, tiled,
     /// not maximised.
     pub fn place(&self, id: u64, (x, y, w, h): Rect) -> zbus::Result<()> {
@@ -128,6 +135,29 @@ fn event(message: &zbus::Message) -> Option<Event> {
     })
 }
 
+/// Makes the caller the default tiler: it decides now, or as soon as the
+/// name is free, and gives way to a tiler that `claim`s it, deciding
+/// again once that one leaves. Ask `deciding` before acting.
+pub fn claim_default(bus: &Connection) -> zbus::Result<()> {
+    use zbus::fdo::RequestNameFlags;
+    bus.request_name_with_flags(TILER, RequestNameFlags::AllowReplacement.into())?;
+    Ok(())
+}
+
+/// Whether the caller owns the Tiler name now.
+pub fn deciding(bus: &Connection) -> bool {
+    let Ok(dbus) = zbus::blocking::fdo::DBusProxy::new(bus) else {
+        return false;
+    };
+    let Ok(name) = zbus::names::BusName::try_from(TILER) else {
+        return false;
+    };
+    match (dbus.get_name_owner(name), bus.unique_name()) {
+        (Ok(owner), Some(me)) => owner.as_str() == me.as_str(),
+        _ => false,
+    }
+}
+
 /// Makes the caller the tiler, taking over from one already deciding.
 /// It decides until its connection closes.
 pub fn claim(bus: &Connection) -> zbus::Result<()> {
@@ -138,5 +168,32 @@ pub fn claim(bus: &Connection) -> zbus::Result<()> {
         _ => Err(zbus::Error::Failure(
             "another tiler holds the name and won't let go".into(),
         )),
+    }
+}
+
+/// On a bus of its own: `dbus-run-session -- cargo test -p patina-system
+/// tiling -- --ignored`.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[ignore = "needs a session bus of its own"]
+    fn another_tiler_takes_over_and_the_default_comes_back() {
+        let default = Connection::session().unwrap();
+        claim_default(&default).unwrap();
+        assert!(deciding(&default));
+
+        let other = Connection::session().unwrap();
+        claim(&other).unwrap();
+        assert!(deciding(&other));
+        assert!(!deciding(&default), "the default gave way");
+
+        drop(other);
+        let back = std::time::Instant::now();
+        while !deciding(&default) {
+            assert!(back.elapsed().as_secs() < 5, "the default never came back");
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
     }
 }

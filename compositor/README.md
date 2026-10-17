@@ -10,15 +10,12 @@ this workspace is a Wayland client of it.
 - **Windows float** (ADR-0007): each is placed once, cascading in the area the bar leaves free; a
   click focuses and raises it. Super+drag moves any window; a client's own header bar moves and
   resizes it.
-- **Placing windows from the keyboard** (ADR-0014, ADR-0023): Super+Up/Down fill the
-  screen and restore, Super+Left/Right tile half-screen, Super+Shift+arrows grow and shrink, dragging a
-  placed window restores it under the pointer. Filling is tiling, not maximising: only an app's
-  own maximise button maximises (ADR-0052).
-- **Tiling by dragging, as on Ubuntu** (ADR-0049): a window dragged to the left or right edge
-  fills that half, to the top the screen, with a preview first. Any app can take the decisions
-  over: while it owns `com.sectorflabs.Patina.Tiler` on the session bus, the compositor reports
-  drags and Super+arrows and places windows where told (`patina_system::tiling`; `cargo run -p
-  patina-system --example thirds` tiles in thirds).
+- **Tiling's mechanism, not its policy** (ADR-0049, ADR-0053): the compositor reports drags and
+  Super+arrows on the session bus and places windows and shows the preview where it's told;
+  patina-tiler, which it starts and keeps running, decides (or a tiler that takes the
+  `com.sectorflabs.Patina.Tiler` name from it). Dragging a placed window restores it under the
+  pointer; Super+Shift+arrows grow and shrink it here. Only an app's own maximise button
+  maximises (ADR-0052).
 - **Moving between windows** follows the bar's tabs (ADR-0027): Alt+Tab steps along them,
   Super+1–9 picks one, closing a window focuses its neighbouring tab. Super+W closes a window,
   Super+Q quits the app.
@@ -50,14 +47,14 @@ this workspace is a Wayland client of it.
   (`nested.rs`, `PATINA_RENDERER=pixman`, ADR-0008). Or on the hardware, as the login session or
   from a text console: DRM/KMS, GBM, GLES, libinput, and devices from logind through libseat
   (`udev.rs`, ADR-0016). Which one is decided by whether `WAYLAND_DISPLAY` is set when it starts.
-- **It starts the desktop.** At start-up it runs Xwayland (when installed), `patina-wallpaper`
-  and `patina-bar`, then any commands given on its command line. Its own keys run
+- **It starts the desktop.** At start-up it runs Xwayland (when installed), `patina-wallpaper`,
+  `patina-bar` and `patina-tiler`, then any commands given on its command line. Its own keys run
   `patina-launcher`, `patina-menu --at X,Y`, `patina-lock` and `patina-volume
   --flash`/`--brightness` (all configurable). Clients get `WAYLAND_DISPLAY`, `DISPLAY`
   (Xwayland's), `XDG_CURRENT_DESKTOP=Patina`, and a `PATH` with the compositor's own folder
   first, so the pieces built beside it are found before installed copies (`clients.rs`).
-- **It keeps what it starts** (`processes.rs`, ADR-0045). The wallpaper and the bar are started
-  again when they exit, until one exits five times in thirty seconds. Every child's output is
+- **It keeps what it starts** (`processes.rs`, ADR-0045). The wallpaper, the bar and the tiler are
+  started again when they exit, until one exits five times in thirty seconds. Every child's output is
   kept (its last 500 lines) and copied to the compositor's stderr with the child's name in front.
   The list is served as `com.sectorflabs.Patina.Processes` on the session bus, nested too, for
   Settings' Processes page to restart, stop and read them. `dbus-run-session -- cargo test -p

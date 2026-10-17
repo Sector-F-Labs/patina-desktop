@@ -1,0 +1,80 @@
+.Dd October 17, 2026
+.Dt PATINA-TILER 1
+.Os
+.Sh NAME
+.Nm patina-tiler
+.Nd the Patina desktop's tiler
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+decides how windows tile on the Patina desktop.
+.Xr patina-compositor 1
+starts it with the bar and starts it again when it exits, so changing how
+windows tile only means installing a new
+.Nm
+and restarting it from Settings' Processes page; the desktop and its
+windows stay.
+.Pp
+The compositor decides nothing itself: over the session bus it reports
+drags and Super with an arrow, and places windows and shows the preview
+where it's told.
+.Nm
+does as Ubuntu does:
+.Bl -bullet
+.It
+A window dragged so the pointer meets the left or right edge of the screen
+shows a preview of that half, and dropped there, it takes it.
+.It
+At the top edge, the window fills the screen: tiled on every side, not
+maximised.
+The sides win in the top corners.
+.It
+Super+Left and Super+Right tile the focused window to that half, or restore
+it from the other half; Super+Up fills the screen with it, and Super+Down
+restores it.
+.It
+With gaps on (the compositor's
+.Ic [gaps] ) ,
+the gap goes around the windows and between the halves.
+When the work area changes, the halves it tiled are tiled again to fit.
+.El
+.Pp
+Only an app's own maximise button maximises a window; that's the
+compositor's, not the tiler's.
+X11 windows aren't tiled yet.
+.Pp
+.Nm
+holds the bus name
+.Sy com.sectorflabs.Patina.Tiler
+so another tiler can take it over; while one does,
+.Nm
+leaves the decisions to it, and decides again once it leaves the bus.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print usage and exit.
+.It Fl V , -version
+Print the version and exit.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev DBUS_SESSION_BUS_ADDRESS
+The session bus, where the compositor serves
+.Sy com.sectorflabs.Patina.Tiling .
+Without it,
+.Nm
+exits, and windows don't tile.
+.El
+.Sh EXIT STATUS
+.Ex -std
+It runs until the compositor leaves the bus.
+.Sh EXAMPLES
+A tiler of thirds, which takes over while it runs:
+.Dl cargo run -p patina-system --example thirds
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-settings 1 ,
+.Xr patina-desktop 7

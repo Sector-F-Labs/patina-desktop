@@ -90,10 +90,11 @@ mechanics of adding one.
 | [0046](0046-patina-session-restarts-the-compositor.md) | patina-session runs the compositor, and starts it again when it restarts or crashes | Accepted |
 | [0047](0047-the-screen-turns-off-without-input.md) | The screen turns off after a while without input, unless something is playing | Accepted |
 | [0048](0048-a-power-menu-on-the-bar.md) | A power menu at the bar's right end: lock, log out, restart and shut down | Accepted |
-| [0049](0049-tiling-by-dragging-decided-over-d-bus.md) | Tiling by dragging, as on Ubuntu, with the decisions open to any app over D-Bus | Proposed |
+| [0049](0049-tiling-by-dragging-decided-over-d-bus.md) | Tiling by dragging, as on Ubuntu, with the decisions open to any app over D-Bus | Proposed; partly superseded by [0053](0053-tiling-decided-by-patina-tiler.md) |
 | [0050](0050-window-tabs-show-app-icons.md) | The bar's window tabs show app icons, and Settings has a Bar page | Proposed |
 | [0051](0051-gaps.md) | Gaps around tiled windows and a floating bar | Proposed |
 | [0052](0052-only-the-app-maximises.md) | Only the app's maximise button maximises; tiling up fills | Proposed |
+| [0053](0053-tiling-decided-by-patina-tiler.md) | Tiling is decided by patina-tiler, a process the compositor keeps running | Accepted |
 
 ## Decision Relationship
 

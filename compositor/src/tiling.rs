@@ -1,14 +1,12 @@
-//! Tiling by dragging, as on Ubuntu, with the decisions open to other apps
-//! (ADR-0049). Dragging a window against the left or right edge of the
-//! screen shows where it would go, and letting go there tiles it to that
-//! half; against the top, it's maximised.
+//! Tiling's mechanism (ADR-0049, ADR-0053): the compositor reports what
+//! the pointer and keys do, and places windows and shows the preview where
+//! it's told. The decisions are another process's: patina-tiler, which the
+//! compositor starts and keeps running like the bar, or any app that takes
+//! the Tiler name from it.
 //!
 //! `dbus.rs` serves `com.sectorflabs.Patina.Tiling`: it tells the bus about
 //! every drag and Super+arrow, and lets a caller list and place windows and
-//! show the preview. While an app owns `com.sectorflabs.Patina.Tiler`, that
-//! app decides: the compositor only reports what the pointer and keys do,
-//! and places windows where it's told. With no tiler, the compositor's own
-//! policy here decides, so tiling never waits on another process.
+//! show the preview.
 
 pub mod dbus;
 
@@ -28,22 +26,16 @@ use crate::maximize::{Placement, Snap, placement};
 use crate::state::State;
 use dbus::{Event, Rect, Request, WindowRow};
 
-/// How near the screen's edge, in logical pixels, the pointer must be for
-/// a drop to tile.
-const EDGE: f64 = 4.0;
-
 /// The preview's colour: a translucent blue, premultiplied.
 const PREVIEW: [f32; 4] = [0.35 * 0.3, 0.55 * 0.3, 0.9 * 0.3, 0.3];
 
 #[derive(Default)]
 pub struct Tiling {
     service: Option<dbus::Service>,
-    /// An app owns the Tiler name, and decides.
-    delegated: bool,
+    /// A tiler owns the Tiler name.
+    tiler: bool,
     /// Where a drop would put the window, shown over the desktop.
     preview: Option<(Rectangle<i32, Logical>, SolidColorBuffer)>,
-    /// Where the compositor itself would put the window being dragged.
-    zone: Option<Placement>,
     /// The work area tilers were last told of.
     announced: Option<Rectangle<i32, Logical>>,
 }
@@ -55,12 +47,8 @@ impl Tiling {
         }
     }
 
-    /// Tells the tiler, if there is one, of Super with an arrow on
-    /// `window`, and says whether it did; the compositor snaps otherwise.
-    pub fn delegate_snap(&self, window: &Window, snap: Snap) -> bool {
-        if !self.delegated {
-            return false;
-        }
+    /// Tells the tiler of Super with an arrow on `window`.
+    pub fn snap_requested(&self, window: &Window, snap: Snap) {
         let direction = match snap {
             Snap::Up => "up",
             Snap::Down => "down",
@@ -68,7 +56,6 @@ impl Tiling {
             Snap::Right => "right",
         };
         self.emit(Event::Snap(id(window), direction));
-        true
     }
 }
 
@@ -81,23 +68,6 @@ pub fn id(window: &Window) -> u64 {
         .user_data()
         .insert_if_missing(|| Id(NEXT.fetch_add(1, Ordering::Relaxed)));
     window.user_data().get::<Id>().expect("inserted above").0
-}
-
-/// Where the compositor tiles a window dropped with the pointer at
-/// `pointer` on `screen`: the left or right half at those edges, the whole
-/// tiling area at the top (filled, not maximised). The sides win in the top corners.
-pub fn zone(pointer: Point<f64, Logical>, screen: Rectangle<i32, Logical>) -> Option<Placement> {
-    let (left, top) = (screen.loc.x as f64, screen.loc.y as f64);
-    let right = left + screen.size.w as f64;
-    if pointer.x < left + EDGE {
-        Some(Placement::Left)
-    } else if pointer.x >= right - EDGE {
-        Some(Placement::Right)
-    } else if pointer.y < top + EDGE {
-        Some(Placement::Fill)
-    } else {
-        None
-    }
 }
 
 fn rect(r: Rectangle<i32, Logical>) -> Rect {
@@ -114,8 +84,6 @@ fn placement_name(p: Option<Placement>) -> &'static str {
         None => "",
         Some(Placement::Maximized) => "maximized",
         Some(Placement::Fill) => "fill",
-        Some(Placement::Left) => "left",
-        Some(Placement::Right) => "right",
         Some(Placement::Rect(_)) => "rect",
     }
 }
@@ -152,7 +120,6 @@ impl State {
 
     /// A window started moving with the pointer.
     pub fn drag_started(&mut self, window: &Window) {
-        self.tiling.zone = None;
         self.tiling.emit(Event::DragStarted(id(window)));
     }
 
@@ -160,28 +127,14 @@ impl State {
     pub fn drag_moved(&mut self, window: &Window, pointer: Point<f64, Logical>) {
         self.tiling
             .emit(Event::DragMotion(id(window), pointer.x, pointer.y));
-        // X11 windows can't be tiled yet.
-        if self.tiling.delegated || window.toplevel().is_none() {
-            return;
-        }
-        let zone = zone(pointer, self.screen());
-        if zone != self.tiling.zone {
-            self.tiling.zone = zone;
-            self.show_preview(zone.map(|p| self.placed_rect(p)));
-        }
     }
 
-    /// `window` was let go of with the pointer at `pointer`: it's tiled if
-    /// the compositor decides and it was dropped at an edge.
+    /// `window` was let go of with the pointer at `pointer`; the tiler
+    /// places it if it was dropped somewhere that tiles.
     pub fn drag_ended(&mut self, window: &Window, pointer: Point<f64, Logical>) {
         self.tiling
             .emit(Event::DragEnded(id(window), pointer.x, pointer.y));
         self.show_preview(None);
-        if let Some(placement) = self.tiling.zone.take()
-            && !self.tiling.delegated
-        {
-            self.place_as(window, placement);
-        }
     }
 
     /// Tells tilers the work area changed, if it did.
@@ -218,18 +171,18 @@ impl State {
     pub fn tiling_request(&mut self, request: Request) {
         match request {
             Request::Tiler(owned) => {
-                if owned != self.tiling.delegated {
+                if owned != self.tiling.tiler {
                     eprintln!(
                         "patina-compositor: {}",
                         if owned {
-                            "a tiler on D-Bus decides tiling"
+                            "a tiler decides tiling"
                         } else {
-                            "the compositor decides tiling"
+                            "no tiler: windows don't tile until one starts"
                         }
                     );
                 }
-                self.tiling.delegated = owned;
-                self.tiling.zone = None;
+                self.tiling.tiler = owned;
+                // A drag's preview is the tiler's; a new one shows its own.
                 self.show_preview(None);
             }
             Request::Windows(reply) => {
@@ -240,6 +193,9 @@ impl State {
             }
             Request::Gap(reply) => {
                 let _ = reply.send(self.config.gap());
+            }
+            Request::Screen(reply) => {
+                let _ = reply.send(rect(self.screen()));
             }
             Request::Place { id, area, reply } => {
                 let result = match self.window_by_id(id) {
@@ -284,32 +240,11 @@ impl State {
 mod tests {
     use super::*;
 
-    fn screen() -> Rectangle<i32, Logical> {
-        Rectangle::new((0, 0).into(), (1280, 800).into())
-    }
-
-    #[test]
-    fn the_edges_tile_as_on_ubuntu() {
-        assert_eq!(zone((0.0, 400.0).into(), screen()), Some(Placement::Left));
-        assert_eq!(
-            zone((1279.0, 400.0).into(), screen()),
-            Some(Placement::Right)
-        );
-        assert_eq!(zone((640.0, 0.0).into(), screen()), Some(Placement::Fill));
-        assert_eq!(zone((640.0, 400.0).into(), screen()), None);
-        assert_eq!(zone((10.0, 400.0).into(), screen()), None, "near isn't at");
-    }
-
-    #[test]
-    fn the_sides_win_in_the_top_corners() {
-        assert_eq!(zone((0.0, 0.0).into(), screen()), Some(Placement::Left));
-        assert_eq!(zone((1279.0, 0.0).into(), screen()), Some(Placement::Right));
-    }
-
     #[test]
     fn placements_have_names_on_the_bus() {
         assert_eq!(placement_name(None), "");
-        assert_eq!(placement_name(Some(Placement::Left)), "left");
-        assert_eq!(placement_name(Some(Placement::Rect(screen()))), "rect");
+        assert_eq!(placement_name(Some(Placement::Fill)), "fill");
+        let rect = Rectangle::new((0, 0).into(), (640, 800).into());
+        assert_eq!(placement_name(Some(Placement::Rect(rect))), "rect");
     }
 }
