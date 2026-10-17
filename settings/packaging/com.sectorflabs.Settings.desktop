@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Settings
+GenericName=Desktop Settings
+Comment=The Patina desktop's skin, bar, wallpaper, Night Light, power and processes
+Exec=patina-settings
+Icon=com.sectorflabs.Settings
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=preferences;appearance;skin;bar;wallpaper;night light;power;processes;
+OnlyShowIn=Patina;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.Settings

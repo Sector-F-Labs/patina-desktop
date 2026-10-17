@@ -2,6 +2,10 @@ VERSION := $(shell awk -F\" '/^version = / { print $$2; exit }' Cargo.toml)
 PREFIX ?= $(HOME)/.local
 # Under $(PREFIX)/share/man, man(1) finds the pages through PATH's bin folder.
 MANDIR ?= $(PREFIX)/share/man
+# Settings' launcher entry and icon (ADR-0062).
+APPSDIR := $(PREFIX)/share/applications
+ICONDIR := $(PREFIX)/share/icons/hicolor
+SETTINGS_ID := com.sectorflabs.Settings
 
 # grim inside the VM's dwl session, which bsdt runs headless.
 VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
@@ -43,17 +47,26 @@ BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-night-li
 # The launcher lives in its own repository (ADR-0037); install builds it from there.
 LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 
-install: build ## Install the binaries into $(PREFIX)/bin, and their man pages into $(MANDIR)
+install: build ## Install the binaries into $(PREFIX)/bin, their man pages into $(MANDIR), and Settings' launcher entry
 	install -d $(PREFIX)/bin $(MANDIR)/man1 $(MANDIR)/man7
 	install -m 755 $(addprefix target/release/,$(BINARIES)) $(PREFIX)/bin/
 	install -m 644 man/*.1 $(MANDIR)/man1/
 	install -m 644 man/*.7 $(MANDIR)/man7/
+	@# The entry's Exec gets the absolute path, so it works whatever PATH is.
+	install -Dm644 settings/packaging/settings.svg $(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg
+	install -d $(APPSDIR)
+	sed 's|^Exec=patina-settings|Exec=$(PREFIX)/bin/patina-settings|' settings/packaging/$(SETTINGS_ID).desktop > $(APPSDIR)/$(SETTINGS_ID).desktop
+	-update-desktop-database -q $(APPSDIR)
+	@# GTK trusts an icon cache over the folder, so refresh one if it exists.
+	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
 	cargo install --quiet --locked --force --git $(LAUNCHER) --root $(PREFIX) patina-launcher
 
 uninstall: ## Remove the installed binaries and man pages
 	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES))
 	rm -f $(addprefix $(MANDIR)/man1/,$(notdir $(wildcard man/*.1)))
 	rm -f $(addprefix $(MANDIR)/man7/,$(notdir $(wildcard man/*.7)))
+	rm -f $(APPSDIR)/$(SETTINGS_ID).desktop $(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg
+	-update-desktop-database -q $(APPSDIR)
 	-cargo uninstall --root $(PREFIX) patina-launcher
 
 # Login sessions and PAM services are only read from system folders, so

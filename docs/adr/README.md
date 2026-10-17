@@ -103,6 +103,7 @@ mechanics of adding one.
 | [0059](0059-wl-copy-and-focus-after-close.md) | Data-control for the clipboard, and focus back to where it came from | Accepted |
 | [0060](0060-patina-raise-matching.md) | patina-raise matches as written, with -i and -p, and by app names | Accepted |
 | [0061](0061-tabs-say-app-then-title.md) | The window tabs say the app's name, then the title | Accepted |
+| [0062](0062-settings-icon-and-entry.md) | Settings has an icon and a desktop entry | Accepted |
 
 ## Decision Relationship
 

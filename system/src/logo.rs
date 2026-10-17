@@ -33,6 +33,29 @@ pub fn rasterise(pixels: u32) -> Option<ColorImage> {
     ))
 }
 
+/// `svg` drawn `pixels` square, as straight (not premultiplied) RGBA, as a
+/// window icon wants: an app's icon, drawn from the same file it installs.
+pub fn render_svg(svg: &str, pixels: u32) -> Option<Vec<u8>> {
+    let tree = resvg::usvg::Tree::from_str(svg, &resvg::usvg::Options::default()).ok()?;
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(pixels, pixels)?;
+    let scale = pixels as f32 / tree.size().width().max(tree.size().height());
+    resvg::render(
+        &tree,
+        resvg::tiny_skia::Transform::from_scale(scale, scale),
+        &mut pixmap.as_mut(),
+    );
+    Some(
+        pixmap
+            .pixels()
+            .iter()
+            .flat_map(|p| {
+                let c = p.demultiply();
+                [c.red(), c.green(), c.blue(), c.alpha()]
+            })
+            .collect(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

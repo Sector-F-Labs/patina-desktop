@@ -85,6 +85,12 @@ and
 .Ic [screen] off_after
 and
 .Ic [lock] on_screen_off .
+.It Pa ~/.local/share/applications/com.sectorflabs.Settings.desktop
+Its launcher entry, so the launcher and the bar know it by name and icon,
+shown only on the Patina desktop;
+.Ql make install
+puts it there, with its icon in
+.Pa ~/.local/share/icons/hicolor/scalable/apps/ .
 .El
 .Sh SEE ALSO
 .Xr patina-compositor 1 ,

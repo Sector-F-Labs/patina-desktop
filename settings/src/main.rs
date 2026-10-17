@@ -47,6 +47,7 @@ fn main() -> ExitCode {
             egui::ViewportBuilder::default()
                 .with_title("Settings")
                 .with_app_id("com.sectorflabs.Settings")
+                .with_icon(window_icon())
                 .with_inner_size([860.0, 600.0])
                 .with_min_inner_size([560.0, 400.0]),
             true,
@@ -67,7 +68,53 @@ fn main() -> ExitCode {
     }
 }
 
+/// The window icon, drawn from the icon `make install` puts in the theme
+/// (`packaging/settings.svg`); on Wayland, the desktop entry's is shown.
+fn window_icon() -> egui::IconData {
+    const SIDE: u32 = 128;
+    let svg = include_str!("../packaging/settings.svg");
+    egui::IconData {
+        rgba: patina_system::logo::render_svg(svg, SIDE).unwrap_or_default(),
+        width: SIDE,
+        height: SIDE,
+    }
+}
+
 fn usage_error() -> ExitCode {
     eprintln!("{USAGE}");
     ExitCode::from(2)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_window_icon_is_drawn_from_the_svg() {
+        let icon = window_icon();
+        assert_eq!(icon.rgba.len(), 128 * 128 * 4);
+        // The gear's orange centre, opaque.
+        let at = |x: usize, y: usize| &icon.rgba[(y * 128 + x) * 4..][..4];
+        assert_eq!(at(92, 34)[3], 255);
+        assert!(at(92, 34)[0] > 200, "{:?}", at(92, 34));
+        // A corner, clear.
+        assert_eq!(at(1, 1)[3], 0);
+    }
+
+    /// Draws the icon as icon.png in PATINA_SETTINGS_PREVIEW:
+    /// `cargo test -p patina-settings preview_the_icon -- --ignored`.
+    #[test]
+    #[ignore = "writes a file"]
+    fn preview_the_icon() {
+        let dir = std::path::PathBuf::from(std::env::var("PATINA_SETTINGS_PREVIEW").unwrap());
+        let icon = window_icon();
+        image::save_buffer(
+            dir.join("icon.png"),
+            &icon.rgba,
+            icon.width,
+            icon.height,
+            image::ColorType::Rgba8,
+        )
+        .unwrap();
+    }
 }

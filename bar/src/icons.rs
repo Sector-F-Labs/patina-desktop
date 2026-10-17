@@ -137,6 +137,7 @@ fn installed_icons() {
         "teleprinter",
         "steam",
         "code",
+        "com.sectorflabs.Settings",
     ] {
         let image = find(&known, app_id, 36);
         println!(
