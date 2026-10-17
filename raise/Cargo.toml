@@ -1,0 +1,12 @@
+[package]
+name = "patina-raise"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "Focus an app's window, or start the app if none is open: for key bindings"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+patina-system = { path = "../system" }
+wayland-client = "0.31"
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }

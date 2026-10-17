@@ -2785,6 +2785,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-raise"
+version = "0.1.0"
+dependencies = [
+ "patina-system",
+ "wayland-client",
+ "wayland-protocols-wlr",
+]
+
+[[package]]
 name = "patina-session"
 version = "0.1.0"
 dependencies = [

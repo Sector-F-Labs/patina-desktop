@@ -119,6 +119,7 @@
 # Keys that run commands: modifiers (Super, Alt, Ctrl, Shift) and a key, by
 # its name ("T", "Return", "F5"). Writing a [bindings] section replaces these
 # defaults, so uncomment the header together with the bindings you keep.
+# patina-raise focuses the app's window, or starts the app if none is open.
 # [bindings]
 # "Alt+T" = "teleprinter"
-# "Alt+B" = "firefox"
+# "Alt+B" = "patina-raise firefox"

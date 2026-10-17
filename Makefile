@@ -39,7 +39,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-night-light patina-power patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
+BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-night-light patina-power patina-raise patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
 # The launcher lives in its own repository (ADR-0037); install builds it from there.
 LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 

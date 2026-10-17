@@ -110,6 +110,9 @@ puts them in `$(PREFIX)/share/man`.
   (tray icons), `logo.rs` (the flask and Ubuntu Mono).
 - `compositor/src/toplevels.rs` and patina-shell's `toplevels.rs`: wlr-foreign-toplevel-management,
   server and client, for the bar's `windows` tabs (ADR-0012).
+- `raise/`: patina-raise (ADR-0058), focus an app's window or start it, for key bindings (Alt+B
+  is `patina-raise firefox` by default): `choose.rs` decides, `main.rs` lists and activates
+  windows over wlr-foreign-toplevel with plain wayland-client; `--list` prints app ids.
 - `wifi/`: patina-wifi, the tray's Wi-Fi menu (ADR-0022), on `system/src/network.rs`.
 - `volume/`: patina-volume, the tray's volume menu, also flashed by the compositor after a
   volume key (`--flash`) or a brightness key (`--brightness`) (ADR-0021, ADR-0033).

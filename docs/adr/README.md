@@ -99,6 +99,7 @@ mechanics of adding one.
 | [0055](0055-new-window-from-a-tab.md) | A window's tab opens a new window of its app | Accepted |
 | [0056](0056-the-bars-menus-open-in-patina-menu.md) | The bar's menus open in patina-menu | Accepted |
 | [0057](0057-the-bars-tooltips-open-in-patina-menu.md) | The bar's tooltips open in patina-menu too | Accepted |
+| [0058](0058-patina-raise.md) | patina-raise: focus an app's window, or start it | Accepted |
 
 ## Decision Relationship
 
