@@ -9,7 +9,7 @@ use egui::{Sense, Ui, vec2};
 use patina_system::audio::Volume;
 
 /// Space around the icon inside its button, as the launcher's.
-const PADDING: f32 = 10.0;
+pub const PADDING: f32 = 10.0;
 
 /// The side of a square button in `ui`: as thick as the bar, across a row
 /// or a column, whatever room is left along it.
@@ -19,6 +19,52 @@ pub fn side(ui: &Ui) -> f32 {
     } else {
         ui.available_height()
     }
+}
+
+/// An app's status icon (ADR-0064): its image at the button's icon size
+/// on whole pixels, or its name's first letter while there's none; with
+/// `tip` on hover. The bar does what its clicks ask.
+pub fn status_item(
+    ui: &mut Ui,
+    texture: Option<egui::TextureId>,
+    name: &str,
+    tip: &str,
+) -> (egui::Rect, egui::Response) {
+    let side = side(ui);
+    let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
+    let v = ui.visuals();
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
+    }
+    let icon = (side - 2.0 * PADDING).round();
+    let corner = rect.center() - vec2(icon, icon) / 2.0;
+    let corner = egui::emath::GuiRounding::round_to_pixels(corner, ui.ctx().pixels_per_point());
+    let mark = egui::Rect::from_min_size(corner, vec2(icon, icon));
+    match texture {
+        Some(texture) => {
+            let uv = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+            ui.painter().image(texture, mark, uv, egui::Color32::WHITE);
+        }
+        None => {
+            let letter = name
+                .chars()
+                .next()
+                .map(|c| c.to_uppercase().to_string())
+                .unwrap_or_default();
+            ui.painter()
+                .rect_filled(mark, 4.0, v.widgets.inactive.bg_fill);
+            ui.painter().text(
+                mark.center(),
+                egui::Align2::CENTER_CENTER,
+                letter,
+                egui::TextStyle::Small.resolve(ui.style()),
+                v.text_color(),
+            );
+        }
+    }
+    crate::tooltip::hover(ui, &response, tip);
+    (rect, response)
 }
 
 /// The Wi-Fi icon; runs `command` when it's clicked. `signal` is `None`

@@ -17,7 +17,9 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   (`menu.rs`, ADR-0056): New Window, which runs the entry's `new-window` action, or its Exec
   (ADR-0055), and Close Window. Tooltips, the tabs' titles and the tray's, show in
   `patina-menu --tooltip` past the bar's edge too (`tooltip.rs`, ADR-0057); egui's own are off.
-- `tray`: Wi-Fi (opens patina-wifi), the speaker (opens patina-volume) and the battery
+- `tray`: apps' status icons first (ADR-0064): the bar is the system tray apps such as Steam
+  register with (`patina_system::sni`, StatusNotifierItem on the session bus); a click
+  activates the app, a right click opens its menu in patina-menu. Then Wi-Fi (opens patina-wifi), the speaker (opens patina-volume) and the battery
   (ADR-0021, ADR-0022, ADR-0024).
 - `clock`, and under dwl `tags`, `layout`, `title` and `appid`.
 - `power`: the power button after the clock, which opens patina-power: Lock, Log Out, Restart

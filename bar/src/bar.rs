@@ -78,6 +78,11 @@ pub struct Bar {
     pub wifi: Option<Option<u8>>,
     /// The battery, for the tray; `None` without one.
     pub battery: Option<patina_system::power::Battery>,
+    /// Apps' status icons (ADR-0064), and the tray that serves them.
+    pub tray_items: Vec<patina_system::sni::Item>,
+    pub tray: Option<patina_system::sni::Tray>,
+    /// Tray icons by name, by `icons::named_key`.
+    named_icons: RefCell<HashMap<String, Icon>>,
     skin: Skin,
     /// The open windows, from the compositor, in the order they opened.
     toplevels: Vec<Toplevel>,
@@ -115,6 +120,9 @@ impl Bar {
                 volume: None,
                 wifi: None,
                 battery: None,
+                tray_items: Vec::new(),
+                tray: None,
+                named_icons: RefCell::new(HashMap::new()),
                 skin,
                 toplevels: Vec::new(),
                 requests: RefCell::new(Vec::new()),
@@ -157,6 +165,112 @@ impl Bar {
             }
             crate::icons::Found::Name(app_id, name) => {
                 self.names.get_mut().insert(app_id, Some(name));
+            }
+            crate::icons::Found::Named(key, image) => {
+                let icon = match image {
+                    Some(image) => Icon::Found(Arc::new(image)),
+                    None => Icon::Missing,
+                };
+                self.named_icons.get_mut().insert(key, icon);
+            }
+        }
+    }
+
+    /// A tray item's icon as a texture `pixels` a side, once it's ready:
+    /// its own pixels, or its icon by name, asked of the icon thread.
+    fn tray_texture(
+        &self,
+        ctx: &egui::Context,
+        item: &patina_system::sni::Item,
+        pixels: u32,
+    ) -> Option<egui::TextureId> {
+        use patina_system::sni::Icon as TrayIcon;
+        use std::hash::{Hash, Hasher};
+        let (key, image) = match item.icon.as_ref()? {
+            TrayIcon::Pixels { size, rgba } => {
+                // Keyed by the pixels too, so a new icon is a new texture.
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                rgba.hash(&mut hasher);
+                let key = format!("tray:{}:{:x}", item.key, hasher.finish());
+                let image = egui::ColorImage::from_rgba_unmultiplied(
+                    [*size as usize, *size as usize],
+                    rgba,
+                );
+                (key, Arc::new(image))
+            }
+            TrayIcon::Named { name, theme_path } => {
+                let key = crate::icons::named_key(name, theme_path.as_deref());
+                let mut named = self.named_icons.borrow_mut();
+                match named.get(&key) {
+                    Some(Icon::Found(image)) => (format!("tray-named:{key}"), image.clone()),
+                    Some(_) => return None,
+                    None => {
+                        let ask = self.ask_app.as_ref()?;
+                        let question =
+                            crate::icons::Ask::Named(name.clone(), theme_path.clone(), pixels);
+                        if ask.send(question).is_ok() {
+                            named.insert(key, Icon::Asked);
+                        }
+                        return None;
+                    }
+                }
+            }
+        };
+        let id = egui::Id::new("patina-bar-icons");
+        let known = ctx.data(|d| d.get_temp::<Textures>(id)).unwrap_or_default();
+        if let Some(texture) = known.0.get(&key) {
+            return Some(texture.id());
+        }
+        let texture = ctx.load_texture(&key, (*image).clone(), egui::TextureOptions::LINEAR);
+        let texture_id = texture.id();
+        ctx.data_mut(|d| {
+            d.get_temp_mut_or_default::<Textures>(id)
+                .0
+                .insert(key, texture)
+        });
+        Some(texture_id)
+    }
+
+    /// The apps' status icons, before the bar's own (ADR-0064): a click
+    /// activates the app (or shows the menu of one that's only a menu), a
+    /// middle click is its secondary action, and a right click opens its
+    /// menu at the icon.
+    fn tray_items(&self, ui: &mut Ui) {
+        use patina_system::sni::Status;
+        let pixels = ((crate::tray::side(ui) - 2.0 * crate::tray::PADDING).round()
+            * ui.ctx().pixels_per_point())
+        .round() as u32;
+        for item in self
+            .tray_items
+            .iter()
+            .filter(|i| i.status != Status::Passive)
+        {
+            let name = if item.title.is_empty() {
+                &item.id
+            } else {
+                &item.title
+            };
+            let tip = if item.tooltip.is_empty() {
+                name
+            } else {
+                &item.tooltip
+            };
+            let texture = self.tray_texture(ui.ctx(), item, pixels.max(1));
+            let (rect, response) = crate::tray::status_item(ui, texture, name, tip);
+            let Some(tray) = self.tray.clone() else {
+                continue;
+            };
+            let at = self.popup(ui.ctx(), rect.center());
+            if response.clicked() {
+                if item.item_is_menu {
+                    open_tray_menu(&tray, &item.key, at);
+                } else {
+                    tray.activate(&item.key, at.x as i32, at.y as i32);
+                }
+            } else if response.middle_clicked() {
+                tray.secondary_activate(&item.key, at.x as i32, at.y as i32);
+            } else if response.secondary_clicked() {
+                open_tray_menu(&tray, &item.key, at);
             }
         }
     }
@@ -256,6 +370,7 @@ impl Bar {
                 // The tray's own spacing, tighter than between modules.
                 ui.scope(|ui| {
                     ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                    self.tray_items(ui);
                     crate::tray::wifi(ui, self.wifi, &self.config.wifi, &self.skin.name, &opening);
                     crate::tray::speaker(
                         ui,
@@ -535,6 +650,21 @@ impl Bar {
             }
         });
     }
+}
+
+/// Opens tray item `key`'s menu at `at`, in patina-menu; the chosen entry
+/// is clicked in the app. Reading the menu and waiting for the choice both
+/// happen off the bar's thread.
+fn open_tray_menu(tray: &patina_system::sni::Tray, key: &str, at: crate::split::Popup) {
+    let (clicker, key_for_click) = (tray.clone(), key.to_string());
+    tray.menu(key, at.x as i32, at.y as i32, move |entries| {
+        if entries.is_empty() {
+            return;
+        }
+        crate::menu::open_tray(crate::menu::tray_args(at, &entries), move |id| {
+            clicker.clicked(&key_for_click, id);
+        });
+    });
 }
 
 /// egui's own tooltips would be cut off at the bar's edge: they never
@@ -879,6 +1009,9 @@ mod tests {
             volume: None,
             wifi: None,
             battery: None,
+            tray_items: Vec::new(),
+            tray: None,
+            named_icons: RefCell::new(HashMap::new()),
             skin: Skin::default_skin(),
             toplevels: Vec::new(),
             requests: RefCell::new(Vec::new()),

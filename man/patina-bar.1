@@ -54,7 +54,17 @@ The icon is the one the app's
 .Pa .desktop
 entry names, found by the window's app id.
 .It Ic tray
-Wi-Fi, which opens
+Apps' status icons, such as Steam's: the bar is the system tray they
+register with
+.Pq Sy org.kde.StatusNotifierWatcher
+on the session bus, the StatusNotifierItem protocol libappindicator speaks.
+A click activates the app (or opens the menu of one that's only a menu), a
+middle click is its secondary action, and a right click opens its menu in
+.Xr patina-menu 1 ,
+submenus folded in as
+.Dq Parent \(Fo Item ;
+hovering shows its name.
+After them, Wi-Fi, which opens
 .Xr patina-wifi 1 ;
 the speaker, which opens
 .Xr patina-volume 1 ;

@@ -301,6 +301,27 @@ fn run(
             .map_err(|e| e.to_string())?;
     }
 
+    // Apps' status icons (ADR-0064): the bar is the tray they register
+    // with, wherever its tray is.
+    if uses_tray {
+        let (sent, items) = channel::channel::<Vec<patina_system::sni::Item>>();
+        let pixels = (host.shell.config.height.max(1) as f32 - 2.0 * tray::PADDING)
+            .round()
+            .max(8.0) as u32;
+        match patina_system::sni::start(pixels, move |list| sent.send(list).is_ok()) {
+            Ok(handle) => host.shell.tray = Some(handle),
+            Err(e) => eprintln!("patina-bar: no tray for apps' icons: {e}"),
+        }
+        handle
+            .insert_source(items, |event, _, host| {
+                if let Event::Msg(list) = event {
+                    host.shell.tray_items = list;
+                    host.redraw_all();
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
+
     // The tray's Wi-Fi icon follows the signal, read every few seconds.
     if uses_tray {
         let (signals, signal) = channel::channel::<Option<Option<u8>>>();

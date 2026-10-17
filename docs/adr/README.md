@@ -105,6 +105,7 @@ mechanics of adding one.
 | [0061](0061-tabs-say-app-then-title.md) | The window tabs say the app's name, then the title | Accepted |
 | [0062](0062-settings-icon-and-entry.md) | Settings has an icon and a desktop entry | Accepted |
 | [0063](0063-split-bar.md) | The bar can be split into its parts, placed anywhere along the edges | Accepted |
+| [0064](0064-system-tray.md) | The bar is the system tray, by StatusNotifierItem | Accepted |
 
 ## Decision Relationship
 

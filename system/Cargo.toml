@@ -11,9 +11,9 @@ name = "patina_system"
 [dependencies]
 egui = "0.35"
 freedesktop-desktop-entry = { version = "0.8", default-features = false }
+image = { version = "0.25", default-features = false, features = ["png"] }
 resvg = { version = "0.48.1", default-features = false }
 zbus = "5"
 
 [dev-dependencies]
-image = { version = "0.25", default-features = false, features = ["png"] }
 patina-shell = { workspace = true }

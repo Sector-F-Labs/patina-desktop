@@ -19,4 +19,5 @@ pub mod power;
 pub mod power_profiles;
 pub mod processes;
 pub mod session;
+pub mod sni;
 pub mod tiling;

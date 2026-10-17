@@ -154,6 +154,11 @@ puts them in `$(PREFIX)/share/man`.
   --section`, `Spot`s in `config.rs`, `Placement::popup` for where things open on screen, passed
   to pieces as `PATINA_OPEN_AT` (patina-shell's `piece::opening`); patina-shell's
   `Shell::wanted_size` and `output_size` serve it.
+  The system tray (`system/src/sni.rs`, ADR-0064): the bar's tray process serves
+  `org.kde.StatusNotifierWatcher` and draws apps' StatusNotifierItems (`Bar::tray_items`); menus
+  are dbusmenu, opened in patina-menu (`menu::tray_args`). `cargo run -p patina-system --example
+  tray` prints what's registered; `dbus-run-session -- cargo test -p patina-system sni --
+  --ignored` tests it with a fake app.
 
 ## Principle
 

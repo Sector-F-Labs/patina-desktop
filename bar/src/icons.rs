@@ -64,6 +64,10 @@ pub fn installed(question: Ask) -> Found {
             let name = name(&known, &app_id);
             Found::Name(app_id, name)
         }
+        Ask::Named(name, folder, size) => {
+            let icon = named(&name, folder.as_deref(), size);
+            Found::Named(named_key(&name, folder.as_deref()), icon)
+        }
     }
 }
 
@@ -74,6 +78,9 @@ pub enum Ask {
     Icon(String, u32),
     /// What it's called.
     Name(String),
+    /// A tray item's icon by name, looked for in its own folder first
+    /// (an item's IconThemePath), this many pixels a side (ADR-0064).
+    Named(String, Option<String>, u32),
 }
 
 /// The answer: an app id's icon or name, if it has one.
@@ -81,6 +88,67 @@ pub enum Ask {
 pub enum Found {
     Icon(String, Option<ColorImage>),
     Name(String, Option<String>),
+    /// A tray icon, by `named_key`.
+    Named(String, Option<ColorImage>),
+}
+
+/// The key a tray icon by name is found under.
+pub fn named_key(name: &str, folder: Option<&str>) -> String {
+    format!("{name}|{}", folder.unwrap_or(""))
+}
+
+/// The file for icon `name` in an app's own icon folder: `name.svg` or
+/// `name.png` there, or in an icon theme's tree under it, the SVG or the
+/// biggest PNG.
+fn in_folder(folder: &Path, name: &str) -> Option<std::path::PathBuf> {
+    fn walk(dir: &Path, name: &str, depth: u32, found: &mut Vec<std::path::PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() && depth > 0 {
+                walk(&path, name, depth - 1, found);
+            } else if path.file_stem().is_some_and(|s| s == name)
+                && path.extension().is_some_and(|e| e == "svg" || e == "png")
+            {
+                found.push(path);
+            }
+        }
+    }
+    let mut found = Vec::new();
+    walk(folder, name, 4, &mut found);
+    // An SVG, else the PNG in the biggest size's folder ("48x48").
+    let size = |p: &std::path::PathBuf| {
+        p.components()
+            .filter_map(|c| {
+                c.as_os_str()
+                    .to_str()?
+                    .split('x')
+                    .next()?
+                    .parse::<u32>()
+                    .ok()
+            })
+            .max()
+            .unwrap_or(0)
+    };
+    found
+        .iter()
+        .find(|p| p.extension().is_some_and(|e| e == "svg"))
+        .cloned()
+        .or_else(|| found.iter().max_by_key(|p| size(p)).cloned())
+}
+
+/// A tray icon by name, `size` pixels: from its folder, else the theme.
+fn named(name: &str, folder: Option<&str>, size: u32) -> Option<ColorImage> {
+    if let Some(file) = folder.and_then(|f| in_folder(Path::new(f), name)) {
+        let rgba = patina_apps::icon::render(&file, size)?;
+        return Some(ColorImage::from_rgba_premultiplied(
+            [size as usize, size as usize],
+            &rgba,
+        ));
+    }
+    load(name, size)
 }
 
 /// The name of `app_id`'s app, from its entry.
@@ -101,12 +169,17 @@ pub fn spawn(send: impl Fn(Found) -> bool + Send + 'static) -> mpsc::Sender<Ask>
             let mut known = entries();
             for question in asked {
                 let app_id = match &question {
-                    Ask::Icon(app_id, _) | Ask::Name(app_id) => app_id,
+                    Ask::Icon(app_id, _) | Ask::Name(app_id) => Some(app_id),
+                    Ask::Named(..) => None,
                 };
-                if entry_for(&known, app_id).is_none() {
+                if app_id.is_some_and(|a| entry_for(&known, a).is_none()) {
                     known = entries();
                 }
                 let found = match question {
+                    Ask::Named(name, folder, size) => {
+                        let icon = named(&name, folder.as_deref(), size);
+                        Found::Named(named_key(&name, folder.as_deref()), icon)
+                    }
                     Ask::Icon(app_id, size) => {
                         let icon = find(&known, &app_id, size);
                         Found::Icon(app_id, icon)
@@ -150,4 +223,17 @@ fn installed_icons() {
             image.map(|i| i.size)
         );
     }
+}
+
+/// What this machine finds for Steam's tray icon:
+/// `cargo test -p patina-bar steams_tray_icon -- --ignored --nocapture`.
+#[cfg(test)]
+#[test]
+#[ignore = "reads the installed Steam"]
+fn steams_tray_icon() {
+    let folder = dirs::home_dir().unwrap().join(".local/share/Steam/public");
+    let file = in_folder(&folder, "steam_tray_mono");
+    println!("{file:?}");
+    let image = named("steam_tray_mono", folder.to_str(), 21);
+    println!("{:?}", image.map(|i| i.size));
 }

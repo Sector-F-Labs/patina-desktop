@@ -50,6 +50,89 @@ pub fn choice(output: &str) -> Option<Choice> {
         .map(|(choice, ..)| *choice)
 }
 
+/// Runs patina-menu with `args` and returns what it printed: the chosen
+/// item's ID, or nothing. Blocks until the menu closes.
+fn run_menu(args: &[String]) -> String {
+    let child = Command::new("patina-menu")
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .spawn();
+    let mut child = match child {
+        Ok(child) => child,
+        Err(e) => {
+            eprintln!("patina-bar: can't open patina-menu: {e}");
+            return String::new();
+        }
+    };
+    let mut line = String::new();
+    if let Some(out) = child.stdout.take() {
+        let _ = std::io::BufReader::new(out).read_line(&mut line);
+    }
+    let _ = child.wait();
+    line.trim().to_string()
+}
+
+/// patina-menu's arguments for a tray item's menu (ADR-0064), opening at
+/// `at`: its entries in order, a submenu's after its name ("Friends ›
+/// Online"), ticks shown, and the ones that can't be chosen left out, as
+/// patina-menu can't grey them.
+pub fn tray_args(
+    at: crate::split::Popup,
+    entries: &[patina_system::sni::MenuEntry],
+) -> Vec<String> {
+    use patina_system::sni::MenuEntry;
+    fn add(entries: &[MenuEntry], prefix: &str, args: &mut Vec<String>) {
+        for entry in entries {
+            match entry {
+                MenuEntry::Separator => {
+                    // Not twice, nor first.
+                    if args.last().is_some_and(|a| a != "--separator") && args.len() > 4 {
+                        args.push("--separator".into());
+                    }
+                }
+                MenuEntry::Entry { enabled: false, .. } => {}
+                MenuEntry::Entry {
+                    label, children, ..
+                } if !children.is_empty() => {
+                    add(children, &format!("{prefix}{label} › "), args);
+                }
+                MenuEntry::Entry {
+                    id, label, checked, ..
+                } => {
+                    let tick = match checked {
+                        Some(true) => "✔ ",
+                        _ => "",
+                    };
+                    args.push("--item".into());
+                    args.push(format!("{id}={tick}{prefix}{label}"));
+                }
+            }
+        }
+    }
+    let mut args = vec![
+        "--at".to_string(),
+        format!("{:.0},{:.0}", at.x, at.y),
+        "--edge".into(),
+        at.edge.into(),
+    ];
+    add(entries, "", &mut args);
+    if args.last().is_some_and(|a| a == "--separator") {
+        args.pop();
+    }
+    args
+}
+
+/// Opens a tray item's menu with `args` on a thread, and gives the chosen
+/// entry's ID to `chosen`.
+pub fn open_tray(args: Vec<String>, chosen: impl FnOnce(i32) + Send + 'static) {
+    std::thread::spawn(move || {
+        if let Ok(id) = run_menu(&args).parse::<i32>() {
+            chosen(id);
+        }
+    });
+}
+
 /// Opens the menu with `args` on a thread, and passes on what's chosen.
 /// patina-menu is found on PATH, where the compositor puts its own folder
 /// first.
@@ -60,24 +143,7 @@ pub fn open(
     send: impl Fn(Chosen) + Send + 'static,
 ) {
     std::thread::spawn(move || {
-        let child = Command::new("patina-menu")
-            .args(&args)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .spawn();
-        let mut child = match child {
-            Ok(child) => child,
-            Err(e) => {
-                eprintln!("patina-bar: can't open patina-menu: {e}");
-                return;
-            }
-        };
-        let mut line = String::new();
-        if let Some(out) = child.stdout.take() {
-            let _ = std::io::BufReader::new(out).read_line(&mut line);
-        }
-        let _ = child.wait();
-        if let Some(choice) = choice(&line) {
+        if let Some(choice) = choice(&run_menu(&args)) {
             send(Chosen {
                 window,
                 app_id,
