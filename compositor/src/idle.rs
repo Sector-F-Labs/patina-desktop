@@ -107,10 +107,12 @@ impl State {
             "patina-compositor: no input for {}s; turning the screen off",
             self.config.screen.off_after
         );
-        if self.config.lock.on_screen_off {
+        self.idle.off = true;
+        // Nested, the parent desktop has the screen (and its own lock), so
+        // it's only logged; locking there would lock the window for nothing.
+        if self.udev.is_some() && self.config.lock.on_screen_off {
             self.lock_screen();
         }
-        self.idle.off = true;
         if let Some(u) = self.udev.as_mut() {
             u.power_off();
         }

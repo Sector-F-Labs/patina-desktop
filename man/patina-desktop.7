@@ -29,6 +29,9 @@ The desktop's menu, on a right click on the empty desktop.
 The volume menu, which also flashes up after a volume or brightness key.
 .It Xr patina-wifi 1
 The Wi-Fi menu.
+.It Xr patina-power 1
+The power menu, after the bar's clock: Lock, Log Out, Restart and Shut
+Down.
 .It Xr patina-lock 1
 The lock screen.
 .It Xr patina-settings 1
@@ -117,8 +120,9 @@ to end the session and return to the login screen.
 .Ql pkill patina-compositor
 only restarts the desktop.
 .It Leaving
+Log Out in the power menu, after the bar's clock.
 .Sy Ctrl+Alt+Backspace
-quits the compositor and ends the session, whatever state it's in.
+also quits the compositor and ends the session, whatever state it's in.
 .El
 .Pp
 The pieces' output is in the session's log:
@@ -132,6 +136,7 @@ The Processes page shows the last 500 lines of each.
 .Xr patina-lock 1 ,
 .Xr patina-menu 1 ,
 .Xr patina-night-light 1 ,
+.Xr patina-power 1 ,
 .Xr patina-session 1 ,
 .Xr patina-settings 1 ,
 .Xr patina-volume 1 ,

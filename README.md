@@ -23,6 +23,8 @@ A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
 - **[patina-wifi](wifi/README.md)** (`wifi/`): the Wi-Fi menu, opened by the bar's Wi-Fi icon: networks in range,
   joining (with a password box for new ones), disconnecting and Wi-Fi on and off, through
   NetworkManager.
+- **[patina-power](power/README.md)** (`power/`): the power menu, opened by the button after the
+  bar's clock: Lock, Log Out, Restart and Shut Down, each but Lock asking first.
 - **[patina-lock](lock/README.md)** (`lock/`): the lock screen, in the bar's skin: the time, and a password box
   checked through PAM. The compositor runs it on Ctrl+Super+Q, Super+Escape and before sleep.
 - **[patina-menu](menu/README.md)** (`menu/`): the desktop's menu, opened by a right click on the desktop. It's the

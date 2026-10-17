@@ -192,7 +192,8 @@ any ext-session-lock locker;
 .Ic on_suspend ,
 whether to lock before the machine sleeps; and
 .Ic on_screen_off ,
-whether to lock when the screen turns off, as it does by default.
+whether to lock when the screen turns off, as it does by default, on the
+hardware.
 .It Ic [screen]
 .Ic off_after :
 seconds without input before the screen turns off; 300 by default, 0
@@ -260,6 +261,11 @@ and for
 and
 .Xr patina-menu 1 ,
 which start what they open through Spawn.
+.It com.sectorflabs.Patina.Session
+Lock, which runs the
+.Ic [lock] command ,
+and LogOut, which quits cleanly; for
+.Xr patina-power 1 .
 .It com.sectorflabs.Patina.NightLight
 Night Light's state, overrides and inhibitors, on the hardware; see
 .Xr patina-night-light 1 .

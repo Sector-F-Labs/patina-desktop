@@ -123,6 +123,13 @@ impl Bar {
             "clock" => {
                 ui.label(clock(&self.config.clock));
             }
+            "power" => {
+                let edge = match self.config.position {
+                    Position::Top => "top",
+                    Position::Bottom => "bottom",
+                };
+                crate::tray::power(ui, &self.config.power, &self.skin.name, edge);
+            }
             _ => {}
         }
     }

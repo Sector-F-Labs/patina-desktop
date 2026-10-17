@@ -73,7 +73,8 @@ this workspace is a Wayland client of it.
   session. It's reloaded within a second of being saved (ADR-0039), so patina-settings only
   writes it.
 - **On the session bus:** `org.freedesktop.ScreenSaver` (`idle/dbus.rs`), for apps holding the
-  screen on. On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
+  screen on; `com.sectorflabs.Patina.Session` (`session/dbus.rs`), Lock and LogOut for
+  patina-power (ADR-0048). On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
   Uninhibit, SetOverride, and its state as properties), for patina-settings,
   `patina-night-light` and apps that need true colour.
 - **Shares code with the shell pieces** through patina-system: the backlight (`backlight.rs`) for

@@ -1,0 +1,66 @@
+.Dd October 17, 2026
+.Dt PATINA-POWER 1
+.Os
+.Sh NAME
+.Nm patina-power
+.Nd the Patina desktop's power menu
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is the menu the power button at the bar's right end opens, after the
+clock:
+.Bl -tag -width "Shut Down"
+.It Lock
+Lock the screen at once, with the compositor's
+.Ic [lock] command .
+.It Log Out
+End the session: every app closes, and the login screen comes back.
+.It Restart
+Restart the computer.
+.It Shut Down
+Turn the computer off.
+.El
+.Pp
+The last three ask first, in the menu.
+What can't be done here is greyed out: Log Out outside a Patina session,
+and Restart and Shut Down where the login manager won't allow them.
+Escape takes a question back, then closes the menu; so does a click
+elsewhere, or running
+.Nm
+again.
+.Pp
+Locking and logging out are asked of
+.Xr patina-compositor 1
+on the session bus; where it can't be asked, Lock runs
+.Xr patina-lock 1
+itself.
+Restarting and shutting down go through logind, or ConsoleKit2 where
+there's no logind, which may ask polkit; if they refuse, the menu says
+why.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN
+The skin to wear, as the bar sets it; otherwise the bar's config's.
+.It Ev PATINA_BAR_EDGE
+.Dq top
+or
+.Dq bottom :
+which edge to open from.
+.El
+.Sh SEE ALSO
+.Xr loginctl 1 ,
+.Xr patina-bar 1 ,
+.Xr patina-compositor 1 ,
+.Xr patina-lock 1 ,
+.Xr patina-session 1 ,
+.Xr patina-desktop 7

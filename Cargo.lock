@@ -2680,6 +2680,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-power"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "patina-shell",
+ "patina-system",
+ "patina-ui",
+]
+
+[[package]]
 name = "patina-session"
 version = "0.1.0"
 dependencies = [

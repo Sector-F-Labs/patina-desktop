@@ -2,7 +2,8 @@
 //! Wi-Fi menu (patina-wifi, ADR-0022); the speaker, showing the level and
 //! mute, opens the volume menu (patina-volume), which also flashes up when
 //! the volume keys are used (ADR-0021); the battery shows the charge
-//! (ADR-0024).
+//! (ADR-0024). The power button, after the clock, opens the power menu
+//! (patina-power, ADR-0048).
 
 use egui::{Sense, Ui, vec2};
 use patina_system::audio::Volume;
@@ -33,6 +34,29 @@ pub fn wifi(ui: &mut Ui, signal: Option<Option<u8>>, command: &str, skin: &str, 
         None => "Wi-Fi not connected".into(),
     };
     if response.on_hover_text(tip).clicked() {
+        crate::launcher::run(command, skin, edge);
+    }
+}
+
+/// The power button; runs `command`, the power menu, when it's clicked.
+pub fn power(ui: &mut Ui, command: &str, skin: &str, edge: &str) {
+    let side = ui.available_height();
+    let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
+    let v = ui.visuals();
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
+    }
+    let colour = if response.hovered() {
+        v.strong_text_color()
+    } else {
+        v.text_color()
+    };
+    patina_system::icons::power(ui.painter(), rect.shrink(PADDING), colour);
+    if response
+        .on_hover_text("Lock, log out, restart or shut down")
+        .clicked()
+    {
         crate::launcher::run(command, skin, edge);
     }
 }

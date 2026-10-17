@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 /// The modules a side of the bar can hold.
 pub const MODULES: &[&str] = &[
-    "launcher", "windows", "tray", "tags", "layout", "title", "appid", "clock",
+    "launcher", "windows", "tray", "tags", "layout", "title", "appid", "clock", "power",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -42,6 +42,8 @@ pub struct Config {
     pub volume: String,
     /// What the tray's Wi-Fi icon runs, through sh(1).
     pub wifi: String,
+    /// What the power button runs, through sh(1).
+    pub power: String,
     /// The desktop's wallpaper, an image file, drawn by patina-wallpaper
     /// (not the bar); "" for the skin's colour.
     pub wallpaper: String,
@@ -64,11 +66,12 @@ impl Default for Config {
                 "layout".into(),
             ],
             center: vec!["title".into()],
-            right: vec!["tray".into(), "clock".into()],
+            right: vec!["tray".into(), "clock".into(), "power".into()],
             clock: "%a %-d %b  %H:%M".into(),
             launcher: "patina-launcher".into(),
             volume: "patina-volume".into(),
             wifi: "patina-wifi".into(),
+            power: "patina-power".into(),
             wallpaper: String::new(),
         }
     }

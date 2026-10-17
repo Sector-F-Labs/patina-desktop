@@ -70,6 +70,30 @@ fn arc(centre: Pos2, radius: f32) -> Vec<Pos2> {
         .collect()
 }
 
+/// The power symbol in `rect`: a ring open at the top, and a bar down
+/// through the gap, for the bar's power menu (ADR-0048).
+pub fn power(painter: &Painter, rect: Rect, colour: Color32) {
+    let s = rect.height().min(rect.width());
+    let r = Rect::from_center_size(rect.center(), vec2(s, s));
+    let centre = pos2(r.center().x, r.top() + 0.55 * s);
+    let radius = s * 0.36;
+    let stroke = Stroke::new((s * 0.09).max(1.0), colour);
+    // Clockwise from the top right round to the top left, leaving a gap
+    // either side of straight up (-90 degrees, with y down).
+    let (from, to) = (-55f32.to_radians(), 235f32.to_radians());
+    let ring: Vec<Pos2> = (0..=24)
+        .map(|i| {
+            let a = from + (to - from) * i as f32 / 24.0;
+            centre + vec2(a.cos(), a.sin()) * radius
+        })
+        .collect();
+    painter.add(Shape::line(ring, stroke));
+    painter.line_segment(
+        [pos2(centre.x, r.top() + 0.08 * s), pos2(centre.x, centre.y)],
+        stroke,
+    );
+}
+
 /// A Wi-Fi fan in `rect`: a dot and three arcs, lit up to `strength`
 /// (0 to 100), the rest dimmed; with a slash when not connected (`None`).
 pub fn wifi(painter: &Painter, rect: Rect, strength: Option<u8>, colour: Color32) {

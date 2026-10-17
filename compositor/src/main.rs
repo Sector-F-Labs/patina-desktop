@@ -143,6 +143,9 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     // Nested too: the VM and `make run` are where the pieces are worked on.
     let _processes = processes::dbus::serve(&state.socket_name, &event_loop.handle())
         .inspect_err(|e| eprintln!("patina-compositor: the process list isn't on D-Bus: {e}"));
+    let _session = session::dbus::serve(&event_loop.handle()).inspect_err(|e| {
+        eprintln!("patina-compositor: locking and logging out aren't on D-Bus: {e}")
+    });
     // Before any client starts, so they all get DISPLAY.
     state.start_xwayland();
     // The wallpaper first, so it's there by the time the bar is.

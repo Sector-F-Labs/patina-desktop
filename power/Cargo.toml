@@ -1,0 +1,13 @@
+[package]
+name = "patina-power"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's power menu: lock, log out, restart and shut down"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+egui = "0.35"
+patina-shell = { workspace = true }
+patina-system = { path = "../system" }
+patina-ui = { workspace = true }

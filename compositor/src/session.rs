@@ -3,10 +3,15 @@
 //! `PATINA_SESSION`, its own process ID, which the compositor's clients
 //! don't inherit.
 //!
+//! `dbus.rs` serves locking and logging out to the bar's power menu
+//! (ADR-0048).
+//!
 //! A restart can't keep the lock screen's state, so while the screen is
 //! locked a marker in `XDG_RUNTIME_DIR` says it is. A compositor started
 //! under patina-session that finds one starts locked, so crashing it never
 //! opens the desktop.
+
+pub mod dbus;
 
 use std::path::PathBuf;
 
@@ -72,6 +77,14 @@ impl State {
         self.restart = true;
         self.loop_signal.stop();
         Ok(())
+    }
+
+    /// Ends the session: quits cleanly, so patina-session ends too and the
+    /// login screen comes back; nested, the window closes.
+    pub fn log_out(&mut self) {
+        eprintln!("patina-compositor: logging out");
+        self.restart = false;
+        self.loop_signal.stop();
     }
 
     /// At start-up: if the compositor before this one left the screen

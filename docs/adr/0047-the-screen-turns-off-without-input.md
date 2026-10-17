@@ -44,7 +44,8 @@ What was weighed:
 - **On the hardware,** `UdevData::power_off` clears the DRM compositor and nothing is drawn until
   `power_on`, at the next input, which also sets Night Light's gamma again. While it's off, a lock
   counts as on screen, so going to sleep isn't held back waiting for it to be drawn. Coming back
-  from another console counts as input. Nested, the timer runs and logs, and nothing else happens.
+  from another console counts as input. Nested, the timer runs and logs, and nothing else happens:
+  not the lock either, which would lock a window on a desktop that has its own.
 - **Holding it on:** the idle-inhibit protocol, for any live surface that asks; and
   `org.freedesktop.ScreenSaver` on the session bus, at `/org/freedesktop/ScreenSaver` and
   `/ScreenSaver`: `Inhibit(app, reason) → cookie`, `UnInhibit(cookie)`, `SimulateUserActivity()`
