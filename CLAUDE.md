@@ -153,7 +153,8 @@ puts them in `$(PREFIX)/share/man`.
 ## Principle
 
 Don't repeat the UI (ADR-0027): a feature grows where it already lives. The bar's tabs are the
-window list (Alt+Tab steps along them, closing focuses the neighbouring tab); there's no separate
+window list (Alt+Tab steps along them, closing gives the keyboard back to the window it came from,
+else the neighbouring tab, ADR-0059); there's no separate
 switcher.
 
 ## Gotchas

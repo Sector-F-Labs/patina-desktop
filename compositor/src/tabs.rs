@@ -1,9 +1,13 @@
 //! Moving between windows in the bar's tab order (ADR-0027): the bar's
-//! tabs are the one list of open windows, so Alt+Tab steps along them and
-//! closing a window focuses its neighbouring tab, as in a browser, rather
-//! than a separate switcher or a hidden most-recently-used order.
+//! tabs are the one list of open windows, so Alt+Tab steps along them, and
+//! closing a window gives the keyboard back to the window it came from, or
+//! else its neighbouring tab, as in a browser (ADR-0059), rather than a
+//! separate switcher or a hidden most-recently-used order.
 
-use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
+use std::cell::RefCell;
+
+use smithay::desktop::Window;
+use smithay::reexports::wayland_server::{Resource, Weak, protocol::wl_surface::WlSurface};
 
 use crate::state::State;
 
@@ -33,6 +37,27 @@ pub fn neighbour(len: usize, at: usize) -> Option<usize> {
     }
 }
 
+/// The surface of the window that had the keyboard before this one last
+/// took it; weak, so windows that took it from each other can still go.
+#[derive(Default)]
+struct Opener(RefCell<Option<Weak<WlSurface>>>);
+
+/// Remembers that `window` took the keyboard from `from`.
+pub fn set_opener(window: &Window, from: &Window) {
+    use smithay::wayland::seat::WaylandFocus;
+    let Some(surface) = from.wl_surface() else {
+        return;
+    };
+    window.user_data().insert_if_missing(Opener::default);
+    if let Some(opener) = window.user_data().get::<Opener>() {
+        *opener.0.borrow_mut() = Some(surface.downgrade());
+    }
+}
+
+fn opener(window: &Window) -> Option<WlSurface> {
+    window.user_data().get::<Opener>()?.0.borrow().as_ref()?.upgrade().ok()
+}
+
 impl State {
     /// Alt+Tab and Alt+Shift+Tab: activates the next or previous tab.
     pub fn cycle_tabs(&mut self, forward: bool) {
@@ -46,7 +71,8 @@ impl State {
         }
     }
 
-    /// When the window `closing` goes: if it had the keyboard, focuses its
+    /// When the window `closing` goes: if it had the keyboard, gives it back
+    /// to the window it came from, if that's still open; else focuses its
     /// neighbouring tab (or the top window, if it wasn't in the tabs yet).
     pub fn focus_after_close(&mut self, closing: &WlSurface) {
         let focus = self.seat.get_keyboard().and_then(|k| k.current_focus());
@@ -57,6 +83,15 @@ impl State {
         if !had_focus {
             return;
         }
+        let back = self
+            .window_for(closing)
+            .and_then(|w| opener(&w))
+            .and_then(|s| self.window_for(&s))
+            .filter(|o| self.space.elements().any(|e| e == o));
+        if let Some(window) = back {
+            self.focus_window(window);
+            return;
+        }
         let order = self.toplevels.order();
         let next = order
             .iter()
@@ -64,6 +99,10 @@ impl State {
             .and_then(|at| neighbour(order.len(), at))
             .map(|i| order[i].clone())
             .filter(|s| self.window_for(s).is_some());
+        eprintln!(
+            "patina-compositor: {} closed with the keyboard; focusing the next tab",
+            crate::toplevels::name(closing)
+        );
         match next {
             Some(surface) => self.activate_toplevel(&surface),
             None => self.focus_top_window(),

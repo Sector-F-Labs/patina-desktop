@@ -100,6 +100,7 @@ mechanics of adding one.
 | [0056](0056-the-bars-menus-open-in-patina-menu.md) | The bar's menus open in patina-menu | Accepted |
 | [0057](0057-the-bars-tooltips-open-in-patina-menu.md) | The bar's tooltips open in patina-menu too | Accepted |
 | [0058](0058-patina-raise.md) | patina-raise: focus an app's window, or start it | Accepted |
+| [0059](0059-wl-copy-and-focus-after-close.md) | Data-control for the clipboard, and focus back to where it came from | Accepted |
 
 ## Decision Relationship
 

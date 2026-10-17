@@ -18,7 +18,8 @@ this workspace is a Wayland client of it.
   side by side resizes both, keeping the gap (`split.rs`, ADR-0054). Only an app's own maximise button
   maximises (ADR-0052).
 - **Moving between windows** follows the bar's tabs (ADR-0027): Alt+Tab steps along them,
-  Super+1–9 picks one, closing a window focuses its neighbouring tab. Super+W closes a window,
+  Super+1–9 picks one, closing a window gives the keyboard back to the window it came from (or
+  its neighbouring tab, ADR-0059). Super+W closes a window,
   Super+Q quits the app.
 - **The desktop's own keys:** Super alone opens the launcher; Ctrl+Super+Q and Super+Escape lock
   (ADR-0026); Super+Shift+3 or Print screenshots the desktop and Super+Shift+4 the focused window
@@ -69,7 +70,8 @@ this workspace is a Wayland client of it.
 - **The protocols the other pieces rely on:** xdg-shell for apps; wlr-layer-shell for the bar,
   menus and wallpaper; wlr-foreign-toplevel-management for the bar's window tabs (ADR-0012);
   ext-session-lock for patina-lock (ADR-0025); cursor-shape; wp_fractional_scale and
-  wp_viewporter; linux-dmabuf with the GL backends; data-device for copy and paste.
+  wp_viewporter; linux-dmabuf with the GL backends; data-device for copy and paste,
+  and wlr and ext data-control, so wl-copy and clipboard managers need no window (ADR-0059).
 - **Config:** `~/.config/patina-compositor/config.toml` (ADR-0019): scale, `[keyboard]`,
   `[touchpad]`, `[cursor]`, `[media]` (the volume commands, `wpctl` by default), `[lock]`,
   `[night_light]`, `[gaps]` (space around tiled windows, ADR-0051), the launcher and desktop

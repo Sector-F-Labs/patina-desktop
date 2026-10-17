@@ -91,6 +91,10 @@ pub struct State {
     _output_manager_state: OutputManagerState,
     seat_state: SeatState<State>,
     data_device_state: DataDeviceState,
+    /// The clipboard for programs without a window (wl-copy, clipboard
+    /// managers), in wlroots' protocol and the standard one (ADR-0059).
+    data_control_state: smithay::wayland::selection::wlr_data_control::DataControlState,
+    ext_data_control_state: smithay::wayland::selection::ext_data_control::DataControlState,
     pub seat: Seat<State>,
 
     /// The window on the parent desktop that this compositor draws into.
@@ -230,6 +234,18 @@ impl State {
             _output_manager_state: OutputManagerState::new_with_xdg_output::<Self>(&dh),
             seat_state,
             data_device_state: DataDeviceState::new::<Self>(&dh),
+            data_control_state:
+                smithay::wayland::selection::wlr_data_control::DataControlState::new::<Self, _>(
+                    &dh,
+                    None,
+                    |_| true,
+                ),
+            ext_data_control_state:
+                smithay::wayland::selection::ext_data_control::DataControlState::new::<Self, _>(
+                    &dh,
+                    None,
+                    |_| true,
+                ),
             seat,
             toplevels: ForeignToplevels::new(&dh),
             night_light: crate::night_light::NightLight::new(&config.night_light),
@@ -450,6 +466,12 @@ impl State {
     /// that had it closes.
     pub(crate) fn focus_top_window(&mut self) {
         let top = self.space.elements().next_back().cloned();
+        eprintln!(
+            "patina-compositor: focusing the top window, {}",
+            top.as_ref()
+                .and_then(|w| w.toplevel().map(|t| crate::toplevels::name(t.wl_surface())))
+                .unwrap_or_else(|| "none".into())
+        );
         self.focus(top, SERIAL_COUNTER.next_serial());
     }
 
@@ -558,6 +580,13 @@ impl State {
             return;
         }
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
+        // Where the keyboard came from, so closing this window gives it back
+        // there (ADR-0059).
+        if let (Some(window), Some(from)) = (&window, self.focused_window())
+            && from != *window
+        {
+            crate::tabs::set_opener(window, &from);
+        }
         if let Some(window) = &window {
             self.space.raise_element(window, true);
             self.raise_x11(window);
@@ -981,6 +1010,22 @@ impl DataDeviceHandler for State {
     }
 }
 
+impl smithay::wayland::selection::wlr_data_control::DataControlHandler for State {
+    fn data_control_state(
+        &self,
+    ) -> &smithay::wayland::selection::wlr_data_control::DataControlState {
+        &self.data_control_state
+    }
+}
+
+impl smithay::wayland::selection::ext_data_control::DataControlHandler for State {
+    fn data_control_state(
+        &self,
+    ) -> &smithay::wayland::selection::ext_data_control::DataControlState {
+        &self.ext_data_control_state
+    }
+}
+
 impl ServerDndGrabHandler for State {}
 impl OutputHandler for State {}
 
@@ -990,6 +1035,8 @@ delegate_xdg_shell!(State);
 delegate_layer_shell!(State);
 delegate_seat!(State);
 delegate_data_device!(State);
+smithay::delegate_data_control!(State);
+smithay::delegate_ext_data_control!(State);
 delegate_output!(State);
 smithay::delegate_cursor_shape!(State);
 

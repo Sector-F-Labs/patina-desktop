@@ -4,7 +4,8 @@ Date: 2026-10-15
 
 ## Status
 
-Accepted
+Accepted. Closing a window now gives the keyboard back to the window it came from first
+([ADR-0059](0059-wl-copy-and-focus-after-close.md)).
 
 ## Context
 

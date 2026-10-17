@@ -68,6 +68,22 @@ impl ForeignToplevels {
 }
 
 /// What a client should see of `surface`'s window.
+/// The program a client is, by its process's name.
+fn program(client: &Client, dh: &DisplayHandle) -> String {
+    client
+        .get_credentials(dh)
+        .ok()
+        .and_then(|c| std::fs::read_to_string(format!("/proc/{}/comm", c.pid)).ok())
+        .map(|comm| comm.trim().to_string())
+        .unwrap_or_else(|| "a client".into())
+}
+
+/// A window, for the log: its app id and title.
+pub fn name(surface: &WlSurface) -> String {
+    let (title, app_id) = describe(surface);
+    format!("{app_id} ({title:?})")
+}
+
 pub fn describe(surface: &WlSurface) -> (String, String) {
     with_states(surface, |states| {
         states
@@ -256,16 +272,25 @@ impl Dispatch<ZwlrForeignToplevelManagerV1, ()> for State {
 impl Dispatch<ZwlrForeignToplevelHandleV1, HandleData> for State {
     fn request(
         state: &mut Self,
-        _: &Client,
+        client: &Client,
         handle: &ZwlrForeignToplevelHandleV1,
         request: zwlr_foreign_toplevel_handle_v1::Request,
         data: &HandleData,
-        _: &DisplayHandle,
+        dh: &DisplayHandle,
         _: &mut DataInit<'_, Self>,
     ) {
         use zwlr_foreign_toplevel_handle_v1::Request;
         match request {
-            Request::Activate { .. } => state.activate_toplevel(&data.surface),
+            Request::Activate { .. } => {
+                // Logged, so a window that takes the focus unasked can be
+                // traced to who asked (the bar's tabs, patina-raise).
+                eprintln!(
+                    "patina-compositor: {} asked to focus {}",
+                    program(client, dh),
+                    name(&data.surface)
+                );
+                state.activate_toplevel(&data.surface)
+            }
             Request::Close => state.close_toplevel(&data.surface),
             Request::SetMaximized => {
                 if let Some(window) = state.window_for(&data.surface) {
