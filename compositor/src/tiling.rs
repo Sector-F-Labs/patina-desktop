@@ -137,6 +137,13 @@ impl State {
         self.show_preview(None);
     }
 
+    /// Tells tilers tiled `window` is now at `rect`, after the line beside
+    /// it was dragged.
+    pub fn window_resized(&mut self, window: &Window, rect: Rectangle<i32, Logical>) {
+        self.tiling
+            .emit(Event::Resized(id(window), self::rect(rect)));
+    }
+
     /// Tells tilers the work area changed, if it did.
     pub fn announce_work_area(&mut self, area: Rectangle<i32, Logical>) {
         if self.tiling.announced != Some(area) {

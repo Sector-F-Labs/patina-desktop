@@ -4,7 +4,8 @@
 //! Signals say what the pointer and keys do: `DragStarted(id)`,
 //! `DragMotion(id, x, y)`, `DragEnded(id, x, y)` with the pointer in the
 //! desktop's logical pixels, `SnapRequested(id, direction)` for Super with
-//! an arrow, and `WorkAreaChanged(x, y, w, h)`.
+//! an arrow, `WorkAreaChanged(x, y, w, h)`, and `Resized(id, x, y, w, h)`
+//! for each tiled window after the line between tiled windows is dragged.
 //! Methods: `Windows()`, `WorkArea()`, `Gap()`, `Screen()`,
 //! `Place(id, x, y, w, h)`,
 //! `Restore(id)`, `ShowPreview(x, y, w, h)` and `HidePreview()`.
@@ -65,6 +66,9 @@ pub enum Event {
     DragEnded(u64, f64, f64),
     Snap(u64, &'static str),
     WorkArea(Rect),
+    /// A tiled window, after the line between it and its neighbour was
+    /// dragged (ADR-0054).
+    Resized(u64, Rect),
 }
 
 /// The compositor's end: where its events go.
@@ -178,6 +182,9 @@ fn send_events(connection: &zbus::blocking::Connection, events: &mpsc::Receiver<
                     }
                     Event::WorkArea((x, y, w, h)) => {
                         Interface::work_area_changed(emitter, x, y, w, h).await
+                    }
+                    Event::Resized(id, (x, y, w, h)) => {
+                        Interface::resized(emitter, id, x, y, w, h).await
                     }
                 }
             });
@@ -296,6 +303,18 @@ impl Interface {
     #[zbus(signal)]
     async fn work_area_changed(
         emitter: &zbus::object_server::SignalEmitter<'_>,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) -> zbus::Result<()>;
+
+    /// Tiled window `id` is now at this rectangle: the line between it and
+    /// its neighbour was dragged.
+    #[zbus(signal)]
+    async fn resized(
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+        id: u64,
         x: i32,
         y: i32,
         width: i32,

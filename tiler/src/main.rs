@@ -63,6 +63,8 @@ struct Tiler<'a> {
     screen: Rect,
     /// The windows this tiled, and how.
     tiled: HashMap<u64, Tile>,
+    /// Where the columns meet, as dragged (ADR-0054); halves until then.
+    split: f64,
     /// The window being dragged, if it can be tiled, and where a drop
     /// would put it.
     dragging: Option<(u64, Option<Tile>)>,
@@ -90,6 +92,7 @@ fn run() -> zbus::Result<()> {
         screen: tiling.screen()?,
         tiling,
         tiled: HashMap::new(),
+        split: policy::HALVES,
         dragging: None,
     };
     for event in events {
@@ -123,9 +126,7 @@ impl Tiler<'_> {
                 }
                 *zone = now;
                 match now {
-                    Some(tile) => self
-                        .tiling
-                        .show_preview(policy::rect_for(tile, self.area, self.gap))?,
+                    Some(tile) => self.tiling.show_preview(self.rect_for(id, tile))?,
                     None => self.tiling.hide_preview()?,
                 }
             }
@@ -159,6 +160,15 @@ impl Tiler<'_> {
                     }
                 }
             }
+            // The line between tiled windows was dragged: the columns
+            // keep where it was left.
+            Event::Resized(id, rect) => {
+                if let Some(tile) = self.tiled.get(&id)
+                    && let Some(split) = policy::split_of(*tile, rect, self.area, self.gap)
+                {
+                    self.split = split;
+                }
+            }
             Event::WorkAreaChanged(area) => {
                 self.area = area;
                 self.gap = self.tiling.gap()?;
@@ -169,10 +179,28 @@ impl Tiler<'_> {
         Ok(())
     }
 
+    /// Where `tile` puts window `id`: beside the columns as they are, if
+    /// another window is in one; otherwise halves again.
+    fn rect_for(&self, id: u64, tile: Tile) -> Rect {
+        let beside = self
+            .tiled
+            .iter()
+            .any(|(other, t)| *other != id && *t != Tile::Fill);
+        let split = if beside { self.split } else { policy::HALVES };
+        policy::rect_for(tile, self.area, self.gap, split)
+    }
+
     fn place(&mut self, id: u64, tile: Tile) -> zbus::Result<()> {
+        let rect = self.rect_for(id, tile);
+        if !self
+            .tiled
+            .iter()
+            .any(|(other, t)| *other != id && *t != Tile::Fill)
+        {
+            self.split = policy::HALVES;
+        }
         self.tiled.insert(id, tile);
-        self.tiling
-            .place(id, policy::rect_for(tile, self.area, self.gap))
+        self.tiling.place(id, rect)
     }
 
     fn listed(&self, id: u64) -> zbus::Result<bool> {

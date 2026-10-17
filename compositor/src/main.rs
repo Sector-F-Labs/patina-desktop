@@ -24,6 +24,7 @@ mod processes;
 mod scale;
 mod screenshot;
 mod session;
+mod split;
 mod state;
 mod tabs;
 mod tiling;

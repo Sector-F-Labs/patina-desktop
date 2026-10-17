@@ -95,6 +95,7 @@ mechanics of adding one.
 | [0051](0051-gaps.md) | Gaps around tiled windows and a floating bar | Proposed |
 | [0052](0052-only-the-app-maximises.md) | Only the app's maximise button maximises; tiling up fills | Proposed |
 | [0053](0053-tiling-decided-by-patina-tiler.md) | Tiling is decided by patina-tiler, a process the compositor keeps running | Accepted |
+| [0054](0054-drag-the-line-between-tiled-windows.md) | Dragging the line between tiled windows resizes both | Accepted |
 
 ## Decision Relationship
 

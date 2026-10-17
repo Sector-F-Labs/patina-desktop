@@ -38,6 +38,9 @@ pub enum Event {
     /// Super with an arrow: "up", "down", "left" or "right"; only to a tiler.
     SnapRequested(u64, String),
     WorkAreaChanged(Rect),
+    /// A tiled window's new rectangle, after the line between it and its
+    /// neighbour was dragged.
+    Resized(u64, Rect),
 }
 
 /// The compositor's tiling, over `bus`.
@@ -131,6 +134,10 @@ fn event(message: &zbus::Message) -> Option<Event> {
             Event::SnapRequested(id, direction)
         }
         "WorkAreaChanged" => Event::WorkAreaChanged(body.deserialize().ok()?),
+        "Resized" => {
+            let (id, x, y, w, h) = body.deserialize().ok()?;
+            Event::Resized(id, (x, y, w, h))
+        }
         _ => return None,
     })
 }

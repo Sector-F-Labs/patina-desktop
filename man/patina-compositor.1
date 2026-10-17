@@ -53,6 +53,10 @@ How windows tile is
 to decide: the compositor reports drags and Super with an arrow over the
 session bus, and places windows where it's told.
 Dragging a tiled window away restores it.
+Where tiled windows meet side by side, the gap between them (or, without
+gaps, the few pixels either side of where they touch) shows a left-right
+arrow: dragging it grows the windows on one side as it shrinks those on the
+other, keeping the gap, and the tiler keeps the new split.
 Only the app's own maximise button (or a double click on its title bar)
 maximises a window, edge to edge even with gaps.
 The bar's tabs are the list of windows: Alt+Tab steps along them, and
@@ -299,7 +303,8 @@ the caller leaves the bus; SimulateUserActivity, as if there were input;
 and GetActive, whether the screen is off.
 Not served where another desktop already has the name.
 .It com.sectorflabs.Patina.Tiling
-Drags, Super with an arrow and the work area as signals; Windows,
+Drags, Super with an arrow, the work area, and Resized for each tiled
+window after the line between tiled windows is dragged, as signals; Windows,
 WorkArea, Gap, Screen, Place, Restore, ShowPreview and HidePreview.
 With gaps on, WorkArea is already inside the outer gaps, and Gap is the
 gap to leave between windows.

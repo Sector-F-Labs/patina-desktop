@@ -14,7 +14,8 @@ this workspace is a Wayland client of it.
   Super+arrows on the session bus and places windows and shows the preview where it's told;
   patina-tiler, which it starts and keeps running, decides (or a tiler that takes the
   `com.sectorflabs.Patina.Tiler` name from it). Dragging a placed window restores it under the
-  pointer; Super+Shift+arrows grow and shrink it here. Only an app's own maximise button
+  pointer; Super+Shift+arrows grow and shrink it here. Dragging the line between tiled windows
+  side by side resizes both, keeping the gap (`split.rs`, ADR-0054). Only an app's own maximise button
   maximises (ADR-0052).
 - **Moving between windows** follows the bar's tabs (ADR-0027): Alt+Tab steps along them,
   Super+1–9 picks one, closing a window focuses its neighbouring tab. Super+W closes a window,

@@ -103,6 +103,8 @@ fn main() -> zbus::Result<()> {
                 area = new;
                 tiling.gap().map(|g| gap = g)
             }
+            // Thirds stay thirds: a dragged line lasts until the next tile.
+            Event::Resized(..) => Ok(()),
         };
         if let Err(e) = result {
             eprintln!("thirds: {e}");

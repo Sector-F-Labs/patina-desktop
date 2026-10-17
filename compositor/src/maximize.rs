@@ -266,6 +266,32 @@ impl State {
         self.needs_redraw = true;
     }
 
+    /// Moves tiled `window` to `rect`, as dragging the line beside it does
+    /// (ADR-0054); `resizing` while the line moves. Where it was before
+    /// it was tiled stays remembered.
+    pub fn retile(&mut self, window: &Window, rect: Rectangle<i32, Logical>, resizing: bool) {
+        let Some(toplevel) = window.toplevel() else {
+            return;
+        };
+        let slot = placed(window);
+        let Some((_, before)) = *slot.0.borrow() else {
+            return;
+        };
+        *slot.0.borrow_mut() = Some((Placement::Rect(rect), before));
+        set_states(
+            toplevel,
+            Some((Placement::Rect(rect), rect)),
+            self.work_area(),
+        );
+        crate::split::set_resizing(window, resizing);
+        toplevel.with_pending_state(|s| s.size = Some(rect.size));
+        if toplevel.is_initial_configure_sent() {
+            toplevel.send_pending_configure();
+        }
+        self.place(window, rect.loc);
+        self.needs_redraw = true;
+    }
+
     /// Asks `window` to fill the work area, maximised: only for the app's
     /// own request.
     pub fn maximize(&mut self, window: &Window) {

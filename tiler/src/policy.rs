@@ -33,15 +33,33 @@ pub fn zone((x, y): (f64, f64), screen: Rect) -> Option<Tile> {
     }
 }
 
+/// Where the left column ends, as a share of the room beside the gap:
+/// halves, until the line between tiled windows is dragged (ADR-0054).
+pub const HALVES: f64 = 0.5;
+
 /// The rectangle `tile` fills in `area` (the tiling area, inside the outer
-/// gaps), with `gap` between the halves. The left half takes the odd pixel.
-pub fn rect_for(tile: Tile, (x, y, w, h): Rect, gap: i32) -> Rect {
-    let left = (w - gap + 1) / 2;
+/// gaps), with `gap` between the columns and `split` of the room left of
+/// it. Even halves give the left the odd pixel.
+pub fn rect_for(tile: Tile, (x, y, w, h): Rect, gap: i32, split: f64) -> Rect {
+    let room = (w - gap).max(0);
+    let left = ((room as f64 * split).round() as i32).clamp(0, room);
     match tile {
         Tile::Fill => (x, y, w, h),
         Tile::Left => (x, y, left, h),
         Tile::Right => (x + left + gap, y, w - left - gap, h),
     }
+}
+
+/// The split a `tile` window at `rect` of `area` shows, after the line
+/// beside it was dragged; `None` for a window that isn't in a column.
+pub fn split_of(tile: Tile, (_, _, w, _): Rect, area: Rect, gap: i32) -> Option<f64> {
+    let room = (area.2 - gap).max(1) as f64;
+    match tile {
+        Tile::Left => Some(w as f64 / room),
+        Tile::Right => Some((room - w as f64) / room),
+        Tile::Fill => None,
+    }
+    .map(|s| s.clamp(0.0, 1.0))
 }
 
 /// A Super+arrow's direction, as the compositor names it.
@@ -103,19 +121,32 @@ mod tests {
     #[test]
     fn halves_split_the_area() {
         let area = (0, 0, 1281, 759);
-        assert_eq!(rect_for(Tile::Left, area, 0), (0, 0, 641, 759));
-        assert_eq!(rect_for(Tile::Right, area, 0), (641, 0, 640, 759));
-        assert_eq!(rect_for(Tile::Fill, area, 0), area);
+        assert_eq!(rect_for(Tile::Left, area, 0, HALVES), (0, 0, 641, 759));
+        assert_eq!(rect_for(Tile::Right, area, 0, HALVES), (641, 0, 640, 759));
+        assert_eq!(rect_for(Tile::Fill, area, 0, HALVES), area);
     }
 
     #[test]
     fn gaps_go_between_the_halves() {
         let area = (8, 8, 1265, 743);
-        let left = rect_for(Tile::Left, area, 8);
-        let right = rect_for(Tile::Right, area, 8);
+        let left = rect_for(Tile::Left, area, 8, HALVES);
+        let right = rect_for(Tile::Right, area, 8, HALVES);
         assert_eq!(left, (8, 8, 629, 743));
         assert_eq!(right, (645, 8, 628, 743));
         assert_eq!(right.0 - (left.0 + left.2), 8);
+    }
+
+    #[test]
+    fn a_dragged_split_is_kept_and_the_other_side_takes_the_rest() {
+        let area = (8, 8, 1265, 743);
+        // The line dragged so the left window is 800 wide.
+        let left = (8, 8, 800, 743);
+        let split = split_of(Tile::Left, left, area, 8).unwrap();
+        assert_eq!(rect_for(Tile::Left, area, 8, split), left);
+        let right = rect_for(Tile::Right, area, 8, split);
+        assert_eq!(right, (816, 8, 457, 743), "the rest, past the gap");
+        assert_eq!(split_of(Tile::Right, right, area, 8), Some(split));
+        assert_eq!(split_of(Tile::Fill, area, area, 8), None);
     }
 
     #[test]

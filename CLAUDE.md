@@ -82,6 +82,9 @@ puts them in `$(PREFIX)/share/man`.
   name allowing replacement (`claim_default`); another tiler `claim`s it. Client:
   `system/src/tiling.rs`, example tiler `system/examples/thirds.rs`. `dbus-run-session -- cargo
   test -p patina-compositor tiling -- --ignored` tests the service on a bus of its own.
+  `compositor/src/split.rs` (ADR-0054): the line between tiled `Rect` windows a gap apart
+  (`line_under`) shows the arrow (`hover_split` in `pointer_motion`), and `SplitGrab` retiles
+  both sides live, then signals `Resized`; the tiler keeps its `split`.
 - `compositor/src/fullscreen.rs`: fullscreen (ADR-0041): `State::fullscreen`, sized to the output,
   drawn over the layers by every backend and first under the pointer while it has the keyboard.
 - `compositor/src/dnd.rs`: drag and drop between clients is Smithay's; this draws the icon a

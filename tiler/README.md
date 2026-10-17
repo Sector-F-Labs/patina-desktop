@@ -15,7 +15,9 @@ desktop.
 - **What it does:** a window dragged so the pointer meets the left or right edge takes that half,
   and the top fills the screen (tiled, not maximised; ADR-0052), with the preview while it's
   held there. Super+Left/Right tile, or restore from the other half; Up fills, Down restores.
-  Gaps (ADR-0051) come from `WorkArea()` (inside the outer gaps) and `Gap()`.
+  Gaps (ADR-0051) come from `WorkArea()` (inside the outer gaps) and `Gap()`. When the line
+  between tiled windows is dragged (the compositor's `Resized`, ADR-0054), it keeps the split,
+  and a window tiled to the other side takes the rest.
 - **Gives way** to another tiler: it holds `com.sectorflabs.Patina.Tiler` allowing replacement
   (`claim_default`), so one that `claim`s it (`cargo run -p patina-system --example thirds`)
   takes over, and patina-tiler decides again when it leaves.

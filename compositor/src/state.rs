@@ -126,6 +126,8 @@ pub struct State {
     /// The cursor the compositor shows while it moves or resizes a window,
     /// whatever the client under it asks for (ADR-0032).
     pub grab_cursor: Option<smithay::input::pointer::CursorIcon>,
+    /// The pointer is on the line between tiled windows (ADR-0054).
+    pub split_hover: bool,
     /// A screenshot's flash, fading out over what was taken.
     pub flash: Option<crate::screenshot::Flash>,
     /// What a client is dragging, drawn at the pointer.
@@ -251,6 +253,7 @@ impl State {
             _viewporter: smithay::wayland::viewporter::ViewporterState::new::<Self>(&dh),
             cursor: CursorImageStatus::default_named(),
             grab_cursor: None,
+            split_hover: false,
             flash: None,
             dnd_icon: None,
             fullscreen: None,
@@ -310,7 +313,13 @@ impl State {
         // On the hardware the compositor draws the pointer itself.
         self.needs_redraw = true;
         let pointer = self.seat.get_pointer().expect("seat has a pointer");
-        let under = self.surface_under(pos);
+        // On the line between tiled windows, neither window has the
+        // pointer.
+        let under = if self.hover_split(pos, pointer.is_grabbed()) {
+            None
+        } else {
+            self.surface_under(pos)
+        };
         pointer.motion(
             self,
             under,
@@ -346,6 +355,19 @@ impl State {
                 },
             );
             pointer.frame(self);
+            return;
+        }
+        // A click on the line between tiled windows drags it (ADR-0054).
+        if pressed
+            && button == grabs::BTN_LEFT
+            && !pointer.is_grabbed()
+            && let Some(grab) = self.start_split(GrabStartData {
+                focus: None,
+                button,
+                location: pointer.current_location(),
+            })
+        {
+            pointer.set_grab(self, grab, serial, Focus::Clear);
             return;
         }
         // A click on a layer surface (the bar, a launcher) focuses it only
