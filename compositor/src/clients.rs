@@ -1,6 +1,6 @@
 //! Starting the desktop's programs as clients of this compositor: the bar
 //! at start-up, and the launcher and volume menu from the compositor's own
-//! keys.
+//! keys. `processes.rs` keeps track of them once started.
 
 use std::ffi::{OsStr, OsString};
 use std::process::{Command, Stdio};
@@ -46,18 +46,20 @@ pub fn command(socket: &OsStr, command: &str) -> Command {
     c
 }
 
-/// Starts `command` as a client, and reaps it on a thread when it ends.
+/// Starts `command` as a client, once, listed among the desktop's
+/// processes (ADR-0045).
 pub fn spawn(socket: &OsStr, command_line: &str) {
-    match command(socket, command_line).spawn() {
-        Ok(mut child) => {
-            std::thread::spawn(move || child.wait());
-        }
-        Err(e) => eprintln!("patina-compositor: can't run {command_line}: {e}"),
-    }
+    crate::processes::spawn(socket, command_line, false);
 }
 
 impl crate::state::State {
     pub fn spawn_client(&self, command_line: &str) {
         spawn(&self.socket_name, command_line);
+    }
+
+    /// Starts a piece of the desktop that's started again whenever it
+    /// exits: the wallpaper and the bar.
+    pub fn keep_client(&self, command_line: &str) {
+        crate::processes::spawn(&self.socket_name, command_line, true);
     }
 }

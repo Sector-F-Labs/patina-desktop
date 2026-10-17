@@ -47,6 +47,12 @@ this workspace is a Wayland client of it.
   --flash`/`--brightness` (all configurable). Clients get `WAYLAND_DISPLAY`, `DISPLAY`
   (Xwayland's), `XDG_CURRENT_DESKTOP=Patina`, and a `PATH` with the compositor's own folder
   first, so the pieces built beside it are found before installed copies (`clients.rs`).
+- **It keeps what it starts** (`processes.rs`, ADR-0045). The wallpaper and the bar are started
+  again when they exit, until one exits five times in thirty seconds. Every child's output is
+  kept (its last 500 lines) and copied to the compositor's stderr with the child's name in front.
+  The list is served as `com.sectorflabs.Patina.Processes` on the session bus, nested too, for
+  Settings' Processes page to restart, stop and read them. `dbus-run-session -- cargo test -p
+  patina-compositor processes -- --ignored` tests it on a bus of its own.
 - **It tells the session about itself.** On the hardware (or with `--session`) it exports
   `WAYLAND_DISPLAY`, `DISPLAY` and `XDG_CURRENT_DESKTOP` to systemd and D-Bus, so services started later,
   such as xdg-desktop-portal and Files' file chooser, reach it.

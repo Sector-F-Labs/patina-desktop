@@ -41,6 +41,10 @@ current when that changes.
 - `compositor/src/state.rs`: server side: protocols, placement, focus, input into the seat.
 - `compositor/src/drag.rs`: three-finger drag (ADR-0031): libinput swipes hold BTN_LEFT, with a
   grace timer on `State::loop_handle` between strokes.
+- `compositor/src/processes.rs`: what the compositor starts (ADR-0045): a global list, each child in
+  a process group of its own with its output read and kept; the wallpaper and bar restarted when
+  they exit. `processes/dbus.rs` serves `com.sectorflabs.Patina.Processes`, nested too; Settings'
+  Processes page restarts, stops and reads them through `system/src/processes.rs`.
 - `compositor/src/screenshot.rs`: Super+Shift+3/4 and Print (ADR-0034): the desktop or the focused
   window drawn offscreen with the backend's renderer, saved as a PNG on a thread; then a `Flash`
   each backend draws on top (`flash_element`, `overlay`).
@@ -93,8 +97,9 @@ current when that changes.
   file's mtime each second and restyles (`Host::restyle`). Wallpaper… opens Settings at its page.
 - `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance, Wallpaper (sets
   `wallpaper`) and Night Light (writes `[night_light]` into the compositor's config with
-  `toml_edit`; state over D-Bus through `system/src/night_light.rs`) and Power
-  (power-profiles-daemon through `system/src/power_profiles.rs`). Also `patina-night-light`.
+  `toml_edit`; state over D-Bus through `system/src/night_light.rs`), Power
+  (power-profiles-daemon through `system/src/power_profiles.rs`) and Processes (ADR-0045). Also
+  `patina-night-light`.
   `cargo test -p patina-settings preview -- --ignored` with PATINA_SETTINGS_PREVIEW=dir draws
   each page in software, without opening a window.
 - `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,

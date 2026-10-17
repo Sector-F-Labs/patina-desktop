@@ -2647,6 +2647,7 @@ dependencies = [
  "patina-system",
  "png",
  "resvg",
+ "rustix 1.1.5",
  "serde",
  "serde_ignored",
  "smithay",

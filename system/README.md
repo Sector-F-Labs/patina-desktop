@@ -20,6 +20,9 @@ painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in it
   `patina-night-light` and apps wanting true colour.
 - **`power_profiles.rs`**: power modes (power-saver, balanced, performance) through
   power-profiles-daemon on the system bus (ADR-0042), for Settings' Power page.
+- **`processes.rs`**: the processes the compositor started, their logs, and restarting or stopping
+  them, through its `com.sectorflabs.Patina.Processes` on the session bus (ADR-0045), for Settings'
+  Processes page.
 - **`logo.rs`**: the Sector F flask (the bar's launcher button, the default wallpaper) and Ubuntu
   Mono, the wallpaper's lettering, rasterised as masks the skin tints.
 

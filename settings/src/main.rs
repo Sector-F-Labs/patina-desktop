@@ -7,13 +7,15 @@ mod app;
 mod compositor_config;
 mod night_light;
 mod power;
+mod processes;
 mod wallpapers;
 
 use std::process::ExitCode;
 
 use crate::app::Page;
 
-const USAGE: &str = "usage: patina-settings [--page appearance|wallpaper|night-light|power]
+const USAGE: &str =
+    "usage: patina-settings [--page appearance|wallpaper|night-light|power|processes]
 
 Opens the Patina desktop's Settings, at the page given (Appearance without
 one). The desktop's menu opens it at the wallpaper page.";

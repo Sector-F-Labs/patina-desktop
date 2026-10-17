@@ -29,14 +29,16 @@ pub enum Page {
     Wallpaper,
     NightLight,
     Power,
+    Processes,
 }
 
 impl Page {
-    const ALL: [Page; 4] = [
+    const ALL: [Page; 5] = [
         Page::Appearance,
         Page::Wallpaper,
         Page::NightLight,
         Page::Power,
+        Page::Processes,
     ];
 
     pub fn from_name(name: &str) -> Option<Self> {
@@ -45,6 +47,7 @@ impl Page {
             "wallpaper" => Some(Page::Wallpaper),
             "night-light" => Some(Page::NightLight),
             "power" => Some(Page::Power),
+            "processes" => Some(Page::Processes),
             _ => None,
         }
     }
@@ -55,6 +58,7 @@ impl Page {
             Page::Wallpaper => "Wallpaper",
             Page::NightLight => "Night Light",
             Page::Power => "Power",
+            Page::Processes => "Processes",
         }
     }
 }
@@ -101,6 +105,7 @@ pub struct App {
     flask: Option<TextureHandle>,
     night_light: NightLightPage,
     power: crate::power::PowerPage,
+    processes: crate::processes::ProcessesPage,
     message: Option<Message>,
 }
 
@@ -123,6 +128,7 @@ impl App {
             flask: None,
             night_light: NightLightPage::new(ctx),
             power: crate::power::PowerPage::new(ctx),
+            processes: crate::processes::ProcessesPage::new(ctx),
             message: None,
         };
         app.follow_shell_skin(ctx);
@@ -534,6 +540,10 @@ impl App {
                 Page::Power => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.power.ui(ui, &mut self.message));
+                }
+                Page::Processes => {
+                    egui::ScrollArea::vertical()
+                        .show(ui, |ui| self.processes.ui(ui, &mut self.message));
                 }
             });
 

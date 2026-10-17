@@ -86,6 +86,7 @@ mechanics of adding one.
 | [0042](0042-power-modes-through-power-profiles-daemon.md) | Power modes in Settings, through power-profiles-daemon | Accepted |
 | [0043](0043-games-lock-the-pointer.md) | Games lock or confine the pointer, and read the mouse's motion as such | Accepted |
 | [0044](0044-smithay-from-a-fork-for-x11-focus.md) | Smithay comes from a fork while 0.7 names the root window as the active one | Accepted |
+| [0045](0045-the-compositor-keeps-the-desktops-processes.md) | The compositor keeps the desktop's processes, and Settings shows them | Accepted |
 
 ## Decision Relationship
 

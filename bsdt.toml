@@ -46,5 +46,7 @@ run = ["cargo build --release",
 [gui]
 desktop = "wayland"
 session = "dwl"
-start = "exec target/release/patina-compositor"
+# Under a session bus of its own, which the pieces share: Settings reaches
+# the compositor on it (ADR-0045).
+start = "exec dbus-run-session -- target/release/patina-compositor"
 open = false

@@ -19,6 +19,7 @@ mod maximize;
 mod media;
 mod nested;
 mod night_light;
+mod processes;
 mod scale;
 mod screenshot;
 mod state;
@@ -132,11 +133,14 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
         export_to_session(&state);
     }
     state.start_night_light();
+    // Nested too: the VM and `make run` are where the pieces are worked on.
+    let _processes = processes::dbus::serve()
+        .inspect_err(|e| eprintln!("patina-compositor: the process list isn't on D-Bus: {e}"));
     // Before any client starts, so they all get DISPLAY.
     state.start_xwayland();
     // The wallpaper first, so it's there by the time the bar is.
-    state.spawn_client("patina-wallpaper");
-    state.spawn_client("patina-bar");
+    state.keep_client("patina-wallpaper");
+    state.keep_client("patina-bar");
     for command in commands {
         state.spawn_client(command);
     }

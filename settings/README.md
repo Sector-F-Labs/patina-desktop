@@ -18,17 +18,22 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
 - **Power** (ADR-0042): the power modes this machine has (performance, balanced, power saver)
   through power-profiles-daemon, why performance is held back, and which apps hold a mode.
 
+- **Processes** (ADR-0045): what the compositor started, with each one's state, PID, uptime and
+  restarts, and buttons to restart or stop it. A click on a name opens a window that follows its
+  output. Settings can't restart itself.
+
 It wears the shell's skin and follows it when the desktop's menu changes it.
 
 ## How it fits in
 
 - **Started by** patina-menu: its Wallpaper… item runs `patina-settings --page wallpaper`, and
-  Settings… runs it at Appearance. `--page appearance|wallpaper|night-light|power`.
+  Settings… runs it at Appearance. `--page appearance|wallpaper|night-light|power|processes`.
 - **Writes the files the settings live in**, keeping the rest of each: the bar's config
   (`skin`, `wallpaper`) through patina-shell, and `[night_light]` in the compositor's config with
   `toml_edit`. The bar, patina-wallpaper and the compositor watch those files and change at once.
 - **Asks the compositor** how Night Light stands, and sets overrides, over D-Bus through
   `patina_system::night_light`. Nested in another desktop nothing serves it, and the page says so.
+  The Processes page asks it the same way, through `patina_system::processes`.
 
 ## patina-night-light
 
@@ -41,7 +46,7 @@ patina-night-light inhibit -- darktable   # held off while a command runs
 ## Code
 
 `main.rs`, `app.rs` (the window, the Appearance and Wallpaper pages), `night_light.rs` and
-`power.rs` (theirs),
+`power.rs` and `processes.rs` (theirs),
 `compositor_config.rs` (`[night_light]` read and written in place), `wallpapers.rs` (the images on
 offer and their thumbnails), `bin/patina-night-light.rs`.
 
