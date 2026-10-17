@@ -2,7 +2,9 @@
 //! waybar does, in the colours of the active Patina skin.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::Write as _;
+use std::sync::{Arc, mpsc};
 
 use egui::{Align, Color32, Layout, Rect, Sense, Stroke, Ui, UiBuilder, vec2};
 use patina::skin::{self, Skin};
@@ -14,6 +16,20 @@ use patina_shell::{Shell, Toplevel, ToplevelRequest};
 
 /// Space between modules, and at the bar's ends.
 const GAP: f32 = 12.0;
+/// The side of a tab's icon, in points, as Patina's TabStrip draws it.
+const ICON: f32 = 18.0;
+
+/// An app's icon, as far as the icon thread has got with it.
+enum Icon {
+    Asked,
+    Missing,
+    Found(Arc<egui::ColorImage>),
+}
+
+/// Each surface's textures of the icons, by app id: every output has an
+/// egui context of its own, and a texture belongs to one.
+#[derive(Clone, Default)]
+struct Textures(HashMap<String, egui::TextureHandle>);
 
 pub struct Bar {
     pub config: Config,
@@ -29,6 +45,9 @@ pub struct Bar {
     toplevels: Vec<Toplevel>,
     /// Clicks on the window tabs, for the host to pass on.
     requests: RefCell<Vec<ToplevelRequest>>,
+    /// The window tabs' icons by app id, and where to ask for one.
+    icons: RefCell<HashMap<String, Icon>>,
+    pub ask_icon: Option<mpsc::Sender<(String, u32)>>,
 }
 
 impl Bar {
@@ -46,6 +65,8 @@ impl Bar {
                 skin,
                 toplevels: Vec::new(),
                 requests: RefCell::new(Vec::new()),
+                icons: RefCell::new(HashMap::new()),
+                ask_icon: None,
             },
             warnings,
         )
@@ -61,6 +82,50 @@ impl Bar {
         self.config.skin = name.to_string();
         self.skin = skin;
         (true, warnings)
+    }
+
+    /// The icon thread's answer for `app_id`. Redraw after.
+    pub fn icon_found(&mut self, app_id: String, image: Option<egui::ColorImage>) {
+        let icon = match image {
+            Some(image) => Icon::Found(Arc::new(image)),
+            None => Icon::Missing,
+        };
+        self.icons.get_mut().insert(app_id, icon);
+    }
+
+    /// `app_id`'s icon as a texture in `ctx`, asking the icon thread for it
+    /// the first time it's wanted.
+    fn icon(&self, ctx: &egui::Context, app_id: &str) -> Option<egui::TextureId> {
+        let mut icons = self.icons.borrow_mut();
+        let image = match icons.get(app_id) {
+            Some(Icon::Found(image)) => image.clone(),
+            Some(_) => return None,
+            None => {
+                let ask = self.ask_icon.as_ref()?;
+                let size = (ICON * ctx.pixels_per_point()).ceil() as u32;
+                if ask.send((app_id.to_string(), size)).is_ok() {
+                    icons.insert(app_id.to_string(), Icon::Asked);
+                }
+                return None;
+            }
+        };
+        let id = egui::Id::new("patina-bar-icons");
+        let known = ctx.data(|d| d.get_temp::<Textures>(id)).unwrap_or_default();
+        if let Some(texture) = known.0.get(app_id) {
+            return Some(texture.id());
+        }
+        let texture = ctx.load_texture(
+            format!("icon-{app_id}"),
+            (*image).clone(),
+            egui::TextureOptions::LINEAR,
+        );
+        let texture_id = texture.id();
+        ctx.data_mut(|d| {
+            d.get_temp_mut_or_default::<Textures>(id)
+                .0
+                .insert(app_id.to_string(), texture)
+        });
+        Some(texture_id)
     }
 
     /// The monitor dwl calls `output`, or, if dwl hasn't mentioned it (a
@@ -241,6 +306,15 @@ impl Bar {
             .iter()
             .position(|t| t.activated)
             .unwrap_or(usize::MAX);
+        let label = self.config.window_tabs.into();
+        let icons: Vec<Option<egui::TextureId>> = if label == patina::tabs::TabLabel::Title {
+            Vec::new()
+        } else {
+            self.toplevels
+                .iter()
+                .map(|t| self.icon(ui.ctx(), &t.app_id))
+                .collect()
+        };
         // The bar is the tabs' "title bar", so the shown tab is set off
         // from it the way TabStrip sets tabs off a panel-coloured bar.
         let mut style = self.skin.frame_style(ui.visuals());
@@ -253,6 +327,8 @@ impl Bar {
                     .id_salt("windows")
                     .new_tab(false)
                     .noun("Window")
+                    .icons(&icons)
+                    .label(label)
                     .span(span)
                     .show(ui)
             })
@@ -421,7 +497,120 @@ mod tests {
             skin: Skin::default_skin(),
             toplevels: Vec::new(),
             requests: RefCell::new(Vec::new()),
+            icons: RefCell::new(HashMap::new()),
+            ask_icon: None,
         }
+    }
+
+    #[test]
+    fn each_apps_icon_is_asked_for_once_and_drawn_when_found() {
+        let mut b = bar("left = [\"windows\"]\ncenter = []\nright = []");
+        let (ask, asked) = mpsc::channel();
+        b.ask_icon = Some(ask);
+        let foot = |id, title: &str| Toplevel {
+            app_id: "foot".into(),
+            ..window(id, title, id == 1)
+        };
+        b.toplevels_changed(&[foot(1, "one"), foot(2, "two")]);
+        let ctx = egui::Context::default();
+        let mut time = 0.0;
+        frame(&mut b, &ctx, &mut time, vec![]);
+        frame(&mut b, &ctx, &mut time, vec![]);
+        let wanted: Vec<(String, u32)> = asked.try_iter().collect();
+        assert_eq!(
+            wanted,
+            [("foot".to_string(), 18)],
+            "both windows are foot's"
+        );
+        b.icon_found(
+            "foot".into(),
+            Some(egui::ColorImage::filled([18, 18], Color32::RED)),
+        );
+        frame(&mut b, &ctx, &mut time, vec![]);
+        let textures = ctx
+            .data(|d| d.get_temp::<Textures>(egui::Id::new("patina-bar-icons")))
+            .expect("the icon became a texture");
+        assert_eq!(textures.0.len(), 1);
+    }
+
+    /// Draws the window tabs as each `window_tabs` shows them, with this
+    /// machine's icons, as PNGs in the folder PATINA_BAR_PREVIEW names:
+    /// `cargo test -p patina-bar preview -- --ignored`.
+    #[test]
+    #[ignore = "reads the installed apps' icons"]
+    fn preview_the_window_tabs() {
+        let dir = std::path::PathBuf::from(std::env::var("PATINA_BAR_PREVIEW").unwrap());
+        let (w, h) = (1000usize, 41usize);
+        let apps = [
+            ("firefox", "Patina — Mozilla Firefox"),
+            ("org.gnome.Nautilus", "Home"),
+            ("foot", "divan@huginn: ~"),
+            ("com.example.Nothing", "An app without an icon"),
+        ];
+        for tabs in ["both", "icons", "titles"] {
+            let mut b = bar(&format!(
+                "left = [\"windows\"]\ncenter = []\nright = [\"clock\"]\nwindow_tabs = \"{tabs}\""
+            ));
+            let (ask, asked) = mpsc::channel();
+            b.ask_icon = Some(ask);
+            let windows: Vec<Toplevel> = apps
+                .iter()
+                .enumerate()
+                .map(|(i, (app_id, title))| Toplevel {
+                    app_id: app_id.to_string(),
+                    ..window(i as u64, title, i == 0)
+                })
+                .collect();
+            b.toplevels_changed(&windows);
+            let ctx = egui::Context::default();
+            b.setup(&ctx);
+            let mut painter = patina_shell::raster::Painter::default();
+            let mut pixels = vec![0u32; w * h];
+            for _ in 0..3 {
+                let input = egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        vec2(w as f32, h as f32),
+                    )),
+                    max_texture_side: Some(8192),
+                    ..Default::default()
+                };
+                let out = ctx.run_ui(input, |ui| b.ui(ui, "A"));
+                let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+                painter.paint(
+                    &mut pixels,
+                    w,
+                    h,
+                    out.pixels_per_point,
+                    &primitives,
+                    &out.textures_delta,
+                );
+                for (app_id, size) in asked.try_iter() {
+                    let image = crate::icons::find_installed(&app_id, size);
+                    b.icon_found(app_id, image);
+                }
+            }
+            let rgba: Vec<u8> = pixels
+                .iter()
+                .flat_map(|p| {
+                    let [b, g, r, a] = p.to_le_bytes();
+                    [r, g, b, a]
+                })
+                .collect();
+            let file = dir.join(format!("{tabs}.png"));
+            image::save_buffer(&file, &rgba, w as u32, h as u32, image::ColorType::Rgba8).unwrap();
+        }
+    }
+
+    #[test]
+    fn titles_only_asks_for_no_icons() {
+        let mut b = bar("left = [\"windows\"]\ncenter = []\nright = []\nwindow_tabs = \"titles\"");
+        let (ask, asked) = mpsc::channel();
+        b.ask_icon = Some(ask);
+        b.toplevels_changed(&[window(1, "one", true)]);
+        let ctx = egui::Context::default();
+        frame(&mut b, &ctx, &mut 0.0, vec![]);
+        assert!(asked.try_recv().is_err());
     }
 
     /// Runs the bar for a 1000x26 output and returns the text it drew, with

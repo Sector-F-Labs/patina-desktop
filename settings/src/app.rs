@@ -26,6 +26,7 @@ const TILE_LABEL: f32 = 20.0;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
     Appearance,
+    Bar,
     Wallpaper,
     NightLight,
     Power,
@@ -33,8 +34,9 @@ pub enum Page {
 }
 
 impl Page {
-    const ALL: [Page; 5] = [
+    const ALL: [Page; 6] = [
         Page::Appearance,
+        Page::Bar,
         Page::Wallpaper,
         Page::NightLight,
         Page::Power,
@@ -44,6 +46,7 @@ impl Page {
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "appearance" => Some(Page::Appearance),
+            "bar" => Some(Page::Bar),
             "wallpaper" => Some(Page::Wallpaper),
             "night-light" => Some(Page::NightLight),
             "power" => Some(Page::Power),
@@ -55,6 +58,7 @@ impl Page {
     fn title(self) -> &'static str {
         match self {
             Page::Appearance => "Appearance",
+            Page::Bar => "Bar",
             Page::Wallpaper => "Wallpaper",
             Page::NightLight => "Night Light",
             Page::Power => "Power",
@@ -103,6 +107,7 @@ pub struct App {
     decoded: Option<mpsc::Receiver<(PathBuf, Option<egui::ColorImage>)>>,
     /// The flask, for the default wallpaper's tile.
     flask: Option<TextureHandle>,
+    bar: crate::bar::BarPage,
     night_light: NightLightPage,
     power: crate::power::PowerPage,
     processes: crate::processes::ProcessesPage,
@@ -126,6 +131,7 @@ impl App {
             thumbnails: HashMap::new(),
             decoded: None,
             flask: None,
+            bar: crate::bar::BarPage::new(),
             night_light: NightLightPage::new(ctx),
             power: crate::power::PowerPage::new(ctx),
             processes: crate::processes::ProcessesPage::new(ctx),
@@ -149,6 +155,7 @@ impl App {
         self.skin = self.skins.iter().position(|s| s.name == name).unwrap_or(0);
         self.skins[self.skin].apply(ctx);
         self.wallpaper = patina_shell::bar::wallpaper();
+        self.bar.reload();
     }
 
     fn choose_skin(&mut self, index: usize, ctx: &egui::Context) {
@@ -301,17 +308,6 @@ impl App {
             if ui.button("Open skins folder").clicked() {
                 let _ = std::fs::create_dir_all(&dir);
                 self.open(dir.clone());
-            }
-            if let Some(path) = patina_shell::bar::config_path()
-                && ui
-                    .button("Open bar settings")
-                    .on_hover_text(path.display().to_string())
-                    .clicked()
-            {
-                if !path.exists() {
-                    let _ = patina_shell::bar::set("skin", &self.skins[self.skin].name);
-                }
-                self.open(path);
             }
         });
     }
@@ -531,6 +527,9 @@ impl App {
             .show(ui, |ui| match self.page {
                 Page::Appearance => {
                     egui::ScrollArea::vertical().show(ui, |ui| self.appearance(ui));
+                }
+                Page::Bar => {
+                    egui::ScrollArea::vertical().show(ui, |ui| self.bar.ui(ui, &mut self.message));
                 }
                 Page::Wallpaper => self.wallpaper_page(ui),
                 Page::NightLight => {

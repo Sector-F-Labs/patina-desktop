@@ -1,9 +1,10 @@
 //! patina-settings: the Patina desktop's Settings (ADR-0038), a Patina app
 //! for the settings that need more than the desktop's menu: the skin, the
-//! wallpaper and Night Light. It edits the files those settings live in
+//! bar, the wallpaper and Night Light. It edits the files those settings live in
 //! (the bar's config, the compositor's), and the pieces reading them follow.
 
 mod app;
+mod bar;
 mod compositor_config;
 mod night_light;
 mod power;
@@ -15,7 +16,7 @@ use std::process::ExitCode;
 use crate::app::Page;
 
 const USAGE: &str =
-    "usage: patina-settings [--page appearance|wallpaper|night-light|power|processes]
+    "usage: patina-settings [--page appearance|bar|wallpaper|night-light|power|processes]
 
 Opens the Patina desktop's Settings, at the page given (Appearance without
 one). The desktop's menu opens it at the wallpaper page.";

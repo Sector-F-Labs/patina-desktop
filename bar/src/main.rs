@@ -6,6 +6,7 @@
 mod bar;
 mod config;
 mod dwl;
+mod icons;
 mod launcher;
 mod tray;
 
@@ -65,14 +66,10 @@ fn main() -> ExitCode {
         None => (config::Config::default(), Vec::new()),
     };
     let height = config.height.max(1);
-    let edge = match config.position {
-        Position::Top => Anchor::TOP,
-        Position::Bottom => Anchor::BOTTOM,
-    };
     let options = Options {
         namespace: "patina-bar".into(),
         layer: Layer::Top,
-        anchor: edge | Anchor::LEFT | Anchor::RIGHT,
+        anchor: anchor(config.position),
         size: (0, height),
         exclusive_zone: height as i32,
         margin: (0, 0, 0, 0),
@@ -98,13 +95,22 @@ fn main() -> ExitCode {
     }
 }
 
+/// Where the bar sits: across the top or the bottom.
+fn anchor(position: Position) -> Anchor {
+    let edge = match position {
+        Position::Top => Anchor::TOP,
+        Position::Bottom => Anchor::BOTTOM,
+    };
+    edge | Anchor::LEFT | Anchor::RIGHT
+}
+
 fn usage_error() -> ExitCode {
     eprintln!("{USAGE}");
     ExitCode::from(2)
 }
 
 fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<(), String> {
-    let (host, event_loop) = Host::connect(options, bar)?;
+    let (mut host, event_loop) = Host::connect(options, bar)?;
     let handle = event_loop.handle();
 
     // dwl blocks when its status pipe fills up, so stdin is read on a thread
@@ -137,6 +143,20 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
             if let Event::Msg(line) = event
                 && host.shell.status.apply(&line)
             {
+                host.redraw_all();
+            }
+        })
+        .map_err(|e| e.to_string())?;
+
+    // The window tabs' icons, found and decoded on a thread of their own.
+    let (found, icons) = channel::channel::<(String, Option<egui::ColorImage>)>();
+    host.shell.ask_icon = Some(icons::spawn(move |app_id, image| {
+        found.send((app_id, image)).is_ok()
+    }));
+    handle
+        .insert_source(icons, |event, _, host| {
+            if let Event::Msg((app_id, image)) = event {
+                host.shell.icon_found(app_id, image);
                 host.redraw_all();
             }
         })
@@ -242,7 +262,8 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
     }
 
     // The clock changes on its own; redraw on each second. Then too, look
-    // for a new skin in the config file, as the desktop's menu sets it.
+    // for changes to the config file, as the desktop's menu and Settings
+    // make them: the skin, the window tabs and the edge follow at once.
     let mut seen = config_path.as_deref().and_then(modified);
     handle
         .insert_source(
@@ -253,6 +274,11 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
                     if now != seen {
                         seen = now;
                         let (config, _) = config::load(path);
+                        host.shell.config.window_tabs = config.window_tabs;
+                        if config.position != host.shell.config.position {
+                            host.shell.config.position = config.position;
+                            host.set_anchor(anchor(config.position));
+                        }
                         let (changed, warnings) = host.shell.set_skin(&config.skin);
                         for w in warnings {
                             eprintln!("patina-bar: {w}");

@@ -9,6 +9,8 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
 
 - **Appearance**: the shell's skin, as the desktop's menu offers it, with the skins folder
   buttons.
+- **Bar** (ADR-0050): what the window tabs show (icons and titles, icons, titles), which edge the
+  bar is on, and the button that opens its config file for everything else.
 - **Wallpaper**: the default "Sector F Labs" and the images in `~/Pictures/Wallpapers` and the
   system's backgrounds, as thumbnails decoded off the UI thread.
 - **Night Light** (ADR-0039): off, always on, or on a schedule, and the warmth. It also shows
@@ -29,7 +31,7 @@ It wears the shell's skin and follows it when the desktop's menu changes it.
 ## How it fits in
 
 - **Started by** patina-menu: its Wallpaper… item runs `patina-settings --page wallpaper`, and
-  Settings… runs it at Appearance. `--page appearance|wallpaper|night-light|power|processes`.
+  Settings… runs it at Appearance. `--page appearance|bar|wallpaper|night-light|power|processes`.
 - **Writes the files the settings live in**, keeping the rest of each: the bar's config
   (`skin`, `wallpaper`) through patina-shell, and `[night_light]` in the compositor's config with
   `toml_edit`. The bar, patina-wallpaper and the compositor watch those files and change at once.
@@ -47,7 +49,7 @@ patina-night-light inhibit -- darktable   # held off while a command runs
 
 ## Code
 
-`main.rs`, `app.rs` (the window, the Appearance and Wallpaper pages), `night_light.rs` and
+`main.rs`, `app.rs` (the window, the Appearance and Wallpaper pages), `bar.rs` (the Bar page), `night_light.rs` and
 `power.rs` and `processes.rs` (theirs),
 `compositor_config.rs` (`[night_light]` read and written in place), `wallpapers.rs` (the images on
 offer and their thumbnails), `bin/patina-night-light.rs`.

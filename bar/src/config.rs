@@ -19,6 +19,26 @@ pub enum Position {
     Bottom,
 }
 
+/// What the window tabs show (ADR-0050).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum WindowTabs {
+    /// The app's icon and the window's title.
+    Both,
+    Icons,
+    Titles,
+}
+
+impl From<WindowTabs> for patina::tabs::TabLabel {
+    fn from(tabs: WindowTabs) -> Self {
+        match tabs {
+            WindowTabs::Both => Self::IconAndTitle,
+            WindowTabs::Icons => Self::Icon,
+            WindowTabs::Titles => Self::Title,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -34,6 +54,8 @@ pub struct Config {
     pub left: Vec<String>,
     pub center: Vec<String>,
     pub right: Vec<String>,
+    /// What each window's tab shows: "both", "icons" or "titles".
+    pub window_tabs: WindowTabs,
     /// A strftime format, as in date(1).
     pub clock: String,
     /// What the launcher button runs, through sh(1).
@@ -67,6 +89,7 @@ impl Default for Config {
             ],
             center: vec!["title".into()],
             right: vec!["tray".into(), "clock".into(), "power".into()],
+            window_tabs: WindowTabs::Both,
             clock: "%a %-d %b  %H:%M".into(),
             launcher: "patina-launcher".into(),
             volume: "patina-volume".into(),
@@ -133,6 +156,22 @@ mod tests {
         assert_eq!(c.height, 41);
         assert_eq!(c.tags.len(), 9);
         assert_eq!(c.position, Position::Bottom);
+        assert_eq!(c.window_tabs, WindowTabs::Both);
+    }
+
+    #[test]
+    fn window_tabs_show_icons_titles_or_both() {
+        assert_eq!(
+            parse("window_tabs = \"icons\"").0.window_tabs,
+            WindowTabs::Icons
+        );
+        assert_eq!(
+            parse("window_tabs = \"titles\"").0.window_tabs,
+            WindowTabs::Titles
+        );
+        let (c, w) = parse("window_tabs = \"pictures\"");
+        assert_eq!(c.window_tabs, WindowTabs::Both);
+        assert_eq!(w.len(), 1, "{w:?}");
     }
 
     #[test]

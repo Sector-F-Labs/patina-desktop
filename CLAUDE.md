@@ -118,7 +118,8 @@ puts them in `$(PREFIX)/share/man`.
 - `menu/`: patina-menu, the desktop's menu on a right click on the desktop (ADR-0029): the skin
   menu, writing `skin` into the bar's config (patina-shell's `bar.rs` `set_skin`); the bar polls the
   file's mtime each second and restyles (`Host::restyle`). Wallpaper… opens Settings at its page.
-- `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance, Wallpaper (sets
+- `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance, Bar (`window_tabs` and
+  `position` in the bar's config, which the bar follows live, ADR-0050), Wallpaper (sets
   `wallpaper`) and Night Light (writes `[night_light]` into the compositor's config with
   `toml_edit`; state over D-Bus through `system/src/night_light.rs`), Power (the screen's
   `[screen] off_after`, and power-profiles-daemon through `system/src/power_profiles.rs`) and

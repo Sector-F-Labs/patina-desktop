@@ -21,9 +21,14 @@ It holds modules on the left, in the centre and on the right:
 .It Ic launcher
 The Sector F flask, which opens the launcher.
 .It Ic windows
-A tab per open window.
+A tab per open window, with its app's icon and its title, as
+.Ic window_tabs
+says.
 A click focuses it, a middle click closes it; the compositor's Alt+Tab
 and Super+1 to 9 follow the same order.
+The icon is the one the app's
+.Pa .desktop
+entry names, found by the window's app id.
 .It Ic tray
 Wi-Fi, which opens
 .Xr patina-wifi 1 ;
@@ -77,9 +82,11 @@ read it when they open.
 and
 .Xr patina-settings 1
 write
-.Ic skin
-and
+.Ic skin ,
 .Ic wallpaper ,
+.Ic window_tabs
+and
+.Ic position ,
 keeping the rest of the file.
 .Bl -tag -width Ds
 .It Ic position
@@ -88,6 +95,13 @@ keeping the rest of the file.
 .Dq top .
 .It Ic height
 In logical pixels; 41 by default.
+.It Ic window_tabs
+What each window's tab shows:
+.Dq both ,
+its app's icon and its title (the default);
+.Dq icons ,
+narrow tabs with only the icon and the title on hover; or
+.Dq titles .
 .It Ic skin
 A Patina skin by name: a built-in, or one in
 .Pa ~/.config/patina-bar/skins .
