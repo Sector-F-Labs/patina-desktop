@@ -26,6 +26,44 @@ enum Icon {
     Found(Arc<egui::ColorImage>),
 }
 
+/// What a window's tab says (ADR-0061): its app's name, then its title,
+/// as "Files - Home"; the name alone when the title only names the app
+/// ("Mozilla Firefox"); and without a last part of the title that names
+/// the app again, as Firefox's "Patina — Mozilla Firefox" does. Until the
+/// name is known, the title.
+pub fn tab_title(name: Option<&str>, title: &str, app_id: &str) -> String {
+    let Some(name) = name.filter(|n| !n.is_empty()) else {
+        return if title.is_empty() { app_id } else { title }.to_string();
+    };
+    let lower = name.to_lowercase();
+    let mut rest = title.trim();
+    for separator in [" — ", " – ", " - ", " | "] {
+        if let Some((before, last)) = rest.rsplit_once(separator)
+            && last.to_lowercase().contains(&lower)
+        {
+            rest = before.trim();
+            break;
+        }
+    }
+    // A title that's only the app's own ("Mozilla Firefox") says nothing
+    // more.
+    let only_the_app = !rest.contains(" - ")
+        && !rest.contains(" — ")
+        && !rest.contains(" – ")
+        && rest.to_lowercase().contains(&lower);
+    if rest.is_empty() || only_the_app {
+        name.to_string()
+    } else {
+        format!("{name} - {rest}")
+    }
+}
+
+/// The last part of a reverse-DNS app id, as a name: `Nautilus` for
+/// org.gnome.Nautilus.
+fn last_part(app_id: &str) -> String {
+    app_id.rsplit('.').next().unwrap_or(app_id).to_string()
+}
+
 /// Each surface's textures of the icons, by app id: every output has an
 /// egui context of its own, and a texture belongs to one.
 #[derive(Clone, Default)]
@@ -47,7 +85,10 @@ pub struct Bar {
     requests: RefCell<Vec<ToplevelRequest>>,
     /// The window tabs' icons by app id, and where to ask for one.
     icons: RefCell<HashMap<String, Icon>>,
-    pub ask_icon: Option<mpsc::Sender<(String, u32)>>,
+    /// The window tabs' apps' names by app id: `None` while asked.
+    names: RefCell<HashMap<String, Option<Option<String>>>>,
+    /// Where to ask for an app's icon or name.
+    pub ask_app: Option<mpsc::Sender<crate::icons::Ask>>,
     /// What's hovered, and the tooltip showing for it (ADR-0057).
     tips: crate::tooltip::Tips,
     tooltip_shown: Option<crate::tooltip::Shown>,
@@ -74,7 +115,8 @@ impl Bar {
                 toplevels: Vec::new(),
                 requests: RefCell::new(Vec::new()),
                 icons: RefCell::new(HashMap::new()),
-                ask_icon: None,
+                names: RefCell::new(HashMap::new()),
+                ask_app: None,
                 tab_menu: None,
                 tips: Default::default(),
                 tooltip_shown: None,
@@ -97,12 +139,41 @@ impl Bar {
     }
 
     /// The icon thread's answer for `app_id`. Redraw after.
-    pub fn icon_found(&mut self, app_id: String, image: Option<egui::ColorImage>) {
-        let icon = match image {
-            Some(image) => Icon::Found(Arc::new(image)),
-            None => Icon::Missing,
-        };
-        self.icons.get_mut().insert(app_id, icon);
+    /// An app's icon or name, found on the icon thread.
+    pub fn app_found(&mut self, found: crate::icons::Found) {
+        match found {
+            crate::icons::Found::Icon(app_id, image) => {
+                let icon = match image {
+                    Some(image) => Icon::Found(Arc::new(image)),
+                    None => Icon::Missing,
+                };
+                self.icons.get_mut().insert(app_id, icon);
+            }
+            crate::icons::Found::Name(app_id, name) => {
+                self.names.get_mut().insert(app_id, Some(name));
+            }
+        }
+    }
+
+    /// The name of `app_id`'s app, once it's known: its `.desktop` entry's,
+    /// or else the last part of the app id. Asked for the first time it's
+    /// wanted; until the answer comes, `None`.
+    fn app_name(&self, app_id: &str) -> Option<String> {
+        let mut names = self.names.borrow_mut();
+        match names.get(app_id) {
+            Some(Some(name)) => Some(name.clone().unwrap_or_else(|| last_part(app_id))),
+            Some(None) => None,
+            None => {
+                let ask = self.ask_app.as_ref()?;
+                if ask
+                    .send(crate::icons::Ask::Name(app_id.to_string()))
+                    .is_ok()
+                {
+                    names.insert(app_id.to_string(), None);
+                }
+                None
+            }
+        }
     }
 
     /// `app_id`'s icon as a texture in `ctx`, asking the icon thread for it
@@ -113,9 +184,12 @@ impl Bar {
             Some(Icon::Found(image)) => image.clone(),
             Some(_) => return None,
             None => {
-                let ask = self.ask_icon.as_ref()?;
+                let ask = self.ask_app.as_ref()?;
                 let size = (ICON * ctx.pixels_per_point()).ceil() as u32;
-                if ask.send((app_id.to_string(), size)).is_ok() {
+                if ask
+                    .send(crate::icons::Ask::Icon(app_id.to_string(), size))
+                    .is_ok()
+                {
                     icons.insert(app_id.to_string(), Icon::Asked);
                 }
                 return None;
@@ -302,17 +376,10 @@ impl Bar {
         if self.toplevels.is_empty() {
             return;
         }
-        let titles: Vec<&str> = self
+        let titles: Vec<String> = self
             .toplevels
             .iter()
-            .map(|t| {
-                if t.title.is_empty() {
-                    &t.app_id
-                } else {
-                    &t.title
-                }
-            })
-            .map(String::as_str)
+            .map(|t| tab_title(self.app_name(&t.app_id).as_deref(), &t.title, &t.app_id))
             .collect();
         let shown = self
             .toplevels
@@ -353,7 +420,7 @@ impl Bar {
             })
             .inner;
         if let Some((i, rect)) = hovered_tab {
-            crate::tooltip::note(ui, rect, titles[i]);
+            crate::tooltip::note(ui, rect, titles[i].as_str());
         }
         if let Some((i, at)) = menu_at {
             self.open_tab_menu(i, at);
@@ -624,7 +691,8 @@ mod tests {
             toplevels: Vec::new(),
             requests: RefCell::new(Vec::new()),
             icons: RefCell::new(HashMap::new()),
-            ask_icon: None,
+            names: RefCell::new(HashMap::new()),
+            ask_app: None,
             tab_menu: None,
             tips: Default::default(),
             tooltip_shown: None,
@@ -636,7 +704,7 @@ mod tests {
     fn each_apps_icon_is_asked_for_once_and_drawn_when_found() {
         let mut b = bar("left = [\"windows\"]\ncenter = []\nright = []");
         let (ask, asked) = mpsc::channel();
-        b.ask_icon = Some(ask);
+        b.ask_app = Some(ask);
         let foot = |id, title: &str| Toplevel {
             app_id: "foot".into(),
             ..window(id, title, id == 1)
@@ -646,16 +714,19 @@ mod tests {
         let mut time = 0.0;
         frame(&mut b, &ctx, &mut time, vec![]);
         frame(&mut b, &ctx, &mut time, vec![]);
-        let wanted: Vec<(String, u32)> = asked.try_iter().collect();
+        let wanted: Vec<crate::icons::Ask> = asked.try_iter().collect();
         assert_eq!(
             wanted,
-            [("foot".to_string(), 18)],
+            [
+                crate::icons::Ask::Name("foot".into()),
+                crate::icons::Ask::Icon("foot".into(), 18)
+            ],
             "both windows are foot's"
         );
-        b.icon_found(
+        b.app_found(crate::icons::Found::Icon(
             "foot".into(),
             Some(egui::ColorImage::filled([18, 18], Color32::RED)),
-        );
+        ));
         frame(&mut b, &ctx, &mut time, vec![]);
         let textures = ctx
             .data(|d| d.get_temp::<Textures>(egui::Id::new("patina-bar-icons")))
@@ -692,7 +763,7 @@ mod tests {
             ));
             b.gaps = gaps;
             let (ask, asked) = mpsc::channel();
-            b.ask_icon = Some(ask);
+            b.ask_app = Some(ask);
             let windows: Vec<Toplevel> = apps
                 .iter()
                 .enumerate()
@@ -725,9 +796,8 @@ mod tests {
                     &primitives,
                     &out.textures_delta,
                 );
-                for (app_id, size) in asked.try_iter() {
-                    let image = crate::icons::find_installed(&app_id, size);
-                    b.icon_found(app_id, image);
+                for question in asked.try_iter() {
+                    b.app_found(crate::icons::installed(question));
                 }
             }
             let rgba: Vec<u8> = pixels
@@ -743,14 +813,55 @@ mod tests {
     }
 
     #[test]
-    fn titles_only_asks_for_no_icons() {
+    fn titles_only_asks_for_names_but_no_icons() {
         let mut b = bar("left = [\"windows\"]\ncenter = []\nright = []\nwindow_tabs = \"titles\"");
         let (ask, asked) = mpsc::channel();
-        b.ask_icon = Some(ask);
+        b.ask_app = Some(ask);
         b.toplevels_changed(&[window(1, "one", true)]);
         let ctx = egui::Context::default();
         frame(&mut b, &ctx, &mut 0.0, vec![]);
-        assert!(asked.try_recv().is_err());
+        let wanted: Vec<crate::icons::Ask> = asked.try_iter().collect();
+        assert!(
+            wanted
+                .iter()
+                .all(|a| matches!(a, crate::icons::Ask::Name(_))),
+            "{wanted:?}"
+        );
+    }
+
+    #[test]
+    fn a_tab_says_the_app_then_the_title() {
+        assert_eq!(
+            tab_title(Some("Files"), "Home", "org.gnome.Nautilus"),
+            "Files - Home"
+        );
+        assert_eq!(tab_title(Some("Teleprinter"), "~", "x"), "Teleprinter - ~");
+        // The title is only the app's name: the name alone.
+        assert_eq!(
+            tab_title(Some("Teleprinter"), "Teleprinter", "x"),
+            "Teleprinter"
+        );
+        assert_eq!(tab_title(Some("Foot"), "", "foot"), "Foot");
+        // A last part naming the app again goes.
+        assert_eq!(
+            tab_title(Some("Firefox"), "Patina — Mozilla Firefox", "firefox"),
+            "Firefox - Patina"
+        );
+        assert_eq!(
+            tab_title(Some("Firefox"), "Mozilla Firefox", "firefox"),
+            "Firefox"
+        );
+        assert_eq!(
+            tab_title(
+                Some("Code"),
+                "main.rs - patina - Visual Studio Code",
+                "code"
+            ),
+            "Code - main.rs - patina"
+        );
+        // Until the name is known, the title as before.
+        assert_eq!(tab_title(None, "Home", "org.gnome.Nautilus"), "Home");
+        assert_eq!(tab_title(None, "", "foot"), "foot");
     }
 
     /// Runs the bar for a 1000x26 output and returns the text it drew, with

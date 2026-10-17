@@ -21,9 +21,18 @@ It holds modules on the left, in the centre and on the right:
 .It Ic launcher
 The Sector F flask, which opens the launcher.
 .It Ic windows
-A tab per open window, with its app's icon and its title, as
+A tab per open window, with its app's icon and its name and title, as
 .Ic window_tabs
 says.
+The text is the app's name from its
+.Pa .desktop
+entry, then the window's title, as
+.Dq Files - Home ;
+just the name when the title only names the app, and without a last part
+of the title that names it again, so Firefox's
+.Dq Patina \(em Mozilla Firefox
+is
+.Dq Firefox - Patina .
 A click focuses it, a middle click closes it; the compositor's Alt+Tab
 and Super+1 to 9 follow the same order.
 A right click opens its menu, in

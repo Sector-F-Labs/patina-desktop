@@ -153,15 +153,14 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
         })
         .map_err(|e| e.to_string())?;
 
-    // The window tabs' icons, found and decoded on a thread of their own.
-    let (found, icons) = channel::channel::<(String, Option<egui::ColorImage>)>();
-    host.shell.ask_icon = Some(icons::spawn(move |app_id, image| {
-        found.send((app_id, image)).is_ok()
-    }));
+    // The window tabs' apps' names and icons, found on a thread of their
+    // own.
+    let (found, answers) = channel::channel::<icons::Found>();
+    host.shell.ask_app = Some(icons::spawn(move |answer| found.send(answer).is_ok()));
     handle
-        .insert_source(icons, |event, _, host| {
-            if let Event::Msg((app_id, image)) = event {
-                host.shell.icon_found(app_id, image);
+        .insert_source(answers, |event, _, host| {
+            if let Event::Msg(answer) = event {
+                host.shell.app_found(answer);
                 host.redraw_all();
             }
         })

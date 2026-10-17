@@ -9,7 +9,7 @@ config file holds the settings the whole shell shares (the skin and the wallpape
 Modules on the left, centre and right, as waybar lays them out (ADR-0001):
 
 - `launcher`: the Sector F flask, which opens patina-launcher.
-- `windows`: a tab per open window (ADR-0012, ADR-0027). Clicking one focuses it, middle-click
+- `windows`: a tab per open window (ADR-0012, ADR-0027), saying "App - Title" (ADR-0061). Clicking one focuses it, middle-click
   closes it; the compositor's Alt+Tab and Super+1–9 follow the same order. Each shows its app's
   icon, its title, or both, by `window_tabs` (ADR-0050); `patina_system::apps` matches the window's app id
   to its `.desktop` entry, and `icons.rs` finds the icon through the icon theme, on a thread.
