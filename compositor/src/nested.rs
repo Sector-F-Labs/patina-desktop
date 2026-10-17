@@ -463,6 +463,7 @@ impl PointerHandler for State {
             if event.surface != window {
                 continue;
             }
+            self.input_activity();
             let pos = event.position.into();
             match event.kind {
                 PointerEventKind::Enter { serial } => {
@@ -548,6 +549,7 @@ impl KeyboardHandler for State {
         _: u32,
         event: KeyEvent,
     ) {
+        self.input_activity();
         if self.key(event.raw_code, true, event.time) == Some(crate::input::KeyAction::Quit) {
             self.loop_signal.stop();
         }
@@ -572,6 +574,7 @@ impl KeyboardHandler for State {
         _: u32,
         event: KeyEvent,
     ) {
+        self.input_activity();
         let _ = self.key(event.raw_code, false, event.time);
     }
 

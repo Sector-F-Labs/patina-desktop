@@ -188,9 +188,21 @@ what flashes up after a volume key.
 .Ic command ,
 the lock screen
 .Pq Dq patina-lock ,
-any ext-session-lock locker; and
+any ext-session-lock locker;
 .Ic on_suspend ,
-whether to lock before the machine sleeps.
+whether to lock before the machine sleeps; and
+.Ic on_screen_off ,
+whether to lock when the screen turns off.
+.It Ic [screen]
+.Ic off_after :
+seconds without input before the screen turns off; 300 by default, 0
+for never.
+Any input turns it back on.
+Something playing holds it on: a window using the idle-inhibit protocol,
+or a holder of
+.Sy org.freedesktop.ScreenSaver Ns 's
+Inhibit, as Steam is while a game runs.
+On the hardware the monitor is powered off; nested, it's only logged.
 .It Ic [night_light]
 .Ic mode :
 .Dq off ,
@@ -251,6 +263,11 @@ which start what they open through Spawn.
 .It com.sectorflabs.Patina.NightLight
 Night Light's state, overrides and inhibitors, on the hardware; see
 .Xr patina-night-light 1 .
+.It org.freedesktop.ScreenSaver
+Inhibit and UnInhibit, which hold the screen on until let go of or until
+the caller leaves the bus; SimulateUserActivity, as if there were input;
+and GetActive, whether the screen is off.
+Not served where another desktop already has the name.
 .El
 .Sh FILES
 .Bl -tag -width Ds

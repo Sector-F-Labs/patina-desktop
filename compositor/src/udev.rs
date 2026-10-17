@@ -100,6 +100,9 @@ pub struct UdevData {
     /// The monitor's gamma ramp, for Night Light (ADR-0039); `None` when
     /// its CRTC has none.
     gamma: Option<Gamma>,
+    /// The monitor is powered off for want of input (ADR-0047); nothing is
+    /// drawn until it's on again.
+    off: bool,
 }
 
 /// A CRTC's gamma ramp: as it was when we came, and the temperature it's
@@ -272,6 +275,7 @@ pub fn init(
             active: true,
             frame_pending: false,
             gamma,
+            off: false,
         },
         output,
         auto_scale,
@@ -312,6 +316,27 @@ impl UdevData {
         let Some(gamma) = &self.gamma else { return };
         if let Err(e) = gamma.set(&self.drm, gamma.shown) {
             eprintln!("patina-compositor: can't set the gamma ramp: {e}");
+        }
+    }
+
+    /// Powers the monitor off (DPMS): its planes are cleared, and nothing
+    /// is drawn until [`power_on`](Self::power_on).
+    pub fn power_off(&mut self) {
+        self.off = true;
+        if self.active
+            && let Err(e) = self.compositor.clear()
+        {
+            eprintln!("patina-compositor: can't turn the screen off: {e}");
+        }
+    }
+
+    /// Powers the monitor on again: the next frame lights it.
+    pub fn power_on(&mut self) {
+        self.off = false;
+        self.frame_pending = false;
+        // As after another console had it.
+        if self.active {
+            self.apply_gamma();
         }
     }
 
@@ -506,6 +531,9 @@ fn session_event(state: &mut State, event: SessionEvent) {
             // Gamma doesn't survive another session having the GPU.
             u.apply_gamma();
             state.needs_redraw = true;
+            // Coming back took a key on another console, which we never
+            // saw: that's input, and the screen comes on.
+            state.input_activity();
         }
     }
 }
@@ -520,6 +548,12 @@ fn vblank(state: &mut State) {
 
 /// Draws a frame if something changed and the monitor is ready for one.
 pub fn schedule(state: &mut State) {
+    if state.udev.as_ref().is_some_and(|u| u.off) {
+        // Nothing's shown, so a lock is as good as on screen, and sleep
+        // needn't wait for it.
+        state.lock_drawn();
+        return;
+    }
     let ready = state
         .udev
         .as_ref()

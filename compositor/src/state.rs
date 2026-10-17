@@ -106,6 +106,10 @@ pub struct State {
     /// The lock screen (ADR-0025).
     pub lock: crate::lock::Lock,
     pub session_lock: smithay::wayland::session_lock::SessionLockManagerState,
+    /// The screen turning off without input, and what holds it on
+    /// (ADR-0047).
+    pub idle: crate::idle::Idle,
+    _idle_inhibit: smithay::wayland::idle_inhibit::IdleInhibitManagerState,
     /// Locked, and a frame has been drawn since: the desktop is hidden.
     pub lock_shown: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Super is down, and nothing else has been pressed since.
@@ -230,6 +234,10 @@ impl State {
             session_lock: smithay::wayland::session_lock::SessionLockManagerState::new::<Self, _>(
                 &dh,
                 |_| true,
+            ),
+            idle: Default::default(),
+            _idle_inhibit: smithay::wayland::idle_inhibit::IdleInhibitManagerState::new::<Self>(
+                &dh,
             ),
             lock_shown: Default::default(),
             super_tap: false,

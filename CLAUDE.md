@@ -62,6 +62,11 @@ puts them in `$(PREFIX)/share/man`.
   only). `night_light/dbus.rs` serves `com.sectorflabs.Patina.NightLight`; `dbus-run-session --
   cargo test -p patina-compositor night_light -- --ignored` tests it on a bus of its own. The
   compositor reloads its config within a second of a save.
+- `compositor/src/idle.rs`: the screen turning off (ADR-0047): `[screen] off_after` without input
+  (`input::handle` and the nested backend call `State::input_activity`), `UdevData::power_off`/`on`
+  (DPMS through `DrmCompositor::clear`; nested it only logs), held on by idle-inhibit and by
+  `org.freedesktop.ScreenSaver` (`idle/dbus.rs`; `dbus-run-session -- cargo test -p
+  patina-compositor idle -- --ignored`).
 - `compositor/src/xwayland.rs`: X11 apps (ADR-0040): Xwayland spawned at start-up, `DISPLAY` for
   clients, and the `XwmHandler` that maps, places, moves and resizes X windows as `Window`s in
   the space. `focus.rs`: the keyboard focus is a `FocusTarget` (Wayland surface or X11 window, so
@@ -106,8 +111,9 @@ puts them in `$(PREFIX)/share/man`.
   file's mtime each second and restyles (`Host::restyle`). Wallpaper… opens Settings at its page.
 - `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance, Wallpaper (sets
   `wallpaper`) and Night Light (writes `[night_light]` into the compositor's config with
-  `toml_edit`; state over D-Bus through `system/src/night_light.rs`), Power
-  (power-profiles-daemon through `system/src/power_profiles.rs`) and Processes (ADR-0045). Also
+  `toml_edit`; state over D-Bus through `system/src/night_light.rs`), Power (the screen's
+  `[screen] off_after`, and power-profiles-daemon through `system/src/power_profiles.rs`) and
+  Processes (ADR-0045). Also
   `patina-night-light`.
   `cargo test -p patina-settings preview -- --ignored` with PATINA_SETTINGS_PREVIEW=dir draws
   each page in software, without opening a window.

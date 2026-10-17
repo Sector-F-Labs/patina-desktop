@@ -15,8 +15,10 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   what the compositor says: whether this screen can be warmed, whether it's on now (with a button
   to turn it off until the schedule changes, or back), and which apps are holding it off.
 
-- **Power** (ADR-0042): the power modes this machine has (performance, balanced, power saver)
-  through power-profiles-daemon, why performance is held back, and which apps hold a mode.
+- **Power** (ADR-0042, ADR-0047): when the screen turns off without input (never, or 1 to 15
+  minutes) and whether that locks it, written as `[screen] off_after` and `[lock] on_screen_off`
+  in the compositor's config; and the power modes this machine has (performance, balanced, power
+  saver) through power-profiles-daemon, why performance is held back, and which apps hold a mode.
 
 - **Processes** (ADR-0045): what the compositor started, with each one's state, PID, uptime and
   restarts, and buttons to restart or stop it. A click on a name opens a window that follows its

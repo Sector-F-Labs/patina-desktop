@@ -27,8 +27,10 @@ It shows whether this screen can be warmed, whether it's on now, with a
 button to turn it off until the schedule next changes, and which apps are
 holding it off.
 .It Power
-The power modes this machine has, through power-profiles-daemon, why
-performance is held back, and which apps hold a mode.
+When the screen turns off without input, from never to 15 minutes, and
+whether that locks it; and the power modes this machine has, through
+power-profiles-daemon, why performance is held back, and which apps hold
+a mode.
 .It Processes
 What the compositor started: each one's state, PID, uptime and restarts,
 with Restart and Stop.
@@ -71,7 +73,10 @@ Print the version.
 and
 .Ic wallpaper .
 .It Pa ~/.config/patina-compositor/config.toml
-.Ic [night_light] .
+.Ic [night_light] ,
+.Ic [screen] off_after
+and
+.Ic [lock] on_screen_off .
 .El
 .Sh SEE ALSO
 .Xr patina-compositor 1 ,

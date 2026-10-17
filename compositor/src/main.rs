@@ -12,6 +12,7 @@ mod drag;
 mod focus;
 mod fullscreen;
 mod grabs;
+mod idle;
 mod input;
 mod keyboard;
 mod lock;
@@ -138,6 +139,7 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
         export_to_session(&state);
     }
     state.start_night_light();
+    state.start_idle();
     // Nested too: the VM and `make run` are where the pieces are worked on.
     let _processes = processes::dbus::serve(&state.socket_name, &event_loop.handle())
         .inspect_err(|e| eprintln!("patina-compositor: the process list isn't on D-Bus: {e}"));

@@ -84,6 +84,16 @@
 # desktop isn't shown on waking.
 # on_suspend = true
 
+# Lock when the screen turns off for want of input ([screen] off_after).
+# on_screen_off = false
+
+[screen]
+# Turn the screen off after this many seconds without the keyboard, pointer
+# or touchpad being used; 0 for never. Any input turns it back on. Videos,
+# and games through Steam, hold it on while they play. Settings' Power page
+# changes this for you.
+# off_after = 300
+
 [night_light]
 # Warm the screen in the evening, on the hardware (not when nested in another
 # desktop, which has its own). Settings changes these for you.

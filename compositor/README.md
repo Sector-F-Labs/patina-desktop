@@ -28,6 +28,9 @@ this workspace is a Wayland client of it.
   so Wine's fullscreen games don't minimise themselves (ADR-0044).
 - **Mouse-look** for games (ADR-0043): relative pointer motion, and the pointer locked or confined
   to a window that asks, on the hardware.
+- **The screen turns off** after `[screen] off_after` seconds without input, five minutes by
+  default (ADR-0047): DPMS off on the hardware, back on at any input. Video players (idle-inhibit)
+  and Steam's games (`org.freedesktop.ScreenSaver`, which the compositor serves) hold it on.
 - **Night Light** on the hardware (ADR-0039): the CRTC's gamma ramp warmed in the evening, by
   `[night_light]`'s mode and schedule, fading in and out. Apps and scripts can hold it off over
   D-Bus; nested, the parent desktop's own night light applies.
@@ -69,7 +72,8 @@ this workspace is a Wayland client of it.
   to commands. Every key is optional; a broken file falls back to the defaults and never stops the
   session. It's reloaded within a second of being saved (ADR-0039), so patina-settings only
   writes it.
-- **On the session bus,** on the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
+- **On the session bus:** `org.freedesktop.ScreenSaver` (`idle/dbus.rs`), for apps holding the
+  screen on. On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
   Uninhibit, SetOverride, and its state as properties), for patina-settings,
   `patina-night-light` and apps that need true colour.
 - **Shares code with the shell pieces** through patina-system: the backlight (`backlight.rs`) for
@@ -80,7 +84,7 @@ this workspace is a Wayland client of it.
 `main.rs` (start-up, choosing the backend), `state.rs` (the protocols, placement, focus),
 `input.rs` and `keyboard.rs` (input and the compositor's own keys), `grabs.rs`, `maximize.rs`,
 `tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`,
-`night_light.rs` with `night_light/dbus.rs`, `xwayland.rs` and `focus.rs` (X11 windows and
+`night_light.rs` with `night_light/dbus.rs`, `idle.rs` with `idle/dbus.rs`, `xwayland.rs` and `focus.rs` (X11 windows and
 what has the keyboard), `fullscreen.rs`, `constraints.rs` (pointer locks for games), `dnd.rs` (the icon a drag shows),
 `cursor.rs`, `drag.rs`, `scale.rs`, `config.rs`, `clients.rs`, and the backends `winit.rs`,
 `nested.rs`, `udev.rs` with `dmabuf.rs`.

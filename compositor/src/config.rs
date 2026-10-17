@@ -19,6 +19,7 @@ pub struct Config {
     pub cursor: Cursor,
     pub media: Media,
     pub lock: Lock,
+    pub screen: Screen,
     pub night_light: NightLight,
     /// What tapping Super on its own runs; "" for nothing.
     pub launcher: String,
@@ -99,6 +100,8 @@ pub struct Lock {
     pub command: String,
     /// Lock before the machine sleeps (the lid, or a suspend).
     pub on_suspend: bool,
+    /// Lock when the screen turns off for want of input (ADR-0047).
+    pub on_screen_off: bool,
 }
 
 impl Default for Lock {
@@ -106,7 +109,22 @@ impl Default for Lock {
         Self {
             command: "patina-lock".into(),
             on_suspend: true,
+            on_screen_off: false,
         }
+    }
+}
+
+/// The screen turning off when nothing's been touched (ADR-0047).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct Screen {
+    /// Seconds without input before it turns off; 0 for never.
+    pub off_after: u64,
+}
+
+impl Default for Screen {
+    fn default() -> Self {
+        Self { off_after: 300 }
     }
 }
 
@@ -247,6 +265,7 @@ impl Default for Config {
             cursor: Cursor::default(),
             media: Media::default(),
             lock: Lock::default(),
+            screen: Screen::default(),
             night_light: NightLight::default(),
             launcher: "patina-launcher".into(),
             desktop_menu: "patina-menu".into(),

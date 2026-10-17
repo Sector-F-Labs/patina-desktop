@@ -1,6 +1,8 @@
-//! `[night_light]` in the compositor's config (ADR-0019, ADR-0039), read
-//! and written in place: the rest of the file, its comments included, stays
-//! as it is. The compositor notices the change and applies it.
+//! `[night_light]`, and the screen turning off (`[screen] off_after` and
+//! `[lock] on_screen_off`), in the compositor's config (ADR-0019, ADR-0039,
+//! ADR-0047), read and written in place: the rest of the file, its comments
+//! included, stays as it is. The compositor notices the change and applies
+//! it.
 
 use std::path::PathBuf;
 
@@ -110,24 +112,102 @@ pub fn with_night_light(text: &str, night: &NightLight) -> Result<String, String
     Ok(doc.to_string())
 }
 
+/// The screen turning off without input, as the compositor has it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Screen {
+    /// Seconds; 0 for never.
+    pub off_after: u64,
+    /// Lock when it turns off.
+    pub lock: bool,
+}
+
+impl Default for Screen {
+    fn default() -> Self {
+        Self {
+            off_after: 300,
+            lock: false,
+        }
+    }
+}
+
+/// `[screen] off_after` and `[lock] on_screen_off` from the config's text,
+/// the defaults for what's missing or wrong.
+pub fn parse_screen(text: &str) -> Screen {
+    let mut screen = Screen::default();
+    let Ok(doc) = text.parse::<DocumentMut>() else {
+        return screen;
+    };
+    if let Some(s) = doc
+        .get("screen")
+        .and_then(|t| t.get("off_after"))
+        .and_then(|v| v.as_integer())
+        && s >= 0
+    {
+        screen.off_after = s as u64;
+    }
+    if let Some(lock) = doc
+        .get("lock")
+        .and_then(|t| t.get("on_screen_off"))
+        .and_then(|v| v.as_bool())
+    {
+        screen.lock = lock;
+    }
+    screen
+}
+
+/// `text` with the screen's settings set to `screen`, everything else kept.
+pub fn with_screen(text: &str, screen: &Screen) -> Result<String, String> {
+    let mut doc = text.parse::<DocumentMut>().map_err(|e| e.to_string())?;
+    for (section, key, v) in [
+        ("screen", "off_after", value(screen.off_after as i64)),
+        ("lock", "on_screen_off", value(screen.lock)),
+    ] {
+        let table = doc
+            .entry(section)
+            .or_insert_with(toml_edit::table)
+            .as_table_mut()
+            .ok_or(format!(
+                "{section} in the compositor's config isn't a section"
+            ))?;
+        table[key] = v;
+    }
+    Ok(doc.to_string())
+}
+
+fn read_text() -> Option<String> {
+    path().and_then(|p| std::fs::read_to_string(p).ok())
+}
+
 /// Night Light's settings from the compositor's config.
 pub fn read() -> NightLight {
-    path()
-        .and_then(|p| std::fs::read_to_string(p).ok())
-        .map(|t| parse(&t))
-        .unwrap_or_default()
+    read_text().map(|t| parse(&t)).unwrap_or_default()
+}
+
+/// The screen's settings from the compositor's config.
+pub fn read_screen() -> Screen {
+    read_text().map(|t| parse_screen(&t)).unwrap_or_default()
 }
 
 /// Writes Night Light's settings into the compositor's config, making it if
 /// need be.
 pub fn write(night: &NightLight) -> Result<(), String> {
+    update(|text| with_night_light(text, night))
+}
+
+/// Writes the screen's settings into the compositor's config.
+pub fn write_screen(screen: &Screen) -> Result<(), String> {
+    update(|text| with_screen(text, screen))
+}
+
+/// Changes the compositor's config with `edit`, making it if need be.
+fn update(edit: impl FnOnce(&str) -> Result<String, String>) -> Result<(), String> {
     let path = path().ok_or("no config folder")?;
     let text = match std::fs::read_to_string(&path) {
         Ok(t) => t,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(e) => return Err(format!("{}: {e}", path.display())),
     };
-    let text = with_night_light(&text, night)?;
+    let text = edit(&text)?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
@@ -163,6 +243,32 @@ mod tests {
         let text = with_night_light(&text, &NightLight::default()).unwrap();
         assert_eq!(text.matches("[night_light]").count(), 1);
         assert_eq!(parse(&text), NightLight::default());
+    }
+
+    #[test]
+    fn the_screen_is_written_into_its_sections_keeping_the_rest() {
+        assert_eq!(parse_screen(STARTER), Screen::default());
+        let screen = Screen {
+            off_after: 600,
+            lock: true,
+        };
+        let text = with_screen(STARTER, &screen).unwrap();
+        assert!(text.contains("[lock]\non_screen_off = true"), "{text}");
+        assert!(text.contains("[screen]\noff_after = 600"), "{text}");
+        assert!(text.contains("[night_light]\n# How warm."));
+        assert!(text.contains("# command = \"patina-lock\""));
+        assert_eq!(parse_screen(&text), screen);
+        let never = Screen {
+            off_after: 0,
+            lock: false,
+        };
+        let text = with_screen(&text, &never).unwrap();
+        assert_eq!(text.matches("[screen]").count(), 1);
+        assert_eq!(parse_screen(&text), never);
+        assert_eq!(
+            parse_screen("[screen]\noff_after = -5\n"),
+            Screen::default()
+        );
     }
 
     #[test]

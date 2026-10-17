@@ -338,6 +338,12 @@ impl State {
 /// Feeds one event into the seat. Returns a key action for the backend to
 /// carry out (switching consoles is the session's job).
 pub fn handle<B: InputBackend>(state: &mut State, event: InputEvent<B>) -> Option<KeyAction> {
+    if !matches!(
+        event,
+        InputEvent::DeviceAdded { .. } | InputEvent::DeviceRemoved { .. }
+    ) {
+        state.input_activity();
+    }
     match event {
         InputEvent::PointerMotion { event } => {
             state.one_finger_moved(event.delta());

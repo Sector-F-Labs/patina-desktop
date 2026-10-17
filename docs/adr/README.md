@@ -88,6 +88,7 @@ mechanics of adding one.
 | [0044](0044-smithay-from-a-fork-for-x11-focus.md) | Smithay comes from a fork while 0.7 names the root window as the active one | Accepted |
 | [0045](0045-the-compositor-keeps-the-desktops-processes.md) | The compositor keeps the desktop's processes, and Settings shows them | Accepted |
 | [0046](0046-patina-session-restarts-the-compositor.md) | patina-session runs the compositor, and starts it again when it restarts or crashes | Accepted |
+| [0047](0047-the-screen-turns-off-without-input.md) | The screen turns off after a while without input, unless something is playing | Accepted |
 
 ## Decision Relationship
 

@@ -21,9 +21,12 @@ under the box.
 .Xr patina-compositor 1
 runs it, as its
 .Ic [lock] command ,
-on Super+Escape and Ctrl+Super+Q, and before the machine sleeps when
+on Super+Escape and Ctrl+Super+Q, before the machine sleeps when
 .Ic on_suspend
-is set, so waking never shows the desktop.
+is set, so waking never shows the desktop, and when the screen turns off
+for want of input when
+.Ic on_screen_off
+is set.
 It needs a compositor with ext-session-lock.
 .Pp
 Once locked, the compositor draws and sends input only to the lock
