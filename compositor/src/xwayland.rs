@@ -277,7 +277,10 @@ impl XwmHandler for State {
             surface.title()
         );
         if let Err(e) = surface.set_suspended(true) {
-            eprintln!("patina-compositor: can't minimise {:?}: {e}", surface.title());
+            eprintln!(
+                "patina-compositor: can't minimise {:?}: {e}",
+                surface.title()
+            );
         }
     }
 

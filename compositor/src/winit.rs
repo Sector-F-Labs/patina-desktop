@@ -9,12 +9,15 @@ use smithay::{
     backend::{
         egl::EGLDevice,
         renderer::{ImportDma, ImportMemWl, damage::OutputDamageTracker, gles::GlesRenderer},
-        winit::{self as smithay_winit, WinitEvent, WinitGraphicsBackend},
+        winit::{self as smithay_winit, WinitEvent, WinitEventLoop, WinitGraphicsBackend},
     },
     desktop::{layer_map_for_output, space::render_output},
     output::{Mode, Output, Scale},
     reexports::{
-        calloop::EventLoop,
+        calloop::{
+            EventIterator, EventLoop, EventSource, LoopSignal, Poll, PostAction, Readiness, Token,
+            TokenFactory,
+        },
         wayland_server::DisplayHandle,
         winit::{dpi::LogicalSize, platform::wayland::WindowAttributesExtWayland, window::Window},
     },
@@ -102,6 +105,10 @@ pub fn init(
         None => dmabuf_state.create_global::<State>(dh, formats),
     };
 
+    let winit = UntilExit {
+        winit,
+        signal: event_loop.get_signal(),
+    };
     event_loop
         .handle()
         .insert_source(winit, |event, _, state| handle_event(state, event))
@@ -135,6 +142,70 @@ pub fn schedule(state: &mut State) {
     {
         w.redraw_requested = true;
         w.backend.window().request_redraw();
+    }
+}
+
+/// winit's events, quitting the compositor when winit exits: the desktop
+/// it's nested in has gone (bsdt's restart stops dwl; the parent's session
+/// ends). Smithay's source only removes itself then, which left the
+/// compositor running with no window. It's a clean exit, so patina-session
+/// ends too, rather than starting it again in a desktop that isn't there.
+struct UntilExit {
+    winit: WinitEventLoop,
+    signal: LoopSignal,
+}
+
+impl EventSource for UntilExit {
+    type Event = WinitEvent;
+    type Metadata = ();
+    type Ret = ();
+    type Error = std::io::Error;
+
+    const NEEDS_EXTRA_LIFECYCLE_EVENTS: bool = true;
+
+    fn before_sleep(&mut self) -> smithay::reexports::calloop::Result<Option<(Readiness, Token)>> {
+        self.winit.before_sleep()
+    }
+
+    fn before_handle_events(&mut self, events: EventIterator<'_>) {
+        self.winit.before_handle_events(events)
+    }
+
+    fn process_events<F>(
+        &mut self,
+        readiness: Readiness,
+        token: Token,
+        callback: F,
+    ) -> Result<PostAction, Self::Error>
+    where
+        F: FnMut(Self::Event, &mut Self::Metadata) -> Self::Ret,
+    {
+        let action = self.winit.process_events(readiness, token, callback)?;
+        if matches!(action, PostAction::Remove) {
+            eprintln!("patina-compositor: the desktop it ran in has gone; quitting");
+            self.signal.stop();
+        }
+        Ok(action)
+    }
+
+    fn register(
+        &mut self,
+        poll: &mut Poll,
+        factory: &mut TokenFactory,
+    ) -> smithay::reexports::calloop::Result<()> {
+        self.winit.register(poll, factory)
+    }
+
+    fn reregister(
+        &mut self,
+        poll: &mut Poll,
+        factory: &mut TokenFactory,
+    ) -> smithay::reexports::calloop::Result<()> {
+        self.winit.reregister(poll, factory)
+    }
+
+    fn unregister(&mut self, poll: &mut Poll) -> smithay::reexports::calloop::Result<()> {
+        self.winit.unregister(poll)
     }
 }
 
