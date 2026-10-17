@@ -437,7 +437,8 @@ impl Bar {
         let skin = self.skin.name.clone();
         let edge = self.edge();
         std::thread::spawn(move || {
-            match crate::apps::new_window_command(&crate::apps::entries(), &app_id) {
+            match patina_system::apps::new_window_command(&patina_system::apps::entries(), &app_id)
+            {
                 Some(command) => crate::launcher::run(&command, &skin, edge),
                 None => eprintln!("patina-bar: no .desktop entry or program for {app_id:?}"),
             }

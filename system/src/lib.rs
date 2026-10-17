@@ -8,6 +8,7 @@
 //! compositor starts (`processes`), locking, logging out, restarting and
 //! shutting down (`session`), and the compositor's tiling (`tiling`).
 
+pub mod apps;
 pub mod audio;
 pub mod backlight;
 pub mod icons;

@@ -10,6 +10,7 @@ name = "patina_system"
 
 [dependencies]
 egui = "0.35"
+freedesktop-desktop-entry = { version = "0.8", default-features = false }
 resvg = { version = "0.48.1", default-features = false }
 zbus = "5"
 

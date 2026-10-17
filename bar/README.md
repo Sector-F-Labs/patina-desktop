@@ -11,7 +11,7 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
 - `launcher`: the Sector F flask, which opens patina-launcher.
 - `windows`: a tab per open window (ADR-0012, ADR-0027). Clicking one focuses it, middle-click
   closes it; the compositor's Alt+Tab and Super+1–9 follow the same order. Each shows its app's
-  icon, its title, or both, by `window_tabs` (ADR-0050); `apps.rs` matches the window's app id
+  icon, its title, or both, by `window_tabs` (ADR-0050); `patina_system::apps` matches the window's app id
   to its `.desktop` entry, and `icons.rs` finds the icon through the icon theme, on a thread.
   A tab's right-click menu opens in patina-menu, so it isn't cut off at the bar's edge
   (`menu.rs`, ADR-0056): New Window, which runs the entry's `new-window` action, or its Exec

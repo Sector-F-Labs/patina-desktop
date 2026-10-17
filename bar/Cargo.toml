@@ -10,7 +10,6 @@ repository = "https://github.com/Sector-F-Labs/patina-desktop"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 dirs = "6"
 egui = "0.35"
-freedesktop-desktop-entry = { version = "0.8", default-features = false }
 freedesktop-icons = "0.4"
 patina-apps = { git = "https://github.com/Sector-F-Labs/patina-apps", features = ["icon"] }
 patina-shell = { workspace = true }

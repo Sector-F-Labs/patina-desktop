@@ -1,37 +1,51 @@
-//! A window's app, from its app id (a Wayland app id, or an X11 window's
-//! class) matched to an installed `.desktop` entry: its icon for the tab
-//! (`icons.rs`, ADR-0050), and the command that opens another window of it
-//! (the tab's New Window, ADR-0055).
+//! Installed apps, from their `.desktop` entries, and a window's app from
+//! its app id (a Wayland app id, or an X11 window's class): the bar's tab
+//! icons (ADR-0050) and New Window (ADR-0055), and what patina-raise finds
+//! and starts by name (ADR-0058).
 
 use freedesktop_desktop_entry::{DesktopEntry, Iter, default_paths};
 
 /// What a `.desktop` entry says that matters here.
 pub struct Entry {
     pub id: String,
+    /// What it's called, as the launcher shows it ("Telegram").
+    pub name: String,
     pub wm_class: Option<String>,
     pub icon: Option<String>,
     /// What opens a new window: the entry's `new-window` action if it has
     /// one (a browser or a file manager, which only raise their window when
     /// run again), else its Exec; in a terminal if the entry says so.
     pub command: Option<Vec<String>>,
+    /// What starts it: its Exec, in a terminal if the entry says so.
+    pub exec: Option<Vec<String>>,
+}
+
+/// `args` run in a terminal, if `terminal`: `$TERMINAL`, or foot.
+fn in_terminal(mut args: Vec<String>, terminal: bool) -> Vec<String> {
+    if terminal {
+        let program = std::env::var("TERMINAL").unwrap_or_else(|_| "foot".into());
+        args.splice(0..0, [program, "-e".into()]);
+    }
+    args
 }
 
 fn command(e: &DesktopEntry) -> Option<Vec<String>> {
     let new_window = e
         .actions()
         .is_some_and(|actions| actions.contains(&"new-window"));
-    let mut args = if new_window {
+    let args = if new_window {
         e.parse_exec_action("new-window").ok()
     } else {
         None
     }
     .or_else(|| e.parse_exec().ok())
     .filter(|args| !args.is_empty())?;
-    if e.terminal() {
-        let terminal = std::env::var("TERMINAL").unwrap_or_else(|_| "foot".into());
-        args.splice(0..0, [terminal, "-e".into()]);
-    }
-    Some(args)
+    Some(in_terminal(args, e.terminal()))
+}
+
+fn exec(e: &DesktopEntry) -> Option<Vec<String>> {
+    let args = e.parse_exec().ok().filter(|args| !args.is_empty())?;
+    Some(in_terminal(args, e.terminal()))
 }
 
 pub fn entries() -> Vec<Entry> {
@@ -41,9 +55,14 @@ pub fn entries() -> Vec<Entry> {
         .filter(|e| seen.insert(e.id().to_string()))
         .map(|e| Entry {
             id: e.id().to_string(),
+            name: e
+                .name::<&str>(&[])
+                .map(|n| n.to_string())
+                .unwrap_or_default(),
             wm_class: e.startup_wm_class().map(str::to_string),
             icon: e.icon().map(str::to_string),
             command: command(&e),
+            exec: exec(&e),
         })
         .collect()
 }
@@ -67,7 +86,7 @@ pub fn entry_for<'a>(entries: &'a [Entry], app_id: &str) -> Option<&'a Entry> {
 }
 
 /// `args` as one line for sh(1), each quoted.
-fn shell_line(args: &[String]) -> String {
+pub fn shell_line(args: &[String]) -> String {
     args.iter()
         .map(|a| format!("'{}'", a.replace('\'', r"'\''")))
         .collect::<Vec<_>>()
@@ -94,8 +113,10 @@ mod tests {
         Entry {
             id: id.into(),
             wm_class: wm_class.map(Into::into),
+            name: id.into(),
             icon: Some(icon.into()),
             command: None,
+            exec: None,
         }
     }
 

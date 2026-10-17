@@ -6,6 +6,7 @@
 .Nd focus an app's window, or start the app
 .Sh SYNOPSIS
 .Nm
+.Op Fl ip
 .Ar app
 .Op Fl -
 .Op Ar command ...
@@ -29,7 +30,11 @@ window, round to the first, so pressing the key again steps through them.
 .It
 If none is open, it starts the app: by
 .Ar command
-if one is given, else by running
+if one is given, else by the
+.Ic Exec
+of the app's
+.Pa .desktop
+entry, else by running
 .Ar app .
 It's started through
 .Xr patina-compositor 1 ,
@@ -39,11 +44,18 @@ itself under another compositor.
 .El
 .Pp
 .Ar app
-is matched against each window's app id, ignoring case, and against the
-last part of a reverse-DNS app id, so
-.Ql nautilus
-matches
-.Ql org.gnome.Nautilus .
+is matched against each window's app id, the last part of a reverse-DNS
+app id
+.Pq Ql Nautilus No for Ql org.gnome.Nautilus ,
+and the name its app's
+.Pa .desktop
+entry gives
+.Pq Dq WhatsApp Web No for a web app whose app id says nothing :
+whole, and as written, unless
+.Fl i
+or
+.Fl p
+say otherwise.
 .Pp
 It sees and focuses windows through wlr-foreign-toplevel-management, as
 .Xr patina-bar 1
@@ -51,8 +63,18 @@ does, so it works under other wlroots compositors too.
 Where the compositor doesn't offer that (GNOME), it only starts the app.
 .Sh OPTIONS
 .Bl -tag -width Ds
+.It Fl i , -insensitive
+Ignore case.
+.It Fl p , -partial
+Match
+.Ar app
+anywhere in the app id or the name, so
+.Ql -ip telegram
+finds
+.Ql telegram-desktop_telegram-desktop .
 .It Fl l , -list
-Print the open windows' app ids, the focused one marked with
+Print the open windows' app ids and their apps' names, the focused one
+marked with
 .Ql * ,
 to find what to name.
 .It Fl h , -help
@@ -71,8 +93,16 @@ Alt+B to Firefox, in
 "Alt+B" = "patina-raise firefox"
 .Ed
 .Pp
+Telegram and WhatsApp, by part of their names, started from their
+.Pa .desktop
+entries when they aren't open:
+.Bd -literal -offset indent
+"Alt+G" = "patina-raise -ip telegram"
+"Alt+W" = "patina-raise -ip whatsapp"
+.Ed
+.Pp
 Files, opening a new window when there's none:
-.Dl patina-raise org.gnome.Nautilus -- nautilus --new-window
+.Dl patina-raise -i nautilus -- nautilus --new-window
 .Pp
 In
 .Xr wbindkeys 1 Ns 's

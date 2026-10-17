@@ -23,6 +23,9 @@ painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in it
 - **`processes.rs`**: the processes the compositor started, their logs, and restarting or stopping
   them, through its `com.sectorflabs.Patina.Processes` on the session bus (ADR-0045), for Settings'
   Processes page.
+- **`apps.rs`**: installed apps from their `.desktop` entries (id, name, icon, Exec, New Window
+  action) and a window's app by its app id, for the bar's tab icons and New Window and for
+  patina-raise.
 - **`tiling.rs`**: the compositor's `com.sectorflabs.Patina.Tiling` (ADR-0049, ADR-0053): drags and
   Super+arrows in, placing windows and the preview out, and holding the Tiler name, for
   patina-tiler and other tilers (`cargo run -p patina-system --example thirds`).

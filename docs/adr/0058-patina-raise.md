@@ -5,7 +5,8 @@ Date: 2026-10-17
 ## Status
 
 Accepted. The user asked for a way to launch or select an app: Alt+B for Firefox should focus an
-open Firefox window, and start Firefox only if none is open.
+open Firefox window, and start Firefox only if none is open. How it matches changed in
+[ADR-0060](0060-patina-raise-matching.md).
 
 ## Context
 

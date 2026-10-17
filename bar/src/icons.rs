@@ -7,7 +7,7 @@ use std::sync::mpsc;
 
 use egui::ColorImage;
 
-use crate::apps::{Entry, entries, entry_for};
+use patina_system::apps::{Entry, entries, entry_for};
 
 /// The theme searched first, as the launcher's; then hicolor and pixmaps.
 const THEME: &str = "Adwaita";

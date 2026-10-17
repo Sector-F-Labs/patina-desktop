@@ -110,8 +110,9 @@ puts them in `$(PREFIX)/share/man`.
   (tray icons), `logo.rs` (the flask and Ubuntu Mono).
 - `compositor/src/toplevels.rs` and patina-shell's `toplevels.rs`: wlr-foreign-toplevel-management,
   server and client, for the bar's `windows` tabs (ADR-0012).
-- `raise/`: patina-raise (ADR-0058), focus an app's window or start it, for key bindings (Alt+B
-  is `patina-raise firefox` by default): `choose.rs` decides, `main.rs` lists and activates
+- `raise/`: patina-raise (ADR-0058, ADR-0060), focus an app's window or start it, for key bindings
+  (Alt+B is `patina-raise firefox` by default; `-i`/`-p` for case and partial matches, also on
+  `.desktop` names, which `patina_system::apps` reads): `choose.rs` decides, `main.rs` lists and activates
   windows over wlr-foreign-toplevel with plain wayland-client; `--list` prints app ids.
 - `wifi/`: patina-wifi, the tray's Wi-Fi menu (ADR-0022), on `system/src/network.rs`.
 - `volume/`: patina-volume, the tray's volume menu, also flashed by the compositor after a
@@ -143,7 +144,7 @@ puts them in `$(PREFIX)/share/man`.
   or the default flask (`system/src/logo.rs`, with Ubuntu Mono) in the skin's colours. `cargo test
   -p patina-wallpaper -- --ignored` with PATINA_WALLPAPER_PREVIEW=dir renders the default per skin.
 - `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`;
-  `bar/src/apps.rs`: a window's `.desktop` entry by app id, for its tab's icon (`icons.rs`) and
+  `system/src/apps.rs`: a window's `.desktop` entry by app id, for its tab's icon (`icons.rs`) and
   New Window in the tab's menu (ADR-0055). The tab's menu opens in patina-menu
   (`bar/src/menu.rs`, ADR-0056: `TabStrip::own_menu` reports the right click, and patina-menu
   `--item`s print the choice), since the bar's surface is too thin for egui menus. Tooltips
