@@ -761,7 +761,7 @@ impl Reader {
         {
             self.go(readme);
         }
-        if ui.add(egui::Button::new("System Manual")).clicked() {
+        if ui.add(egui::Button::new("System Manual")).on_hover_text(manpath_tip()).clicked() {
             self.open_manual();
         }
         if ui.add(egui::Button::new("Find File").shortcut_text(weak(ui, "Ctrl+P"))).clicked() {
@@ -892,7 +892,7 @@ impl Reader {
         let focus = std::mem::take(&mut self.focus_filter);
         let tab = &mut self.tabs[self.tab];
         if tab.man {
-            ui.label(RichText::new("Manual").strong()).on_hover_text("Every man page on this system");
+            ui.label(RichText::new("Manual").strong()).on_hover_text(manpath_tip());
         } else if let Some(root) = &tab.root {
             ui.label(RichText::new(tab.title()).strong()).on_hover_text(root.display().to_string());
         } else {
@@ -1018,7 +1018,7 @@ impl Reader {
                 if ui.button("Open Project…").clicked() {
                     self.pick_folder();
                 }
-                if ui.button("System Manual").clicked() {
+                if ui.button("System Manual").on_hover_text(manpath_tip()).clicked() {
                     self.open_manual();
                 }
             });
@@ -1115,10 +1115,7 @@ impl eframe::App for Reader {
         let has_tree = !self.single && (self.tabs[self.tab].root.is_some() || self.tabs[self.tab].man);
         if has_tree {
             egui::Panel::left("tree")
-                .frame(
-                    egui::Frame::side_top_panel(ui.style())
-                        .inner_margin(egui::Margin::symmetric(8, 0)),
-                )
+                .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(egui::Margin::symmetric(8, 0)))
                 .default_size(240.0)
                 .size_range(160.0..=480.0)
                 .show(ui, |ui| self.sidebar(ui));
@@ -1171,6 +1168,12 @@ fn restore(config: &Config) -> (Vec<Tab>, usize) {
     (tabs, config.tab)
 }
 
+/// Where the system's man pages come from, for the manual's tooltips.
+fn manpath_tip() -> String {
+    let folders: Vec<String> = man::folders().iter().map(|f| f.display().to_string()).collect();
+    format!("Every man page in:\n{}", folders.join("\n"))
+}
+
 /// The tree's rows for `nodes`, folders opening and closing, a file
 /// clicked put in `picked`.
 fn draw_tree(ui: &mut Ui, tab: &mut Tab, nodes: &[Node], depth: usize, filtering: bool, picked: &mut Option<PathBuf>) {
@@ -1178,7 +1181,22 @@ fn draw_tree(ui: &mut Ui, tab: &mut Tab, nodes: &[Node], depth: usize, filtering
         match node {
             Node::Folder { name, path, children } => {
                 let open = filtering || tab.expanded.contains(path);
-                let resp = row(ui, depth, Mark::Folder(open), name, false);
+                let mut resp = row(ui, depth, Mark::Folder(open), name, false);
+                if tab.man {
+                    // A section's pages come from its man1, man1ssl… in each folder on the manpath.
+                    resp = resp.on_hover_ui(|ui| {
+                        let mut dirs: Vec<&Path> = Vec::new();
+                        for child in children {
+                            if let Node::File { path, .. } = child
+                                && let Some(dir) = path.parent()
+                                && !dirs.contains(&dir)
+                            {
+                                dirs.push(dir);
+                            }
+                        }
+                        ui.label(dirs.iter().map(|d| d.display().to_string()).collect::<Vec<_>>().join("\n"));
+                    });
+                }
                 if resp.clicked() && !filtering && !tab.expanded.remove(path) {
                     tab.expanded.insert(path.clone());
                 }
@@ -1193,7 +1211,10 @@ fn draw_tree(ui: &mut Ui, tab: &mut Tab, nodes: &[Node], depth: usize, filtering
                     Kind::Man => "man",
                     Kind::Rust => "rs",
                 };
-                let resp = row(ui, depth, Mark::Kind(mark), name, current);
+                let mut resp = row(ui, depth, Mark::Kind(mark), name, current);
+                if *kind == Kind::Man {
+                    resp = resp.on_hover_text(path.display().to_string());
+                }
                 if current && tab.reveal {
                     resp.scroll_to_me(Some(Align::Center));
                 }

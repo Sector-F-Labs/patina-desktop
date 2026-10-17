@@ -99,7 +99,8 @@ fn skipped(name: &str) -> bool {
 }
 
 /// Every man page on the system, a folder per section in order ("1 User
-/// Commands"), each page named without its section. Where the same page
+/// Commands"), each page named without its section unless two in a
+/// section share a name (`passwd(1)`, `passwd(1ssl)`). Where the same page
 /// is in more than one place, the first on the manpath wins, as for man.
 pub fn man_pages() -> Vec<Node> {
     let mut sections: std::collections::BTreeMap<char, std::collections::BTreeMap<String, PathBuf>> =
@@ -122,7 +123,7 @@ pub fn man_pages() -> Vec<Node> {
             let Ok(pages) = std::fs::read_dir(&sub) else { continue };
             let section = sections.entry(section).or_default();
             for page in pages.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| crate::man::is_page(p)) {
-                section.entry(crate::man::page_name(&page)).or_insert(page);
+                section.entry(crate::man::label(&page)).or_insert(page);
             }
         }
     }
@@ -130,8 +131,18 @@ pub fn man_pages() -> Vec<Node> {
         .into_iter()
         .filter(|(_, pages)| !pages.is_empty())
         .map(|(section, pages)| {
-            let mut children: Vec<Node> =
-                pages.into_iter().map(|(name, path)| Node::File { name, path, kind: Kind::Man }).collect();
+            let mut names: std::collections::HashMap<String, usize> = Default::default();
+            for path in pages.values() {
+                *names.entry(crate::man::page_name(path)).or_default() += 1;
+            }
+            let mut children: Vec<Node> = pages
+                .into_iter()
+                .map(|(label, path)| {
+                    let name = crate::man::page_name(&path);
+                    let name = if names[&name] > 1 { label } else { name };
+                    Node::File { name, path, kind: Kind::Man }
+                })
+                .collect();
             children.sort_by_key(|n| n.name().to_lowercase());
             Node::Folder {
                 name: format!("{section} {}", crate::man::section_title(section)),
@@ -266,10 +277,8 @@ mod tests {
     #[test]
     fn folders_are_those_scanned_empty_or_not() {
         let root = project("folders");
-        let mut found: Vec<String> = folders(&root)
-            .iter()
-            .map(|f| f.strip_prefix(&root).unwrap().display().to_string())
-            .collect();
+        let mut found: Vec<String> =
+            folders(&root).iter().map(|f| f.strip_prefix(&root).unwrap().display().to_string()).collect();
         found.sort();
         assert_eq!(found, ["", "docs", "docs/adr", "empty", "man", "src"]);
         std::fs::remove_dir_all(&root).ok();

@@ -8,6 +8,7 @@
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::OnceLock;
 
 use egui::text::{LayoutJob, TextFormat};
 use egui::{Id, Stroke};
@@ -50,20 +51,18 @@ pub struct Shown {
 }
 
 /// Whether `path` names a man page's source: a section number (`1` to
-/// `9`, perhaps with letters, `3p`) as its extension, perhaps gzipped.
+/// `9`, perhaps with letters, `3p`, `2const`, `3readline`) as its
+/// extension, perhaps gzipped.
 pub fn is_page(path: &Path) -> bool {
     let Some(name) = path.file_name().and_then(|n| n.to_str()) else { return false };
     let name = name.strip_suffix(".gz").unwrap_or(name);
     let Some((stem, section)) = name.rsplit_once('.') else { return false };
     let mut chars = section.chars();
-    !stem.is_empty()
-        && section.len() <= 3
-        && chars.next().is_some_and(|c| ('1'..='9').contains(&c))
-        && chars.all(|c| c.is_ascii_alphabetic())
+    !stem.is_empty() && chars.next().is_some_and(|c| ('1'..='9').contains(&c)) && chars.all(|c| c.is_ascii_alphabetic())
 }
 
 /// The installed page for `name` (`ls`, `printf(3)`, `3 printf`), through
-/// `man -w`.
+/// `man -w` on Reader's manpath.
 pub fn find(name: &str) -> Option<PathBuf> {
     let name = name.trim();
     // "printf(3)" as man takes it: "3 printf".
@@ -74,13 +73,15 @@ pub fn find(name: &str) -> Option<PathBuf> {
     if args.is_empty() {
         return None;
     }
-    let out = Command::new("man").arg("-w").args(&args).output().ok()?;
+    let manpath = std::env::join_paths(folders()).ok()?;
+    let out = Command::new("man").arg("-w").args(&args).env("MANPATH", manpath).output().ok()?;
     let path = String::from_utf8_lossy(&out.stdout).lines().next()?.trim().to_string();
     (out.status.success() && !path.is_empty()).then(|| PathBuf::from(path))
 }
 
 /// The folders man pages are installed in, from `manpath`, else the usual
-/// ones.
+/// ones, then the per-user ones `manpath` leaves out when their `bin` isn't
+/// on the PATH, as when Reader starts from the desktop rather than a shell.
 pub fn manpath() -> Vec<PathBuf> {
     let found = Command::new("manpath")
         .output()
@@ -89,7 +90,24 @@ pub fn manpath() -> Vec<PathBuf> {
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .filter(|p| !p.is_empty());
     let path = found.unwrap_or_else(|| "/usr/local/share/man:/usr/local/man:/usr/share/man".into());
-    path.split(':').map(PathBuf::from).filter(|p| p.is_dir()).collect()
+    let mut folders: Vec<PathBuf> = path.split(':').map(PathBuf::from).collect();
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let data =
+        std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).or_else(|| home.as_ref().map(|h| h.join(".local/share")));
+    for user in [data.map(|d| d.join("man")), home.map(|h| h.join(".cargo/share/man"))].into_iter().flatten() {
+        if !folders.contains(&user) {
+            folders.push(user);
+        }
+    }
+    folders.retain(|p| p.is_dir());
+    folders
+}
+
+/// The manpath as it was first asked for, for saying where pages come from
+/// without running `manpath` each frame.
+pub fn folders() -> &'static [PathBuf] {
+    static FOLDERS: OnceLock<Vec<PathBuf>> = OnceLock::new();
+    FOLDERS.get_or_init(manpath)
 }
 
 /// What each section holds, as man(1) names them.
@@ -208,7 +226,7 @@ fn page_ref(text: &str, open: usize) -> Option<(usize, usize, String)> {
     let section = &text[open + 1..close];
     let mut chars = section.chars();
     let valid = chars.next().is_some_and(|c| ('1'..='9').contains(&c))
-        && section.len() <= 5
+        && section.len() <= 10
         && chars.all(|c| c.is_ascii_lowercase());
     if !valid {
         return None;
@@ -409,8 +427,18 @@ mod tests {
     }
 
     #[test]
+    fn per_user_pages_are_on_the_manpath_whatever_the_path() {
+        let cargo = PathBuf::from(std::env::var_os("HOME").unwrap()).join(".cargo/share/man");
+        if cargo.is_dir() {
+            assert!(manpath().contains(&cargo), "{:?}", manpath());
+        }
+    }
+
+    #[test]
     fn man_page_names() {
-        for yes in ["ls.1", "wbindkeys.1", "printf.3p", "x.8.gz"] {
+        for yes in
+            ["ls.1", "wbindkeys.1", "printf.3p", "x.8.gz", "EVP_MD.3ssl.gz", "F_GETFL.2const", "history.3readline"]
+        {
             assert!(is_page(Path::new(yes)), "{yes}");
         }
         for no in ["main.rs", "README.md", "v1.0", ".1", "a.10", "x.1.tar"] {
