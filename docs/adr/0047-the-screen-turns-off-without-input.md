@@ -30,14 +30,14 @@ What was weighed:
   later.
 - **The input that wakes the screen** is passed on as usual, not swallowed, as GNOME does it.
   Moving the pointer is the usual way to wake it.
-- **Locking.** GNOME locks when the screen turns off by default. Here it's an option, off by
-  default for now.
+- **Locking.** GNOME locks when the screen turns off by default. Here it's an option, on by
+  default as on GNOME (first off, then turned on the same day at the user's asking).
 
 ## Decision
 
 - **The setting:** `[screen] off_after` in the compositor's config, seconds without input before
-  the screen turns off; 300 by default, 0 for never. `[lock] on_screen_off` locks it as it turns
-  off. Both reload within a second of a save (ADR-0039), so Settings only writes them.
+  the screen turns off; 300 by default, 0 for never. `[lock] on_screen_off`, on by default, locks
+  it as it turns off. Both reload within a second of a save (ADR-0039), so Settings only writes them.
 - **The timer** (`compositor/src/idle.rs`): every input event counts as activity. Once a second,
   if `off_after` has passed since the last and nothing holds the screen on, it turns off. Something
   holding it on counts as activity, so when it lets go the full wait starts again.

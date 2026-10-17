@@ -109,7 +109,7 @@ impl Default for Lock {
         Self {
             command: "patina-lock".into(),
             on_suspend: true,
-            on_screen_off: false,
+            on_screen_off: true,
         }
     }
 }

@@ -84,8 +84,9 @@
 # desktop isn't shown on waking.
 # on_suspend = true
 
-# Lock when the screen turns off for want of input ([screen] off_after).
-# on_screen_off = false
+# Lock when the screen turns off for want of input ([screen] off_after), as
+# GNOME does.
+# on_screen_off = true
 
 [screen]
 # Turn the screen off after this many seconds without the keyboard, pointer

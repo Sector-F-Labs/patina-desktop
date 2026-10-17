@@ -125,7 +125,7 @@ impl Default for Screen {
     fn default() -> Self {
         Self {
             off_after: 300,
-            lock: false,
+            lock: true,
         }
     }
 }
