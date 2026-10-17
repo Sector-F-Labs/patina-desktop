@@ -58,6 +58,16 @@ pub fn tab_title(name: Option<&str>, title: &str, app_id: &str) -> String {
     }
 }
 
+/// A window tab's tooltip: what it says, and for the first nine, the key
+/// that switches to it, as the compositor's Super+1 to 9 follow the tabs.
+pub fn tab_tip(title: &str, index: usize) -> String {
+    if index < 9 {
+        format!("{title}\nSuper+{}", index + 1)
+    } else {
+        title.to_string()
+    }
+}
+
 /// The last part of a reverse-DNS app id, as a name: `Nautilus` for
 /// org.gnome.Nautilus.
 fn last_part(app_id: &str) -> String {
@@ -543,7 +553,7 @@ impl Bar {
             })
             .inner;
         if let Some((i, rect)) = hovered_tab {
-            crate::tooltip::note(ui, rect, titles[i].as_str());
+            crate::tooltip::note(ui, rect, tab_tip(&titles[i], i));
         }
         if let Some((i, at)) = menu_at {
             self.open_tab_menu(ui.ctx(), i, at);
@@ -853,7 +863,7 @@ impl Bar {
             }
             if response.hovered() {
                 let title = tab_title(name.as_deref(), &t.title, &t.app_id);
-                crate::tooltip::note(ui, cell, title);
+                crate::tooltip::note(ui, cell, tab_tip(&title, i));
             }
             if response.clicked() {
                 request = Some(ToplevelRequest::Activate(t.id));
@@ -1239,6 +1249,13 @@ mod tests {
                 .all(|a| matches!(a, crate::icons::Ask::Name(_))),
             "{wanted:?}"
         );
+    }
+
+    #[test]
+    fn a_tabs_tooltip_says_its_key() {
+        assert_eq!(tab_tip("Files - Home", 0), "Files - Home\nSuper+1");
+        assert_eq!(tab_tip("Firefox", 8), "Firefox\nSuper+9");
+        assert_eq!(tab_tip("Tenth", 9), "Tenth", "no key past nine");
     }
 
     #[test]
