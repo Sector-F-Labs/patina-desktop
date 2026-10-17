@@ -1,5 +1,6 @@
 //! The Processes page (ADR-0045): what the compositor started, restarting
-//! and stopping each, and a window following one's output. All through
+//! and stopping each, and a window following one's output; and, under
+//! patina-session, restarting the whole desktop (ADR-0046). All through
 //! `patina_system::processes`, on a thread, so a slow bus never holds the
 //! window up.
 
@@ -24,12 +25,15 @@ enum Ask {
     Follow(Option<u32>),
     Restart(u32),
     Stop(u32),
+    RestartDesktop,
 }
 
 /// What the worker sends back.
 enum Update {
     /// The list; `None` when nothing serves it.
     List(Result<Option<Vec<Process>>, String>),
+    /// Whether the desktop can restart.
+    Supervised(bool),
     Log {
         id: u32,
         lines: Vec<String>,
@@ -47,6 +51,9 @@ struct Log {
 pub struct ProcessesPage {
     list: Option<Result<Option<Vec<Process>>, String>>,
     log: Option<Log>,
+    supervised: bool,
+    /// Restart Desktop was clicked, and waits to be confirmed.
+    confirming: bool,
     ask: mpsc::Sender<Ask>,
     updates: mpsc::Receiver<Update>,
 }
@@ -57,6 +64,8 @@ impl ProcessesPage {
         Self {
             list: None,
             log: None,
+            supervised: false,
+            confirming: false,
             ask,
             updates: work(ctx.clone(), asked),
         }
@@ -75,6 +84,7 @@ impl ProcessesPage {
         while let Ok(update) = self.updates.try_recv() {
             match update {
                 Update::List(list) => self.list = Some(list),
+                Update::Supervised(s) => self.supervised = s,
                 Update::Log { id, lines } => {
                     let Some(log) = self.log.as_mut().filter(|l| l.id == id) else {
                         continue;
@@ -144,7 +154,39 @@ impl ProcessesPage {
         if let Some(id) = follow {
             self.follow(Some(id));
         }
+        if self.supervised {
+            ui.add_space(16.0);
+            self.restart_desktop(ui);
+        }
         self.log_window(ui.ctx(), &list);
+    }
+
+    /// Restart Desktop, once it's confirmed: every window closes.
+    fn restart_desktop(&mut self, ui: &mut Ui) {
+        if !self.confirming {
+            if ui.button("Restart Desktop…").clicked() {
+                self.confirming = true;
+            }
+            ui.label(
+                RichText::new(
+                    "Starts the compositor again, and everything with it, without logging out. \
+                     Ctrl+Alt+Shift+Backspace does it too.",
+                )
+                .small()
+                .weak(),
+            );
+            return;
+        }
+        ui.label("Every window closes, and their apps quit. Restart the desktop?");
+        ui.horizontal(|ui| {
+            if ui.button("Restart").clicked() {
+                let _ = self.ask.send(Ask::RestartDesktop);
+                self.confirming = false;
+            }
+            if ui.button("Cancel").clicked() {
+                self.confirming = false;
+            }
+        });
     }
 
     fn row(&self, ui: &mut Ui, p: &Process, follow: &mut Option<u32>) {
@@ -251,6 +293,7 @@ fn work(ctx: egui::Context, asked: mpsc::Receiver<Ask>) -> mpsc::Receiver<Update
         .spawn(move || {
             let mut bus: Option<Processes> = None;
             let mut last = None;
+            let mut supervised = None;
             // The process followed, and the line to ask from next.
             let mut following: Option<(u32, u64)> = None;
             loop {
@@ -282,6 +325,7 @@ fn work(ctx: egui::Context, asked: mpsc::Receiver<Ask>) -> mpsc::Receiver<Update
                         }
                         Ask::Restart(id) => bus.restart(id),
                         Ask::Stop(id) => bus.stop(id),
+                        Ask::RestartDesktop => bus.restart_desktop(),
                     };
                     if let Err(e) = done {
                         let _ = send.send(Update::Failed(e));
@@ -293,7 +337,16 @@ fn work(ctx: egui::Context, asked: mpsc::Receiver<Ask>) -> mpsc::Receiver<Update
                     Ok(false) => Ok(None),
                     Err(e) => Err(e),
                 };
+                let now_supervised =
+                    matches!(now, Ok(Some(_))) && bus.supervised().unwrap_or(false);
                 let mut changed = last.as_ref() != Some(&now);
+                if supervised != Some(now_supervised) {
+                    supervised = Some(now_supervised);
+                    changed = true;
+                    if send.send(Update::Supervised(now_supervised)).is_err() {
+                        return;
+                    }
+                }
                 if changed {
                     last = Some(now.clone());
                     if send.send(Update::List(now)).is_err() {

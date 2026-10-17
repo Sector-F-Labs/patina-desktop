@@ -46,6 +46,10 @@ current when that changes.
   they exit. `processes/dbus.rs` serves `com.sectorflabs.Patina.Processes`, nested too; Settings'
   Processes page restarts, stops and reads them through `system/src/processes.rs`, and the bar and
   menu start what they open through its `Spawn`, falling back to starting it themselves.
+- `session/`: patina-session (ADR-0046), the login session's `Exec=`: runs the compositor and starts
+  it again on exit status 75 (`session::RESTART`, Ctrl+Alt+Shift+Backspace or `RestartDesktop`) or a
+  crash. `compositor/src/session.rs` is the compositor's side, with the marker that keeps the screen
+  locked across a restart.
 - `compositor/src/screenshot.rs`: Super+Shift+3/4 and Print (ADR-0034): the desktop or the focused
   window drawn offscreen with the backend's renderer, saved as a PNG on a thread; then a `Flash`
   each backend draws on top (`flash_element`, `overlay`).

@@ -6,6 +6,9 @@ A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
   [Smithay](https://github.com/Smithay/smithay). It runs **nested** in a window on another
   desktop (OpenGL ES or `PATINA_RENDERER=pixman` software), or **on the hardware** as a login
   session (DRM/KMS, GBM, GLES, libinput, libseat). It starts patina-bar and patina-wallpaper.
+- **[patina-session](session/README.md)** (`session/`): the login session. It runs the compositor
+  and starts it again when it restarts (Ctrl+Alt+Shift+Backspace) or crashes, so neither means
+  logging in again.
 - **[patina-bar](bar/README.md)** (`bar/`): a status bar in egui on a wlr-layer-shell surface, skinned with the
   same skins as the Patina apps. It runs on any layer-shell compositor, including dwl, where it
   also shows dwl's tags.
@@ -46,7 +49,7 @@ Each crate's README says what it does on the desktop and how it fits with the ot
 make run                          # the compositor in a window on this desktop, with the bar
 patina-compositor foot firefox    # and any clients to start besides the bar
 dwl -s patina-bar                 # the bar alone, on dwl, with dwl's tags
-patina-compositor --session       # as a login session (from a text console or the login screen)
+patina-session --session          # as a login session (from a text console or the login screen)
 ```
 
 **Nested** (on GNOME/sway/etc.): the compositor opens a window; move it with Super+drag.
@@ -54,7 +57,8 @@ Windows float and cascade; click to focus and raise.
 
 **On hardware** (text console or login screen via `make install-session`): one monitor
 (internal panel first), GPU via Mesa/NVIDIA, fractional scaling (1.0, 1.5, 2.0), keyboard/mouse/
-touchpad via libinput, console switching (Ctrl+Alt+F1–F12), Ctrl+Alt+Backspace to quit.
+touchpad via libinput, console switching (Ctrl+Alt+F1–F12), Ctrl+Alt+Backspace to quit, Ctrl+Alt+Shift+Backspace to
+restart the desktop without logging out.
 
 Window keys (on hardware): **Super** opens launcher, **Super+1–9** brings tab forward,
 **Alt+Tab** / **Alt+Shift+Tab** cycles, **Super+Up/Down** maximise/restore, **Super+Left/Right**

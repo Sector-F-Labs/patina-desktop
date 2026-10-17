@@ -82,6 +82,7 @@ impl SessionLockHandler for State {
         // Hide the desktop at once: nothing but black (then the locker's
         // surface) is drawn from the next frame.
         self.lock = Lock::Locked(None);
+        crate::session::mark_locked(true);
         self.lock_shown.store(false, Ordering::SeqCst);
         self.activate(None);
         self.focus_lock();
@@ -95,6 +96,7 @@ impl SessionLockHandler for State {
 
     fn unlock(&mut self) {
         self.lock = Lock::Unlocked;
+        crate::session::mark_locked(false);
         self.lock_shown.store(false, Ordering::SeqCst);
         self.focus_top_window();
         self.needs_redraw = true;

@@ -4,19 +4,49 @@
 //! `com.sectorflabs.Patina.Processes` at `/com/sectorflabs/Patina/Processes`.
 //! The list is global, so the interface reads and changes it from zbus's
 //! threads, with no trip through the event loop. There are no signals;
-//! readers poll.
+//! readers poll. `RestartDesktop` is the exception: it goes to the loop,
+//! which quits for patina-session to start it again (ADR-0046).
 
 use std::collections::HashMap;
 use std::ffi::{OsStr, OsString};
+use std::sync::mpsc;
+use std::time::Duration;
+
+use smithay::reexports::calloop::{LoopHandle, channel};
+
+use crate::state::State;
 
 pub const NAME: &str = "com.sectorflabs.Patina.Processes";
 pub const PATH: &str = "/com/sectorflabs/Patina/Processes";
 
+/// A request to restart the desktop, and where to say how it went.
+type Restart = mpsc::Sender<Result<(), String>>;
+
 /// Claims the name and serves the interface while the connection lives.
-/// What's spawned is a client of the compositor at `socket`.
-pub fn serve(socket: &OsStr) -> Result<zbus::blocking::Connection, String> {
+/// What's spawned is a client of the compositor at `socket`; restarting
+/// the desktop is asked of the loop at `handle`.
+pub fn serve(
+    socket: &OsStr,
+    handle: &LoopHandle<'static, State>,
+) -> Result<zbus::blocking::Connection, String> {
+    let (restart, asked) = channel::channel::<Restart>();
+    handle
+        .insert_source(asked, |event, _, state| {
+            if let channel::Event::Msg(reply) = event {
+                let _ = reply.send(state.restart_desktop());
+            }
+        })
+        .map_err(|e| e.to_string())?;
+    serve_with(socket, restart)
+}
+
+fn serve_with(
+    socket: &OsStr,
+    restart: channel::Sender<Restart>,
+) -> Result<zbus::blocking::Connection, String> {
     let interface = Interface {
         socket: socket.to_os_string(),
+        restart,
     };
     zbus::blocking::connection::Builder::session()
         .and_then(|b| b.name(NAME))
@@ -27,6 +57,7 @@ pub fn serve(socket: &OsStr) -> Result<zbus::blocking::Connection, String> {
 
 struct Interface {
     socket: OsString,
+    restart: channel::Sender<Restart>,
 }
 
 fn failed(e: String) -> zbus::fdo::Error {
@@ -73,6 +104,25 @@ impl Interface {
         super::stop(id).map_err(failed)
     }
 
+    /// Quits every window and starts the desktop again, under
+    /// patina-session; refused without it, or while the screen is locked.
+    fn restart_desktop(&self) -> zbus::fdo::Result<()> {
+        let (reply, result) = mpsc::channel();
+        self.restart
+            .send(reply)
+            .map_err(|e| failed(e.to_string()))?;
+        result
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|e| failed(e.to_string()))?
+            .map_err(failed)
+    }
+
+    /// The desktop can restart: patina-session started the compositor.
+    #[zbus(property)]
+    fn supervised(&self) -> bool {
+        crate::session::supervised()
+    }
+
     /// The process's lines from sequence number `from` on, and the number
     /// to ask from next.
     fn log(&self, id: u32, from: u64) -> zbus::fdo::Result<(u64, Vec<String>)> {
@@ -91,7 +141,9 @@ mod tests {
     #[test]
     #[ignore = "needs a session bus of its own: run under dbus-run-session"]
     fn settings_lists_reads_restarts_and_stops() {
-        let _served = super::serve("test".as_ref()).expect("the name is free on a bus of our own");
+        let (restart, _) = smithay::reexports::calloop::channel::channel();
+        let _served = super::serve_with("test".as_ref(), restart)
+            .expect("the name is free on a bus of our own");
         super::super::spawn("test".as_ref(), "echo ready; sleep 30", true);
         let client = Processes::connect().unwrap();
         assert!(client.served().unwrap());

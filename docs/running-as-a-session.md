@@ -10,7 +10,8 @@ with GDM), and how to get back if something goes wrong.
 | Running nested, as a window on GNOME or another desktop (`make run`) | Works |
 | Running on the hardware itself: one monitor, keyboard, mouse and touchpad, GPU | **Works** (tested on real hardware) |
 | A login-screen entry: `make install-session` | Works |
-| The session setup (`patina-compositor --session`) | Partly: the desktop's environment, not yet portals and helpers |
+| The session setup (`patina-session --session`) | Partly: the desktop's environment, not yet portals and helpers |
+| Restarting the desktop without logging out (`patina-session`) | Works: Ctrl+Alt+Shift+Backspace, or after a crash |
 
 patina-compositor picks its backend when it starts. With a desktop to open a window on
 (`WAYLAND_DISPLAY` set) it runs nested in it, with OpenGL ES where there's a GPU
@@ -36,7 +37,8 @@ before choosing it at the login screen.
 - **The pointer:** your cursor theme's arrow (`XCURSOR_THEME`, `XCURSOR_SIZE`), or the app's own
   cursor where it sets one.
 - **Keys of its own:** **Ctrl+Alt+F1** to **F12** switch consoles. **Ctrl+Alt+Backspace** quits
-  the compositor, the way out whatever state it's in. **Super** on its own opens the launcher,
+  the compositor, the way out whatever state it's in, and **Ctrl+Alt+Shift+Backspace** restarts it
+  without logging out, closing every window (as the login session, under patina-session). **Super** on its own opens the launcher,
   **Super+1** to **9** bring forward the window in that tab of the bar,
   **Alt+Tab** and **Alt+Shift+Tab** step to the next and previous tab (the bar is the switcher), **Super+Up/Down** (or
   **K/J**) maximise and restore the focused window, **Super+Left/Right** (or **H/L**) fill the left
@@ -130,14 +132,16 @@ since under sudo the binaries would go to root's home.
 `make install-session PREFIX=/usr/local` puts the binaries in `/usr/local/bin` instead (then the
 binaries need root too, so run `sudo make install PREFIX=/usr/local` first).
 
-The entry it installs, from `packaging/linux/patina.desktop`, names the compositor by its full
-path, since a login session doesn't read your shell's `PATH`:
+The entry it installs, from `packaging/linux/patina.desktop`, names patina-session by its full
+path, since a login session doesn't read your shell's `PATH`. patina-session runs the compositor
+beside it, passing `--session` on, and starts it again when it restarts or crashes
+([ADR-0046](adr/0046-patina-session-restarts-the-compositor.md)):
 
 ```ini
 [Desktop Entry]
 Name=Patina
 Comment=The Patina desktop
-Exec=/home/you/.local/bin/patina-compositor --session
+Exec=/home/you/.local/bin/patina-session --session
 Type=Application
 DesktopNames=Patina
 ```
@@ -170,6 +174,17 @@ Still to do, so these don't work in the session yet:
 - **gnome-keyring**, if you want passwords stored as on GNOME (Ubuntu's PAM setup unlocks it
   at login);
 - an autostart list for apps to open at login.
+
+### Restarting the desktop
+
+To try a new build of the compositor, or when the desktop has gone wrong, restart it rather than
+logging out: **Ctrl+Alt+Shift+Backspace**, or **Restart Desktop…** at the bottom of Settings'
+Processes page. Every window closes and its app quits; the compositor, wallpaper and bar start
+again, from the binaries now installed. After `make install`, that's all a change takes.
+
+If the compositor crashes, patina-session starts it again a second later. If it crashes three
+times within a minute, the session ends and you're back at the login screen, with patina-session's
+reason in the journal. If the screen was locked, the restarted desktop is locked too.
 
 ## Choosing Patina at login
 
@@ -217,7 +232,7 @@ GPU GNOME holds, so it exits with "Resource temporarily unavailable" and leaves 
 - **The session fails to start and drops you back at the login screen.** Choose Ubuntu again. The
   session's output is in the journal: `journalctl -b | grep patina`. Check there for the actual error.
 - **The screen is frozen or black.** Switch to a text console (Ctrl+Alt+F3), log in, and run
-  `pkill patina-compositor`; GDM comes back. If keys don't respond at all, a reboot returns you to
+  `pkill patina-session`; GDM comes back. (`pkill patina-compositor` only restarts the desktop.) If keys don't respond at all, a reboot returns you to
   the login screen, where you can choose Ubuntu.
 - **To stop logging in to Patina by default,** choose Ubuntu from the session button, or set
   `Session=ubuntu` in the AccountsService file above.

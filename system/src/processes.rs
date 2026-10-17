@@ -88,6 +88,22 @@ impl Processes {
             .map_err(|e| e.to_string())
     }
 
+    /// Whether the desktop can restart: patina-session started the
+    /// compositor (ADR-0046).
+    pub fn supervised(&self) -> Result<bool, String> {
+        self.proxy()?
+            .get_property("Supervised")
+            .map_err(|e| e.to_string())
+    }
+
+    /// Closes every window and starts the desktop again; refused without
+    /// patina-session, or while the screen is locked.
+    pub fn restart_desktop(&self) -> Result<(), String> {
+        self.proxy()?
+            .call::<_, _, ()>("RestartDesktop", &())
+            .map_err(|e| e.to_string())
+    }
+
     /// Stops process `id` and starts it again, or starts it if it's down.
     pub fn restart(&self, id: u32) -> Result<(), String> {
         self.proxy()?

@@ -25,6 +25,9 @@ pub enum KeyAction {
     /// Quit the compositor: Ctrl+Alt+Backspace, the way out of a session
     /// that's gone wrong.
     Quit,
+    /// Restart the desktop under patina-session (Ctrl+Alt+Shift+Backspace):
+    /// quit, to be started again (ADR-0046).
+    Restart,
     /// The next keyboard layout (Super+Space, as on GNOME).
     NextLayout,
     /// Read config.toml again (Super+Shift+R).
@@ -103,7 +106,11 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
         ));
     }
     if modifiers.ctrl && modifiers.alt && sym == keysyms::KEY_BackSpace {
-        return Some(KeyAction::Quit);
+        return Some(if modifiers.shift {
+            KeyAction::Restart
+        } else {
+            KeyAction::Quit
+        });
     }
     if modifiers.logo && sym == keysyms::KEY_space {
         return Some(KeyAction::NextLayout);
@@ -237,6 +244,12 @@ impl State {
             }
             Some(KeyAction::Reload) => {
                 self.reload_config(true);
+                None
+            }
+            Some(KeyAction::Restart) => {
+                if let Err(e) = self.restart_desktop() {
+                    eprintln!("patina-compositor: not restarting: {e}");
+                }
                 None
             }
             Some(KeyAction::CloseWindow) => {
@@ -621,6 +634,14 @@ mod tests {
         assert_eq!(
             key_action(&mods(true, true), keysyms::KEY_BackSpace),
             Some(KeyAction::Quit)
+        );
+        let shift = ModifiersState {
+            shift: true,
+            ..mods(true, true)
+        };
+        assert_eq!(
+            key_action(&shift, keysyms::KEY_BackSpace),
+            Some(KeyAction::Restart)
         );
         assert_eq!(
             key_action(&mods(false, false), keysyms::KEY_BackSpace),

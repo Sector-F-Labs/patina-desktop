@@ -53,6 +53,9 @@ this workspace is a Wayland client of it.
   The list is served as `com.sectorflabs.Patina.Processes` on the session bus, nested too, for
   Settings' Processes page to restart, stop and read them. `dbus-run-session -- cargo test -p
   patina-compositor processes -- --ignored` tests it on a bus of its own.
+- **It restarts under patina-session** (`session.rs`, ADR-0046): Ctrl+Alt+Shift+Backspace, or
+  `RestartDesktop` on the session bus, quits with status 75 for patina-session to start it again.
+  It starts locked if the compositor before it left the screen locked.
 - **It tells the session about itself.** On the hardware (or with `--session`) it exports
   `WAYLAND_DISPLAY`, `DISPLAY` and `XDG_CURRENT_DESKTOP` to systemd and D-Bus, so services started later,
   such as xdg-desktop-portal and Files' file chooser, reach it.

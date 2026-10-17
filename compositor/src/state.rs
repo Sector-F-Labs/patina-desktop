@@ -80,6 +80,8 @@ pub struct State {
     pub output: Output,
     /// Something changed on screen since the last frame.
     pub needs_redraw: bool,
+    /// Quitting so patina-session starts the compositor again.
+    pub restart: bool,
     placed: i32,
 
     compositor_state: CompositorState,
@@ -206,6 +208,7 @@ impl State {
             popups: PopupManager::default(),
             output,
             needs_redraw: true,
+            restart: false,
             placed: 0,
             compositor_state: CompositorState::new::<Self>(&dh),
             // Only what the compositor does, so clients hide the rest of

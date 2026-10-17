@@ -22,6 +22,7 @@ mod night_light;
 mod processes;
 mod scale;
 mod screenshot;
+mod session;
 mod state;
 mod tabs;
 mod toplevels;
@@ -73,7 +74,8 @@ fn main() -> ExitCode {
         }
     }
     match run(&commands, session) {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(false) => ExitCode::SUCCESS,
+        Ok(true) => ExitCode::from(session::RESTART),
         Err(e) => {
             eprintln!("patina-compositor: {e}");
             ExitCode::FAILURE
@@ -81,7 +83,8 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(commands: &[String], session: bool) -> Result<(), String> {
+/// Runs the desktop until it quits; whether it's to be started again.
+fn run(commands: &[String], session: bool) -> Result<bool, String> {
     let mut event_loop: EventLoop<'static, State> =
         EventLoop::try_new().map_err(|e| e.to_string())?;
     let display: Display<State> = Display::new().map_err(|e| e.to_string())?;
@@ -126,6 +129,8 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
         "patina-compositor: clients connect on WAYLAND_DISPLAY={}",
         state.socket_name.to_string_lossy()
     );
+    // Before anything is drawn: a restart never shows a locked desktop.
+    state.resume_lock();
 
     // On the hardware it's the desktop, however it was started; nested, the
     // parent desktop's services must keep reaching the parent.
@@ -134,7 +139,7 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
     }
     state.start_night_light();
     // Nested too: the VM and `make run` are where the pieces are worked on.
-    let _processes = processes::dbus::serve(&state.socket_name)
+    let _processes = processes::dbus::serve(&state.socket_name, &event_loop.handle())
         .inspect_err(|e| eprintln!("patina-compositor: the process list isn't on D-Bus: {e}"));
     // Before any client starts, so they all get DISPLAY.
     state.start_xwayland();
@@ -155,7 +160,8 @@ fn run(commands: &[String], session: bool) -> Result<(), String> {
                 eprintln!("patina-compositor: {e}");
             }
         })
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    Ok(state.restart)
 }
 
 /// The compositor as a window on another desktop: OpenGL where there's
