@@ -106,6 +106,16 @@
 # How warm, in kelvin: 6500 is neutral, 1700 the warmest.
 # temperature = 4000
 
+[gaps]
+# Space around tiled and maximised windows, and between them, as tiling
+# window managers have. The bar floats off the screen's edge by the same
+# gap, with rounded corners. Settings' Appearance page changes these.
+# enabled = false
+# size = 8
+
+# The floating bar's corner radius, in pixels.
+# radius = 8
+
 # Keys that run commands: modifiers (Super, Alt, Ctrl, Shift) and a key, by
 # its name ("T", "Return", "F5"). Writing a [bindings] section replaces these
 # defaults, so uncomment the header together with the bindings you keep.

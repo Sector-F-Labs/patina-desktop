@@ -48,8 +48,11 @@ exit five times within thirty seconds.
 Windows float: each is placed once, cascading beside the bar, and a click
 focuses and raises it.
 Dragging a window against the left or right edge of the screen tiles it to
-that half, and against the top maximises it, with a preview of where it
-will go; dragging it away restores it.
+that half, and against the top fills the screen with it, with a preview of
+where it will go; dragging it away restores it.
+Filling tiles the window on every side; only the app's own maximise button
+(or a double click on its title bar) maximises it, edge to edge even with
+gaps.
 The bar's tabs are the list of windows: Alt+Tab steps along them, and
 closing a window focuses its neighbouring tab.
 A window asking for fullscreen covers the whole screen, over the bar.
@@ -84,7 +87,8 @@ Close the focused window.
 .It Super+Q
 Quit the focused app: ask all its windows to close.
 .It Super+Up , Super+Down
-Maximise and restore the focused window; also Super+K and Super+J.
+Fill the screen with the focused window, tiled, and restore it; also
+Super+K and Super+J.
 .It Super+Left , Super+Right
 Fill the left or right half of the screen; also Super+H and Super+L.
 .It Super+Shift+ Ns Ar arrow
@@ -222,6 +226,18 @@ and
 .Ic temperature
 in kelvin, from 6500 (neutral) to 1700.
 On the hardware only.
+.It Ic [gaps]
+With
+.Ic enabled
+true, tiled windows (halves, and windows filling the screen) keep
+.Ic size
+logical pixels (8 by default, up to 64) around and between them, and
+.Xr patina-bar 1
+floats that far off the screen's edges with corners rounded by
+.Ic radius .
+Maximised windows still fill the screen edge to edge, and tiled ones keep
+their rounded corners.
+Off by default.
 .It Ic [bindings]
 Keys that run commands, such as
 .Dl \(dqAlt+T\(dq = \(dqfoot\(dq
@@ -278,8 +294,10 @@ the caller leaves the bus; SimulateUserActivity, as if there were input;
 and GetActive, whether the screen is off.
 Not served where another desktop already has the name.
 .It com.sectorflabs.Patina.Tiling
-Drags and the work area as signals; Windows, WorkArea, Place, Restore,
-ShowPreview and HidePreview.
+Drags and the work area as signals; Windows, WorkArea, Gap, Place,
+Restore, ShowPreview and HidePreview.
+With gaps on, WorkArea is already inside the outer gaps, and Gap is the
+gap to leave between windows.
 While a program owns
 .Sy com.sectorflabs.Patina.Tiler ,
 that program decides how dragged windows tile and what Super with an arrow

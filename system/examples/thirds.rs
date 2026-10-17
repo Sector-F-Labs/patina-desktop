@@ -1,8 +1,8 @@
 //! A tiler of its own, to show the compositor's tiling can be decided by
 //! any app (ADR-0049): windows tile in thirds rather than halves. Dropped at
 //! the left or right edge, a window takes that third; at the top, the middle
-//! one. Super+Left and Right step a window along the thirds, Up maximises
-//! and Down restores. While it runs, the compositor's own tiling is off;
+//! one. Super+Left and Right step a window along the thirds, Up fills
+//! the screen and Down restores. While it runs, the compositor's own tiling is off;
 //! Ctrl+C gives it back.
 //!
 //! `cargo run -p patina-system --example thirds`, inside the desktop.
@@ -14,10 +14,11 @@ use patina_system::tiling::{Event, Rect, Tiling, claim};
 /// How near the screen's edge the pointer is to tile.
 const EDGE: f64 = 4.0;
 
-/// The `n`th of three columns of `area`.
-fn third((x, y, w, h): Rect, n: i32) -> Rect {
-    let left = x + w * n / 3;
-    let right = x + w * (n + 1) / 3;
+/// The `n`th of three columns of `area`, with `gap` between them.
+fn third((x, y, w, h): Rect, gap: i32, n: i32) -> Rect {
+    let column = (w - 2 * gap) / 3;
+    let left = x + n * (column + gap);
+    let right = if n == 2 { x + w } else { left + column };
     (left, y, right - left, h)
 }
 
@@ -41,8 +42,10 @@ fn main() -> zbus::Result<()> {
     let events = tiling.events()?;
     claim(&bus)?;
     let mut area = tiling.work_area()?;
-    // The screen is as wide as the work area; the bar only takes height.
-    let screen_width = area.0 + area.2;
+    let mut gap = tiling.gap()?;
+    // The screen is as wide as the work area and the gaps beside it; the
+    // bar only takes height.
+    let screen_width = area.0 + area.2 + gap;
     println!("tiling in thirds of {area:?}");
     // The column a dragged window would drop into, and each window's.
     let mut dropping: Option<i32> = None;
@@ -61,14 +64,14 @@ fn main() -> zbus::Result<()> {
                 }
                 dropping = now;
                 match now {
-                    Some(n) => tiling.show_preview(third(area, n)),
+                    Some(n) => tiling.show_preview(third(area, gap, n)),
                     None => tiling.hide_preview(),
                 }
             }
             Event::DragEnded(id, ..) => match dropping.take() {
                 Some(n) => {
                     columns.insert(id, n);
-                    tiling.place(id, third(area, n))
+                    tiling.place(id, third(area, gap, n))
                 }
                 None => Ok(()),
             },
@@ -84,7 +87,7 @@ fn main() -> zbus::Result<()> {
                 match (direction.as_str(), next) {
                     (_, Some(n)) => {
                         columns.insert(id, n);
-                        tiling.place(id, third(area, n))
+                        tiling.place(id, third(area, gap, n))
                     }
                     ("up", _) => {
                         columns.remove(&id);
@@ -98,7 +101,7 @@ fn main() -> zbus::Result<()> {
             }
             Event::WorkAreaChanged(new) => {
                 area = new;
-                Ok(())
+                tiling.gap().map(|g| gap = g)
             }
         };
         if let Err(e) = result {

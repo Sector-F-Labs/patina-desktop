@@ -48,6 +48,9 @@ pub struct Bar {
     /// The window tabs' icons by app id, and where to ask for one.
     icons: RefCell<HashMap<String, Icon>>,
     pub ask_icon: Option<mpsc::Sender<(String, u32)>>,
+    /// Gaps from the compositor's config: floating, with rounded corners
+    /// (ADR-0051).
+    pub gaps: crate::gaps::Gaps,
 }
 
 impl Bar {
@@ -67,6 +70,7 @@ impl Bar {
                 requests: RefCell::new(Vec::new()),
                 icons: RefCell::new(HashMap::new()),
                 ask_icon: None,
+                gaps: crate::gaps::Gaps::default(),
             },
             warnings,
         )
@@ -374,14 +378,28 @@ impl Shell for Bar {
         let m = self.monitor(output);
         let rect = ui.max_rect();
         let v = ui.visuals();
-        ui.painter().rect_filled(rect, 0.0, v.panel_fill);
         let line = v.widgets.noninteractive.bg_stroke;
-        let y = match self.config.position {
-            Position::Top => rect.bottom() - line.width / 2.0,
-            Position::Bottom => rect.top() + line.width / 2.0,
-        };
-        ui.painter().hline(rect.x_range(), y, line);
+        if self.gaps.floating() {
+            // Off the screen's edges, it's outlined all round.
+            let radius = self.gaps.radius.min(rect.height() / 2.0);
+            ui.painter().rect_filled(rect, radius, v.panel_fill);
+            ui.painter()
+                .rect_stroke(rect, radius, line, egui::StrokeKind::Inside);
+        } else {
+            ui.painter().rect_filled(rect, 0.0, v.panel_fill);
+            let y = match self.config.position {
+                Position::Top => rect.bottom() - line.width / 2.0,
+                Position::Bottom => rect.top() + line.width / 2.0,
+            };
+            ui.painter().hline(rect.x_range(), y, line);
+        }
 
+        // Inside the outline, while it floats.
+        let rect = if self.gaps.floating() {
+            rect.shrink(line.width)
+        } else {
+            rect
+        };
         let inner = rect.shrink2(vec2(GAP, 0.0));
         let left = self.row(
             ui,
@@ -499,6 +517,7 @@ mod tests {
             requests: RefCell::new(Vec::new()),
             icons: RefCell::new(HashMap::new()),
             ask_icon: None,
+            gaps: crate::gaps::Gaps::default(),
         }
     }
 
@@ -547,10 +566,20 @@ mod tests {
             ("foot", "divan@huginn: ~"),
             ("com.example.Nothing", "An app without an icon"),
         ];
-        for tabs in ["both", "icons", "titles"] {
+        let floating = crate::gaps::Gaps {
+            gap: 8,
+            radius: 8.0,
+        };
+        for (name, tabs, gaps) in [
+            ("both", "both", Default::default()),
+            ("icons", "icons", Default::default()),
+            ("titles", "titles", Default::default()),
+            ("floating", "both", floating),
+        ] {
             let mut b = bar(&format!(
                 "left = [\"windows\"]\ncenter = []\nright = [\"clock\"]\nwindow_tabs = \"{tabs}\""
             ));
+            b.gaps = gaps;
             let (ask, asked) = mpsc::channel();
             b.ask_icon = Some(ask);
             let windows: Vec<Toplevel> = apps
@@ -597,7 +626,7 @@ mod tests {
                     [r, g, b, a]
                 })
                 .collect();
-            let file = dir.join(format!("{tabs}.png"));
+            let file = dir.join(format!("{name}.png"));
             image::save_buffer(&file, &rgba, w as u32, h as u32, image::ColorType::Rgba8).unwrap();
         }
     }

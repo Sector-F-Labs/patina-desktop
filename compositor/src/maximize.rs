@@ -20,7 +20,13 @@ use crate::state::State;
 /// How a window is placed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Placement {
+    /// Maximised: the app asked (its maximise button, or a double click on
+    /// its title bar). It fills the work area, gaps or not, and is told
+    /// it's maximised (ADR-0052).
     Maximized,
+    /// Tiled upward (dragged to the top, or Super+Up): it fills the area
+    /// inside the gaps as a tiled window, not a maximised one.
+    Fill,
     Left,
     Right,
     /// Wherever a tiler put it (ADR-0049).
@@ -66,28 +72,43 @@ pub fn is_maximized(window: &Window) -> bool {
     placement(window) == Some(Placement::Maximized)
 }
 
-/// The rectangle `placement` fills in `area`. Halves split the width, the
-/// left one taking the odd pixel.
-pub fn rect_for(placement: Placement, area: Rectangle<i32, Logical>) -> Rectangle<i32, Logical> {
-    let left = (area.size.w + 1) / 2;
+/// The rectangle `placement` fills in `area` (the tiling area; a
+/// maximised window is given the work area itself), with `gap` between the
+/// halves (ADR-0051). Halves split the width, the left one taking the odd
+/// pixel.
+pub fn rect_for(
+    placement: Placement,
+    area: Rectangle<i32, Logical>,
+    gap: i32,
+) -> Rectangle<i32, Logical> {
+    let left = (area.size.w - gap + 1) / 2;
     match placement {
-        Placement::Maximized => area,
+        Placement::Maximized | Placement::Fill => area,
         Placement::Left => Rectangle::new(area.loc, Size::from((left, area.size.h))),
         Placement::Right => Rectangle::new(
-            (area.loc.x + left, area.loc.y).into(),
-            Size::from((area.size.w - left, area.size.h)),
+            (area.loc.x + left + gap, area.loc.y).into(),
+            Size::from((area.size.w - left - gap, area.size.h)),
         ),
         Placement::Rect(rect) => rect,
     }
 }
 
+/// `area` less `gap` all round: where tiled windows go.
+pub fn inset(area: Rectangle<i32, Logical>, gap: i32) -> Rectangle<i32, Logical> {
+    let gap = gap.min(area.size.w / 4).min(area.size.h / 4).max(0);
+    Rectangle::new(
+        (area.loc.x + gap, area.loc.y + gap).into(),
+        Size::from((area.size.w - 2 * gap, area.size.h - 2 * gap)),
+    )
+}
+
 /// What `snap` does to a window placed as `now`, Ubuntu's way: up
-/// maximises; down restores; left and right tile to that half, or restore
+/// fills the screen (tiled, not maximised); down restores; left and right tile to that half, or restore
 /// from the other one.
 pub fn after_snap(now: Option<Placement>, snap: Snap) -> Option<Placement> {
     use Placement::*;
     match (snap, now) {
-        (Snap::Up, _) => Some(Maximized),
+        (Snap::Up, _) => Some(Fill),
         (Snap::Down, _) => None,
         (Snap::Left, Some(Right)) | (Snap::Right, Some(Left)) => None,
         (Snap::Left, _) => Some(Left),
@@ -170,15 +191,17 @@ pub fn restored_under_pointer(
     Point::from((x.round() as i32, rect.loc.y))
 }
 
-/// The xdg states a window filling `rect` of `area` shows: maximised if
-/// it's all of it, otherwise tiled on the sides that touch the area's
-/// edges, so apps can square those corners.
+/// The xdg states a window placed as `placement` at `rect` shows:
+/// maximised only if it is, otherwise tiled on the sides that touch the
+/// work area's edges, `area`, so apps can square those corners. With gaps,
+/// none touch, and a tiled window keeps its rounded corners.
 pub fn states_for(
+    placement: Placement,
     rect: Rectangle<i32, Logical>,
     area: Rectangle<i32, Logical>,
 ) -> Vec<xdg_toplevel::State> {
     use xdg_toplevel::State as S;
-    if rect == area {
+    if placement == Placement::Maximized {
         return vec![S::Maximized];
     }
     [
@@ -198,11 +221,12 @@ pub fn states_for(
     .collect()
 }
 
-/// Shows `rect` of `area` in `toplevel`'s xdg states, or none for a
-/// floating window.
+/// Shows `placement` at `rect` of the work area `area` in `toplevel`'s
+/// xdg states (see `states_for`), or none for a floating window.
 fn set_states(
     toplevel: &smithay::wayland::shell::xdg::ToplevelSurface,
-    placed: Option<(Rectangle<i32, Logical>, Rectangle<i32, Logical>)>,
+    placed: Option<(Placement, Rectangle<i32, Logical>)>,
+    area: Rectangle<i32, Logical>,
 ) {
     use xdg_toplevel::State as S;
     toplevel.with_pending_state(|s| {
@@ -215,8 +239,8 @@ fn set_states(
         ] {
             s.states.unset(state);
         }
-        if let Some((rect, area)) = placed {
-            for state in states_for(rect, area) {
+        if let Some((placement, rect)) = placed {
+            for state in states_for(placement, rect, area) {
                 s.states.set(state);
             }
         }
@@ -229,6 +253,20 @@ impl State {
         layer_map_for_output(&self.output).non_exclusive_zone()
     }
 
+    /// The area tiled windows fill: the work area less the gaps, if
+    /// they're on. Maximised windows fill the work area itself.
+    pub fn tiling_area(&self) -> Rectangle<i32, Logical> {
+        inset(self.work_area(), self.config.gap())
+    }
+
+    /// Where `placement` puts a window now.
+    pub fn placed_rect(&self, placement: Placement) -> Rectangle<i32, Logical> {
+        match placement {
+            Placement::Maximized => self.work_area(),
+            _ => rect_for(placement, self.tiling_area(), self.config.gap()),
+        }
+    }
+
     /// Places `window` as `placement`, remembering where it was the first
     /// time.
     pub fn place_as(&mut self, window: &Window, placement: Placement) {
@@ -236,7 +274,7 @@ impl State {
             return;
         };
         let area = self.work_area();
-        let rect = rect_for(placement, area);
+        let rect = self.placed_rect(placement);
         let slot = placed(window);
         let before = match *slot.0.borrow() {
             Some((_, before)) => before,
@@ -246,7 +284,7 @@ impl State {
             ),
         };
         *slot.0.borrow_mut() = Some((placement, before));
-        set_states(toplevel, Some((rect, area)));
+        set_states(toplevel, Some((placement, rect)), area);
         toplevel.with_pending_state(|s| s.size = Some(rect.size));
         if toplevel.is_initial_configure_sent() {
             toplevel.send_pending_configure();
@@ -255,7 +293,8 @@ impl State {
         self.needs_redraw = true;
     }
 
-    /// Asks `window` to fill the work area.
+    /// Asks `window` to fill the work area, maximised: only for the app's
+    /// own request.
     pub fn maximize(&mut self, window: &Window) {
         self.place_as(window, Placement::Maximized);
     }
@@ -269,7 +308,7 @@ impl State {
         let Some((_, before)) = placed(window).0.borrow_mut().take() else {
             return;
         };
-        set_states(toplevel, None);
+        set_states(toplevel, None, Rectangle::default());
         toplevel.with_pending_state(|s| {
             s.size = (before.size.w > 0 && before.size.h > 0).then_some(before.size);
         });
@@ -309,7 +348,7 @@ impl State {
             Some(Placement::Maximized) => return,
             Some(_) => {
                 *placed(&window).0.borrow_mut() = None;
-                set_states(&toplevel, None);
+                set_states(&toplevel, None, Rectangle::default());
             }
             None => {}
         }
@@ -358,7 +397,7 @@ impl State {
             Some(Placement::Maximized) => return,
             Some(_) => {
                 *placed(&window).0.borrow_mut() = None;
-                set_states(&toplevel, None);
+                set_states(&toplevel, None, Rectangle::default());
             }
             None => {}
         }
@@ -409,8 +448,8 @@ impl State {
     /// Keeps placed windows filling their part of the work area after it
     /// changed: the output resized or rescaled, or the bar came or went.
     pub fn relayout_maximized(&mut self) {
-        let area = self.work_area();
-        self.announce_work_area(area);
+        self.announce_work_area(self.tiling_area());
+        let work_area = self.work_area();
         let placed: Vec<(Window, Placement)> = self
             .space
             .elements()
@@ -418,16 +457,16 @@ impl State {
             .collect();
         for (window, placement) in placed {
             // Called on every commit of a layer surface (the bar redraws
-            // each second), so only act on a real change.
+            // each second), so only a real change is sent: a new size, or
+            // new tiled sides after the gaps changed.
             let Some(toplevel) = window.toplevel() else {
                 continue;
             };
-            let rect = rect_for(placement, area);
-            if toplevel.with_pending_state(|s| s.size) != Some(rect.size) {
-                toplevel.with_pending_state(|s| s.size = Some(rect.size));
-                if toplevel.is_initial_configure_sent() {
-                    toplevel.send_pending_configure();
-                }
+            let rect = self.placed_rect(placement);
+            set_states(toplevel, Some((placement, rect)), work_area);
+            toplevel.with_pending_state(|s| s.size = Some(rect.size));
+            if toplevel.is_initial_configure_sent() {
+                toplevel.send_pending_configure();
             }
             self.place(&window, rect.loc);
         }
@@ -444,7 +483,7 @@ impl State {
     ) {
         let was = *placed(&window).0.borrow();
         if let Some((placement, before)) = was {
-            let rect = rect_for(placement, self.work_area());
+            let rect = self.placed_rect(placement);
             let at = restored_under_pointer(
                 rect,
                 (before.size.w, before.size.h),
@@ -482,27 +521,59 @@ mod tests {
 
     #[test]
     fn halves_split_the_work_area() {
-        let left = rect_for(Placement::Left, area());
-        let right = rect_for(Placement::Right, area());
+        let left = rect_for(Placement::Left, area(), 0);
+        let right = rect_for(Placement::Right, area(), 0);
         assert_eq!(left, Rectangle::new((0, 0).into(), (641, 759).into()));
         assert_eq!(right, Rectangle::new((641, 0).into(), (640, 759).into()));
-        assert_eq!(rect_for(Placement::Maximized, area()), area());
+        assert_eq!(rect_for(Placement::Maximized, area(), 0), area());
+    }
+
+    #[test]
+    fn gaps_go_around_and_between_tiled_windows() {
+        let tiled = inset(area(), 8);
+        assert_eq!(tiled, Rectangle::new((8, 8).into(), (1265, 743).into()));
+        let left = rect_for(Placement::Left, tiled, 8);
+        let right = rect_for(Placement::Right, tiled, 8);
+        assert_eq!(left, Rectangle::new((8, 8).into(), (629, 743).into()));
+        assert_eq!(right, Rectangle::new((645, 8).into(), (628, 743).into()));
+        assert_eq!(right.loc.x - (left.loc.x + left.size.w), 8, "between them");
+        assert_eq!(rect_for(Placement::Fill, tiled, 8), tiled);
+        // Off the work area's edges, they keep their rounded corners: not
+        // tiled, and filling isn't maximising.
+        assert!(states_for(Placement::Left, left, area()).is_empty());
+        assert!(states_for(Placement::Fill, tiled, area()).is_empty());
+        // A gap never eats a small screen.
+        assert_eq!(
+            inset(Rectangle::new((0, 0).into(), (100, 80).into()), 64)
+                .size
+                .w,
+            60
+        );
     }
 
     #[test]
     fn apps_are_told_which_sides_touch_the_work_area() {
         use xdg_toplevel::State as S;
         let area = Rectangle::new((0, 40).into(), (1200, 760).into());
-        assert_eq!(states_for(area, area), [S::Maximized]);
+        assert_eq!(states_for(Placement::Maximized, area, area), [S::Maximized]);
+        // Filled without gaps, it's tiled on every side, not maximised.
         assert_eq!(
-            states_for(rect_for(Placement::Left, area), area),
+            states_for(Placement::Fill, area, area),
+            [S::TiledLeft, S::TiledRight, S::TiledTop, S::TiledBottom]
+        );
+        assert_eq!(
+            states_for(Placement::Left, rect_for(Placement::Left, area, 0), area),
             [S::TiledLeft, S::TiledTop, S::TiledBottom]
         );
         // A tiler's middle third touches only the top and bottom.
         let middle = Rectangle::new((400, 40).into(), (400, 760).into());
-        assert_eq!(states_for(middle, area), [S::TiledTop, S::TiledBottom]);
+        let rect = Placement::Rect(middle);
+        assert_eq!(
+            states_for(rect, middle, area),
+            [S::TiledTop, S::TiledBottom]
+        );
         let floating = Rectangle::new((100, 100).into(), (400, 300).into());
-        assert!(states_for(floating, area).is_empty());
+        assert!(states_for(Placement::Rect(floating), floating, area).is_empty());
     }
 
     #[test]
@@ -577,8 +648,9 @@ mod tests {
     #[test]
     fn snapping_follows_ubuntu() {
         use Placement::*;
-        assert_eq!(after_snap(None, Snap::Up), Some(Maximized));
-        assert_eq!(after_snap(Some(Left), Snap::Up), Some(Maximized));
+        assert_eq!(after_snap(None, Snap::Up), Some(Fill));
+        assert_eq!(after_snap(Some(Left), Snap::Up), Some(Fill));
+        assert_eq!(after_snap(Some(Fill), Snap::Down), None);
         assert_eq!(after_snap(Some(Maximized), Snap::Down), None);
         assert_eq!(after_snap(Some(Left), Snap::Down), None);
         assert_eq!(after_snap(None, Snap::Left), Some(Left));

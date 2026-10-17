@@ -10,9 +10,10 @@ this workspace is a Wayland client of it.
 - **Windows float** (ADR-0007): each is placed once, cascading in the area the bar leaves free; a
   click focuses and raises it. Super+drag moves any window; a client's own header bar moves and
   resizes it.
-- **Placing windows from the keyboard** (ADR-0014, ADR-0023): Super+Up/Down maximise and
-  restore, Super+Left/Right tile half-screen, Super+Shift+arrows grow and shrink, dragging a
-  placed window restores it under the pointer.
+- **Placing windows from the keyboard** (ADR-0014, ADR-0023): Super+Up/Down fill the
+  screen and restore, Super+Left/Right tile half-screen, Super+Shift+arrows grow and shrink, dragging a
+  placed window restores it under the pointer. Filling is tiling, not maximising: only an app's
+  own maximise button maximises (ADR-0052).
 - **Tiling by dragging, as on Ubuntu** (ADR-0049): a window dragged to the left or right edge
   fills that half, to the top the screen, with a preview first. Any app can take the decisions
   over: while it owns `com.sectorflabs.Patina.Tiler` on the session bus, the compositor reports
@@ -73,7 +74,8 @@ this workspace is a Wayland client of it.
   wp_viewporter; linux-dmabuf with the GL backends; data-device for copy and paste.
 - **Config:** `~/.config/patina-compositor/config.toml` (ADR-0019): scale, `[keyboard]`,
   `[touchpad]`, `[cursor]`, `[media]` (the volume commands, `wpctl` by default), `[lock]`,
-  `[night_light]`, the launcher and desktop menu commands, and `[bindings]` from key combinations
+  `[night_light]`, `[gaps]` (space around tiled windows, ADR-0051), the launcher and desktop
+  menu commands, and `[bindings]` from key combinations
   to commands. Every key is optional; a broken file falls back to the defaults and never stops the
   session. It's reloaded within a second of being saved (ADR-0039), so patina-settings only
   writes it.

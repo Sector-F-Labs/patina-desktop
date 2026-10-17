@@ -174,6 +174,65 @@ pub fn with_screen(text: &str, screen: &Screen) -> Result<String, String> {
     Ok(doc.to_string())
 }
 
+/// Gaps (ADR-0051), as the compositor has them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Gaps {
+    pub enabled: bool,
+    pub size: u32,
+    /// The floating bar's corners.
+    pub radius: u32,
+}
+
+/// The largest gap and radius the compositor takes.
+pub const MOST_GAP: u32 = 64;
+
+impl Default for Gaps {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            size: 8,
+            radius: 8,
+        }
+    }
+}
+
+/// `[gaps]` from the config's text, the defaults for what's missing or
+/// wrong.
+pub fn parse_gaps(text: &str) -> Gaps {
+    let mut gaps = Gaps::default();
+    let Ok(doc) = text.parse::<DocumentMut>() else {
+        return gaps;
+    };
+    let Some(table) = doc.get("gaps") else {
+        return gaps;
+    };
+    if let Some(on) = table.get("enabled").and_then(|v| v.as_bool()) {
+        gaps.enabled = on;
+    }
+    for (key, field) in [("size", &mut gaps.size), ("radius", &mut gaps.radius)] {
+        if let Some(n) = table.get(key).and_then(|v| v.as_integer())
+            && (0..=MOST_GAP as i64).contains(&n)
+        {
+            *field = n as u32;
+        }
+    }
+    gaps
+}
+
+/// `text` with `[gaps]` set to `gaps`, everything else kept.
+pub fn with_gaps(text: &str, gaps: &Gaps) -> Result<String, String> {
+    let mut doc = text.parse::<DocumentMut>().map_err(|e| e.to_string())?;
+    let table = doc
+        .entry("gaps")
+        .or_insert_with(toml_edit::table)
+        .as_table_mut()
+        .ok_or("gaps in the compositor's config isn't a section")?;
+    table["enabled"] = value(gaps.enabled);
+    table["size"] = value(gaps.size as i64);
+    table["radius"] = value(gaps.radius as i64);
+    Ok(doc.to_string())
+}
+
 fn read_text() -> Option<String> {
     path().and_then(|p| std::fs::read_to_string(p).ok())
 }
@@ -186,6 +245,16 @@ pub fn read() -> NightLight {
 /// The screen's settings from the compositor's config.
 pub fn read_screen() -> Screen {
     read_text().map(|t| parse_screen(&t)).unwrap_or_default()
+}
+
+/// The gaps from the compositor's config.
+pub fn read_gaps() -> Gaps {
+    read_text().map(|t| parse_gaps(&t)).unwrap_or_default()
+}
+
+/// Writes the gaps into the compositor's config.
+pub fn write_gaps(gaps: &Gaps) -> Result<(), String> {
+    update(|text| with_gaps(text, gaps))
 }
 
 /// Writes Night Light's settings into the compositor's config, making it if
@@ -269,6 +338,27 @@ mod tests {
             parse_screen("[screen]\noff_after = -5\n"),
             Screen::default()
         );
+    }
+
+    #[test]
+    fn gaps_are_written_keeping_the_rest() {
+        assert_eq!(parse_gaps(STARTER), Gaps::default());
+        let gaps = Gaps {
+            enabled: true,
+            size: 12,
+            radius: 4,
+        };
+        let text = with_gaps(STARTER, &gaps).unwrap();
+        assert!(
+            text.contains("[gaps]\nenabled = true\nsize = 12\nradius = 4"),
+            "{text}"
+        );
+        assert!(text.contains("[night_light]\n# How warm."));
+        assert_eq!(parse_gaps(&text), gaps);
+        let text = with_gaps(&text, &Gaps::default()).unwrap();
+        assert_eq!(text.matches("[gaps]").count(), 1);
+        assert_eq!(parse_gaps(&text), Gaps::default());
+        assert_eq!(parse_gaps("[gaps]\nsize = 500\n"), Gaps::default());
     }
 
     #[test]

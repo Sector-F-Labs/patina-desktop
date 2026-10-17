@@ -118,7 +118,11 @@ puts them in `$(PREFIX)/share/man`.
 - `menu/`: patina-menu, the desktop's menu on a right click on the desktop (ADR-0029): the skin
   menu, writing `skin` into the bar's config (patina-shell's `bar.rs` `set_skin`); the bar polls the
   file's mtime each second and restyles (`Host::restyle`). Wallpaper… opens Settings at its page.
-- `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance, Bar (`window_tabs` and
+- Gaps (ADR-0051): `[gaps]` in the compositor's config is the one place: `State::tiling_area`
+  insets the work area and `rect_for` splits halves with the gap; the bar reads the same table
+  (`bar/src/gaps.rs`) and floats by layer-shell margin (`Host::set_margin`), which the compositor
+  adds to its exclusive zone.
+- `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance (skin, gaps), Bar (`window_tabs` and
   `position` in the bar's config, which the bar follows live, ADR-0050), Wallpaper (sets
   `wallpaper`) and Night Light (writes `[night_light]` into the compositor's config with
   `toml_edit`; state over D-Bus through `system/src/night_light.rs`), Power (the screen's

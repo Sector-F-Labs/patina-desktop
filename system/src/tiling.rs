@@ -21,7 +21,8 @@ pub struct Window {
     pub id: u64,
     pub app_id: String,
     pub title: String,
-    /// "", "maximized", "left", "right", or "rect" (placed by a tiler).
+    /// "", "maximized" (by the app), "fill", "left", "right", or "rect"
+    /// (placed by a tiler).
     pub placement: String,
     pub rect: Rect,
 }
@@ -65,12 +66,19 @@ impl<'a> Tiling<'a> {
             .collect())
     }
 
-    /// Where windows tile: the screen less the bar.
+    /// Where windows tile: the screen less the bar, and less the gaps
+    /// around it when they're on.
     pub fn work_area(&self) -> zbus::Result<Rect> {
         self.proxy.call("WorkArea", &())
     }
 
-    /// Tiles window `id` at `rect`; all of the work area maximises it.
+    /// The gap to leave between tiled windows; 0 when gaps are off.
+    pub fn gap(&self) -> zbus::Result<i32> {
+        self.proxy.call("Gap", &())
+    }
+
+    /// Tiles window `id` at `rect`; all of the work area fills it, tiled,
+    /// not maximised.
     pub fn place(&self, id: u64, (x, y, w, h): Rect) -> zbus::Result<()> {
         self.proxy.call("Place", &(id, x, y, w, h))
     }

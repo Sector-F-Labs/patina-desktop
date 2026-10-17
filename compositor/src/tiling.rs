@@ -24,7 +24,7 @@ use smithay::{
     utils::{Logical, Point, Rectangle},
 };
 
-use crate::maximize::{Placement, Snap, placement, rect_for};
+use crate::maximize::{Placement, Snap, placement};
 use crate::state::State;
 use dbus::{Event, Rect, Request, WindowRow};
 
@@ -85,7 +85,7 @@ pub fn id(window: &Window) -> u64 {
 
 /// Where the compositor tiles a window dropped with the pointer at
 /// `pointer` on `screen`: the left or right half at those edges, the whole
-/// work area at the top. The sides win in the top corners.
+/// tiling area at the top (filled, not maximised). The sides win in the top corners.
 pub fn zone(pointer: Point<f64, Logical>, screen: Rectangle<i32, Logical>) -> Option<Placement> {
     let (left, top) = (screen.loc.x as f64, screen.loc.y as f64);
     let right = left + screen.size.w as f64;
@@ -94,7 +94,7 @@ pub fn zone(pointer: Point<f64, Logical>, screen: Rectangle<i32, Logical>) -> Op
     } else if pointer.x >= right - EDGE {
         Some(Placement::Right)
     } else if pointer.y < top + EDGE {
-        Some(Placement::Maximized)
+        Some(Placement::Fill)
     } else {
         None
     }
@@ -113,6 +113,7 @@ fn placement_name(p: Option<Placement>) -> &'static str {
     match p {
         None => "",
         Some(Placement::Maximized) => "maximized",
+        Some(Placement::Fill) => "fill",
         Some(Placement::Left) => "left",
         Some(Placement::Right) => "right",
         Some(Placement::Rect(_)) => "rect",
@@ -166,8 +167,7 @@ impl State {
         let zone = zone(pointer, self.screen());
         if zone != self.tiling.zone {
             self.tiling.zone = zone;
-            let area = self.work_area();
-            self.show_preview(zone.map(|p| rect_for(p, area)));
+            self.show_preview(zone.map(|p| self.placed_rect(p)));
         }
     }
 
@@ -236,7 +236,10 @@ impl State {
                 let _ = reply.send(self.windows());
             }
             Request::WorkArea(reply) => {
-                let _ = reply.send(rect(self.work_area()));
+                let _ = reply.send(rect(self.tiling_area()));
+            }
+            Request::Gap(reply) => {
+                let _ = reply.send(self.config.gap());
             }
             Request::Place { id, area, reply } => {
                 let result = match self.window_by_id(id) {
@@ -249,8 +252,8 @@ impl State {
                     )),
                     Some(window) => {
                         let area = rectangle(area);
-                        let placement = if area == self.work_area() {
-                            Placement::Maximized
+                        let placement = if area == self.tiling_area() {
+                            Placement::Fill
                         } else {
                             Placement::Rect(area)
                         };
@@ -292,10 +295,7 @@ mod tests {
             zone((1279.0, 400.0).into(), screen()),
             Some(Placement::Right)
         );
-        assert_eq!(
-            zone((640.0, 0.0).into(), screen()),
-            Some(Placement::Maximized)
-        );
+        assert_eq!(zone((640.0, 0.0).into(), screen()), Some(Placement::Fill));
         assert_eq!(zone((640.0, 400.0).into(), screen()), None);
         assert_eq!(zone((10.0, 400.0).into(), screen()), None, "near isn't at");
     }

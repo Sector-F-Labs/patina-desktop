@@ -5,7 +5,7 @@
 //! `DragMotion(id, x, y)`, `DragEnded(id, x, y)` with the pointer in the
 //! desktop's logical pixels, `SnapRequested(id, direction)` for Super with
 //! an arrow while a tiler decides, and `WorkAreaChanged(x, y, w, h)`.
-//! Methods: `Windows()`, `WorkArea()`, `Place(id, x, y, w, h)`,
+//! Methods: `Windows()`, `WorkArea()`, `Gap()`, `Place(id, x, y, w, h)`,
 //! `Restore(id)`, `ShowPreview(x, y, w, h)` and `HidePreview()`.
 //!
 //! Whoever owns `com.sectorflabs.Patina.Tiler` decides; the bus's own name
@@ -29,8 +29,8 @@ pub const TILER: &str = "com.sectorflabs.Patina.Tiler";
 /// x, y, width and height, in logical pixels.
 pub type Rect = (i32, i32, i32, i32);
 
-/// A window: its id, app id, title, placement ("", "maximized", "left",
-/// "right" or "rect") and where it is.
+/// A window: its id, app id, title, placement ("", "maximized", "fill",
+/// "left", "right" or "rect") and where it is.
 pub type WindowRow = (u64, String, String, String, Rect);
 
 type Reply<T> = mpsc::Sender<T>;
@@ -42,6 +42,7 @@ pub enum Request {
     Tiler(bool),
     Windows(Reply<Vec<WindowRow>>),
     WorkArea(Reply<Rect>),
+    Gap(Reply<i32>),
     Place {
         id: u64,
         area: Rect,
@@ -212,13 +213,21 @@ impl Interface {
         self.ask(Request::Windows)
     }
 
-    /// The part of the screen windows tile in: all but the bar.
+    /// The part of the screen windows tile in: all but the bar, less the
+    /// gaps around it when they're on (ADR-0051).
     fn work_area(&self) -> zbus::fdo::Result<Rect> {
         self.ask(Request::WorkArea)
     }
 
-    /// Tiles window `id` at this rectangle; all of the work area maximises
-    /// it. Dragging it, or `Restore`, puts it back as it was.
+    /// The gap to leave between tiled windows, in logical pixels; 0 when
+    /// gaps are off. `WorkAreaChanged` follows a change.
+    fn gap(&self) -> zbus::fdo::Result<i32> {
+        self.ask(Request::Gap)
+    }
+
+    /// Tiles window `id` at this rectangle; all of the work area fills it,
+    /// tiled, not maximised. Dragging it, or `Restore`, puts it back as it
+    /// was.
     fn place(&self, id: u64, x: i32, y: i32, width: i32, height: i32) -> zbus::fdo::Result<()> {
         self.ask(|reply| Request::Place {
             id,
@@ -328,6 +337,9 @@ mod tests {
                     Request::WorkArea(reply) => {
                         let _ = reply.send((0, 40, 1200, 760));
                     }
+                    Request::Gap(reply) => {
+                        let _ = reply.send(8);
+                    }
                     Request::Place { id, area, reply } => {
                         got.push(format!("place {id} {area:?}"));
                         let _ = reply.send(if id == 7 {
@@ -361,6 +373,7 @@ mod tests {
         let caller = std::thread::spawn(move || {
             let tiling = client::Tiling::new(&other).unwrap();
             assert_eq!(tiling.work_area().unwrap(), (0, 40, 1200, 760));
+            assert_eq!(tiling.gap().unwrap(), 8);
             tiling.show_preview((0, 40, 400, 760)).unwrap();
             tiling.place(7, (0, 40, 400, 760)).unwrap();
             assert!(tiling.place(8, (0, 40, 400, 760)).is_err());

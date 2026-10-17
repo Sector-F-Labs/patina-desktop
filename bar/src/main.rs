@@ -6,6 +6,7 @@
 mod bar;
 mod config;
 mod dwl;
+mod gaps;
 mod icons;
 mod launcher;
 mod tray;
@@ -66,13 +67,14 @@ fn main() -> ExitCode {
         None => (config::Config::default(), Vec::new()),
     };
     let height = config.height.max(1);
+    let gaps = gaps::read();
     let options = Options {
         namespace: "patina-bar".into(),
         layer: Layer::Top,
         anchor: anchor(config.position),
         size: (0, height),
         exclusive_zone: height as i32,
-        margin: (0, 0, 0, 0),
+        margin: gaps.margin(config.position == Position::Top),
         keyboard: KeyboardInteractivity::None,
         per_output: true,
         toplevels: true,
@@ -80,7 +82,8 @@ fn main() -> ExitCode {
         lock: false,
         window_fallback: false,
     };
-    let (bar, skin_warnings) = bar::Bar::new(config);
+    let (mut bar, skin_warnings) = bar::Bar::new(config);
+    bar.gaps = gaps;
     warnings.extend(skin_warnings);
     for w in &warnings {
         eprintln!("patina-bar: {w}");
@@ -263,8 +266,11 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
 
     // The clock changes on its own; redraw on each second. Then too, look
     // for changes to the config file, as the desktop's menu and Settings
-    // make them: the skin, the window tabs and the edge follow at once.
+    // make them: the skin, the window tabs and the edge follow at once. So
+    // do the gaps, from the compositor's config.
     let mut seen = config_path.as_deref().and_then(modified);
+    let gaps_path = gaps::path();
+    let mut gaps_seen = gaps_path.as_deref().and_then(modified);
     handle
         .insert_source(
             Timer::from_duration(until_next_second()),
@@ -278,6 +284,8 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
                         if config.position != host.shell.config.position {
                             host.shell.config.position = config.position;
                             host.set_anchor(anchor(config.position));
+                            let top = config.position == Position::Top;
+                            host.set_margin(host.shell.gaps.margin(top));
                         }
                         let (changed, warnings) = host.shell.set_skin(&config.skin);
                         for w in warnings {
@@ -286,6 +294,16 @@ fn run(options: Options, bar: bar::Bar, config_path: Option<PathBuf>) -> Result<
                         if changed {
                             host.restyle();
                         }
+                    }
+                }
+                let now = gaps_path.as_deref().and_then(modified);
+                if now != gaps_seen {
+                    gaps_seen = now;
+                    let gaps = gaps::read();
+                    if gaps != host.shell.gaps {
+                        host.shell.gaps = gaps;
+                        let top = host.shell.config.position == Position::Top;
+                        host.set_margin(gaps.margin(top));
                     }
                 }
                 host.redraw_all();

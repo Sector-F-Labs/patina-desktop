@@ -21,6 +21,7 @@ pub struct Config {
     pub lock: Lock,
     pub screen: Screen,
     pub night_light: NightLight,
+    pub gaps: Gaps,
     /// What tapping Super on its own runs; "" for nothing.
     pub launcher: String,
     /// What a right click on the desktop runs, with `--at X,Y` (the
@@ -163,6 +164,43 @@ impl Default for NightLight {
     }
 }
 
+/// Gaps (ADR-0051): space around tiled and maximised windows and between
+/// them, and around the bar, which then floats with rounded corners.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct Gaps {
+    pub enabled: bool,
+    /// The gap, in logical pixels.
+    pub size: u32,
+    /// The floating bar's corner radius; the bar reads it, not the
+    /// compositor.
+    pub radius: u32,
+}
+
+/// The largest gap and radius taken.
+pub const MOST_GAP: u32 = 64;
+
+impl Default for Gaps {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            size: 8,
+            radius: 8,
+        }
+    }
+}
+
+impl Config {
+    /// The gap around tiled windows: 0 when gaps are off.
+    pub fn gap(&self) -> i32 {
+        if self.gaps.enabled {
+            self.gaps.size as i32
+        } else {
+            0
+        }
+    }
+}
+
 /// "HH:MM" as a time of day.
 pub fn time_of_day(text: &str) -> Option<chrono::NaiveTime> {
     chrono::NaiveTime::parse_from_str(text.trim(), "%H:%M").ok()
@@ -267,6 +305,7 @@ impl Default for Config {
             lock: Lock::default(),
             screen: Screen::default(),
             night_light: NightLight::default(),
+            gaps: Gaps::default(),
             launcher: "patina-launcher".into(),
             desktop_menu: "patina-menu".into(),
             bindings: default_bindings(),
@@ -375,6 +414,17 @@ pub fn parse(text: &str) -> Result<(Config, Vec<String>), String> {
         warnings.push("keyboard repeat values can't be negative; using the defaults".into());
         config.keyboard.repeat_rate = Keyboard::default().repeat_rate;
         config.keyboard.repeat_delay = Keyboard::default().repeat_delay;
+    }
+    for (name, value, default) in [
+        ("size", &mut config.gaps.size, Gaps::default().size),
+        ("radius", &mut config.gaps.radius, Gaps::default().radius),
+    ] {
+        if *value > MOST_GAP {
+            warnings.push(format!(
+                "gaps {name} {value} is over {MOST_GAP}; using {default}"
+            ));
+            *value = default;
+        }
     }
     let night = &mut config.night_light;
     let defaults = NightLight::default();
@@ -510,7 +560,11 @@ impl crate::state::State {
             }
         }
         self.night_light.configure(&config.night_light);
+        let gaps_changed = config.gap() != self.config.gap();
         self.config = config;
+        if gaps_changed {
+            self.relayout_maximized();
+        }
         self.night_light_update();
         self.needs_redraw = true;
     }

@@ -37,6 +37,9 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   `tags`, and `wallpaper`, which patina-wallpaper draws. patina-menu writes `skin` and
   `wallpaper`; the bar checks the file's time each second and restyles itself, and the other
   pieces read it when they open.
+- **Floats with gaps** (ADR-0051): `gaps.rs` reads `[gaps]` from the compositor's config, which
+  the bar checks each second too. With gaps on, the bar's layer-shell margin keeps it the gap
+  away from the screen's edges, and it draws with rounded corners and an outline all round.
 - **Skins** are Patina's, built in or in `~/.config/patina-bar/skins`, and through the bar they
   are the whole shell's.
 

@@ -108,6 +108,7 @@ pub struct App {
     /// The flask, for the default wallpaper's tile.
     flask: Option<TextureHandle>,
     bar: crate::bar::BarPage,
+    gaps: crate::gaps::GapsSection,
     night_light: NightLightPage,
     power: crate::power::PowerPage,
     processes: crate::processes::ProcessesPage,
@@ -132,6 +133,7 @@ impl App {
             decoded: None,
             flask: None,
             bar: crate::bar::BarPage::new(),
+            gaps: crate::gaps::GapsSection::new(),
             night_light: NightLightPage::new(ctx),
             power: crate::power::PowerPage::new(ctx),
             processes: crate::processes::ProcessesPage::new(ctx),
@@ -260,7 +262,7 @@ impl App {
     }
 
     /// The shell's skin, and its skins folder, as the desktop's menu
-    /// offers them.
+    /// offers them; and the gaps.
     fn appearance(&mut self, ui: &mut Ui) {
         ui.heading("Appearance");
         ui.label("The skin the bar, the menus, the lock screen and the wallpaper wear.");
@@ -285,9 +287,15 @@ impl App {
             self.choose_skin(i, ui.ctx());
         }
         ui.add_space(12.0);
-        let Some(dir) = skin::app_dir(SHELL) else {
-            return;
-        };
+        if let Some(dir) = skin::app_dir(SHELL) {
+            self.skins_folder(ui, dir);
+        }
+        ui.add_space(16.0);
+        self.gaps.ui(ui, &mut self.message);
+    }
+
+    /// Copying the built-in skins to the skins folder, and opening it.
+    fn skins_folder(&mut self, ui: &mut Ui, dir: PathBuf) {
         ui.horizontal(|ui| {
             if ui
                 .button("Copy built-in skins to folder")
