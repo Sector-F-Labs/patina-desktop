@@ -44,6 +44,8 @@ edge of the screen.
 - **The tiler exits when the compositor it started with leaves the bus**, or another takes its
   name, as its man page always said. Trying this showed tilers outliving their compositors: the
   oldest held the Tiler name for good, so every newer tiler, with this, queued behind it unheard.
+  A default tiler (`claim_default`) also takes the name from an older default one, though never
+  from a tiler that `claim`ed it, so tilers left by an older build can't block it either.
 
 ## Consequences
 

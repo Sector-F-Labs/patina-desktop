@@ -23,7 +23,8 @@ desktop.
   compositor it started with leaves the bus.
 - **Gives way** to another tiler: it holds `com.sectorflabs.Patina.Tiler` allowing replacement
   (`claim_default`), so one that `claim`s it (`cargo run -p patina-system --example thirds`)
-  takes over, and patina-tiler decides again when it leaves.
+  takes over, and patina-tiler decides again when it leaves. A newer patina-tiler takes over
+  from an older one still running.
 
 ## Code
 

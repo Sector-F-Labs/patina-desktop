@@ -182,10 +182,14 @@ fn event(message: &zbus::Message) -> Option<Event> {
 
 /// Makes the caller the default tiler: it decides now, or as soon as the
 /// name is free, and gives way to a tiler that `claim`s it, deciding
-/// again once that one leaves. Ask `deciding` before acting.
+/// again once that one leaves. It takes over from an older default tiler,
+/// one left running by a compositor gone, which would otherwise hold the
+/// name for good; never from a `claim`ed one, which doesn't allow it. Ask
+/// `deciding` before acting.
 pub fn claim_default(bus: &Connection) -> zbus::Result<()> {
     use zbus::fdo::RequestNameFlags;
-    bus.request_name_with_flags(TILER, RequestNameFlags::AllowReplacement.into())?;
+    let flags = RequestNameFlags::AllowReplacement | RequestNameFlags::ReplaceExisting;
+    bus.request_name_with_flags(TILER, flags)?;
     Ok(())
 }
 
@@ -225,14 +229,25 @@ mod tests {
     #[test]
     #[ignore = "needs a session bus of its own"]
     fn another_tiler_takes_over_and_the_default_comes_back() {
+        let stale = Connection::session().unwrap();
+        claim_default(&stale).unwrap();
+        assert!(deciding(&stale));
+        // A newer default takes over from one left behind.
         let default = Connection::session().unwrap();
         claim_default(&default).unwrap();
         assert!(deciding(&default));
+        assert!(!deciding(&stale));
+        drop(stale);
 
         let other = Connection::session().unwrap();
         claim(&other).unwrap();
         assert!(deciding(&other));
         assert!(!deciding(&default), "the default gave way");
+        // A default starting while it decides doesn't take over.
+        let restarted = Connection::session().unwrap();
+        claim_default(&restarted).unwrap();
+        assert!(deciding(&other));
+        drop(restarted);
 
         drop(other);
         let back = std::time::Instant::now();
