@@ -1,0 +1,23 @@
+[package]
+name = "weather"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "A Patina weather app: the week ahead, each day in detail, and graphs of it all"
+repository = "https://github.com/Sector-F-Labs/weather"
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "7"
+eframe = { version = "0.35", features = ["persistence"] }
+egui = "0.35"
+egui_plot = "0.36"
+image = { version = "0.25", default-features = false, features = ["png"] }
+patina-ui = "0.1.9"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+toml = "1"
+ureq = "3"
+
+[dev-dependencies]
+resvg = "0.48"
