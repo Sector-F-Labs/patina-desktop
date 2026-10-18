@@ -1137,6 +1137,7 @@ impl eframe::App for Reader {
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
         frame::release_grab(ctx, raw_input);
         patina::ime::drop_repeated_preedits(ctx, raw_input);
+        patina::kinetic::glide(ctx, raw_input);
     }
 
     fn persist_egui_memory(&self) -> bool {
