@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use mail_parser::{Address, HeaderValue, MessageParser, MimeHeaders, PartType};
+use serde::{Deserialize, Serialize};
 
 /// The width HTML-only mail is wrapped to when turned into text.
 const HTML_WIDTH: usize = 96;
@@ -81,6 +82,82 @@ impl Summary {
         };
         Summary { uid, from, subject, date, seen, flagged }
     }
+}
+
+/// What the message list is sorted by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SortBy {
+    #[default]
+    Date,
+    From,
+    Subject,
+}
+
+impl SortBy {
+    pub const ALL: [SortBy; 3] = [SortBy::Date, SortBy::From, SortBy::Subject];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            SortBy::Date => "Date",
+            SortBy::From => "Sender",
+            SortBy::Subject => "Subject",
+        }
+    }
+
+    /// The two directions, the usual one first: newest first, A to Z.
+    pub fn directions(self) -> [&'static str; 2] {
+        match self {
+            SortBy::Date => ["Newest first", "Oldest first"],
+            SortBy::From | SortBy::Subject => ["A to Z", "Z to A"],
+        }
+    }
+}
+
+/// How the message list is ordered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Order {
+    pub by: SortBy,
+    /// The other way from the usual: oldest first, Z to A.
+    pub reversed: bool,
+    pub unread_first: bool,
+    pub starred_first: bool,
+}
+
+impl Order {
+    /// Sorts `list`. Ties go newest first, whatever the direction.
+    pub fn sort(&self, list: &mut [Summary]) {
+        let newest = |a: &Summary, b: &Summary| b.date.cmp(&a.date).then(b.uid.cmp(&a.uid));
+        list.sort_by(|a, b| {
+            let groups = (self.starred_first.then_some(!a.flagged), self.unread_first.then_some(a.seen))
+                .cmp(&(self.starred_first.then_some(!b.flagged), self.unread_first.then_some(b.seen)));
+            let key = match self.by {
+                SortBy::Date => newest(a, b),
+                SortBy::From => sender_key(a).cmp(&sender_key(b)),
+                SortBy::Subject => subject_key(&a.subject).cmp(&subject_key(&b.subject)),
+            };
+            let key = if self.reversed { key.reverse() } else { key };
+            groups.then(key).then_with(|| newest(a, b))
+        });
+    }
+}
+
+fn sender_key(m: &Summary) -> String {
+    m.from.as_ref().map(|a| a.short().trim().to_lowercase()).unwrap_or_default()
+}
+
+/// The subject without its "Re:" and "Fwd:" prefixes, so a reply sorts
+/// with what it replies to.
+fn subject_key(subject: &str) -> String {
+    let mut s = subject.trim();
+    while let Some(p) = ["re:", "fwd:", "fw:", "aw:", "sv:", "vs:", "wg:", "tr:"]
+        .iter()
+        .find(|p| s.get(..p.len()).is_some_and(|head| head.eq_ignore_ascii_case(p)))
+    {
+        s = s[p.len()..].trim_start();
+    }
+    s.to_lowercase()
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -232,5 +309,43 @@ Content-Transfer-Encoding: base64\r\n\r\naGVsbG8=\r\n--XX--\r\n";
         let b = Body::parse(raw).unwrap();
         assert_eq!(b.text.trim(), "See attached.");
         assert_eq!(b.attachments, vec![Attachment { name: "notes.txt".into(), data: b"hello".to_vec() }]);
+    }
+
+    fn row(uid: u32, from: &str, subject: &str, date: i64, seen: bool, flagged: bool) -> Summary {
+        let from = Some(Addr { name: Some(from.into()), address: format!("{uid}@example.com") });
+        Summary { uid, from, subject: subject.into(), date, seen, flagged }
+    }
+
+    fn uids(order: Order, list: &mut [Summary]) -> Vec<u32> {
+        order.sort(list);
+        list.iter().map(|m| m.uid).collect()
+    }
+
+    #[test]
+    fn lists_sort_every_way() {
+        let mut list = vec![
+            row(1, "carol", "Re: Budget", 300, true, false),
+            row(2, "Alice", "Lunch", 100, false, true),
+            row(3, "bob", "budget", 200, false, false),
+            row(4, "Alice", "Fwd: RE: agenda", 400, true, false),
+        ];
+        let by = |by| Order { by, ..Default::default() };
+        assert_eq!(uids(Order::default(), &mut list), [4, 1, 3, 2]);
+        assert_eq!(uids(Order { reversed: true, ..Default::default() }, &mut list), [2, 3, 1, 4]);
+        // Same sender: newest first, either way round.
+        assert_eq!(uids(by(SortBy::From), &mut list), [4, 2, 3, 1]);
+        assert_eq!(uids(Order { reversed: true, ..by(SortBy::From) }, &mut list), [1, 3, 4, 2]);
+        // "Re:" and "Fwd:" don't count, nor does case.
+        assert_eq!(uids(by(SortBy::Subject), &mut list), [4, 1, 3, 2]);
+        assert_eq!(uids(Order { unread_first: true, ..Default::default() }, &mut list), [3, 2, 4, 1]);
+        let both = Order { unread_first: true, starred_first: true, ..Default::default() };
+        assert_eq!(uids(both, &mut list), [2, 3, 4, 1]);
+    }
+
+    #[test]
+    fn reply_prefixes_come_off() {
+        assert_eq!(subject_key("Re: Fwd:  RE:Plans"), "plans");
+        assert_eq!(subject_key("Reading list"), "reading list");
+        assert_eq!(subject_key("Ré: x"), "ré: x");
     }
 }

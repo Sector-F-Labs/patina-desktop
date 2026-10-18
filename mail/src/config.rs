@@ -6,6 +6,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::message::Order;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -17,6 +19,8 @@ pub struct Config {
     pub system_title_bar: bool,
     /// Show HTML mail as converted text instead of drawing it (ADR-0005).
     pub show_text: bool,
+    /// How the message list is sorted, for every folder.
+    pub order: Order,
 }
 
 impl Default for Config {
@@ -27,6 +31,7 @@ impl Default for Config {
             light_dark: "system".into(),
             system_title_bar: false,
             show_text: false,
+            order: Order::default(),
         }
     }
 }

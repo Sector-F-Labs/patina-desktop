@@ -13,6 +13,9 @@ skins as Calendar, Notebook and the rest of the family.
 
 - Your Proton folders and labels, with unread counts.
 - A folder's newest 200 messages; open one to read it.
+- Sort the list by date, sender or subject, either way round, with unread or starred mail at
+  the top if you like: from the strip over the list, or View → Sort By. Sorting by subject ignores
+  "Re:" and "Fwd:".
 - HTML mail drawn as its sender meant, by [Blitz](https://github.com/DioxusLabs/blitz), but safely:
   no scripts ever run, and nothing is fetched from the internet unless you choose. Remote images
   show as boxes naming their server: click one to load it, or use Review… to see every image with

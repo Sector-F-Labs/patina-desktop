@@ -11,7 +11,7 @@ use patina::skin::{self, Skin};
 use crate::compose::Draft;
 use crate::config::{self, Account, Config, Security};
 use crate::html::{self, Click, Event, Page};
-use crate::message::{self, Body, Summary};
+use crate::message::{self, Body, Order, SortBy, Summary};
 use crate::remote::{self, Fetcher, RemoteImage};
 use crate::sync::{Command, Flag, Folder, Sync, Update};
 
@@ -96,6 +96,7 @@ enum Do {
     MoveTo(&'static str),
     SaveAttachment(usize),
     ShowText(bool),
+    Sort(Order),
     /// A link clicked in an HTML message: ask before opening it.
     Link(Click),
     OpenLink(String),
@@ -214,6 +215,7 @@ impl App {
         self.selected = messages.first().map(|m| m.uid);
         self.bodies = bodies.into_iter().map(|(uid, b)| (("INBOX".to_string(), uid), b)).collect();
         self.messages = messages;
+        self.config.order.sort(&mut self.messages);
     }
 
     fn skin(&self) -> &Skin {
@@ -281,6 +283,7 @@ impl App {
                         continue;
                     }
                     self.messages = messages;
+                    self.config.order.sort(&mut self.messages);
                     self.listed = Some(folder);
                     if self.selected.is_some() && self.index().is_none() {
                         self.selected = None;
@@ -398,6 +401,12 @@ impl App {
             Do::ShowText(on) => {
                 self.config.show_text = on;
                 self.config.save();
+            }
+            Do::Sort(order) => {
+                self.config.order = order;
+                self.config.save();
+                order.sort(&mut self.messages);
+                self.scroll_to_selected = true;
             }
             Do::Link(click) => match click.url.split_once(':').map(|(scheme, _)| scheme.to_ascii_lowercase()) {
                 Some(s) if s == "mailto" => {
@@ -532,6 +541,8 @@ impl App {
             item(ui, actions, true, "Next Message", "↓", Do::Step(1));
             item(ui, actions, true, "Previous Message", "↑", Do::Step(-1));
             ui.separator();
+            ui.menu_button("Sort By", |ui| self.sort_menu(ui, actions));
+            ui.separator();
             let mut text = self.config.show_text;
             if ui.checkbox(&mut text, "Show HTML mail as text").changed() {
                 actions.push(Do::ShowText(text));
@@ -600,6 +611,31 @@ impl App {
                 actions.push(Do::OpenSkinsFolder);
             }
         });
+    }
+
+    /// Sort By, in the View menu and over the list.
+    fn sort_menu(&self, ui: &mut egui::Ui, actions: &mut Vec<Do>) {
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+        let order = self.config.order;
+        for by in SortBy::ALL {
+            if ui.radio(order.by == by, by.label()).clicked() {
+                actions.push(Do::Sort(Order { by, reversed: false, ..order }));
+            }
+        }
+        ui.separator();
+        for (reversed, label) in [false, true].into_iter().zip(order.by.directions()) {
+            if ui.radio(order.reversed == reversed, label).clicked() {
+                actions.push(Do::Sort(Order { reversed, ..order }));
+            }
+        }
+        ui.separator();
+        let (mut unread, mut starred) = (order.unread_first, order.starred_first);
+        if ui.checkbox(&mut unread, "Unread at the top").changed() {
+            actions.push(Do::Sort(Order { unread_first: unread, ..order }));
+        }
+        if ui.checkbox(&mut starred, "Starred at the top").changed() {
+            actions.push(Do::Sort(Order { starred_first: starred, ..order }));
+        }
     }
 
     /// Right side of the title bar, laid out right to left: writing mail is
@@ -689,6 +725,7 @@ impl App {
     }
 
     fn message_list(&mut self, ui: &mut egui::Ui, actions: &mut Vec<Do>) {
+        self.sort_strip(ui, actions);
         if self.messages.is_empty() {
             ui.centered_and_justified(|ui| {
                 let text = if self.listed.is_none() && self.account.is_set() { "Loading…" } else { "No messages" };
@@ -720,6 +757,34 @@ impl App {
             }
         });
         ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("list-offset"), output.state.offset.y));
+    }
+
+    /// The strip over the list saying how it's sorted, which opens Sort By.
+    fn sort_strip(&self, ui: &mut egui::Ui, actions: &mut Vec<Do>) {
+        let order = self.config.order;
+        let direction = order.by.directions()[order.reversed as usize];
+        let text = match order.by {
+            SortBy::Date => direction.to_string(),
+            by => format!("{}, {direction}", by.label()),
+        };
+        egui::Frame::new().inner_margin(egui::Margin { left: 12, right: 6, top: 2, bottom: 2 }).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                if order.starred_first || order.unread_first {
+                    let tops = match (order.starred_first, order.unread_first) {
+                        (true, true) => "Starred and unread at the top",
+                        (true, false) => "Starred at the top",
+                        _ => "Unread at the top",
+                    };
+                    ui.label(RichText::new(tops).small().weak());
+                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.menu_button(RichText::new(format!("{text} ⏷")).small(), |ui| self.sort_menu(ui, actions))
+                        .response
+                        .on_hover_text("Sort the list");
+                });
+            });
+        });
+        ui.separator();
     }
 
     fn reader(&mut self, ui: &mut egui::Ui, actions: &mut Vec<Do>) {

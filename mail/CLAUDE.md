@@ -36,7 +36,8 @@ Bridge files sent mail in Sent itself, so Mail doesn't append it.
 ## Layout
 
 - `src/config.rs`: `config.toml` and the private `account.toml` (`Account`, `Security`).
-- `src/message.rs`: `Summary` (list rows, from headers) and `Body` (whole message) via mail-parser;
+- `src/message.rs`: `Summary` (list rows, from headers), `Order` (how the list sorts; kept in
+  `config.toml`) and `Body` (whole message) via mail-parser;
   HTML-only mail through html2text.
 - `src/compose.rs`: `Draft`, reply/reply-all/forward, building the lettre `Message`.
 - `src/html.rs`: HTML mail through Blitz (ADR-0004, ADR-0005): the `Guard` net provider (only
