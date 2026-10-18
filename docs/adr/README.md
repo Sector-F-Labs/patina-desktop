@@ -106,6 +106,8 @@ mechanics of adding one.
 | [0062](0062-settings-icon-and-entry.md) | Settings has an icon and a desktop entry | Accepted |
 | [0063](0063-split-bar.md) | The bar can be split into its parts, placed anywhere along the edges | Accepted |
 | [0064](0064-system-tray.md) | The bar is the system tray, by StatusNotifierItem | Accepted |
+| [0065](0065-windows-reopen-where-they-were.md) | Windows reopen where they were, by app id, decided by the tiler | Accepted |
+| [0066](0066-the-session-has-default-apps.md) | The session has default apps of its own, in patina-mimeapps.list | Accepted |
 
 ## Decision Relationship
 

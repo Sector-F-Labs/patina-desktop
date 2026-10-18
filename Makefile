@@ -2,7 +2,8 @@ VERSION := $(shell awk -F\" '/^version = / { print $$2; exit }' Cargo.toml)
 PREFIX ?= $(HOME)/.local
 # Under $(PREFIX)/share/man, man(1) finds the pages through PATH's bin folder.
 MANDIR ?= $(PREFIX)/share/man
-# Settings' launcher entry and icon (ADR-0062).
+# Settings' launcher entry and icon (ADR-0062), and the session's default
+# apps (ADR-0066).
 APPSDIR := $(PREFIX)/share/applications
 ICONDIR := $(PREFIX)/share/icons/hicolor
 SETTINGS_ID := com.sectorflabs.Settings
@@ -52,7 +53,7 @@ BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-night-li
 # The launcher lives in its own repository (ADR-0037); install builds it from there.
 LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 
-install: stage ## Install the binaries into $(PREFIX)/bin, their man pages into $(MANDIR), and Settings' launcher entry
+install: stage ## Install the binaries into $(PREFIX)/bin, their man pages into $(MANDIR), Settings' launcher entry and the session's default apps
 	-update-desktop-database -q $(APPSDIR)
 	@# GTK trusts an icon cache over the folder, so refresh one if it exists.
 	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
@@ -68,6 +69,7 @@ stage: build
 	install -Dm644 settings/packaging/settings.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg
 	install -d $(DESTDIR)$(APPSDIR)
 	sed 's|^Exec=patina-settings|Exec=$(PREFIX)/bin/patina-settings|' settings/packaging/$(SETTINGS_ID).desktop > $(DESTDIR)$(APPSDIR)/$(SETTINGS_ID).desktop
+	install -m 644 packaging/patina-mimeapps.list $(DESTDIR)$(APPSDIR)/
 	cargo install --quiet --locked --force --git $(LAUNCHER) --root $(DESTDIR)$(PREFIX) patina-launcher
 
 # `make deploy nifl` (or HOST=nifl): the host is the goal after deploy.
@@ -95,7 +97,7 @@ uninstall: ## Remove the installed binaries and man pages
 	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES))
 	rm -f $(addprefix $(MANDIR)/man1/,$(notdir $(wildcard man/*.1)))
 	rm -f $(addprefix $(MANDIR)/man7/,$(notdir $(wildcard man/*.7)))
-	rm -f $(APPSDIR)/$(SETTINGS_ID).desktop $(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg
+	rm -f $(APPSDIR)/$(SETTINGS_ID).desktop $(APPSDIR)/patina-mimeapps.list $(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg
 	-update-desktop-database -q $(APPSDIR)
 	-cargo uninstall --root $(PREFIX) patina-launcher
 

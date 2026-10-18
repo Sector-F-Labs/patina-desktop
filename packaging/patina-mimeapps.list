@@ -1,0 +1,40 @@
+# The Patina session's default apps (ADR-0066), read by xdg-open and GLib
+# only when XDG_CURRENT_DESKTOP is Patina. Each type lists apps in order of
+# preference; the first one installed opens it. Patina's own apps go first.
+# Your own ~/.config/mimeapps.list (what "Open with" saves) comes before this.
+[Default Applications]
+inode/directory=com.sectorflabs.Files.desktop;org.gnome.Nautilus.desktop;thunar.desktop;org.kde.dolphin.desktop;
+
+image/avif=org.gnome.Loupe.desktop;org.gnome.gThumb.desktop;
+image/bmp=org.gnome.Loupe.desktop;org.gnome.eog.desktop;org.gnome.gThumb.desktop;org.kde.gwenview.desktop;org.xfce.ristretto.desktop;
+image/gif=org.gnome.Loupe.desktop;org.gnome.eog.desktop;org.gnome.gThumb.desktop;org.kde.gwenview.desktop;org.xfce.ristretto.desktop;
+image/heic=org.gnome.Loupe.desktop;org.gnome.gThumb.desktop;
+image/jpeg=org.gnome.Loupe.desktop;org.gnome.eog.desktop;org.gnome.gThumb.desktop;org.kde.gwenview.desktop;org.xfce.ristretto.desktop;
+image/jxl=org.gnome.Loupe.desktop;org.gnome.eog.desktop;org.gnome.gThumb.desktop;
+image/png=org.gnome.Loupe.desktop;org.gnome.eog.desktop;org.gnome.gThumb.desktop;org.kde.gwenview.desktop;org.xfce.ristretto.desktop;
+image/svg+xml=org.gnome.Loupe.desktop;org.gnome.eog.desktop;org.gnome.gThumb.desktop;org.kde.gwenview.desktop;
+image/tiff=org.gnome.Loupe.desktop;org.gnome.eog.desktop;org.gnome.gThumb.desktop;org.kde.gwenview.desktop;org.xfce.ristretto.desktop;
+image/webp=org.gnome.Loupe.desktop;org.gnome.eog.desktop;org.gnome.gThumb.desktop;org.kde.gwenview.desktop;org.xfce.ristretto.desktop;
+image/x-portable-pixmap=org.gnome.Loupe.desktop;org.gnome.eog.desktop;org.gnome.gThumb.desktop;
+image/x-tga=org.gnome.Loupe.desktop;org.gnome.gThumb.desktop;
+
+application/pdf=org.gnome.Papers.desktop;org.gnome.Evince.desktop;org.kde.okular.desktop;org.pwmt.zathura.desktop;
+application/epub+zip=org.gnome.Papers.desktop;org.gnome.Evince.desktop;org.kde.okular.desktop;
+
+text/plain=org.gnome.TextEditor.desktop;org.gnome.gedit.desktop;org.kde.kate.desktop;org.xfce.mousepad.desktop;
+
+video/mp4=org.gnome.Showtime.desktop;org.gnome.Totem.desktop;io.github.celluloid_player.Celluloid.desktop;mpv.desktop;vlc.desktop;
+video/webm=org.gnome.Showtime.desktop;org.gnome.Totem.desktop;io.github.celluloid_player.Celluloid.desktop;mpv.desktop;vlc.desktop;
+video/x-matroska=org.gnome.Showtime.desktop;org.gnome.Totem.desktop;io.github.celluloid_player.Celluloid.desktop;mpv.desktop;vlc.desktop;
+video/quicktime=org.gnome.Showtime.desktop;org.gnome.Totem.desktop;io.github.celluloid_player.Celluloid.desktop;mpv.desktop;vlc.desktop;
+
+audio/mpeg=org.gnome.Decibels.desktop;org.gnome.Totem.desktop;mpv.desktop;vlc.desktop;
+audio/flac=org.gnome.Decibels.desktop;org.gnome.Totem.desktop;mpv.desktop;vlc.desktop;
+audio/ogg=org.gnome.Decibels.desktop;org.gnome.Totem.desktop;mpv.desktop;vlc.desktop;
+audio/x-wav=org.gnome.Decibels.desktop;org.gnome.Totem.desktop;mpv.desktop;vlc.desktop;
+audio/mp4=org.gnome.Decibels.desktop;org.gnome.Totem.desktop;mpv.desktop;vlc.desktop;
+
+application/zip=org.gnome.FileRoller.desktop;org.kde.ark.desktop;engrampa.desktop;
+application/x-tar=org.gnome.FileRoller.desktop;org.kde.ark.desktop;engrampa.desktop;
+application/x-compressed-tar=org.gnome.FileRoller.desktop;org.kde.ark.desktop;engrampa.desktop;
+application/x-7z-compressed=org.gnome.FileRoller.desktop;org.kde.ark.desktop;engrampa.desktop;

@@ -1,4 +1,4 @@
-.Dd October 17, 2026
+.Dd October 18, 2026
 .Dt PATINA-DESKTOP 7
 .Os
 .Sh NAME
@@ -92,7 +92,16 @@ Skins of your own, beside Patina's built-in ones.
 .It Pa ~/Pictures/Screenshots/
 Screenshots, from Super+Shift+3, Super+Shift+4 and Print.
 .It Pa ~/Pictures/Wallpapers/
-Images offered as wallpapers, with the system's backgrounds.
+Images offered as wallpapers, with the system's backgrounds..It Pa ~/.local/share/applications/patina-mimeapps.list
+Which app opens a file when no choice of your own says otherwise:
+images in an image viewer, folders in Files.
+Installed by
+.Ql make install
+and read only in this desktop.
+Choices made with an app's Open With, kept in
+.Pa ~/.config/mimeapps.list ,
+come first; to change one by hand, run
+.Ql xdg-mime default org.gnome.Loupe.desktop image/png .
 .El
 .Sh RESTARTING AND RECOVERING
 .Bl -tag -width Ds

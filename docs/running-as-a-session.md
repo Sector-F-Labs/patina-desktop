@@ -176,6 +176,15 @@ Still to do, so these don't work in the session yet:
   at login);
 - an autostart list for apps to open at login.
 
+### Which app opens a file
+
+GNOME's choice of default apps (`gnome-mimeapps.list`) is only read in a GNOME session, so in
+Patina a file would open in the first app that claims its type, alphabetically: often the web
+browser for images. `make install` puts `patina-mimeapps.list` in `~/.local/share/applications`
+(ADR-0066), so images open in an image viewer, PDFs in a document viewer, folders in Files, and
+so on, with whichever of the usual apps is installed. What you choose with an app's Open With
+still comes first.
+
 ### Restarting the desktop
 
 To try a new build of the compositor, or when the desktop has gone wrong, restart it rather than
