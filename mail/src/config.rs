@@ -15,11 +15,19 @@ pub struct Config {
     /// "light" or "dark" while the skin follows the desktop; anything else follows it.
     pub light_dark: String,
     pub system_title_bar: bool,
+    /// Show HTML mail as converted text instead of drawing it (ADR-0005).
+    pub show_text: bool,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { folder: "INBOX".into(), skin: None, light_dark: "system".into(), system_title_bar: false }
+        Self {
+            folder: "INBOX".into(),
+            skin: None,
+            light_dark: "system".into(),
+            system_title_bar: false,
+            show_text: false,
+        }
     }
 }
 

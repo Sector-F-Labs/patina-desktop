@@ -2,6 +2,7 @@
 //! headers, and the whole `Body` for the reading pane. Both are parsed with
 //! mail-parser from the raw bytes IMAP hands back.
 
+use std::collections::HashMap;
 use std::fmt;
 
 use mail_parser::{Address, HeaderValue, MessageParser, MimeHeaders, PartType};
@@ -101,6 +102,11 @@ pub struct Body {
     pub references: Vec<String>,
     /// The text to show: the plain part, or the HTML part turned into text.
     pub text: String,
+    /// The HTML part, if there is one, for Blitz to draw (ADR-0005).
+    pub html: Option<String>,
+    /// Inline parts by Content-ID (without the angle brackets), such as the
+    /// images an HTML part shows with `cid:` URLs.
+    pub parts: HashMap<String, Vec<u8>>,
     pub attachments: Vec<Attachment>,
 }
 
@@ -111,12 +117,21 @@ impl Body {
             PartType::Text(t) => Some(t.to_string()),
             _ => None,
         });
-        let text = plain
-            .or_else(|| {
-                let html = m.body_html(0)?;
-                html2text::from_read(html.as_bytes(), HTML_WIDTH).ok()
+        // Only a real HTML part: mail-parser makes HTML up from plain text otherwise.
+        let html = m.html_body.iter().find_map(|&i| match &m.parts.get(i as usize)?.body {
+            PartType::Html(h) => Some(h.to_string()),
+            _ => None,
+        });
+        let text =
+            plain.or_else(|| html2text::from_read(html.as_deref()?.as_bytes(), HTML_WIDTH).ok()).unwrap_or_default();
+        let parts = m
+            .parts
+            .iter()
+            .filter_map(|p| {
+                let id = p.content_id()?.trim_start_matches('<').trim_end_matches('>');
+                Some((id.to_string(), p.contents().to_vec()))
             })
-            .unwrap_or_default();
+            .collect();
         let attachments = m
             .attachments()
             .enumerate()
@@ -141,6 +156,8 @@ impl Body {
             message_id: m.message_id().map(str::to_string),
             references,
             text,
+            html,
+            parts,
             attachments,
         })
     }
@@ -186,6 +203,23 @@ Hello there.\r\n";
         let b = Body::parse(raw).unwrap();
         assert!(b.text.contains("Hello") && b.text.contains("world") && b.text.contains("one"), "{}", b.text);
         assert!(!b.text.contains("<p>"));
+        assert!(b.html.unwrap().contains("<b>world</b>"));
+    }
+
+    #[test]
+    fn plain_mail_has_no_html() {
+        assert_eq!(Body::parse(PLAIN).unwrap().html, None);
+    }
+
+    #[test]
+    fn inline_parts_by_content_id() {
+        let raw = b"From: a@example.com\r\nSubject: news\r\nMIME-Version: 1.0\r\n\
+Content-Type: multipart/related; boundary=RR\r\n\r\n\
+--RR\r\nContent-Type: text/html\r\n\r\n<p>Logo: <img src=\"cid:logo@acme\"></p>\r\n\
+--RR\r\nContent-Type: image/png\r\nContent-ID: <logo@acme>\r\nContent-Transfer-Encoding: base64\r\n\r\naGVsbG8=\r\n--RR--\r\n";
+        let b = Body::parse(raw).unwrap();
+        assert!(b.html.unwrap().contains("cid:logo@acme"));
+        assert_eq!(b.parts.get("logo@acme").map(Vec::as_slice), Some(&b"hello"[..]));
     }
 
     #[test]

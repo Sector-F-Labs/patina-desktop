@@ -10,7 +10,12 @@ skins as Calendar, Notebook and the rest of the family.
 ![Mail](docs/screenshot.png)
 
 - Your Proton folders and labels, with unread counts.
-- A folder's newest 200 messages; open one to read it (HTML mail is shown as text).
+- A folder's newest 200 messages; open one to read it.
+- HTML mail drawn as its sender meant, by [Blitz](https://github.com/DioxusLabs/blitz), but safely:
+  no scripts ever run, and nothing is fetched from the internet. Remote images, styles and
+  tracking pixels are blocked and counted; wide newsletters are scaled to fit; clicking a link
+  asks first, and warns when its text names a different site from where it goes. View → Show HTML
+  mail as text switches it off.
 - Write, reply, reply all and forward; save attachments to Downloads.
 - Star, mark unread, archive and move to Trash.
 

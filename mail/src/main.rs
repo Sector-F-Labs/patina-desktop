@@ -1,11 +1,13 @@
 //! Mail: a Patina mail app for Proton Mail through Proton Mail Bridge.
 //! Folders, a message list and a reading pane over Bridge's IMAP, and
-//! writing, replying and forwarding over its SMTP.
+//! writing, replying and forwarding over its SMTP. HTML mail is drawn by
+//! Blitz, with no scripts and nothing loaded from outside the message.
 
 mod app;
 mod compose;
 mod config;
 mod demo;
+mod html;
 mod message;
 mod sync;
 

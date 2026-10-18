@@ -1,9 +1,15 @@
 //! Made-up mail for `MAIL_DEMO=1`: screenshots and trying the UI without
 //! Bridge. Nothing here connects anywhere.
 
+use std::collections::HashMap;
+
 use crate::config::Account;
 use crate::message::{Addr, Attachment, Body, Summary};
 use crate::sync::Folder;
+
+/// A newsletter with a remote stylesheet, image and tracking pixel, all
+/// of which the reader blocks.
+const NEWSLETTER: &str = include_str!("../assets/demo/newsletter.html");
 
 pub fn account() -> Account {
     Account { username: "me@proton.me".into(), password: "demo".into(), name: "Me".into(), ..Default::default() }
@@ -17,7 +23,7 @@ pub fn mailbox() -> (Vec<Folder>, Vec<Summary>, Vec<(u32, Body)>) {
     let folder =
         |name: &str, label: &str, depth, unseen| Folder { name: name.into(), label: label.into(), depth, unseen };
     let folders = vec![
-        folder("INBOX", "Inbox", 0, 2),
+        folder("INBOX", "Inbox", 0, 3),
         folder("Drafts", "Drafts", 0, 0),
         folder("Sent", "Sent", 0, 0),
         folder("Starred", "Starred", 0, 0),
@@ -32,6 +38,14 @@ pub fn mailbox() -> (Vec<Folder>, Vec<Summary>, Vec<(u32, Body)>) {
     let now = chrono::Local::now().timestamp();
     let hour = 3600;
     let mail = [
+        (
+            addr("Proton", "no-reply@proton.me"),
+            "Your month in mail",
+            now - hour / 3,
+            false,
+            false,
+            "October at a glance: 1,284 messages received, 312 sent, 97 trackers blocked.",
+        ),
         (
             addr("Ada Lovelace", "ada@example.com"),
             "Notes on the Analytical Engine",
@@ -50,14 +64,6 @@ relations could be expressed by those of the abstract science of operations.\n\n
             false,
             false,
             "Found it. A moth, taped into the log book.\n\nGrace",
-        ),
-        (
-            addr("Proton", "no-reply@proton.me"),
-            "Your monthly summary",
-            now - 26 * hour,
-            true,
-            false,
-            "Here's what happened in your account this month.",
         ),
         (
             addr("Linus", "linus@example.com"),
@@ -105,8 +111,15 @@ relations could be expressed by those of the abstract science of operations.\n\n
     for (i, (from, subject, date, seen, flagged, text)) in mail.into_iter().enumerate() {
         let uid = 100 - i as u32;
         summaries.push(Summary { uid, from: Some(from.clone()), subject: subject.into(), date, seen, flagged });
+        // The newsletter is HTML, with its logo as an inline part.
+        let (html, parts) = if i == 0 {
+            let logo = include_bytes!("../assets/mail-icon-128.png").to_vec();
+            (Some(NEWSLETTER.to_string()), HashMap::from([("logo@demo".to_string(), logo)]))
+        } else {
+            (None, HashMap::new())
+        };
         let attachments =
-            if i == 0 { vec![Attachment { name: "note-g.pdf".into(), data: vec![0; 48 * 1024] }] } else { Vec::new() };
+            if i == 1 { vec![Attachment { name: "note-g.pdf".into(), data: vec![0; 48 * 1024] }] } else { Vec::new() };
         bodies.push((
             uid,
             Body {
@@ -116,6 +129,8 @@ relations could be expressed by those of the abstract science of operations.\n\n
                 date,
                 message_id: Some(format!("{uid}@example.com")),
                 text: text.into(),
+                html,
+                parts,
                 attachments,
                 ..Default::default()
             },

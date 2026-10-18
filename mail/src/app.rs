@@ -10,6 +10,7 @@ use patina::skin::{self, Skin};
 
 use crate::compose::Draft;
 use crate::config::{self, Account, Config, Security};
+use crate::html::{self, Click, Page};
 use crate::message::{self, Body, Summary};
 use crate::sync::{Command, Flag, Folder, Sync, Update};
 
@@ -70,6 +71,11 @@ enum Do {
     /// The selected message to Trash, or to Archive.
     MoveTo(&'static str),
     SaveAttachment(usize),
+    ShowText(bool),
+    /// A link clicked in an HTML message: ask before opening it.
+    Link(Click),
+    OpenLink(String),
+    CopyText(String),
     Cut,
     Copy,
     Paste,
@@ -104,6 +110,10 @@ pub struct App {
     selected: Option<u32>,
     bodies: HashMap<(String, u32), Body>,
     compose: Option<Compose>,
+    /// The open message drawn by Blitz, with the folder and uid it shows.
+    page: Option<(String, u32, Page)>,
+    /// A clicked link waiting for the user to open it, copy it or not.
+    link: Option<Click>,
     /// The account dialog, with what's typed so far.
     account_dialog: Option<Account>,
     status: Option<Status>,
@@ -136,6 +146,8 @@ impl App {
             selected: None,
             bodies: HashMap::new(),
             compose: None,
+            page: None,
+            link: None,
             account_dialog: None,
             status: None,
             last_refresh: 0.0,
@@ -326,6 +338,26 @@ impl App {
                     Err(e) => Status::error(format!("Couldn't save {}: {e}", a.name)),
                 });
             }
+            Do::ShowText(on) => {
+                self.config.show_text = on;
+                self.config.save();
+            }
+            Do::Link(click) => match click.url.split_once(':').map(|(scheme, _)| scheme.to_ascii_lowercase()) {
+                Some(s) if s == "mailto" => {
+                    let to = click.url[7..].split('?').next().unwrap_or_default().to_string();
+                    self.start_compose(Draft { to, ..Default::default() });
+                }
+                Some(s) if s == "http" || s == "https" => self.link = Some(click),
+                _ => self.status = Some(Status::error(format!("Mail doesn't open links like {}", click.url))),
+            },
+            Do::OpenLink(url) => {
+                ctx.open_url(egui::OpenUrl::new_tab(url));
+                self.link = None;
+            }
+            Do::CopyText(text) => {
+                ctx.copy_text(text);
+                self.link = None;
+            }
             Do::Cut => ctx.send_viewport_cmd(egui::ViewportCommand::RequestCut),
             Do::Copy => ctx.send_viewport_cmd(egui::ViewportCommand::RequestCopy),
             Do::Paste => ctx.send_viewport_cmd(egui::ViewportCommand::RequestPaste),
@@ -418,6 +450,10 @@ impl App {
             item(ui, actions, true, "Next Message", "↓", Do::Step(1));
             item(ui, actions, true, "Previous Message", "↑", Do::Step(-1));
             ui.separator();
+            let mut text = self.config.show_text;
+            if ui.checkbox(&mut text, "Show HTML mail as text").changed() {
+                actions.push(Do::ShowText(text));
+            }
             let mut system = self.config.system_title_bar;
             if ui.checkbox(&mut system, "System title bar").changed() {
                 actions.push(Do::SystemTitleBar(system));
@@ -525,6 +561,12 @@ impl App {
             if typing {
                 return;
             }
+            // Ctrl+C, and Edit → Copy, with text selected in an HTML message.
+            if i.events.iter().any(|e| matches!(e, egui::Event::Copy))
+                && let Some(text) = self.page.as_ref().and_then(|(_, _, p)| p.selected_text())
+            {
+                actions.push(Do::CopyText(text));
+            }
             for (key, action) in [
                 (Key::ArrowDown, Do::Step(1)),
                 (Key::J, Do::Step(1)),
@@ -598,8 +640,16 @@ impl App {
         ui.ctx().data_mut(|d| d.insert_temp(egui::Id::new("list-offset"), output.state.offset.y));
     }
 
-    fn reader(&self, ui: &mut egui::Ui, actions: &mut Vec<Do>) {
+    fn reader(&mut self, ui: &mut egui::Ui, actions: &mut Vec<Do>) {
+        // Out of `self` while drawing, since the open message is borrowed from it.
+        let mut page = self.page.take();
+        self.draw_reader(ui, actions, &mut page);
+        self.page = page;
+    }
+
+    fn draw_reader(&self, ui: &mut egui::Ui, actions: &mut Vec<Do>, page: &mut Option<(String, u32, Page)>) {
         let Some(uid) = self.selected else {
+            *page = None;
             ui.centered_and_justified(|ui| ui.label(RichText::new("No message selected").weak()));
             return;
         };
@@ -608,7 +658,7 @@ impl App {
             return;
         };
         let flagged = self.messages.iter().any(|m| m.uid == uid && m.flagged);
-        egui::Frame::new().inner_margin(egui::Margin::symmetric(18, 14)).show(ui, |ui| {
+        egui::Frame::new().inner_margin(egui::Margin { left: 18, right: 18, top: 14, bottom: 6 }).show(ui, |ui| {
             ui.horizontal(|ui| {
                 let subject = if body.subject.is_empty() { "(no subject)" } else { &body.subject };
                 ui.add(egui::Label::new(RichText::new(subject).heading()).wrap());
@@ -644,14 +694,82 @@ impl App {
                     }
                 });
             }
-            ui.add_space(8.0);
+        });
+
+        let html = body.html.as_deref().filter(|_| !self.config.show_text);
+        let Some(html) = html else {
+            *page = None;
             ui.separator();
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+                egui::Frame::new().inner_margin(egui::Margin::symmetric(18, 6)).show(ui, |ui| {
+                    ui.add(egui::Label::new(body.text.trim_end()).wrap().selectable(true));
+                    ui.add_space(12.0);
+                });
+            });
+            return;
+        };
+        let folder = self.folder();
+        if !page.as_ref().is_some_and(|(f, u, _)| f == folder && *u == uid) {
+            let p = Page::new(html, body.parts.clone(), ui.available_width(), ui.ctx().pixels_per_point());
+            *page = Some((folder.to_string(), uid, p));
+        }
+        let Some((_, _, page)) = page else { return };
+        let blocked = page.blocked();
+        if !blocked.is_empty() || page.zoom() < 1.0 {
+            egui::Frame::new().inner_margin(egui::Margin { left: 18, right: 18, top: 0, bottom: 6 }).show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    if !blocked.is_empty() {
+                        let n = blocked.len();
+                        let text =
+                            format!("Blocked {n} remote item{} (images, styles, fonts)", if n == 1 { "" } else { "s" });
+                        ui.label(RichText::new(text).weak().small()).on_hover_text(blocked.join("\n"));
+                    }
+                    if page.zoom() < 1.0 {
+                        ui.label(RichText::new(format!("Shown at {:.0}% to fit", page.zoom() * 100.0)).weak().small());
+                    }
+                });
+            });
+        }
+        let width = ui.available_width();
+        egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
+            if let Some(click) = page.show(ui, width) {
+                actions.push(Do::Link(click));
+            }
+        });
+    }
+
+    fn link_window(&mut self, ctx: &egui::Context, actions: &mut Vec<Do>) {
+        let Some(link) = &self.link else { return };
+        let mut close = false;
+        let modal = egui::Modal::new(egui::Id::new("link-dialog")).show(ctx, |ui| {
+            ui.set_max_width(460.0);
+            ui.heading("Open this link?");
+            ui.add_space(4.0);
+            ui.add(egui::Label::new(RichText::new(&link.url).monospace()).wrap().selectable(true));
+            if let Some(claimed) = html::misleading(&link.text, &link.url) {
                 ui.add_space(6.0);
-                ui.add(egui::Label::new(body.text.trim_end()).wrap().selectable(true));
-                ui.add_space(12.0);
+                let real = link.url.split("://").nth(1).and_then(|r| r.split('/').next()).unwrap_or(&link.url);
+                ui.colored_label(
+                    ui.visuals().error_fg_color,
+                    format!("Careful: the link's text says {claimed}, but it goes to {real}."),
+                );
+            }
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if ui.button("Open in Browser").clicked() {
+                    actions.push(Do::OpenLink(link.url.clone()));
+                }
+                if ui.button("Copy Address").clicked() {
+                    actions.push(Do::CopyText(link.url.clone()));
+                }
+                if ui.button("Cancel").clicked() {
+                    close = true;
+                }
             });
         });
+        if close || modal.should_close() {
+            self.link = None;
+        }
     }
 
     fn status_bar(&mut self, ui: &mut egui::Ui, actions: &mut Vec<Do>) {
@@ -843,6 +961,7 @@ impl App {
                     self.folders.clear();
                     self.messages.clear();
                     self.bodies.clear();
+                    self.page = None;
                     self.selected = None;
                     self.listed = None;
                     self.sync.send(Command::SetAccount(account));
@@ -932,7 +1051,8 @@ impl eframe::App for App {
 
         self.compose_window(&ctx, &mut actions);
         self.account_window(&ctx);
-        if self.account_dialog.is_none() {
+        self.link_window(&ctx, &mut actions);
+        if self.account_dialog.is_none() && self.link.is_none() {
             self.shortcuts(&ctx, &mut actions);
         }
         for action in actions {

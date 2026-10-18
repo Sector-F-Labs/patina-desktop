@@ -46,7 +46,7 @@ mechanics of adding one.
 | [0002](0002-bridge-over-imap-and-smtp.md) | Talk to Proton Mail Bridge over IMAP and SMTP, on worker threads | Proposed |
 | [0003](0003-account-in-a-private-file.md) | Keep the Bridge login in a private file | Proposed |
 | [0004](0004-no-code-no-network-reader.md) | Mail never runs code or fetches anything it wasn't asked to | Accepted |
-| [0005](0005-render-html-mail-with-blitz.md) | Render HTML mail with Blitz | Proposed |
+| [0005](0005-render-html-mail-with-blitz.md) | Render HTML mail with Blitz | Accepted |
 
 ## Decision Relationship
 

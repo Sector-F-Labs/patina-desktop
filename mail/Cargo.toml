@@ -6,7 +6,16 @@ license = "BSD-3-Clause"
 description = "A simple Patina mail client for Proton Mail through Proton Mail Bridge"
 
 [dependencies]
+anyrender = "0.14"
+anyrender_vello_cpu = "0.18"
+atomic_refcell = "0.1"
+blitz-dom = { version = "=0.3.0-beta.4", features = ["floats"] }
+blitz-html = "=0.3.0-beta.4"
+blitz-paint = "=0.3.0-beta.4"
+blitz-traits = "=0.3.0-beta.4"
+bytes = "1"
 chrono = "0.4"
+data-url = "0.3"
 dirs = "7"
 eframe = { version = "0.35", features = ["persistence"] }
 egui = "0.35"
@@ -21,3 +30,8 @@ toml = "1"
 
 [dev-dependencies]
 resvg = "0.48"
+
+# Stylo (CSS) and Vello (painting) are slow unoptimised, so dependencies are
+# optimised even in debug builds; Mail's own code stays debuggable.
+[profile.dev.package."*"]
+opt-level = 2
