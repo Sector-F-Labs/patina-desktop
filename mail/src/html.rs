@@ -124,6 +124,8 @@ pub struct Page {
     hovered: Option<Click>,
     /// Each remote image's server, by its index in `remote::prepare`'s list.
     hosts: Vec<String>,
+    /// And each one's address, for the tracking-pixel box's tooltip.
+    urls: Vec<String>,
     /// Blocked remote images: their index and box in CSS pixels, and server.
     placeholders: Vec<(usize, egui::Rect, String)>,
 }
@@ -173,6 +175,7 @@ impl Page {
             pressed: false,
             hovered: None,
             hosts: images.iter().map(|i| i.host.clone()).collect(),
+            urls: images.iter().map(|i| i.url.clone()).collect(),
             placeholders: Vec::new(),
         };
         page.layout(width, ppp);
@@ -394,6 +397,11 @@ impl Page {
             if let Some((_, _, host)) = over {
                 ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
                 resp.clone().on_hover_text_at_pointer(format!("Load this image from {host}"));
+            } else if let Some(url) = self.pixel_under_pointer().and_then(|i| self.urls.get(i)) {
+                // The box links to EFF, but what matters is the pixel it stands for.
+                let text =
+                    format!("Suspected tracking pixel, not loaded:\n{url}\n\nClick to read what tracking pixels do.");
+                resp.clone().on_hover_text_at_pointer(text);
             } else if let Some(link) = &self.hovered {
                 resp.clone().on_hover_text_at_pointer(&link.url);
             }
@@ -425,6 +433,24 @@ impl Page {
         EventDriver::new(&mut self.doc, NoopEventHandler).handle_ui_event(event(e));
         self.doc.resolve(0.0);
         self.generation += 1;
+    }
+
+    /// The tracking-pixel box under the pointer: its index in
+    /// `remote::prepare`'s list.
+    fn pixel_under_pointer(&self) -> Option<usize> {
+        let mark = LocalName::from(remote::MARK);
+        let mut id = self.doc.get_hover_node_id();
+        while let Some(node) = id.and_then(|i| self.doc.get_node(i)) {
+            if let Some(el) = node.element_data()
+                && el.name.local == local_name!("a")
+            {
+                let tracker =
+                    el.attr(local_name!("class")).is_some_and(|c| c.split_whitespace().any(|c| c == "mail-tracker"));
+                return el.attr(mark).filter(|_| tracker).and_then(|i| i.parse().ok());
+            }
+            id = node.parent;
+        }
+        None
     }
 
     /// The link under the pointer: its real target and its text.
@@ -578,6 +604,26 @@ mod tests {
         assert!(rect.width() >= 199.0 && rect.height() >= 79.0, "{rect:?}");
         assert!(p.placeholder_at(rect.center().to_vec2()).is_some());
         click(&mut p, rect.center().x, rect.center().y);
+    }
+
+    #[test]
+    fn hovering_a_pixel_box_names_the_pixel() {
+        let html = r#"<a href="https://x.example/">link</a><br><img src="https://t.example/open.gif?u=7" width="1" height="1">"#;
+        let (prepared, images) = remote::prepare(html, &HashSet::new());
+        let mut p = Page::new(&prepared, HashMap::new(), HashMap::new(), &images, 600.0, 1.0);
+        // The box is on the second line; the plain link above it isn't a pixel.
+        p.send(UiEvent::PointerMove, egui::vec2(20.0, 22.0), false);
+        assert_eq!(p.pixel_under_pointer(), None);
+        let mut found = None;
+        for y in 30..80 {
+            p.send(UiEvent::PointerMove, egui::vec2(40.0, y as f32), false);
+            if let Some(i) = p.pixel_under_pointer() {
+                found = Some(i);
+                break;
+            }
+        }
+        let i = found.expect("the pixel's box under the pointer somewhere below the link");
+        assert_eq!(p.urls[i], "https://t.example/open.gif?u=7");
     }
 
     #[test]
