@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use anyrender::ImageRenderer;
 use anyrender_vello_cpu::VelloCpuImageRenderer;
 use atomic_refcell::AtomicRefCell;
-use blitz_dom::{DocumentConfig, EventDriver, NoopEventHandler, UserAgentStylesheet, local_name};
+use blitz_dom::{DocumentConfig, EventDriver, LocalName, NoopEventHandler, UserAgentStylesheet, local_name};
 use blitz_html::HtmlDocument;
 use blitz_traits::events::{
     BlitzPointerEvent, BlitzPointerId, MouseEventButton, MouseEventButtons, PointerCoords, UiEvent,
@@ -25,12 +25,19 @@ use blitz_traits::net::{NetHandler, NetProvider, Request};
 use blitz_traits::shell::{ColorScheme, Viewport};
 use bytes::Bytes;
 
+use crate::remote::{self, RemoteImage};
+
 /// Mail's defaults, after the browser ones: a sans-serif body like other
 /// mail clients, and what ADR-0004 removes hidden outright.
 const MAIL_CSS: &str = "
 body { font-family: sans-serif; font-size: 15px; line-height: 1.4; margin: 12px; overflow-wrap: anywhere; }
 form, input, button, select, textarea, iframe, object, embed, frame, frameset { display: none !important; }
 img { max-width: 100%; }
+img[data-mail-blocked] { box-sizing: border-box; min-width: 120px; min-height: 28px;
+    background: #f2f2f5; border: 1px dashed #b9b9c6; }
+a.mail-tracker { display: inline-block; font: 11px/1.4 sans-serif; color: #6b6b7b !important;
+    background: #f3f3f6; border: 1px dashed #c4c4cf; border-radius: 3px; padding: 1px 6px; margin: 4px 12px;
+    text-decoration: none !important; }
 ";
 
 /// Mail narrower than this zooms no further, and scrolls sideways instead.
@@ -41,6 +48,8 @@ const MIN_ZOOM: f32 = 0.4;
 struct Guard {
     /// Parts by Content-ID, without the angle brackets.
     parts: HashMap<String, Bytes>,
+    /// Remote images the user approved and Mail fetched, by URL (ADR-0006).
+    remote: HashMap<String, Bytes>,
     refused: Mutex<Vec<String>>,
 }
 
@@ -49,6 +58,7 @@ impl NetProvider for Guard {
         let url = request.url.as_str().to_string();
         let bytes = match request.url.scheme() {
             "cid" => self.parts.get(request.url.path()).cloned(),
+            "http" | "https" => self.remote.get(&url).cloned(),
             "data" => data_url::DataUrl::process(&url).ok().and_then(|d| d.decode_to_vec().ok()).map(|(b, _)| b.into()),
             _ => None,
         };
@@ -79,6 +89,14 @@ impl NavigationProvider for Links {
     }
 }
 
+/// What a click in the page asks for.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Event {
+    Link(Click),
+    /// Load the blocked remote image with this index in `remote::prepare`'s list.
+    LoadImage(usize),
+}
+
 /// A link the user clicked: where it goes, and what its text said.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Click {
@@ -104,14 +122,29 @@ pub struct Page {
     pressed: bool,
     /// The link under the pointer, kept for when it's clicked.
     hovered: Option<Click>,
+    /// Each remote image's server, by its index in `remote::prepare`'s list.
+    hosts: Vec<String>,
+    /// Blocked remote images: their index and box in CSS pixels, and server.
+    placeholders: Vec<(usize, egui::Rect, String)>,
 }
 
 impl Page {
     /// Lays `html` out for a pane `width` points wide. `parts` are the
     /// message's inline parts by Content-ID.
-    pub fn new(html: &str, parts: HashMap<String, Vec<u8>>, width: f32, ppp: f32) -> Self {
+    ///
+    /// `html` comes from `remote::prepare`, whose list `images` is; `remote`
+    /// holds the approved images fetched so far, by URL.
+    pub fn new(
+        html: &str,
+        parts: HashMap<String, Vec<u8>>,
+        remote: HashMap<String, Vec<u8>>,
+        images: &[RemoteImage],
+        width: f32,
+        ppp: f32,
+    ) -> Self {
         let parts = parts.into_iter().map(|(k, v)| (k, Bytes::from(v))).collect();
-        let guard = Arc::new(Guard { parts, ..Default::default() });
+        let remote = remote.into_iter().map(|(k, v)| (k, Bytes::from(v))).collect();
+        let guard = Arc::new(Guard { parts, remote, ..Default::default() });
         let links = Arc::new(Links::default());
         let config = DocumentConfig {
             // Mail assumes a white page, so it gets one whatever the skin (ADR-0005).
@@ -139,9 +172,33 @@ impl Page {
             generation: 0,
             pressed: false,
             hovered: None,
+            hosts: images.iter().map(|i| i.host.clone()).collect(),
+            placeholders: Vec::new(),
         };
         page.layout(width, ppp);
+        page.placeholders = page.find_placeholders();
         page
+    }
+
+    /// Where the blocked images' boxes ended up.
+    fn find_placeholders(&self) -> Vec<(usize, egui::Rect, String)> {
+        let (mark, blocked) = (LocalName::from(remote::MARK), LocalName::from("data-mail-blocked"));
+        let mut found = Vec::new();
+        let mut stack = vec![self.doc.root_element().id];
+        while let Some(id) = stack.pop() {
+            let Some(node) = self.doc.get_node(id) else { continue };
+            if let Some(el) = node.element_data()
+                && el.attr(blocked.clone()).is_some()
+                && let Some(index) = el.attr(mark.clone()).and_then(|i| i.parse::<usize>().ok())
+            {
+                let at = node.absolute_position(0.0, 0.0);
+                let size = node.final_layout().size;
+                let rect = egui::Rect::from_min_size(egui::pos2(at.x, at.y), egui::vec2(size.width, size.height));
+                found.push((index, rect, self.hosts.get(index).cloned().unwrap_or_default()));
+            }
+            stack.extend(node.children.iter().copied());
+        }
+        found
     }
 
     /// Lays out at `width` points, zooming wide mail down to fit.
@@ -207,10 +264,11 @@ impl Page {
     ///
     /// `width` is the pane's, taken outside the scroll area: inside one that
     /// scrolls sideways, egui offers more width than the pane has.
-    pub fn show(&mut self, ui: &mut egui::Ui, width: f32) -> Option<Click> {
+    pub fn show(&mut self, ui: &mut egui::Ui, width: f32) -> Option<Event> {
         let ppp = ui.ctx().pixels_per_point();
         if (width - self.laid_out.0).abs() > 0.5 || ppp != self.laid_out.1 {
             self.layout(width, ppp);
+            self.placeholders = self.find_placeholders();
         }
         let size = self.size();
         let (rect, resp) = ui.allocate_exact_size(egui::vec2(width.max(size.x), size.y), egui::Sense::click_and_drag());
@@ -233,8 +291,36 @@ impl Page {
                 let uv = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
                 ui.painter().image(texture.id(), image_rect, uv, egui::Color32::WHITE);
             }
+            self.label_placeholders(ui, rect, visible);
         }
         clicked
+    }
+
+    /// Names each blocked image's server on its box, so it's clear what
+    /// clicking it would contact.
+    fn label_placeholders(&self, ui: &egui::Ui, rect: egui::Rect, visible: egui::Rect) {
+        let font = egui::FontId::proportional(11.0);
+        for (_, css, host) in &self.placeholders {
+            let r = egui::Rect::from_min_size(rect.min + css.min.to_vec2() * self.zoom, css.size() * self.zoom);
+            if !r.intersects(visible) || r.height() < 12.0 || r.width() < 40.0 {
+                continue;
+            }
+            // "Image from host", or just the host, whichever fits; nothing if neither does.
+            let gray = egui::Color32::from_gray(110);
+            let fits = [format!("Image from {host}"), host.clone()].into_iter().find_map(|text| {
+                let galley = ui.fonts_mut(|f| f.layout_no_wrap(text, font.clone(), gray));
+                (galley.size().x <= r.width() - 8.0).then_some(galley)
+            });
+            if let Some(galley) = fits {
+                let at = r.center() - galley.size() / 2.0;
+                ui.painter_at(r.intersect(visible)).galley(at, galley, gray);
+            }
+        }
+    }
+
+    /// The blocked image under a point in the page, if any.
+    fn placeholder_at(&self, page: egui::Vec2) -> Option<&(usize, egui::Rect, String)> {
+        self.placeholders.iter().find(|(_, r, _)| r.contains(page.to_pos2()))
     }
 
     /// Paints `height` physical pixels from `top` into the texture.
@@ -264,7 +350,7 @@ impl Page {
 
     /// Passes the pointer to Blitz. Page coordinates are CSS pixels from the
     /// top of the message; Blitz takes away its own scroll for the viewport.
-    fn pointer(&mut self, ui: &egui::Ui, resp: &egui::Response, rect: egui::Rect) -> Option<Click> {
+    fn pointer(&mut self, ui: &egui::Ui, resp: &egui::Response, rect: egui::Rect) -> Option<Event> {
         let ctx = ui.ctx();
         let (pressed, released, moved) = ctx.input(|i| {
             (i.pointer.primary_pressed(), i.pointer.primary_released(), i.pointer.delta() != egui::Vec2::ZERO)
@@ -285,10 +371,14 @@ impl Page {
                 self.pressed = false;
                 self.send(UiEvent::PointerUp, page, false);
                 let urls: Vec<String> = std::mem::take(&mut *self.links.clicked.lock().unwrap());
-                clicked = urls.into_iter().last().map(|url| {
-                    let text = self.hovered.as_ref().map(|h| h.text.clone()).unwrap_or_default();
-                    Click { url, text }
-                });
+                // A blocked image wins over a link around it: clicking its box loads it.
+                clicked = match self.placeholder_at(page) {
+                    Some((index, _, _)) => Some(Event::LoadImage(*index)),
+                    None => urls.into_iter().last().map(|url| {
+                        let text = self.hovered.as_ref().map(|h| h.text.clone()).unwrap_or_default();
+                        Event::Link(Click { url, text })
+                    }),
+                };
             }
         } else if self.pressed && released {
             self.pressed = false;
@@ -300,7 +390,11 @@ impl Page {
                 _ => egui::CursorIcon::Default,
             };
             ctx.set_cursor_icon(icon);
-            if let Some(link) = &self.hovered {
+            let over = resp.hover_pos().and_then(|p| self.placeholder_at((p - rect.min) / self.zoom));
+            if let Some((_, _, host)) = over {
+                ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
+                resp.clone().on_hover_text_at_pointer(format!("Load this image from {host}"));
+            } else if let Some(link) = &self.hovered {
                 resp.clone().on_hover_text_at_pointer(&link.url);
             }
         }
@@ -380,9 +474,10 @@ fn url_host(s: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
 
     fn page(html: &str, width: f32) -> Page {
-        Page::new(html, HashMap::new(), width, 1.0)
+        Page::new(html, HashMap::new(), HashMap::new(), &[], width, 1.0)
     }
 
     fn click(p: &mut Page, x: f32, y: f32) {
@@ -399,7 +494,7 @@ mod tests {
             <img src="cid:logo@x"><img src="https://t.example/pixel.gif"><img src="data:image/png;base64,iVBORw0KGgo=">
             <img src="relative.png">"#;
         let png = std::fs::read("assets/mail-icon-128.png").unwrap();
-        let p = Page::new(html, HashMap::from([("logo@x".to_string(), png)]), 600.0, 1.0);
+        let p = Page::new(html, HashMap::from([("logo@x".to_string(), png)]), HashMap::new(), &[], 600.0, 1.0);
         let mut blocked = p.blocked();
         blocked.sort();
         assert_eq!(
@@ -463,6 +558,26 @@ mod tests {
         let p = page(html, 380.0);
         assert!(p.zoom() < 0.62, "zoom {}", p.zoom());
         assert!(p.size().x <= 381.0, "{:?}", p.size());
+    }
+
+    #[test]
+    fn approved_images_are_served_and_placeholders_click_to_load() {
+        let html = r#"<p>News</p><img src="https://cdn.example/a.png" width="200" height="80">
+            <img src="https://cdn.example/b.png" width="200" height="80">
+            <img src="https://t.example/open.gif" width="1" height="1">"#;
+        let approved = HashSet::from(["https://cdn.example/a.png".to_string()]);
+        let (prepared, images) = remote::prepare(html, &approved);
+        let png = std::fs::read("assets/mail-icon-128.png").unwrap();
+        let fetched = HashMap::from([("https://cdn.example/a.png".to_string(), png)]);
+        let mut p = Page::new(&prepared, HashMap::new(), fetched, &images, 600.0, 1.0);
+        // a.png was served; b.png is a placeholder; the pixel never asked for.
+        assert_eq!(p.blocked(), vec!["https://cdn.example/b.png".to_string()]);
+        assert_eq!(p.placeholders.len(), 1);
+        let (index, rect, host) = p.placeholders[0].clone();
+        assert_eq!((index, host.as_str()), (1, "cdn.example"));
+        assert!(rect.width() >= 199.0 && rect.height() >= 79.0, "{rect:?}");
+        assert!(p.placeholder_at(rect.center().to_vec2()).is_some());
+        click(&mut p, rect.center().x, rect.center().y);
     }
 
     #[test]

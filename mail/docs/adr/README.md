@@ -47,6 +47,7 @@ mechanics of adding one.
 | [0003](0003-account-in-a-private-file.md) | Keep the Bridge login in a private file | Proposed |
 | [0004](0004-no-code-no-network-reader.md) | Mail never runs code or fetches anything it wasn't asked to | Accepted |
 | [0005](0005-render-html-mail-with-blitz.md) | Render HTML mail with Blitz | Accepted |
+| [0006](0006-remote-images-per-image-by-choice.md) | Remote images load one at a time, by choice, with tracking pixels flagged | Accepted |
 
 ## Decision Relationship
 
@@ -61,10 +62,14 @@ flowchart TD
     A --> D
     E[0005: HTML mail with Blitz]
     D --> E
+    F[0006: remote images per image, by choice]
+    D --> F
+    E --> F
 ```
 
 ## Revisit Triggers
 
+- Re-approving the same newsletter's images gets tedious: remember choices per sender ([0006](0006-remote-images-per-image-by-choice.md)).
 - Blitz stalls, or its beta breaks too often: reconsider the renderer ([0005](0005-render-html-mail-with-blitz.md)).
 - A renderer can't meet these rules and plain text proves too poor: weigh fidelity against [0004](0004-no-code-no-network-reader.md) in a new ADR.
 - Mail needs to work offline, or folders feel slow to open: add a disk cache ([0002](0002-bridge-over-imap-and-smtp.md)).

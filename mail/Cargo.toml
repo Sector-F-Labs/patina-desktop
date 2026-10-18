@@ -23,10 +23,13 @@ html2text = "0.17"
 image = { version = "0.25", default-features = false, features = ["png"] }
 imap = "3.0.0-alpha.15"
 lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "native-tls", "builder", "hostname"] }
+lol_html = "2"
 mail-parser = "0.11"
 patina-ui = "0.1.9"
 serde = { version = "1.0.229", features = ["derive"] }
 toml = "1"
+ureq = "3"
+url = "2"
 
 [dev-dependencies]
 resvg = "0.48"

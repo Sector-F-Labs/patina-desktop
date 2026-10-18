@@ -9,6 +9,7 @@ mod config;
 mod demo;
 mod html;
 mod message;
+mod remote;
 mod sync;
 
 /// The window icon, rendered from `packaging/linux/mail.svg` by `make

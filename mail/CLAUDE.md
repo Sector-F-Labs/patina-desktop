@@ -12,7 +12,7 @@ login is kept. Use the `adr` skill to add one.
 ```bash
 make check         # tests + clippy -D warnings
 make demo          # made-up mail (MAIL_DEMO=1), no connection, scratch config
-make screenshot    # docs/screenshot-*.png from the demo mail (MAIL_DEMO=reply opens a reply)
+make screenshot    # docs/screenshot-*.png from the demo mail (MAIL_DEMO=reply / review open those)
 make live-test     # ignored IMAP test against Bridge: MAIL_LIVE_ACCOUNT=<account.toml>
 make install       # per-user install; test with PREFIX=<scratch dir>
 ```
@@ -42,6 +42,10 @@ Bridge files sent mail in Sent itself, so Mail doesn't append it.
 - `src/html.rs`: HTML mail through Blitz (ADR-0004, ADR-0005): the `Guard` net provider (only
   `cid:`/`data:`), the `Links` navigation provider, scale-to-fit, painting only the visible part
   into a texture, pointer events to Blitz, the misleading-link check.
+- `src/remote.rs`: remote images by choice (ADR-0006): `prepare` (lol_html) lists `<img>`s with
+  declared size/hidden/tracker flags, swaps unapproved suspected pixels for the EFF box and marks
+  the rest `data-mail-blocked`; `Fetcher` downloads approved ones (ureq: images only, 10 MB,
+  15 s, no cookies or referrer).
 - `src/sync.rs`: IMAP worker thread (`Command` → `Update`), SMTP sends, folder ordering.
 - `src/app.rs`: window, header and menus, sidebar, list, reader, compose window, account dialog,
   shortcuts, screenshot mode.

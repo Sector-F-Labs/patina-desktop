@@ -2,7 +2,7 @@
 //! header bar, the folder sidebar, the message list, the reading pane, and
 //! the compose window and account dialog.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use egui::{Key, KeyboardShortcut, Modifiers, RichText};
 use patina::frame::{self, TitleBar};
@@ -10,8 +10,9 @@ use patina::skin::{self, Skin};
 
 use crate::compose::Draft;
 use crate::config::{self, Account, Config, Security};
-use crate::html::{self, Click, Page};
+use crate::html::{self, Click, Event, Page};
 use crate::message::{self, Body, Summary};
+use crate::remote::{self, Fetcher, RemoteImage};
 use crate::sync::{Command, Flag, Folder, Sync, Update};
 
 /// Check Bridge for new mail this often while the app is open.
@@ -51,6 +52,29 @@ impl Status {
     }
 }
 
+/// The open message drawn by Blitz: which message, from which remote-image
+/// state, and the remote images `remote::prepare` found in it.
+struct OpenPage {
+    folder: String,
+    uid: u32,
+    version: u64,
+    page: Page,
+    images: Vec<RemoteImage>,
+}
+
+/// The open message's remote images (ADR-0006): which the user approved,
+/// and what has come back. Choices last only while the message is open.
+#[derive(Default)]
+struct Remote {
+    key: Option<(String, u32)>,
+    approved: HashSet<String>,
+    fetched: HashMap<String, Vec<u8>>,
+    pending: HashSet<String>,
+    failed: HashMap<String, String>,
+    /// Goes up with every change, so the page knows to rebuild.
+    version: u64,
+}
+
 /// What the menus, header, list and keys ask for, handled in one place.
 #[derive(Debug, Clone, PartialEq)]
 enum Do {
@@ -75,6 +99,9 @@ enum Do {
     /// A link clicked in an HTML message: ask before opening it.
     Link(Click),
     OpenLink(String),
+    /// Fetch these remote images for the open message (ADR-0006).
+    LoadImages(Vec<String>),
+    ReviewImages,
     CopyText(String),
     Cut,
     Copy,
@@ -110,8 +137,13 @@ pub struct App {
     selected: Option<u32>,
     bodies: HashMap<(String, u32), Body>,
     compose: Option<Compose>,
-    /// The open message drawn by Blitz, with the folder and uid it shows.
-    page: Option<(String, u32, Page)>,
+    page: Option<OpenPage>,
+    remote: Remote,
+    fetcher: Fetcher,
+    /// The Review… list of remote images, with what's ticked.
+    review: Option<Vec<bool>>,
+    /// `MAIL_DEMO=review`: open the list once the page is drawn, for screenshots.
+    demo_review: bool,
     /// A clicked link waiting for the user to open it, copy it or not.
     link: Option<Click>,
     /// The account dialog, with what's typed so far.
@@ -147,6 +179,10 @@ impl App {
             bodies: HashMap::new(),
             compose: None,
             page: None,
+            remote: Remote::default(),
+            fetcher: Fetcher::new(&cc.egui_ctx),
+            review: None,
+            demo_review: false,
             link: None,
             account_dialog: None,
             status: None,
@@ -157,6 +193,7 @@ impl App {
         app.apply_skin(&cc.egui_ctx);
         if demo {
             app.load_demo();
+            app.demo_review = demo_mode.as_deref() == Some("review");
             if demo_mode.as_deref() == Some("reply") {
                 app.act(&cc.egui_ctx, Do::Reply { all: false });
             }
@@ -214,6 +251,22 @@ impl App {
     }
 
     fn poll(&mut self) {
+        for (url, result) in self.fetcher.poll() {
+            let r = &mut self.remote;
+            // Results for a message that's no longer open are dropped.
+            if !r.pending.remove(&url) {
+                continue;
+            }
+            match result {
+                Ok(bytes) => {
+                    r.fetched.insert(url, bytes);
+                }
+                Err(e) => {
+                    r.failed.insert(url, e);
+                }
+            }
+            r.version += 1;
+        }
         for update in self.sync.poll() {
             match update {
                 Update::Busy(_) => {}
@@ -273,6 +326,10 @@ impl App {
                 self.sync.send(Command::Open(folder));
             }
             Do::Select(uid) => {
+                if self.selected != Some(uid) {
+                    self.remote = Remote::default();
+                    self.review = None;
+                }
                 self.selected = Some(uid);
                 let folder = self.folder().to_string();
                 if !self.bodies.contains_key(&(folder.clone(), uid)) {
@@ -350,6 +407,31 @@ impl App {
                 Some(s) if s == "http" || s == "https" => self.link = Some(click),
                 _ => self.status = Some(Status::error(format!("Mail doesn't open links like {}", click.url))),
             },
+            Do::LoadImages(urls) => {
+                let Some(uid) = self.selected else { return };
+                let key = (self.folder().to_string(), uid);
+                if self.remote.key.as_ref() != Some(&key) {
+                    self.remote = Remote { key: Some(key), ..Default::default() };
+                }
+                let r = &mut self.remote;
+                let new: Vec<String> = urls
+                    .into_iter()
+                    .filter(|u| r.approved.insert(u.clone()) || r.failed.remove(u).is_some())
+                    .filter(|u| !r.fetched.contains_key(u))
+                    .collect();
+                r.pending.extend(new.iter().cloned());
+                r.version += 1;
+                if !new.is_empty() {
+                    self.fetcher.fetch(new);
+                }
+            }
+            Do::ReviewImages => {
+                if let Some(open) = &self.page {
+                    // Remote state is reset whenever another message opens, so it's this one's.
+                    let approved = &self.remote.approved;
+                    self.review = Some(open.images.iter().map(|i| approved.contains(&i.url) || !i.flagged()).collect());
+                }
+            }
             Do::OpenLink(url) => {
                 ctx.open_url(egui::OpenUrl::new_tab(url));
                 self.link = None;
@@ -563,7 +645,7 @@ impl App {
             }
             // Ctrl+C, and Edit → Copy, with text selected in an HTML message.
             if i.events.iter().any(|e| matches!(e, egui::Event::Copy))
-                && let Some(text) = self.page.as_ref().and_then(|(_, _, p)| p.selected_text())
+                && let Some(text) = self.page.as_ref().and_then(|p| p.page.selected_text())
             {
                 actions.push(Do::CopyText(text));
             }
@@ -647,7 +729,7 @@ impl App {
         self.page = page;
     }
 
-    fn draw_reader(&self, ui: &mut egui::Ui, actions: &mut Vec<Do>, page: &mut Option<(String, u32, Page)>) {
+    fn draw_reader(&self, ui: &mut egui::Ui, actions: &mut Vec<Do>, page: &mut Option<OpenPage>) {
         let Some(uid) = self.selected else {
             *page = None;
             ui.centered_and_justified(|ui| ui.label(RichText::new("No message selected").weak()));
@@ -709,33 +791,172 @@ impl App {
             return;
         };
         let folder = self.folder();
-        if !page.as_ref().is_some_and(|(f, u, _)| f == folder && *u == uid) {
-            let p = Page::new(html, body.parts.clone(), ui.available_width(), ui.ctx().pixels_per_point());
-            *page = Some((folder.to_string(), uid, p));
+        let remote = self.remote.key.as_ref().is_some_and(|(f, u)| f == folder && *u == uid).then_some(&self.remote);
+        let version = remote.map_or(0, |r| r.version);
+        if !page.as_ref().is_some_and(|p| p.folder == folder && p.uid == uid && p.version == version) {
+            let empty = (HashSet::new(), HashMap::new());
+            let (approved, fetched) = remote.map_or((&empty.0, &empty.1), |r| (&r.approved, &r.fetched));
+            let (prepared, images) = remote::prepare(html, approved);
+            let p = Page::new(
+                &prepared,
+                body.parts.clone(),
+                fetched.clone(),
+                &images,
+                ui.available_width(),
+                ui.ctx().pixels_per_point(),
+            );
+            *page = Some(OpenPage { folder: folder.to_string(), uid, version, page: p, images });
         }
-        let Some((_, _, page)) = page else { return };
-        let blocked = page.blocked();
-        if !blocked.is_empty() || page.zoom() < 1.0 {
-            egui::Frame::new().inner_margin(egui::Margin { left: 18, right: 18, top: 0, bottom: 6 }).show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    if !blocked.is_empty() {
-                        let n = blocked.len();
-                        let text =
-                            format!("Blocked {n} remote item{} (images, styles, fonts)", if n == 1 { "" } else { "s" });
-                        ui.label(RichText::new(text).weak().small()).on_hover_text(blocked.join("\n"));
-                    }
-                    if page.zoom() < 1.0 {
-                        ui.label(RichText::new(format!("Shown at {:.0}% to fit", page.zoom() * 100.0)).weak().small());
-                    }
-                });
-            });
-        }
+        let Some(open) = page else { return };
+        self.remote_bar(ui, open, remote, actions);
         let width = ui.available_width();
-        egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
-            if let Some(click) = page.show(ui, width) {
-                actions.push(Do::Link(click));
+        egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| match open.page.show(ui, width) {
+            Some(Event::Link(click)) => actions.push(Do::Link(click)),
+            Some(Event::LoadImage(i)) => {
+                if let Some(image) = open.images.get(i) {
+                    actions.push(Do::LoadImages(vec![image.url.clone()]));
+                }
             }
+            None => {}
         });
+    }
+
+    /// Under the headers: what's blocked, what's loading, and Review….
+    fn remote_bar(&self, ui: &mut egui::Ui, open: &OpenPage, remote: Option<&Remote>, actions: &mut Vec<Do>) {
+        let approved = |url: &str| remote.is_some_and(|r| r.approved.contains(url));
+        let blocked: Vec<&RemoteImage> = open.images.iter().filter(|i| !approved(&i.url)).collect();
+        let pixels = blocked.iter().filter(|i| i.suspected_pixel()).count();
+        let image_urls: HashSet<&str> = open.images.iter().map(|i| i.url.as_str()).collect();
+        let other: Vec<String> = open.page.blocked().into_iter().filter(|u| !image_urls.contains(u.as_str())).collect();
+        let loading = remote.map_or(0, |r| r.pending.len());
+        let failed = remote.map_or(0, |r| r.failed.len());
+        let zoom = open.page.zoom();
+        if open.images.is_empty() && other.is_empty() && zoom >= 1.0 {
+            return;
+        }
+        egui::Frame::new().inner_margin(egui::Margin { left: 18, right: 18, top: 0, bottom: 6 }).show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                let small = |text: String| RichText::new(text).weak().small();
+                if !blocked.is_empty() {
+                    let n = blocked.len();
+                    let mut text = format!("{n} remote image{} blocked", if n == 1 { "" } else { "s" });
+                    if pixels > 0 {
+                        text += &format!(", {pixels} suspected tracking pixel{}", if pixels == 1 { "" } else { "s" });
+                    }
+                    ui.label(small(text));
+                }
+                if !open.images.is_empty() && ui.small_button("Review…").clicked() {
+                    actions.push(Do::ReviewImages);
+                }
+                if loading > 0 {
+                    ui.spinner();
+                    ui.label(small(format!("Loading {loading}…")));
+                }
+                if failed > 0 {
+                    let reasons: Vec<String> =
+                        remote.into_iter().flat_map(|r| r.failed.iter().map(|(u, e)| format!("{u}: {e}"))).collect();
+                    ui.label(RichText::new(format!("{failed} didn't load")).small().color(ui.visuals().warn_fg_color))
+                        .on_hover_text(reasons.join("\n"));
+                }
+                if !other.is_empty() {
+                    let n = other.len();
+                    ui.label(small(format!("· {n} other remote item{} blocked", if n == 1 { "" } else { "s" })))
+                        .on_hover_text(format!("Styles, fonts and backgrounds never load:\n{}", other.join("\n")));
+                }
+                if zoom < 1.0 {
+                    ui.label(small(format!("· shown at {:.0}% to fit", zoom * 100.0)));
+                }
+            });
+        });
+    }
+
+    /// The Review… list: every remote image, what it would contact, and flags.
+    fn review_window(&mut self, ctx: &egui::Context, actions: &mut Vec<Do>) {
+        let (Some(ticks), Some(open)) = (&mut self.review, &self.page) else { return };
+        let remote =
+            self.remote.key.as_ref().is_some_and(|(f, u)| *f == open.folder && *u == open.uid).then_some(&self.remote);
+        let mut close = false;
+        let modal = egui::Modal::new(egui::Id::new("images-dialog")).show(ctx, |ui| {
+            ui.set_width(520.0);
+            ui.heading("Remote images");
+            ui.label(
+                RichText::new(
+                    "Loading an image tells its server that you opened this message, when, and from which IP address. \
+Flags help spot trackers, but an image without flags can still track you.",
+                )
+                .weak(),
+            );
+            ui.add_space(6.0);
+            egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
+                for (i, image) in open.images.iter().enumerate() {
+                    let loaded = remote.is_some_and(|r| r.fetched.contains_key(&image.url));
+                    let pending = remote.is_some_and(|r| r.pending.contains(&image.url));
+                    let failed = remote.and_then(|r| r.failed.get(&image.url));
+                    ui.horizontal(|ui| {
+                        let mut on = ticks[i] || loaded;
+                        ui.add_enabled_ui(!loaded && !pending, |ui| {
+                            if ui.checkbox(&mut on, "").changed() {
+                                ticks[i] = on;
+                            }
+                        });
+                        ui.vertical(|ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.label(RichText::new(&image.host).strong()).on_hover_text(&image.url);
+                                ui.label(RichText::new(image.size_text()).weak().small());
+                                let warn = ui.visuals().warn_fg_color;
+                                let mut flag = |text: &str| ui.label(RichText::new(text).small().color(warn));
+                                if image.width.is_some_and(|w| w <= 4.0) || image.height.is_some_and(|h| h <= 4.0) {
+                                    flag("tiny");
+                                }
+                                if image.hidden {
+                                    flag("hidden");
+                                }
+                                if image.trackerish {
+                                    flag("looks like a tracker");
+                                }
+                                if loaded {
+                                    ui.label(RichText::new("loaded").small().weak());
+                                } else if pending {
+                                    ui.spinner();
+                                } else if let Some(e) = failed {
+                                    ui.label(RichText::new("didn't load").small().color(ui.visuals().error_fg_color))
+                                        .on_hover_text(e);
+                                }
+                            });
+                            ui.add(egui::Label::new(RichText::new(&image.url).weak().small()).truncate())
+                                .on_hover_text(&image.url);
+                        });
+                    });
+                    ui.add_space(4.0);
+                }
+            });
+            ui.add_space(6.0);
+            let chosen: Vec<String> = open
+                .images
+                .iter()
+                .zip(ticks.iter())
+                .filter(|(image, on)| **on && !remote.is_some_and(|r| r.approved.contains(&image.url)))
+                .map(|(image, _)| image.url.clone())
+                .collect();
+            ui.horizontal(|ui| {
+                let label = format!("Load {} selected", chosen.len());
+                if ui.add_enabled(!chosen.is_empty(), egui::Button::new(label)).clicked() {
+                    actions.push(Do::LoadImages(chosen.clone()));
+                    close = true;
+                }
+                if ui.button("Select all unflagged").clicked() {
+                    for (on, image) in ticks.iter_mut().zip(&open.images) {
+                        *on = !image.flagged();
+                    }
+                }
+                if ui.button("Cancel").clicked() {
+                    close = true;
+                }
+            });
+        });
+        if close || modal.should_close() {
+            self.review = None;
+        }
     }
 
     fn link_window(&mut self, ctx: &egui::Context, actions: &mut Vec<Do>) {
@@ -1056,8 +1277,13 @@ impl eframe::App for App {
         self.compose_window(&ctx, &mut actions);
         self.account_window(&ctx);
         self.link_window(&ctx, &mut actions);
-        if self.account_dialog.is_none() && self.link.is_none() {
+        self.review_window(&ctx, &mut actions);
+        if self.account_dialog.is_none() && self.link.is_none() && self.review.is_none() {
             self.shortcuts(&ctx, &mut actions);
+        }
+        if self.demo_review && self.page.is_some() {
+            self.demo_review = false;
+            actions.push(Do::ReviewImages);
         }
         for action in actions {
             self.act(&ctx, action);

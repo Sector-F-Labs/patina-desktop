@@ -47,6 +47,7 @@ screenshot: ## Regenerate docs/screenshot-*.png from the demo mail
 	$(SCRATCH_ENV) MAIL_DEMO=1 MAIL_SKIN=Default MAIL_SCREENSHOT=docs/screenshot.png cargo run
 	$(SCRATCH_ENV) MAIL_DEMO=1 MAIL_SKIN="Dark Orange" MAIL_SCREENSHOT=docs/screenshot-dark-orange.png cargo run
 	$(SCRATCH_ENV) MAIL_DEMO=reply MAIL_SKIN=Default MAIL_SCREENSHOT=docs/screenshot-reply.png cargo run
+	$(SCRATCH_ENV) MAIL_DEMO=review MAIL_SKIN=Default MAIL_SCREENSHOT=docs/screenshot-images.png cargo run
 
 icons: ## Render assets/mail-icon-128.png from packaging/linux/mail.svg
 	cargo run -q --example render_icon -- 128 assets/mail-icon-128.png
