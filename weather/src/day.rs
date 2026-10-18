@@ -255,6 +255,7 @@ fn summary(ui: &mut Ui, s: &Scene, day: &Day) {
         let facts: Vec<(&str, String)> = vec![
             ("High", u.degrees(day.high)),
             ("Low", u.degrees(day.low)),
+            ("Feels like", format!("{} to {}", u.degrees(day.feels_low), u.degrees(day.feels_high))),
             ("Sunrise", day.sunrise.map(|t| t.format("%H:%M").to_string()).unwrap_or("—".into())),
             ("Sunset", day.sunset.map(|t| t.format("%H:%M").to_string()).unwrap_or("—".into())),
             (
@@ -266,8 +267,10 @@ fn summary(ui: &mut Ui, s: &Scene, day: &Day) {
             ("Wind", format!("{} {}", u.wind(day.wind_max), forecast::compass(day.wind_direction))),
         ];
         ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing.x = 18.0;
             for (label, value) in facts {
                 ui.allocate_ui_with_layout(vec2(92.0, 40.0), Layout::top_down(Align::Min), |ui| {
+                    ui.set_min_width(72.0);
                     heading(ui, label);
                     ui.label(RichText::new(value).size(16.0));
                 });
