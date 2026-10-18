@@ -46,6 +46,7 @@ mechanics of adding one.
 | [0002](0002-bridge-over-imap-and-smtp.md) | Talk to Proton Mail Bridge over IMAP and SMTP, on worker threads | Proposed |
 | [0003](0003-account-in-a-private-file.md) | Keep the Bridge login in a private file | Proposed |
 | [0004](0004-no-code-no-network-reader.md) | Mail never runs code or fetches anything it wasn't asked to | Accepted |
+| [0005](0005-render-html-mail-with-blitz.md) | Render HTML mail with Blitz | Proposed |
 
 ## Decision Relationship
 
@@ -58,10 +59,13 @@ flowchart TD
     B --> C
     D[0004: no code, no network in the reader]
     A --> D
+    E[0005: HTML mail with Blitz]
+    D --> E
 ```
 
 ## Revisit Triggers
 
+- Blitz stalls, or its beta breaks too often: reconsider the renderer ([0005](0005-render-html-mail-with-blitz.md)).
 - A renderer can't meet these rules and plain text proves too poor: weigh fidelity against [0004](0004-no-code-no-network-reader.md) in a new ADR.
 - Mail needs to work offline, or folders feel slow to open: add a disk cache ([0002](0002-bridge-over-imap-and-smtp.md)).
 - New mail arriving late becomes a nuisance: IMAP IDLE ([0002](0002-bridge-over-imap-and-smtp.md)).
