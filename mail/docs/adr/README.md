@@ -45,6 +45,7 @@ mechanics of adding one.
 | [0001](0001-build-on-patina.md) | Build Mail as a native egui app on Patina | Accepted |
 | [0002](0002-bridge-over-imap-and-smtp.md) | Talk to Proton Mail Bridge over IMAP and SMTP, on worker threads | Proposed |
 | [0003](0003-account-in-a-private-file.md) | Keep the Bridge login in a private file | Proposed |
+| [0004](0004-no-code-no-network-reader.md) | Mail never runs code or fetches anything it wasn't asked to | Accepted |
 
 ## Decision Relationship
 
@@ -55,10 +56,13 @@ flowchart TD
     C[0003: Bridge login in a private file]
     A --> B
     B --> C
+    D[0004: no code, no network in the reader]
+    A --> D
 ```
 
 ## Revisit Triggers
 
+- A renderer can't meet these rules and plain text proves too poor: weigh fidelity against [0004](0004-no-code-no-network-reader.md) in a new ADR.
 - Mail needs to work offline, or folders feel slow to open: add a disk cache ([0002](0002-bridge-over-imap-and-smtp.md)).
 - New mail arriving late becomes a nuisance: IMAP IDLE ([0002](0002-bridge-over-imap-and-smtp.md)).
 - `imap` 3.0 ships stable, or its alpha breaks: re-pin ([0002](0002-bridge-over-imap-and-smtp.md)).
