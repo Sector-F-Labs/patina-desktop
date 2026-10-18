@@ -294,15 +294,22 @@ fn rank(name: &str) -> usize {
     ORDER.iter().position(|o| o.eq_ignore_ascii_case(top)).unwrap_or(ORDER.len())
 }
 
-/// The newest `PAGE` messages in `folder`, newest first.
+/// The newest `PAGE` messages in `folder`, newest first. A folder's order
+/// isn't its mail's dates: Bridge adds mail as it syncs, newest first, so
+/// the last messages in a folder can be its oldest. Every message's date is
+/// fetched (small), and only the newest ones' headers.
 fn messages(s: &mut Session, folder: &str) -> Result<Vec<Summary>, String> {
     let mailbox = s.select(folder).map_err(|e| e.to_string())?;
     if mailbox.exists == 0 {
         return Ok(Vec::new());
     }
-    let start = mailbox.exists.saturating_sub(PAGE - 1).max(1);
-    let fetches =
-        s.fetch(format!("{start}:*"), "(UID FLAGS INTERNALDATE BODY.PEEK[HEADER])").map_err(|e| e.to_string())?;
+    let dates = s.fetch("1:*", "(UID INTERNALDATE)").map_err(|e| e.to_string())?;
+    let uids =
+        newest(dates.iter().filter_map(|f| Some((f.internal_date().map_or(0, |d| d.timestamp()), f.uid?))).collect());
+    if uids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let fetches = s.uid_fetch(uids, "(UID FLAGS INTERNALDATE BODY.PEEK[HEADER])").map_err(|e| e.to_string())?;
     let mut list: Vec<Summary> = fetches
         .iter()
         .filter_map(|f| {
@@ -317,9 +324,27 @@ fn messages(s: &mut Session, folder: &str) -> Result<Vec<Summary>, String> {
     Ok(list)
 }
 
+/// The UIDs of the newest `PAGE` of `(date, uid)`, as an IMAP UID set.
+fn newest(mut dates: Vec<(i64, u32)>) -> String {
+    dates.sort_unstable_by(|a, b| b.cmp(a));
+    dates.truncate(PAGE as usize);
+    dates.iter().map(|(_, uid)| uid.to_string()).collect::<Vec<_>>().join(",")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_newest_by_date_not_by_place() {
+        // Synced newest first: the highest UIDs are the oldest mail.
+        let dates: Vec<(i64, u32)> = (1..=500).map(|uid| (1_000_000 - uid as i64, uid)).collect();
+        let set = newest(dates);
+        let uids: Vec<u32> = set.split(',').map(|u| u.parse().unwrap()).collect();
+        assert_eq!(uids.len(), PAGE as usize);
+        assert_eq!((uids[0], uids[uids.len() - 1]), (1, PAGE));
+        assert_eq!(newest(Vec::new()), "");
+    }
 
     #[test]
     fn folders_are_named_and_nested() {
