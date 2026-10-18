@@ -189,6 +189,21 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     None
 }
 
+/// Whether the compositor keeps `action` while a fullscreen window has the
+/// keyboard: a game's own keys (Alt+letter, Super) go to the game, and only
+/// stepping away, quitting or restarting the desktop, switching consoles
+/// and the volume and brightness keys stay.
+pub fn works_in_fullscreen(action: &KeyAction) -> bool {
+    matches!(
+        action,
+        KeyAction::CycleTabs { .. }
+            | KeyAction::Quit
+            | KeyAction::Restart
+            | KeyAction::SwitchVt(_)
+            | KeyAction::Media(_)
+    )
+}
+
 impl State {
     /// `code` is an evdev keycode. Returns the compositor's own action if
     /// the key was one of its keys, and doesn't pass it on.
@@ -215,9 +230,16 @@ impl State {
                     .or_else(|| screenshot_key(modifiers, base))
                     .or_else(|| binding(&state.config.combos(), modifiers, base));
                 // Locked, the keys go to the locker; only switching consoles
-                // and the brightness and volume keys still work.
+                // and the brightness and volume keys still work. Under a
+                // fullscreen game, only the keys that get out of it.
                 let action = action.filter(|a| {
-                    !state.locked() || matches!(a, KeyAction::SwitchVt(_) | KeyAction::Media(_))
+                    if state.locked() {
+                        matches!(a, KeyAction::SwitchVt(_) | KeyAction::Media(_))
+                    } else if state.fullscreen_on_top().is_some() {
+                        works_in_fullscreen(a)
+                    } else {
+                        true
+                    }
                 });
                 match (pressed, action) {
                     (true, Some(action)) => FilterResult::Intercept(action),
@@ -233,6 +255,7 @@ impl State {
         } else if is_super
             && std::mem::take(&mut self.super_tap)
             && !self.locked()
+            && self.fullscreen_on_top().is_none()
             && !self.config.launcher.is_empty()
         {
             self.spawn_client(&self.config.launcher.clone());
@@ -611,6 +634,35 @@ mod tests {
             Some(KeyAction::CycleTabs { forward: false })
         );
         assert_eq!(key_action(&mods(false, false), keysyms::KEY_Tab), None);
+    }
+
+    #[test]
+    fn a_fullscreen_game_keeps_its_keys() {
+        let alt = mods(false, true);
+        let combos = [(
+            crate::config::combo("Alt+W").unwrap(),
+            "whatsapp".to_string(),
+        )];
+        let run = binding(&combos, &alt, keysyms::KEY_w).unwrap();
+        assert!(!works_in_fullscreen(&run));
+        let alt_tab = key_action(&alt, keysyms::KEY_Tab).unwrap();
+        assert!(works_in_fullscreen(&alt_tab));
+        let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        for sym in [
+            keysyms::KEY_q,
+            keysyms::KEY_w,
+            keysyms::KEY_Left,
+            keysyms::KEY_1,
+        ] {
+            assert!(!works_in_fullscreen(&key_action(&logo, sym).unwrap()));
+        }
+        let ctrl_alt = mods(true, true);
+        assert!(works_in_fullscreen(
+            &key_action(&ctrl_alt, keysyms::KEY_BackSpace).unwrap()
+        ));
     }
 
     #[test]
