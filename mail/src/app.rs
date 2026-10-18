@@ -1035,9 +1035,13 @@ impl eframe::App for App {
                     .corner_radius(egui::CornerRadius { sw: radius, se: radius, ..Default::default() }),
             )
             .show(ui, |ui| self.status_bar(ui, &mut actions));
+        // Never narrower than the longest folder name: a saved width from before
+        // can't cut names off, and a new default wouldn't reach a saved window.
+        let fit = folders_width(ui, &self.folders);
         egui::Panel::left("folders")
             .frame(egui::Frame::side_top_panel(ui.style()))
-            .default_size(200.0)
+            .default_size(fit.max(240.0))
+            .min_size(fit)
             .resizable(true)
             .show(ui, |ui| self.sidebar(ui, &mut actions));
         egui::Panel::left("messages")
@@ -1072,6 +1076,26 @@ impl eframe::App for App {
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
         frame::release_grab(ctx, raw_input);
     }
+}
+
+/// The sidebar width that shows every folder's name and unread count in
+/// full, as `folder_row` lays them out, within reason.
+fn folders_width(ui: &egui::Ui, folders: &[Folder]) -> f32 {
+    let body = egui::TextStyle::Body.resolve(ui.style());
+    let small = egui::TextStyle::Small.resolve(ui.style());
+    let text_width = |text: String, font: &egui::FontId| {
+        ui.fonts_mut(|f| f.layout_no_wrap(text, font.clone(), egui::Color32::WHITE).size().x)
+    };
+    let widest = folders
+        .iter()
+        .map(|f| {
+            let count = if f.unseen > 0 { 12.0 + text_width(f.unseen.to_string(), &small) } else { 0.0 };
+            10.0 + 14.0 * f.depth as f32 + text_width(f.label.clone(), &body) + count + 10.0
+        })
+        .fold(0.0, f32::max);
+    // The panel's own margins and the scroll bar's room.
+    let margins = egui::Frame::side_top_panel(ui.style()).total_margin().sum().x + 8.0;
+    (widest + margins).clamp(160.0, 360.0)
 }
 
 /// A folder in the sidebar, with its unread count.

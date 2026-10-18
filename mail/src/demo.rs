@@ -32,6 +32,7 @@ pub fn mailbox() -> (Vec<Folder>, Vec<Summary>, Vec<(u32, Body)>) {
         folder("Trash", "Trash", 0, 0),
         folder("All Mail", "All Mail", 0, 0),
         folder("Folders/Receipts", "Receipts", 1, 0),
+        folder("Folders/Conference Planning", "Conference Planning", 1, 12),
         folder("Folders/Travel", "Travel", 1, 1),
         folder("Labels/Family", "Family", 1, 0),
     ];
