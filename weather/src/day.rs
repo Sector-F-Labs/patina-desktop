@@ -24,7 +24,14 @@ pub fn show(ui: &mut Ui, s: &Scene, date: NaiveDate) -> Option<Action> {
     ui.add_space(10.0);
 
     let hours = f.hours_of(date);
-    let range = Range { forecast: f, hours, group: "day", units: s.units, palette: s.palette };
+    let range = Range {
+        forecast: f,
+        hours,
+        group: "day",
+        units: s.units,
+        palette: s.palette,
+        sun: Some((s.place.latitude, s.place.longitude)),
+    };
     let u = s.units;
     card(ui, |ui| {
         ui.set_width(ui.available_width());

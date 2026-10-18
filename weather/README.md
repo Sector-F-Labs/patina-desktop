@@ -14,7 +14,8 @@ days ahead, each day in detail, and graphs of it all. Built on egui and
   visibility, pressure, the sun and air quality.
 - **Week:** the days side by side, and graphs across them of temperature, the chance and amount
   of precipitation, and wind.
-- **Day:** any day of the next 14 in detail, with graphs of temperature and feels-like,
+- **Day:** any day of the next 14 in detail, with graphs of temperature and feels-like against
+  the sun's height from sunrise to sunset,
   precipitation, wind and its direction, UV, humidity, cloud cover, pressure and visibility.
   Hovering any graph shows that hour across all of them.
 - Any number of places, found by searching in the sidebar.

@@ -87,7 +87,14 @@ pub fn show(ui: &mut Ui, s: &Scene) -> Option<Action> {
     // Graphs across the days.
     let first = f.hours.iter().position(|h| h.time.date() == days[0].date).unwrap_or(0);
     let last = f.hours.iter().rposition(|h| h.time.date() == days[n - 1].date).map_or(f.hours.len(), |i| i + 1);
-    let range = Range { forecast: f, hours: &f.hours[first..last], group: "week", units: s.units, palette: s.palette };
+    let range = Range {
+        forecast: f,
+        hours: &f.hours[first..last],
+        group: "week",
+        units: s.units,
+        palette: s.palette,
+        sun: None,
+    };
     let mut clicked = None;
     let u = s.units;
     card(ui, |ui| {

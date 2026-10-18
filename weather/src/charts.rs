@@ -21,6 +21,8 @@ pub struct Range<'a> {
     pub group: &'a str,
     pub units: Units,
     pub palette: &'a Palette,
+    /// Where the place is, to draw the sun's height on the temperature graph.
+    pub sun: Option<(f64, f64)>,
 }
 
 impl Range<'_> {
@@ -45,6 +47,12 @@ impl Range<'_> {
     pub fn hour_at(&self, x: f64) -> Option<&Hour> {
         let i = x.round();
         (i >= 0.0).then(|| self.hours.get(i as usize)).flatten()
+    }
+
+    /// The sun's elevation at a moment, if this range shows it.
+    pub fn sun_at(&self, t: NaiveDateTime) -> Option<f64> {
+        let (lat, lon) = self.sun?;
+        Some(self.forecast.sun_elevation(lat, lon, t))
     }
 
     pub fn x_series(&self, f: impl Fn(&Hour) -> f32) -> Vec<[f64; 2]> {
@@ -167,14 +175,33 @@ pub fn temperature(ui: &mut Ui, r: &Range, height: f32, icons: bool) -> Option<f
     let visuals = ui.visuals().clone();
     let weak = visuals.weak_text_color();
     let text = visuals.text_color();
+    // The sun's path, scaled so 0° sits on the floor and its scale's top
+    // just under the icons.
+    let sun_color = r.palette.sun;
+    let sun = sun_path(r).map(|path| {
+        let top = floor + (ceiling - floor) * if icons { 0.78 } else { 0.92 };
+        let scale = path.iter().map(|p| p[1]).fold(60.0, f64::max);
+        let to_y = move |e: f64| floor + e / scale * (top - floor);
+        path.into_iter().map(|[x, e]| [x, to_y(e), e]).collect::<Vec<_>>()
+    });
 
     let resp = r
-        .plot("temperature", height, |h| format!("{}  feels {}", u.degrees(h.temperature), u.degrees(h.feels_like)))
+        .plot("temperature", height, |h| {
+            let sun = match r.sun_at(h.time) {
+                Some(e) if e > 0.0 => format!("\nSun {e:.0}° up"),
+                Some(_) => "\nSun down".into(),
+                None => String::new(),
+            };
+            format!("{}  feels {}{sun}", u.degrees(h.temperature), u.degrees(h.feels_like))
+        })
         .include_y(floor)
         .include_y(ceiling)
         .y_axis_formatter(|m, _| format!("{:.0}°", m.value))
         .show(ui, |plot| {
             r.backdrop(plot, &visuals);
+            if let Some(sun) = &sun {
+                sun_arc(plot, sun, sun_color);
+            }
             let colour = move |pt: PlotPoint| {
                 let c = if fahrenheit { (pt.y as f32 - 32.0) * 5.0 / 9.0 } else { pt.y as f32 };
                 p.temp(c)
@@ -235,6 +262,55 @@ pub fn temperature(ui: &mut Ui, r: &Range, height: f32, icons: bool) -> Option<f
         }
     }
     clicked_x(&resp)
+}
+
+/// The sun's elevation every ten minutes while it's up, as `[x, degrees]`.
+fn sun_path(r: &Range) -> Option<Vec<[f64; 2]>> {
+    r.sun?;
+    let origin = r.origin();
+    let steps = (r.span() * 6.0) as i64;
+    let path: Vec<[f64; 2]> = (0..=steps)
+        .filter_map(|k| {
+            let x = k as f64 / 6.0;
+            let e = r.sun_at(origin + Duration::minutes(k * 10))?;
+            (e > 0.0).then_some([x, e])
+        })
+        .collect();
+    (!path.is_empty()).then_some(path)
+}
+
+/// Draws the sun's path (`[x, y, degrees]`): a thin arc with a soft fill,
+/// and its highest point labelled.
+fn sun_arc(plot: &mut egui_plot::PlotUi<'_>, path: &[[f64; 3]], color: Color32) {
+    // One line per stretch of daylight, so nights aren't bridged.
+    let mut runs: Vec<Vec<[f64; 2]>> = Vec::new();
+    for w in path {
+        match runs.last_mut() {
+            Some(run) if w[0] - run.last().unwrap()[0] < 0.2 => run.push([w[0], w[1]]),
+            _ => runs.push(vec![[w[0], w[1]]]),
+        }
+    }
+    let floor = path.iter().map(|p| p[1] - p[2]).fold(f64::INFINITY, f64::min);
+    for run in runs {
+        plot.line(
+            Line::new("Sun", PlotPoints::from(run))
+                .color(color)
+                .width(1.5)
+                .style(LineStyle::dashed_dense())
+                .fill(floor as f32)
+                .fill_alpha(0.07)
+                .allow_hover(false),
+        );
+    }
+    if let Some(peak) = path.iter().max_by(|a, b| a[2].total_cmp(&b[2])) {
+        plot.points(Points::new("", vec![[peak[0], peak[1]]]).radius(5.0).color(color).allow_hover(false));
+        plot.text(
+            Text::new("", PlotPoint::new(peak[0], peak[1]), RichText::new(format!("  Sun {:.0}°", peak[2])).size(11.5))
+                .anchor(egui::Align2::LEFT_BOTTOM)
+                .color(color)
+                .allow_hover(false),
+        );
+    }
 }
 
 fn clicked_x<R>(resp: &egui_plot::PlotResponse<R>) -> Option<f64> {

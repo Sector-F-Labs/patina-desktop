@@ -143,6 +143,12 @@ impl Forecast {
         (low, high)
     }
 
+    /// The sun's elevation in degrees at a local time here, at the given
+    /// place. Below zero is under the horizon.
+    pub fn sun_elevation(&self, latitude: f64, longitude: f64, local: NaiveDateTime) -> f64 {
+        sun_elevation(latitude, longitude, local - Duration::seconds(self.utc_offset as i64))
+    }
+
     /// Precipitation in the 24 hours from now.
     pub fn next_24h_precipitation(&self) -> f32 {
         let i = self.current_hour();
@@ -458,6 +464,31 @@ pub fn describe(code: u8) -> &'static str {
     }
 }
 
+/// The sun's elevation in degrees at a UTC time, by NOAA's approximate
+/// solar position equations (within a fraction of a degree).
+pub fn sun_elevation(latitude: f64, longitude: f64, utc: NaiveDateTime) -> f64 {
+    use chrono::{Datelike, Timelike};
+    use std::f64::consts::PI;
+    let hour = utc.hour() as f64 + utc.minute() as f64 / 60.0 + utc.second() as f64 / 3600.0;
+    let year_days = if utc.date().leap_year() { 366.0 } else { 365.0 };
+    let g = 2.0 * PI / year_days * (utc.ordinal() as f64 - 1.0 + (hour - 12.0) / 24.0);
+    let eqtime = 229.18
+        * (0.000075 + 0.001868 * g.cos()
+            - 0.032077 * g.sin()
+            - 0.014615 * (2.0 * g).cos()
+            - 0.040849 * (2.0 * g).sin());
+    let decl = 0.006918 - 0.399912 * g.cos() + 0.070257 * g.sin() - 0.006758 * (2.0 * g).cos()
+        + 0.000907 * (2.0 * g).sin()
+        - 0.002697 * (3.0 * g).cos()
+        + 0.00148 * (3.0 * g).sin();
+    // True solar time in minutes, then the hour angle.
+    let solar = hour * 60.0 + eqtime + 4.0 * longitude;
+    let angle = (solar / 4.0 - 180.0).to_radians();
+    let lat = latitude.to_radians();
+    let cos_zenith = (lat.sin() * decl.sin() + lat.cos() * decl.cos() * angle.cos()).clamp(-1.0, 1.0);
+    90.0 - cos_zenith.acos().to_degrees()
+}
+
 /// A compass point for a direction the wind comes from, in degrees.
 pub fn compass(degrees: f32) -> &'static str {
     const POINTS: [&str; 16] =
@@ -523,6 +554,17 @@ mod tests {
         let places = parse_search(json).unwrap();
         assert_eq!(places[0].region, "Stockholm County, Sweden");
         assert!(parse_search("{}").unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_sun_at_noon() {
+        let at = |s: &str| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M").unwrap();
+        // Stockholm at solar noon: about 90 - 59.3 + declination.
+        let equinox = sun_elevation(59.33, 18.07, at("2026-03-20T10:48"));
+        assert!((equinox - 30.7).abs() < 1.0, "{equinox}");
+        let midsummer = sun_elevation(59.33, 18.07, at("2026-06-21T10:48"));
+        assert!((midsummer - 54.1).abs() < 1.0, "{midsummer}");
+        assert!(sun_elevation(59.33, 18.07, at("2026-06-21T22:48")) < 0.0);
     }
 
     #[test]
