@@ -17,7 +17,7 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps run run-bar build test check install uninstall install-session uninstall-session vm vm-restart vm-gui screenshot clean
+.PHONY: help deps run run-bar build test check install stage deploy uninstall install-session uninstall-session vm vm-restart vm-gui screenshot clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -52,19 +52,44 @@ BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-night-li
 # The launcher lives in its own repository (ADR-0037); install builds it from there.
 LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 
-install: build ## Install the binaries into $(PREFIX)/bin, their man pages into $(MANDIR), and Settings' launcher entry
-	install -d $(PREFIX)/bin $(MANDIR)/man1 $(MANDIR)/man7
-	install -m 755 $(addprefix target/release/,$(BINARIES)) $(PREFIX)/bin/
-	install -m 644 man/*.1 $(MANDIR)/man1/
-	install -m 644 man/*.7 $(MANDIR)/man7/
-	@# The entry's Exec gets the absolute path, so it works whatever PATH is.
-	install -Dm644 settings/packaging/settings.svg $(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg
-	install -d $(APPSDIR)
-	sed 's|^Exec=patina-settings|Exec=$(PREFIX)/bin/patina-settings|' settings/packaging/$(SETTINGS_ID).desktop > $(APPSDIR)/$(SETTINGS_ID).desktop
+install: stage ## Install the binaries into $(PREFIX)/bin, their man pages into $(MANDIR), and Settings' launcher entry
 	-update-desktop-database -q $(APPSDIR)
 	@# GTK trusts an icon cache over the folder, so refresh one if it exists.
 	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
-	cargo install --quiet --locked --force --git $(LAUNCHER) --root $(PREFIX) patina-launcher
+
+# What install puts in place, under $(DESTDIR) if set: deploy stages it
+# there for another machine, with that machine's PREFIX.
+stage: build
+	install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(MANDIR)/man1 $(DESTDIR)$(MANDIR)/man7
+	install -m 755 $(addprefix target/release/,$(BINARIES)) $(DESTDIR)$(PREFIX)/bin/
+	install -m 644 man/*.1 $(DESTDIR)$(MANDIR)/man1/
+	install -m 644 man/*.7 $(DESTDIR)$(MANDIR)/man7/
+	@# The entry's Exec gets the absolute path, so it works whatever PATH is.
+	install -Dm644 settings/packaging/settings.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg
+	install -d $(DESTDIR)$(APPSDIR)
+	sed 's|^Exec=patina-settings|Exec=$(PREFIX)/bin/patina-settings|' settings/packaging/$(SETTINGS_ID).desktop > $(DESTDIR)$(APPSDIR)/$(SETTINGS_ID).desktop
+	cargo install --quiet --locked --force --git $(LAUNCHER) --root $(DESTDIR)$(PREFIX) patina-launcher
+
+# `make deploy nifl` (or HOST=nifl): the host is the goal after deploy.
+ifeq (deploy,$(firstword $(MAKECMDGOALS)))
+HOST ?= $(word 2,$(MAKECMDGOALS))
+ifneq ($(HOST),)
+$(eval $(HOST):;@:)
+endif
+endif
+DEPLOY_DIR := target/deploy
+
+deploy: build ## Build here and install on another machine over ssh: make deploy <host>
+	@test -n "$(HOST)" || { echo "usage: make deploy <host>, an ssh host with rsync"; exit 1; }
+	rm -rf $(DEPLOY_DIR)
+	@# Its PREFIX in its home, which may not be where this one's is.
+	remote=$$(ssh $(HOST) 'printf %s "$$HOME"') && test -n "$$remote" && \
+	$(MAKE) --no-print-directory stage DESTDIR=$(CURDIR)/$(DEPLOY_DIR) PREFIX="$$remote/.local" && \
+	rsync -a --exclude='.crates*' $(DEPLOY_DIR)$$remote/ $(HOST):$$remote/
+	@# Copied files replace the old by rename, so what's running keeps going.
+	-ssh $(HOST) 'update-desktop-database -q ~/.local/share/applications; \
+		test ! -f ~/.local/share/icons/hicolor/icon-theme.cache || gtk-update-icon-cache -q -t -f ~/.local/share/icons/hicolor'
+	@echo "Installed on $(HOST). Restart the desktop there to use it: Ctrl+Alt+Shift+Backspace."
 
 uninstall: ## Remove the installed binaries and man pages
 	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES))

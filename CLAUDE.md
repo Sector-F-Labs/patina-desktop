@@ -25,6 +25,8 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 ## Commands
 
 - `make` lists targets; `make check` (workspace tests + clippy -D warnings) before committing.
+- `make deploy <host>` builds here and installs on an ssh host (`stage` into `target/deploy` with
+  its home's PREFIX, then rsync); it never adds the login session there.
 - `make run` opens the compositor as a window on the current desktop, on a session bus of its own
   (`dbus-run-session`) so it never takes a running Patina session's names (it pops up on the user's
   GNOME session, so prefer the VM).
