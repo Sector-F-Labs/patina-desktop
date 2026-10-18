@@ -25,7 +25,8 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 ## Commands
 
 - `make` lists targets; `make check` (workspace tests + clippy -D warnings) before committing.
-- `make run` opens the compositor as a window on the current desktop (it pops up on the user's
+- `make run` opens the compositor as a window on the current desktop, on a session bus of its own
+  (`dbus-run-session`) so it never takes a running Patina session's names (it pops up on the user's
   GNOME session, so prefer the VM).
 - Test ground is a FreeBSD VM from `bsdt.toml`: dwl from packages is only the parent desktop;
   `gui.start` runs `target/release/patina-compositor` in it. `make vm`, then `make vm-restart`
@@ -84,7 +85,10 @@ puts them in `$(PREFIX)/share/man`.
   test -p patina-compositor tiling -- --ignored` tests the service on a bus of its own.
   `compositor/src/split.rs` (ADR-0054): the line between tiled `Rect` windows a gap apart
   (`line_under`) shows the arrow (`hover_split` in `pointer_motion`), and `SplitGrab` retiles
-  both sides live, then signals `Resized`; the tiler keeps its `split`.
+  both sides live, then signals `Resized`; the tiler keeps its `split`. Windows reopen where
+  their app's was (ADR-0065): the compositor signals `WindowOpened` on the first buffer
+  (`window_shown`) and `WindowClosed` with where it floated, and serves `Move`; the tiler's
+  `positions.rs` keeps them by app id and `policy::opening` moves it, or fills if too big.
 - `compositor/src/fullscreen.rs`: fullscreen (ADR-0041): `State::fullscreen`, sized to the output,
   drawn over the layers by every backend and first under the pointer while it has the keyboard.
 - `compositor/src/dnd.rs`: drag and drop between clients is Smithay's; this draws the icon a

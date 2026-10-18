@@ -8,7 +8,8 @@
 
 use zbus::blocking::{Connection, Proxy};
 
-const NAME: &str = "com.sectorflabs.Patina.Tiling";
+/// The compositor's name on the bus.
+pub const NAME: &str = "com.sectorflabs.Patina.Tiling";
 const PATH: &str = "/com/sectorflabs/Patina/Tiling";
 /// The name whose owner decides.
 pub const TILER: &str = "com.sectorflabs.Patina.Tiler";
@@ -41,6 +42,21 @@ pub enum Event {
     /// A tiled window's new rectangle, after the line between it and its
     /// neighbour was dragged.
     Resized(u64, Rect),
+    /// A window first showing, at the app's own size: its placement (as in
+    /// `Window`) and rectangle.
+    WindowOpened {
+        id: u64,
+        app_id: String,
+        placement: String,
+        rect: Rect,
+    },
+    /// A window closing, and where it floated, or did before it was placed
+    /// or went fullscreen.
+    WindowClosed {
+        id: u64,
+        app_id: String,
+        rect: Rect,
+    },
 }
 
 /// The compositor's tiling, over `bus`.
@@ -93,6 +109,11 @@ impl<'a> Tiling<'a> {
         self.proxy.call("Place", &(id, x, y, w, h))
     }
 
+    /// Moves floating window `id` so its top left is at `at`.
+    pub fn move_to(&self, id: u64, (x, y): (i32, i32)) -> zbus::Result<()> {
+        self.proxy.call("Move", &(id, x, y))
+    }
+
     /// Puts window `id` back as it was before it was tiled.
     pub fn restore(&self, id: u64) -> zbus::Result<()> {
         self.proxy.call("Restore", &(id,))
@@ -137,6 +158,23 @@ fn event(message: &zbus::Message) -> Option<Event> {
         "Resized" => {
             let (id, x, y, w, h) = body.deserialize().ok()?;
             Event::Resized(id, (x, y, w, h))
+        }
+        "WindowOpened" => {
+            let (id, app_id, placement, x, y, w, h) = body.deserialize().ok()?;
+            Event::WindowOpened {
+                id,
+                app_id,
+                placement,
+                rect: (x, y, w, h),
+            }
+        }
+        "WindowClosed" => {
+            let (id, app_id, x, y, w, h) = body.deserialize().ok()?;
+            Event::WindowClosed {
+                id,
+                app_id,
+                rect: (x, y, w, h),
+            }
         }
         _ => return None,
     })

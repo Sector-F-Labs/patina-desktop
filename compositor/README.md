@@ -15,7 +15,8 @@ this workspace is a Wayland client of it.
   patina-tiler, which it starts and keeps running, decides (or a tiler that takes the
   `com.sectorflabs.Patina.Tiler` name from it). Dragging a placed window restores it under the
   pointer; Super+Shift+arrows grow and shrink it here. Dragging the line between tiled windows
-  side by side resizes both, keeping the gap (`split.rs`, ADR-0054). Only an app's own maximise button
+  side by side resizes both, keeping the gap (`split.rs`, ADR-0054). Windows opening and closing
+  are reported too, so the tiler can reopen an app's window where it was (ADR-0065). Only an app's own maximise button
   maximises (ADR-0052).
 - **Moving between windows** follows the bar's tabs (ADR-0027): Alt+Tab steps along them,
   Super+1–9 picks one, closing a window gives the keyboard back to the window it came from (or
@@ -101,7 +102,7 @@ what has the keyboard), `fullscreen.rs`, `constraints.rs` (pointer locks for gam
 ## Running
 
 ```sh
-make run                          # nested on this desktop, with the bar
+make run                          # nested on this desktop, with the bar, on a bus of its own
 patina-compositor foot            # and a terminal
 patina-compositor --session       # as the login session (make install-session adds it to GDM)
 ```

@@ -65,6 +65,11 @@ pub fn placement(window: &Window) -> Option<Placement> {
     placed(window).0.borrow().map(|(p, _)| p)
 }
 
+/// Where a placed window was before it was placed, or `None` if it floats.
+pub fn before(window: &Window) -> Option<Rectangle<i32, Logical>> {
+    placed(window).0.borrow().map(|(_, before)| before)
+}
+
 pub fn is_maximized(window: &Window) -> bool {
     placement(window) == Some(Placement::Maximized)
 }

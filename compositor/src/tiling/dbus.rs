@@ -6,8 +6,11 @@
 //! desktop's logical pixels, `SnapRequested(id, direction)` for Super with
 //! an arrow, `WorkAreaChanged(x, y, w, h)`, and `Resized(id, x, y, w, h)`
 //! for each tiled window after the line between tiled windows is dragged.
+//! `WindowOpened(id, app_id, placement, x, y, w, h)` when a window first
+//! shows, and `WindowClosed(id, app_id, x, y, w, h)` with where it floated,
+//! so a tiler can reopen an app's window there (ADR-0065).
 //! Methods: `Windows()`, `WorkArea()`, `Gap()`, `Screen()`,
-//! `Place(id, x, y, w, h)`,
+//! `Place(id, x, y, w, h)`, `Move(id, x, y)`,
 //! `Restore(id)`, `ShowPreview(x, y, w, h)` and `HidePreview()`.
 //!
 //! Whoever owns `com.sectorflabs.Patina.Tiler` decides; the bus's own name
@@ -15,6 +18,10 @@
 //! it leaves the bus. zbus runs on threads of its own: requests reach the
 //! event loop over a calloop channel, and signals leave from a thread fed
 //! by the loop, with only the latest of a run of motions sent.
+
+// The signals carry rectangles as four numbers, and zbus's code for
+// `WindowOpened` outside the interface takes them all.
+#![allow(clippy::too_many_arguments)]
 
 use std::sync::mpsc;
 use std::time::Duration;
@@ -51,6 +58,11 @@ pub enum Request {
         area: Rect,
         reply: Reply<Result<(), String>>,
     },
+    Move {
+        id: u64,
+        at: (i32, i32),
+        reply: Reply<Result<(), String>>,
+    },
     Restore {
         id: u64,
         reply: Reply<Result<(), String>>,
@@ -69,6 +81,10 @@ pub enum Event {
     /// A tiled window, after the line between it and its neighbour was
     /// dragged (ADR-0054).
     Resized(u64, Rect),
+    /// A window first showing: its app id, placement and rectangle.
+    Opened(u64, String, String, Rect),
+    /// A window closing: its app id, and where it floated.
+    Closed(u64, String, Rect),
 }
 
 /// The compositor's end: where its events go.
@@ -186,6 +202,12 @@ fn send_events(connection: &zbus::blocking::Connection, events: &mpsc::Receiver<
                     Event::Resized(id, (x, y, w, h)) => {
                         Interface::resized(emitter, id, x, y, w, h).await
                     }
+                    Event::Opened(id, app_id, placement, (x, y, w, h)) => {
+                        Interface::window_opened(emitter, id, &app_id, &placement, x, y, w, h).await
+                    }
+                    Event::Closed(id, app_id, (x, y, w, h)) => {
+                        Interface::window_closed(emitter, id, &app_id, x, y, w, h).await
+                    }
                 }
             });
             if let Err(e) = result {
@@ -247,6 +269,18 @@ impl Interface {
         self.ask(|reply| Request::Place {
             id,
             area: (x, y, width, height),
+            reply,
+        })?
+        .map_err(zbus::fdo::Error::InvalidArgs)
+    }
+
+    /// Moves floating window `id` so its top left is at (x, y); a placed
+    /// one has to be restored first.
+    #[zbus(name = "Move")]
+    fn move_to(&self, id: u64, x: i32, y: i32) -> zbus::fdo::Result<()> {
+        self.ask(|reply| Request::Move {
+            id,
+            at: (x, y),
             reply,
         })?
         .map_err(zbus::fdo::Error::InvalidArgs)
@@ -320,6 +354,33 @@ impl Interface {
         width: i32,
         height: i32,
     ) -> zbus::Result<()>;
+
+    /// Window `id` of `app_id` first shows, placed as `placement` (as in
+    /// `Windows`) at this rectangle, its size the app's own.
+    #[zbus(signal)]
+    async fn window_opened(
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+        id: u64,
+        app_id: &str,
+        placement: &str,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) -> zbus::Result<()>;
+
+    /// Window `id` of `app_id` is closing; it floated at this rectangle,
+    /// or did before it was placed or went fullscreen.
+    #[zbus(signal)]
+    async fn window_closed(
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+        id: u64,
+        app_id: &str,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) -> zbus::Result<()>;
 }
 
 /// The bus tests on a bus of their own: `dbus-run-session -- cargo test -p
@@ -377,6 +438,10 @@ mod tests {
                             Err(format!("no window {id}"))
                         });
                     }
+                    Request::Move { id, at, reply } => {
+                        got.push(format!("move {id} {at:?}"));
+                        let _ = reply.send(Ok(()));
+                    }
                     Request::Preview(area) => got.push(format!("preview {area:?}")),
                     other => got.push(format!("{other:?}")),
                 }
@@ -407,6 +472,7 @@ mod tests {
             tiling.show_preview((0, 40, 400, 760)).unwrap();
             tiling.place(7, (0, 40, 400, 760)).unwrap();
             assert!(tiling.place(8, (0, 40, 400, 760)).is_err());
+            tiling.move_to(7, (100, 120)).unwrap();
         });
         let got = answer(&mut event_loop, Duration::from_millis(300));
         assert_eq!(
@@ -414,7 +480,8 @@ mod tests {
             [
                 "preview Some((0, 40, 400, 760))",
                 "place 7 (0, 40, 400, 760)",
-                "place 8 (0, 40, 400, 760)"
+                "place 8 (0, 40, 400, 760)",
+                "move 7 (100, 120)"
             ]
         );
         caller.join().unwrap();
@@ -428,6 +495,31 @@ mod tests {
             Some(client::Event::DragMotion(7, 0.0, 300.0))
         );
         assert_eq!(events.next(), Some(client::Event::DragEnded(7, 0.0, 300.0)));
+
+        service.emit(Event::Opened(
+            7,
+            "foot".into(),
+            "".into(),
+            (40, 80, 600, 400),
+        ));
+        service.emit(Event::Closed(7, "foot".into(), (40, 80, 600, 400)));
+        assert_eq!(
+            events.next(),
+            Some(client::Event::WindowOpened {
+                id: 7,
+                app_id: "foot".into(),
+                placement: "".into(),
+                rect: (40, 80, 600, 400),
+            })
+        );
+        assert_eq!(
+            events.next(),
+            Some(client::Event::WindowClosed {
+                id: 7,
+                app_id: "foot".into(),
+                rect: (40, 80, 600, 400),
+            })
+        );
 
         // Leaving the bus hands tiling back to the compositor.
         drop(events);

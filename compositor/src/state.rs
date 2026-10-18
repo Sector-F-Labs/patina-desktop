@@ -735,6 +735,7 @@ impl CompositorHandler for State {
             }
             if let Some(window) = self.window_for(&root) {
                 window.on_commit();
+                self.window_shown(&window);
             }
         }
 
@@ -847,6 +848,9 @@ impl XdgShellHandler for State {
     }
 
     fn toplevel_destroyed(&mut self, toplevel: ToplevelSurface) {
+        if let Some(window) = self.window_for(toplevel.wl_surface()) {
+            self.window_closed(&window);
+        }
         self.focus_after_close(toplevel.wl_surface());
     }
 

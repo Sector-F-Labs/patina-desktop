@@ -24,6 +24,11 @@ is set when it starts:
 As a window on another desktop (GNOME, sway, dwl), drawn with OpenGL ES,
 or in software where there is none.
 It quits when that desktop goes.
+Its D-Bus names can't be served where another
+.Nm
+already serves them, so nested on a Patina session it wants a session bus
+of its own:
+.Dl dbus-run-session -- patina-compositor
 .It On the hardware
 From a text console or the login screen: it takes the GPU and the input
 devices through the login session, and shows one monitor, the laptop's

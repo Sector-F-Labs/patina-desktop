@@ -29,6 +29,11 @@ fn before(window: &Window) -> &Before {
     window.user_data().get::<Before>().expect("inserted above")
 }
 
+/// Where `window` was before it went fullscreen, if it is.
+pub fn was(window: &Window) -> Option<Rectangle<i32, Logical>> {
+    window.user_data().get::<Before>()?.0.get()
+}
+
 impl State {
     /// The whole screen, in the space's points: for fullscreen windows,
     /// absolute pointer positions and keeping the pointer on screen.

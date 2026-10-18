@@ -7,6 +7,11 @@ APPSDIR := $(PREFIX)/share/applications
 ICONDIR := $(PREFIX)/share/icons/hicolor
 SETTINGS_ID := com.sectorflabs.Settings
 
+# A session bus of its own for the nested compositor, so it and what it
+# starts (bar, tiler, tray) never take the names of a Patina session the
+# window opens on.
+OWN_BUS := $(shell command -v dbus-run-session >/dev/null && echo "dbus-run-session --")
+
 # grim inside the VM's dwl session, which bsdt runs headless.
 VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
@@ -25,9 +30,9 @@ deps: ## Show the system packages the build needs
 	@echo "FreeBSD:       pkg install pkgconf libxkbcommon pixman libudev-devd libinput seatd mesa-libs libdrm wayland"
 	@echo "To run X11 apps (Steam), Xwayland too: apt install xwayland, or pkg install xwayland."
 
-run: ## Run the compositor in a window on this desktop, with the bar
+run: ## Run the compositor in a window on this desktop, with the bar, on a bus of its own
 	cargo build --workspace
-	target/debug/patina-compositor
+	$(OWN_BUS) target/debug/patina-compositor
 
 run-bar: ## Run only the bar on the current compositor (needs layer-shell; not GNOME)
 	cargo run -p patina-bar < /dev/null

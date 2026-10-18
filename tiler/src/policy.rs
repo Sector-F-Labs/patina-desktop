@@ -97,6 +97,46 @@ pub fn after_snap(now: Option<Tile>, snap: Snap) -> Option<Tile> {
     }
 }
 
+/// Where an app's window was last (ADR-0065).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Remembered {
+    /// Its top left where it floated, or did before it was filled.
+    pub at: (i32, i32),
+    /// It closed filling the work area.
+    pub filled: bool,
+}
+
+/// What happens to a window as it opens (ADR-0065).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Opening {
+    /// Where the compositor put it.
+    Stay,
+    /// Its top left here: where its app's window was, or moved back
+    /// inside the area.
+    Move(i32, i32),
+    /// Too big for the area: it fills it instead of hanging off the screen.
+    Fill,
+}
+
+/// Where a window opening at `rect` goes in `area`: filling if its app's
+/// window closed filled, or if it's too big to fit at all; otherwise where
+/// its app's window was, if `remembered`, moved back inside if it sticks
+/// out.
+pub fn opening(rect: Rect, remembered: Option<Remembered>, area: Rect) -> Opening {
+    let (x, y, w, h) = rect;
+    let (ax, ay, aw, ah) = area;
+    if w > aw || h > ah || remembered.is_some_and(|r| r.filled) {
+        return Opening::Fill;
+    }
+    let (want_x, want_y) = remembered.map_or((x, y), |r| r.at);
+    let at = (want_x.clamp(ax, ax + aw - w), want_y.clamp(ay, ay + ah - h));
+    if at == (x, y) {
+        Opening::Stay
+    } else {
+        Opening::Move(at.0, at.1)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -164,5 +204,62 @@ mod tests {
         );
         assert_eq!(after_snap(Some(Left), Snap::Right), None);
         assert_eq!(after_snap(Some(Left), Snap::Left), Some(Left));
+    }
+
+    const AREA: Rect = (8, 48, 1264, 744);
+
+    fn floated(x: i32, y: i32) -> Option<Remembered> {
+        Some(Remembered {
+            at: (x, y),
+            filled: false,
+        })
+    }
+
+    #[test]
+    fn a_window_opens_where_its_app_was() {
+        let rect = (48, 88, 600, 400);
+        assert_eq!(
+            opening(rect, floated(300, 200), AREA),
+            Opening::Move(300, 200)
+        );
+        assert_eq!(opening(rect, None, AREA), Opening::Stay);
+        assert_eq!(opening(rect, floated(48, 88), AREA), Opening::Stay);
+    }
+
+    #[test]
+    fn a_window_sticking_out_moves_back_inside() {
+        // Remembered from a bigger screen: off the right and the bottom.
+        assert_eq!(
+            opening((48, 88, 600, 400), floated(1500, 900), AREA),
+            Opening::Move(672, 392)
+        );
+        // Under the bar.
+        assert_eq!(
+            opening((48, 88, 600, 400), floated(100, 0), AREA),
+            Opening::Move(100, 48)
+        );
+        // Cascaded, but too tall to fit there.
+        assert_eq!(
+            opening((48, 88, 600, 744), None, AREA),
+            Opening::Move(48, 48)
+        );
+    }
+
+    #[test]
+    fn a_window_too_big_fills() {
+        assert_eq!(opening((48, 88, 1265, 400), None, AREA), Opening::Fill);
+        assert_eq!(
+            opening((48, 88, 600, 745), floated(8, 48), AREA),
+            Opening::Fill
+        );
+    }
+
+    #[test]
+    fn a_window_that_closed_filled_opens_filled() {
+        let filled = Some(Remembered {
+            at: (100, 100),
+            filled: true,
+        });
+        assert_eq!(opening((48, 88, 600, 400), filled, AREA), Opening::Fill);
     }
 }

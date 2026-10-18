@@ -5,19 +5,24 @@
 //! does. A window dragged to the left or right edge takes that half, and
 //! to the top fills the screen, with a preview while it's held there.
 //! Super+Left/Right tile to the halves, Up fills and Down restores.
+//! A window opens where its app's window was last, if none of its app's
+//! are open, and fills if it's too big for the screen (ADR-0065).
 //!
 //! It holds the Tiler name so another tiler can take over (as
 //! `cargo run -p patina-system --example thirds` does), and decides again
-//! when that one leaves. `policy.rs` is what tiles where.
+//! when that one leaves. `policy.rs` is what tiles where; `positions.rs`
+//! where apps' windows were.
 
 mod policy;
+mod positions;
 
 use std::collections::HashMap;
 use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
 use patina_system::tiling::{self, Event, Rect, Tiling};
-use policy::{Snap, Tile};
+use policy::{Opening, Remembered, Snap, Tile};
+use positions::Positions;
 
 const USAGE: &str = "usage: patina-tiler
 
@@ -68,6 +73,8 @@ struct Tiler<'a> {
     /// The window being dragged, if it can be tiled, and where a drop
     /// would put it.
     dragging: Option<(u64, Option<Tile>)>,
+    /// Where each app's window was last.
+    positions: Positions,
 }
 
 fn run() -> zbus::Result<()> {
@@ -83,6 +90,7 @@ fn run() -> zbus::Result<()> {
             Err(e) => return Err(e),
         }
     };
+    exit_with_compositor(&bus)?;
     let events = tiling.events()?;
     tiling::claim_default(&bus)?;
     let mut tiler = Tiler {
@@ -94,12 +102,40 @@ fn run() -> zbus::Result<()> {
         tiled: HashMap::new(),
         split: policy::HALVES,
         dragging: None,
+        positions: Positions::load(),
     };
     for event in events {
         if let Err(e) = tiler.handle(event) {
             eprintln!("patina-tiler: {e}");
         }
     }
+    Ok(())
+}
+
+/// Exits when the compositor this started with leaves the bus, or another
+/// takes its name (a nested one from `make run`): otherwise this would
+/// outlive it, still holding the Tiler name, and a newer tiler would queue
+/// behind it for good. The compositor that wants a tiler starts its own.
+fn exit_with_compositor(bus: &zbus::blocking::Connection) -> zbus::Result<()> {
+    let dbus = zbus::blocking::fdo::DBusProxy::new(bus)?;
+    // Listening first, so a change between the two is heard.
+    let changes = dbus.receive_name_owner_changed_with_args(&[(0, tiling::NAME)])?;
+    let owner = dbus.get_name_owner(tiling::NAME.try_into()?)?;
+    let owner = owner.as_str().to_string();
+    std::thread::Builder::new()
+        .name("compositor".into())
+        .spawn(move || {
+            for signal in changes {
+                let Ok(args) = signal.args() else { continue };
+                if args.name() == tiling::NAME
+                    && args.new_owner().as_ref().map(|o| o.as_str()) != Some(owner.as_str())
+                {
+                    eprintln!("patina-tiler: the compositor left the bus; exiting");
+                    std::process::exit(0);
+                }
+            }
+        })
+        .map_err(|e| zbus::Error::Failure(e.to_string()))?;
     Ok(())
 }
 
@@ -135,6 +171,14 @@ impl Tiler<'_> {
                     && dragged == id
                 {
                     self.place(id, tile)?;
+                } else if let Some(window) = self.window(id)?
+                    && window.placement.is_empty()
+                {
+                    // Dropped floating: kept now, in case the session
+                    // ends before the window closes.
+                    let at = (window.rect.0, window.rect.1);
+                    let floated = Remembered { at, filled: false };
+                    self.positions.set(&window.app_id, floated);
                 }
             }
             Event::SnapRequested(id, direction) => {
@@ -168,6 +212,36 @@ impl Tiler<'_> {
                 {
                     self.split = split;
                 }
+            }
+            Event::WindowOpened {
+                id,
+                app_id,
+                placement,
+                rect,
+            } => {
+                // The app asked to be maximised, or another tiler decides.
+                if !placement.is_empty() || !tiling::deciding(self.bus) {
+                    return Ok(());
+                }
+                // A second window of an app cascades, rather than opening
+                // on top of the first.
+                let alone = !app_id.is_empty()
+                    && !self
+                        .tiling
+                        .windows()?
+                        .iter()
+                        .any(|w| w.id != id && w.app_id == app_id);
+                let remembered = alone.then(|| self.positions.get(&app_id)).flatten();
+                match policy::opening(rect, remembered, self.area) {
+                    Opening::Stay => {}
+                    Opening::Move(x, y) => self.tiling.move_to(id, (x, y))?,
+                    Opening::Fill => self.place(id, Tile::Fill)?,
+                }
+            }
+            Event::WindowClosed { id, app_id, rect } => {
+                let filled = self.tiled.remove(&id) == Some(Tile::Fill);
+                let at = (rect.0, rect.1);
+                self.positions.set(&app_id, Remembered { at, filled });
             }
             Event::WorkAreaChanged(area) => {
                 self.area = area;
@@ -204,7 +278,11 @@ impl Tiler<'_> {
     }
 
     fn listed(&self, id: u64) -> zbus::Result<bool> {
-        Ok(self.tiling.windows()?.iter().any(|w| w.id == id))
+        Ok(self.window(id)?.is_some())
+    }
+
+    fn window(&self, id: u64) -> zbus::Result<Option<tiling::Window>> {
+        Ok(self.tiling.windows()?.into_iter().find(|w| w.id == id))
     }
 
     /// Window `id`'s placement as the compositor names it, if it's open.

@@ -5,8 +5,8 @@
 //! the Tiler name from it.
 //!
 //! `dbus.rs` serves `com.sectorflabs.Patina.Tiling`: it tells the bus about
-//! every drag and Super+arrow, and lets a caller list and place windows and
-//! show the preview.
+//! every drag and Super+arrow, and windows opening and closing, and lets a
+//! caller list, place and move windows and show the preview.
 
 pub mod dbus;
 
@@ -58,6 +58,9 @@ impl Tiling {
         self.emit(Event::Snap(id(window), direction));
     }
 }
+
+/// Marks a window whose opening was told, so it's told once.
+struct Shown;
 
 /// A window's number on the bus, for as long as it's open.
 struct Id(u64);
@@ -152,6 +155,52 @@ impl State {
         }
     }
 
+    /// On a Wayland window's commit: the first time it has something to
+    /// show, its app id and size known by then, tells tilers it opened, so
+    /// one can put it where its app's window was (ADR-0065). A window
+    /// that asked for fullscreen first isn't told of.
+    pub fn window_shown(&mut self, window: &Window) {
+        let Some(toplevel) = window.toplevel() else {
+            return;
+        };
+        if window.geometry().size.is_empty() || !window.user_data().insert_if_missing(|| Shown) {
+            return;
+        }
+        if self.fullscreen.as_ref() == Some(window) {
+            return;
+        }
+        let Some(location) = self.space.element_location(window) else {
+            return;
+        };
+        let (_, app_id) = crate::toplevels::describe(toplevel.wl_surface());
+        self.tiling.emit(Event::Opened(
+            id(window),
+            app_id,
+            placement_name(placement(window)).to_string(),
+            rect(Rectangle::new(location, window.geometry().size)),
+        ));
+    }
+
+    /// Tells tilers `window` is closing, with where it floats, or floated
+    /// before it was placed or went fullscreen.
+    pub fn window_closed(&mut self, window: &Window) {
+        let Some(toplevel) = window.toplevel() else {
+            return;
+        };
+        let floated = crate::fullscreen::was(window)
+            .or_else(|| crate::maximize::before(window))
+            .or_else(|| {
+                let location = self.space.element_location(window)?;
+                Some(Rectangle::new(location, window.geometry().size))
+            });
+        let Some(floated) = floated else {
+            return;
+        };
+        let (_, app_id) = crate::toplevels::describe(toplevel.wl_surface());
+        self.tiling
+            .emit(Event::Closed(id(window), app_id, rect(floated)));
+    }
+
     fn window_by_id(&self, wanted: u64) -> Option<Window> {
         self.space.elements().find(|w| id(w) == wanted).cloned()
     }
@@ -221,6 +270,19 @@ impl State {
                             Placement::Rect(area)
                         };
                         self.place_as(&window, placement);
+                        Ok(())
+                    }
+                };
+                let _ = reply.send(result);
+            }
+            Request::Move { id, at, reply } => {
+                let result = match self.window_by_id(id) {
+                    None => Err(format!("no window {id}")),
+                    Some(window) if placement(&window).is_some() => {
+                        Err(format!("window {id} is placed; restore it first"))
+                    }
+                    Some(window) => {
+                        self.place(&window, at.into());
                         Ok(())
                     }
                 };

@@ -1,4 +1,4 @@
-.Dd October 17, 2026
+.Dd October 18, 2026
 .Dt PATINA-TILER 1
 .Os
 .Sh NAME
@@ -44,6 +44,13 @@ When the work area changes, the halves it tiled are tiled again to fit.
 Dragging the line between tiled windows (the compositor's) moves where the
 halves meet; the split is kept, and a window tiled to the other side takes
 the rest, until no half is tiled any more.
+.It
+A window opens where its app's window was last, if no other window of its
+app is open, or filling the screen if that one closed filling it; one that
+would stick out of the screen is moved back inside.
+A second window of the same app opens where the compositor puts it.
+.It
+A window that opens bigger than the screen fills it instead.
 .El
 .Pp
 Only an app's own maximise button maximises a window; that's the
@@ -72,9 +79,17 @@ Without it,
 .Nm
 exits, and windows don't tile.
 .El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ~/.local/state/patina-tiler/windows.toml
+Where each app's window was last, by app id: written when a window is
+dropped somewhere it floats and when it closes.
+Deleting the file forgets them.
+.El
 .Sh EXIT STATUS
 .Ex -std
-It runs until the compositor leaves the bus.
+It runs until the compositor it started with leaves the bus, or another
+takes its name.
 .Sh EXAMPLES
 A tiler of thirds, which takes over while it runs:
 .Dl cargo run -p patina-system --example thirds
