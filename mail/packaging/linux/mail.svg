@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf7ee"/>
+      <stop offset="1" stop-color="#e9e1cf"/>
+    </linearGradient>
+    <linearGradient id="flap" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f3ecdc"/>
+      <stop offset="1" stop-color="#ddd2bb"/>
+    </linearGradient>
+  </defs>
+  <!-- shadow -->
+  <rect x="12" y="32" width="108" height="76" rx="8" fill="#000" opacity="0.18"/>
+  <!-- envelope body -->
+  <rect x="8" y="26" width="108" height="76" rx="8" fill="url(#paper)" stroke="#b9ab8e" stroke-width="2"/>
+  <!-- lower folds -->
+  <path d="M10 98 L52 62 M114 98 L72 62" stroke="#c9bc9f" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- top flap -->
+  <path d="M10 30 L62 70 L114 30" fill="url(#flap)" stroke="#b9ab8e" stroke-width="2" stroke-linejoin="round"/>
+  <!-- wax seal -->
+  <circle cx="62" cy="68" r="11" fill="#6d4aff"/>
+  <circle cx="62" cy="68" r="7" fill="none" stroke="#a48cff" stroke-width="2"/>
+  <!-- stamp -->
+  <rect x="90" y="34" width="18" height="22" rx="1.5" fill="#fff" stroke="#d65a4a" stroke-width="2" stroke-dasharray="2.5 1.5"/>
+  <rect x="94" y="38" width="10" height="14" fill="#d65a4a" opacity="0.85"/>
+</svg>

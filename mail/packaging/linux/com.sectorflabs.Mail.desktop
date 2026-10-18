@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Mail
+GenericName=Mail Client
+Comment=Read and write Proton Mail through Proton Mail Bridge
+Exec=mail
+Icon=com.sectorflabs.Mail
+Terminal=false
+Categories=Network;Email;
+Keywords=mail;email;proton;bridge;imap;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.Mail

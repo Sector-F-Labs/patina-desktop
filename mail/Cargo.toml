@@ -1,0 +1,23 @@
+[package]
+name = "mail"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "A simple Patina mail client for Proton Mail through Proton Mail Bridge"
+
+[dependencies]
+chrono = "0.4"
+dirs = "7"
+eframe = { version = "0.35", features = ["persistence"] }
+egui = "0.35"
+html2text = "0.17"
+image = { version = "0.25", default-features = false, features = ["png"] }
+imap = "3.0.0-alpha.15"
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "native-tls", "builder", "hostname"] }
+mail-parser = "0.11"
+patina-ui = "0.1.9"
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1"
+
+[dev-dependencies]
+resvg = "0.48"
