@@ -113,6 +113,7 @@ pub struct App {
     flask: Option<TextureHandle>,
     bar: crate::bar::BarPage,
     gaps: crate::gaps::GapsSection,
+    icons: crate::icons::IconsSection,
     keyboard: crate::keyboard::KeyboardPage,
     night_light: NightLightPage,
     power: crate::power::PowerPage,
@@ -139,6 +140,7 @@ impl App {
             flask: None,
             bar: crate::bar::BarPage::new(),
             gaps: crate::gaps::GapsSection::new(),
+            icons: crate::icons::IconsSection::new(),
             keyboard: crate::keyboard::KeyboardPage::new(ctx),
             night_light: NightLightPage::new(ctx),
             power: crate::power::PowerPage::new(ctx),
@@ -268,7 +270,7 @@ impl App {
     }
 
     /// The shell's skin, and its skins folder, as the desktop's menu
-    /// offers them; and the gaps.
+    /// offers them; the gaps; and the icon theme.
     fn appearance(&mut self, ui: &mut Ui) {
         ui.heading("Appearance");
         ui.label("The skin the bar, the menus, the lock screen and the wallpaper wear.");
@@ -298,6 +300,8 @@ impl App {
         }
         ui.add_space(16.0);
         self.gaps.ui(ui, &mut self.message);
+        ui.add_space(16.0);
+        self.icons.ui(ui, &mut self.message);
     }
 
     /// Copying the built-in skins to the skins folder, and opening it.

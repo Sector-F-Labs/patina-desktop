@@ -9,7 +9,8 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
 
 - **Appearance**: the shell's skin, as the desktop's menu offers it, with the skins folder
   buttons; and gaps (ADR-0051), on or off, their size and the floating bar's corner radius,
-  written to `[gaps]` in the compositor's config.
+  written to `[gaps]` in the compositor's config; and the icon theme (`icons.rs`), the installed
+  ones offered, for Files and GTK apps through GNOME's `icon-theme` setting for now.
 - **Bar** (ADR-0050): what the window tabs show (icons and titles, icons, titles), which edge the
   bar is on, and the button that opens its config file for everything else; and its layout, one
   bar or split (ADR-0063), each part dragged to its spot on a map of the screen.

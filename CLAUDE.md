@@ -149,7 +149,8 @@ puts them in `$(PREFIX)/share/man`.
   insets the work area and `rect_for` splits halves with the gap; the bar reads the same table
   (`bar/src/gaps.rs`) and floats by layer-shell margin (`Host::set_margin`), which the compositor
   adds to its exclusive zone.
-- `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance (skin, gaps), Bar (`window_tabs` and
+- `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance (skin, gaps, icon theme
+  through gsettings' `icon-theme` for now, `icons.rs`), Bar (`window_tabs` and
   `position` in the bar's config, which the bar follows live, ADR-0050), Wallpaper (sets
   `wallpaper`) and Night Light (writes `[night_light]` into the compositor's config with
   `toml_edit`; state over D-Bus through `system/src/night_light.rs`), Power (the screen's
