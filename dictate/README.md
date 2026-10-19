@@ -11,7 +11,8 @@ and prints what was said; or it transcribes a WAV file.
   compositor's `dictate` key (`[keys]`, Ctrl+Super+Alt) signals `DictationStarted` and
   `DictationStopped` on `com.sectorflabs.Patina.Input`; this records between them and calls
   `Commit` there, which types the text into the focused window through the clipboard
-  (ADR-0071).
+  (ADR-0071). It ends when that name leaves the bus: with no Wayland connection, nothing else
+  would end it, and a restarted desktop would have two.
 - **On its own**, `patina-dictate | wl-copy` puts what you said on the clipboard.
 - **Models** are whisper.cpp's GGML files in `$XDG_DATA_HOME/patina-dictate/models`, as
   `ggml-NAME.bin`; base.en is the default. Download them from

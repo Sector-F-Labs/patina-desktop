@@ -37,6 +37,9 @@ Considered and ruled out:
   records from start to stop, drops presses under 0.3 s as slips, transcribes on a thread of its
   own (so the next press records at once), and calls `Commit`. The model is loaded at start, and
   again on each recording until it loads, so a model downloaded later is used without a restart.
+  It ends when `com.sectorflabs.Patina.Input` leaves the bus: it has no Wayland connection, so
+  unlike the bar and the tiler nothing else ends it with the compositor, and the first restart
+  left two daemons dictating everything twice.
 - **Commit waits for modifiers held by hand to be let go**, up to two seconds, so the window
   sees Ctrl+V and not Ctrl+Alt+Super+V when the chord is still being let go.
 
