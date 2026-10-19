@@ -1,7 +1,7 @@
 //! Installed apps, from their `.desktop` entries, and a window's app from
 //! its app id (a Wayland app id, or an X11 window's class): the bar's tab
 //! icons (ADR-0050) and New Window (ADR-0055), and what patina-raise finds
-//! and starts by name (ADR-0058).
+//! and starts by name (ADR-0058), and whether it's a terminal (ADR-0067).
 
 use freedesktop_desktop_entry::{DesktopEntry, Iter, default_paths};
 
@@ -18,6 +18,9 @@ pub struct Entry {
     pub command: Option<Vec<String>>,
     /// What starts it: its Exec, in a terminal if the entry says so.
     pub exec: Option<Vec<String>>,
+    /// It's a terminal (`TerminalEmulator` in its Categories), so Super
+    /// keys reach it with Shift as well as Ctrl (ADR-0067).
+    pub terminal_emulator: bool,
 }
 
 /// `args` run in a terminal, if `terminal`: `$TERMINAL`, or foot.
@@ -48,6 +51,11 @@ fn exec(e: &DesktopEntry) -> Option<Vec<String>> {
     Some(in_terminal(args, e.terminal()))
 }
 
+fn terminal_emulator(e: &DesktopEntry) -> bool {
+    e.categories()
+        .is_some_and(|c| c.contains(&"TerminalEmulator"))
+}
+
 pub fn entries() -> Vec<Entry> {
     let mut seen = std::collections::HashSet::new();
     Iter::new(default_paths())
@@ -63,6 +71,7 @@ pub fn entries() -> Vec<Entry> {
             icon: e.icon().map(str::to_string),
             command: command(&e),
             exec: exec(&e),
+            terminal_emulator: terminal_emulator(&e),
         })
         .collect()
 }
@@ -117,6 +126,7 @@ mod tests {
             icon: Some(icon.into()),
             command: None,
             exec: None,
+            terminal_emulator: false,
         }
     }
 
@@ -157,6 +167,17 @@ mod tests {
         assert_eq!(command(&firefox).unwrap(), ["firefox", "--new-window"]);
         let foot = parsed("[Desktop Entry]\nType=Application\nName=Foot\nExec=foot %F\n");
         assert_eq!(command(&foot).unwrap(), ["foot"]);
+    }
+
+    #[test]
+    fn terminals_say_so_in_their_categories() {
+        let foot = "[Desktop Entry]\nType=Application\nName=Foot\nExec=foot\nCategories=System;TerminalEmulator;\n";
+        assert!(terminal_emulator(&parsed(foot)));
+        let htop = "[Desktop Entry]\nType=Application\nName=htop\nExec=htop\nTerminal=true\nCategories=System;Monitor;\n";
+        assert!(
+            !terminal_emulator(&parsed(htop)),
+            "runs in a terminal, isn't one"
+        );
     }
 
     #[test]

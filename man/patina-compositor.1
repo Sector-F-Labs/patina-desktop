@@ -94,8 +94,6 @@ Tapped on its own: open the launcher.
 Bring forward the window in that tab of the bar.
 .It Alt+Tab , Alt+Shift+Tab
 Step to the next or previous tab.
-.It Super+W
-Close the focused window.
 .It Super+Q
 Quit the focused app: ask all its windows to close.
 .It Super+Up , Super+Down
@@ -123,6 +121,14 @@ Save a screenshot of the focused window.
 Switch to the next keyboard layout.
 .It Super+Shift+R
 Read the config file again.
+.It Super+ Ns Ar key
+Any other key with Super, or Super+Shift, goes to the focused window
+with Ctrl in place of Super, as Cmd does on a Mac: Super+T opens a tab,
+Super+W closes one, Super+C and Super+V copy and paste.
+A terminal, whose desktop entry lists
+.Cm TerminalEmulator
+in its Categories, gets Ctrl+Shift instead.
+Not while the screen is locked or a fullscreen window has the keyboard.
 .It Ctrl+Alt+F1 No to Sy F12
 Switch to that console, on the hardware.
 .It Ctrl+Alt+Backspace

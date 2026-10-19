@@ -379,6 +379,7 @@ mod tests {
             icon: None,
             command: None,
             exec: Some(exec.iter().map(|s| s.to_string()).collect()),
+            terminal_emulator: false,
         }
     }
 

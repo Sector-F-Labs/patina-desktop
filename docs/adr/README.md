@@ -108,6 +108,7 @@ mechanics of adding one.
 | [0064](0064-system-tray.md) | The bar is the system tray, by StatusNotifierItem | Accepted |
 | [0065](0065-windows-reopen-where-they-were.md) | Windows reopen where they were, by app id, decided by the tiler | Accepted |
 | [0066](0066-the-session-has-default-apps.md) | The session has default apps of its own, in patina-mimeapps.list | Accepted |
+| [0067](0067-super-is-cmd.md) | Super is Cmd: the compositor sends Ctrl, or Ctrl+Shift to a terminal | Accepted |
 
 ## Decision Relationship
 
@@ -156,6 +157,7 @@ flowchart TD
     K --> AK[0037: shell and launcher public]
     AJ --> AK
     A --> M[0013: Patina from develop]
+    Z --> CMD[0067: Super is Cmd]
 ```
 
 ## Revisit Triggers

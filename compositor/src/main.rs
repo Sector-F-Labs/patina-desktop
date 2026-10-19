@@ -3,6 +3,7 @@
 //! starts patina-bar and a terminal inside it.
 
 mod clients;
+mod cmd;
 mod config;
 mod constraints;
 mod cursor;

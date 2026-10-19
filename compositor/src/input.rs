@@ -49,8 +49,6 @@ pub enum KeyAction {
     /// Resize the focused window around its centre (Super+Shift+K/J grow
     /// and shrink it, L/H widen and narrow it).
     Resize(crate::maximize::Resize),
-    /// Ask the focused window to close (Super+W), as its close button does.
-    CloseWindow,
     /// Ask every window of the focused app to close (Super+Q): quitting it,
     /// politely, as Cmd+Q does on macOS.
     QuitApp,
@@ -58,6 +56,9 @@ pub enum KeyAction {
     Lock,
     /// Take a screenshot (Super+Shift+3 or 4, Print).
     Screenshot(crate::screenshot::Shot),
+    /// A Super key sent on to the focused window as Ctrl (ADR-0067):
+    /// nothing more to do.
+    SentAsCtrl,
 }
 
 /// The screenshot keys, from the key's base symbol so Shift and the layout
@@ -165,9 +166,6 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
         if let Some(snap) = snap {
             return Some(KeyAction::Snap(snap));
         }
-        if sym == keysyms::KEY_w {
-            return Some(KeyAction::CloseWindow);
-        }
         if sym == keysyms::KEY_q {
             return Some(KeyAction::QuitApp);
         }
@@ -215,9 +213,10 @@ impl State {
             KeyState::Released
         };
         let mut sym = 0;
+        let keycode = smithay::input::keyboard::Keycode::new(code + 8);
         let action = keyboard.input::<KeyAction, _>(
             self,
-            smithay::input::keyboard::Keycode::new(code + 8),
+            keycode,
             state,
             SERIAL_COUNTER.next_serial(),
             time,
@@ -241,9 +240,23 @@ impl State {
                         true
                     }
                 });
-                match (pressed, action) {
-                    (true, Some(action)) => FilterResult::Intercept(action),
-                    _ => FilterResult::Forward,
+                if let (true, Some(action)) = (pressed, &action) {
+                    return FilterResult::Intercept(action.clone());
+                }
+                // Super with any other key goes on as Ctrl (ADR-0067), but
+                // not to the locker or a fullscreen game; its release too.
+                let sent = if !pressed {
+                    state.release_as_ctrl(handle, keycode, modifiers, time)
+                } else {
+                    action.is_none()
+                        && !state.locked()
+                        && state.fullscreen_on_top().is_none()
+                        && state.send_as_ctrl(handle, keycode, modifiers, time)
+                };
+                if sent {
+                    FilterResult::Intercept(KeyAction::SentAsCtrl)
+                } else {
+                    FilterResult::Forward
                 }
             },
         );
@@ -275,14 +288,7 @@ impl State {
                 }
                 None
             }
-            Some(KeyAction::CloseWindow) => {
-                if let Some(surface) = self.focused_window().and_then(|w| {
-                    smithay::wayland::seat::WaylandFocus::wl_surface(&w).map(|s| s.into_owned())
-                }) {
-                    self.close_toplevel(&surface);
-                }
-                None
-            }
+            Some(KeyAction::SentAsCtrl) => None,
             Some(KeyAction::Lock) => {
                 self.lock_screen();
                 None
@@ -653,7 +659,6 @@ mod tests {
         };
         for sym in [
             keysyms::KEY_q,
-            keysyms::KEY_w,
             keysyms::KEY_Left,
             keysyms::KEY_1,
         ] {
@@ -675,16 +680,13 @@ mod tests {
     }
 
     #[test]
-    fn super_w_closes() {
+    fn super_w_and_t_go_to_the_app() {
         let logo = ModifiersState {
             logo: true,
             ..Default::default()
         };
-        assert_eq!(
-            key_action(&logo, keysyms::KEY_w),
-            Some(KeyAction::CloseWindow)
-        );
-        assert_eq!(key_action(&mods(false, false), keysyms::KEY_w), None);
+        assert_eq!(key_action(&logo, keysyms::KEY_w), None);
+        assert_eq!(key_action(&logo, keysyms::KEY_t), None);
     }
 
     #[test]

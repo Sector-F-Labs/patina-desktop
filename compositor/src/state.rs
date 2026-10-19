@@ -118,6 +118,8 @@ pub struct State {
     pub lock_shown: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Super is down, and nothing else has been pressed since.
     pub super_tap: bool,
+    /// Super keys sent on as Ctrl (ADR-0067).
+    pub cmd: crate::cmd::Cmd,
     /// A three-finger drag, holding the left button (ADR-0031).
     pub drag: crate::drag::Drag,
     /// The scale the backend would choose by itself: the panel's density on
@@ -261,6 +263,7 @@ impl State {
             ),
             lock_shown: Default::default(),
             super_tap: false,
+            cmd: Default::default(),
             drag: Default::default(),
             auto_scale,
             _fractional_scale: smithay::wayland::fractional_scale::FractionalScaleManagerState::new::<
