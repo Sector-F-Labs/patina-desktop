@@ -20,8 +20,11 @@ pub struct Cmd {
 }
 
 /// What a client is told is down for Super with `real`: Ctrl in place of
-/// Super, with Shift in a terminal. `None` without Super, or with Ctrl or
-/// Alt as well, which make other keys (Ctrl+Super+Q locks).
+/// Super, with Shift in a terminal; and in a terminal, Super+Shift as
+/// Ctrl+Alt+Shift, so it isn't the same keys as Super alone (Super+D and
+/// Super+Shift+D split two ways in Teleprinter, as Cmd+D and Cmd+Shift+D in
+/// iTerm). `None` without Super, or with Ctrl or Alt as well, which make
+/// other keys (Ctrl+Super+Q locks).
 pub fn as_ctrl(real: &ModifiersState, terminal: bool) -> Option<ModifiersState> {
     if !real.logo || real.ctrl || real.alt {
         return None;
@@ -30,6 +33,7 @@ pub fn as_ctrl(real: &ModifiersState, terminal: bool) -> Option<ModifiersState> 
         logo: false,
         ctrl: true,
         shift: real.shift || terminal,
+        alt: terminal && real.shift,
         ..*real
     })
 }
@@ -151,9 +155,15 @@ mod tests {
         assert!(terminal.ctrl && !terminal.logo && terminal.shift);
         let shifted = as_ctrl(&mods(true, false, false, true), false).unwrap();
         assert!(
-            shifted.ctrl && shifted.shift,
+            shifted.ctrl && shifted.shift && !shifted.alt,
             "Super+Shift+T is Ctrl+Shift+T"
         );
+        let terminal_shifted = as_ctrl(&mods(true, false, false, true), true).unwrap();
+        assert!(
+            terminal_shifted.ctrl && terminal_shifted.shift && terminal_shifted.alt,
+            "in a terminal, Super+Shift+D isn't Super+D's Ctrl+Shift+D"
+        );
+        assert!(!terminal.alt);
     }
 
     #[test]

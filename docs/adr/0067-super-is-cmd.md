@@ -38,7 +38,9 @@ Super+T reaches a Patina app as a plain T, and types a "t". Considered and ruled
   H, J, K, L (with or without Shift), Shift+3 and 4, Shift+R, Ctrl+Super+Q, and the user's
   `[bindings]`. *Amended 2026-10-19:* the vim keys H, J, K and L tile with Ctrl+Super (and
   resize with Ctrl+Super+Shift), so Super+H, J, K and L go on as Ctrl keys too, Super+L to a
-  location bar as Cmd+L on a Mac.
+  location bar as Cmd+L on a Mac. *Amended again:* in a terminal, Super+Shift+key goes as
+  Ctrl+Alt+Shift+key, so it differs from Super+key's Ctrl+Shift+key: Teleprinter splits right on
+  Super+D and down on Super+Shift+D, as iTerm does with Cmd.
 - **A terminal is a window whose desktop entry says so:** `Categories` holds `TerminalEmulator`,
   found from its app id (an X window's class) with patina-system's `apps::entry_for`, which gains
   the field. Teleprinter's desktop entry gets the category.

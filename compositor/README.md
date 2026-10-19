@@ -23,7 +23,8 @@ this workspace is a Wayland client of it.
   its neighbouring tab, ADR-0059). Super+Q quits the app.
 - **Super is Cmd** (`cmd.rs`, ADR-0067): any other Super key goes to the focused window as
   Ctrl+key (Super+T a new tab, Super+W closes one), or as Ctrl+Shift+key to a terminal, by its
-  desktop entry's `TerminalEmulator` category. Only that client is told Ctrl is down.
+  desktop entry's `TerminalEmulator` category (Super+Shift+key as Ctrl+Alt+Shift+key there, so it
+  differs from Super+key). Only that client is told Ctrl is down.
 - **The desktop's own keys:** Super alone or Super+Space opens the launcher; Ctrl+Super+Q and Super+Escape lock
   (ADR-0026); Super+Shift+3 or Print screenshots the desktop and Super+Shift+4 the focused window
   (ADR-0034); the brightness and volume keys change them and flash the volume menu (ADR-0020,

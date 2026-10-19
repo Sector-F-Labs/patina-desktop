@@ -63,7 +63,8 @@ puts them in `$(PREFIX)/share/man`.
   window drawn offscreen with the backend's renderer, saved as a PNG on a thread; then a `Flash`
   each backend draws on top (`flash_element`, `overlay`).
 - `compositor/src/cmd.rs`: Super is Cmd (ADR-0067): a Super key the compositor doesn't keep is sent
-  to the focused client as Ctrl+key (Ctrl+Shift to a terminal, by its desktop entry's category),
+  to the focused client as Ctrl+key (Ctrl+Shift to a terminal, by its desktop entry's category, and
+  Super+Shift+key there as Ctrl+Alt+Shift+key),
   press and release, with that client alone told Ctrl is down; called from `State::key`'s filter.
 - `compositor/src/night_light.rs`: Night Light (ADR-0039): the colour maths, the `Schedule` trait,
   fades, overrides and inhibitors; `UdevData::set_temperature` sets the CRTC's gamma ramp (hardware
