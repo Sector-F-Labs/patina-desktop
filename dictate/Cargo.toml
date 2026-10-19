@@ -13,9 +13,17 @@ cuda = ["whisper-rs/cuda"]
 vulkan = ["whisper-rs/vulkan"]
 
 [dependencies]
+egui = "0.35"
 hound = "3.5"
+patina-shell = { workspace = true }
+patina-ui = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+toml = "1"
 whisper-rs = "0.16"
 zbus = "5"
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 # The microphone: cpal (ALSA, so PipeWire or PulseAudio through it) on Linux,
 # the kernel's /dev/dsp on FreeBSD, whatever sound server runs there.

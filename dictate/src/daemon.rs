@@ -9,12 +9,15 @@
 //! the bus. Nothing else would end it, since it has no Wayland connection to
 //! lose, and a restarted desktop would have two.
 
+use std::io::Write;
 use std::path::Path;
-use std::sync::mpsc;
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
 use crate::audio::Audio;
-use crate::capture::Recording;
+use crate::capture::{Meter, Recording};
 use crate::transcribe::Transcriber;
 
 const NAME: &str = "com.sectorflabs.Patina.Input";
@@ -22,6 +25,75 @@ const PATH: &str = "/com/sectorflabs/Patina/Input";
 
 /// A press shorter than this was a slip, not dictation.
 const SHORTEST: Duration = Duration::from_millis(300);
+/// How often the overlay is told the loudness: its waveform's bars.
+const METERING: Duration = Duration::from_millis(33);
+
+/// The overlay (`--overlay`, ADR-0073), shown from a press until the text is
+/// committed: levels to its input while recording, then "transcribing",
+/// then its input closed, which fades it out.
+struct Shown {
+    child: Child,
+    input: Arc<Mutex<Option<ChildStdin>>>,
+    metering: Arc<AtomicBool>,
+}
+
+impl Shown {
+    /// Starts it at the configured edge, metering `meter`. `None`, with a
+    /// line in the log, if it can't start: dictation goes on without it.
+    fn start(meter: Meter) -> Option<Self> {
+        let edge = crate::config::load().overlay;
+        // By name, from PATH, where the compositor puts its own folder
+        // first: the running binary may have been replaced since.
+        let mut child = Command::new("patina-dictate")
+            .args(["--overlay", edge.name()])
+            .stdin(Stdio::piped())
+            .spawn()
+            .inspect_err(|e| eprintln!("patina-dictate: the overlay: {e}"))
+            .ok()?;
+        let input = Arc::new(Mutex::new(child.stdin.take()));
+        let metering = Arc::new(AtomicBool::new(true));
+        let (to, on) = (input.clone(), metering.clone());
+        std::thread::spawn(move || {
+            while on.load(Ordering::Relaxed) {
+                if !say(&to, &format!("{:.4}", meter.level())) {
+                    return;
+                }
+                std::thread::sleep(METERING);
+            }
+        });
+        Some(Self {
+            child,
+            input,
+            metering,
+        })
+    }
+
+    fn transcribing(&self) {
+        self.metering.store(false, Ordering::Relaxed);
+        say(&self.input, "transcribing");
+    }
+
+    /// Fades it out, and reaps it when it's gone.
+    fn close(mut self) {
+        self.metering.store(false, Ordering::Relaxed);
+        if let Ok(mut input) = self.input.lock() {
+            input.take();
+        }
+        std::thread::spawn(move || {
+            let _ = self.child.wait();
+        });
+    }
+}
+
+/// A line to the overlay; false once it's gone.
+fn say(input: &Mutex<Option<ChildStdin>>, line: &str) -> bool {
+    let Ok(mut input) = input.lock() else {
+        return false;
+    };
+    input
+        .as_mut()
+        .is_some_and(|i| writeln!(i, "{line}").and_then(|()| i.flush()).is_ok())
+}
 
 /// Listens until the session bus goes away.
 pub fn run(model: &Path, language: Option<&str>, verbose: bool) -> Result<(), String> {
@@ -36,7 +108,7 @@ pub fn run(model: &Path, language: Option<&str>, verbose: bool) -> Result<(), St
     let signals = zbus::blocking::MessageIterator::for_match_rule(rule, &bus, None)
         .map_err(|e| e.to_string())?;
 
-    let (recorded, todo) = mpsc::channel::<Audio>();
+    let (recorded, todo) = mpsc::channel::<(Audio, Option<Shown>)>();
     let committing = bus.clone();
     let model = model.to_path_buf();
     let language = language.map(String::from);
@@ -45,20 +117,28 @@ pub fn run(model: &Path, language: Option<&str>, verbose: bool) -> Result<(), St
         .spawn(move || transcribe(&todo, &model, language.as_deref(), verbose, &committing))
         .map_err(|e| e.to_string())?;
 
-    let mut recording: Option<(Recording, Instant)> = None;
+    let mut recording: Option<(Recording, Instant, Option<Shown>)> = None;
     for message in signals {
         let Ok(message) = message else { continue };
         let header = message.header();
         match header.member().map(|m| m.as_str()) {
             Some("DictationStarted") if recording.is_none() => match Recording::start() {
-                Ok(r) => recording = Some((r, Instant::now())),
+                Ok(r) => {
+                    let shown = Shown::start(r.meter());
+                    recording = Some((r, Instant::now(), shown));
+                }
                 Err(e) => eprintln!("patina-dictate: {e}"),
             },
             Some("DictationStopped") => {
-                if let Some((r, started)) = recording.take() {
+                if let Some((r, started, shown)) = recording.take() {
                     let audio = r.stop();
                     if started.elapsed() >= SHORTEST {
-                        let _ = recorded.send(audio);
+                        if let Some(shown) = &shown {
+                            shown.transcribing();
+                        }
+                        let _ = recorded.send((audio, shown));
+                    } else if let Some(shown) = shown {
+                        shown.close();
                     }
                 }
             }
@@ -97,7 +177,7 @@ fn end_with_the_compositor(bus: &zbus::blocking::Connection) -> Result<(), Strin
 /// the start, and again at each recording until it loads, so one
 /// downloaded later is used without a restart.
 fn transcribe(
-    todo: &mpsc::Receiver<Audio>,
+    todo: &mpsc::Receiver<(Audio, Option<Shown>)>,
     model: &Path,
     language: Option<&str>,
     verbose: bool,
@@ -109,10 +189,12 @@ fn transcribe(
             .ok()
     };
     let mut transcriber = load();
-    for audio in todo {
+    for (audio, shown) in todo {
         if transcriber.is_none() {
             transcriber = load();
         }
+        // Gone once the text is in, or there's none.
+        let _closes = Closes(shown);
         let Some(t) = &transcriber else { continue };
         let seconds = audio.seconds();
         let started = Instant::now();
@@ -134,6 +216,17 @@ fn transcribe(
         }
         if let Err(e) = bus.call_method(Some(NAME), PATH, Some(NAME), "Commit", &(text,)) {
             eprintln!("patina-dictate: Commit: {e}");
+        }
+    }
+}
+
+/// Closes the overlay when dropped, however transcribing ends.
+struct Closes(Option<Shown>);
+
+impl Drop for Closes {
+    fn drop(&mut self) {
+        if let Some(shown) = self.0.take() {
+            shown.close();
         }
     }
 }

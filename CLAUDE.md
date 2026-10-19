@@ -147,7 +147,12 @@ puts them in `$(PREFIX)/share/man`.
 - `dictate/`: patina-dictate (ADR-0070, ADR-0072), speech to text with whisper.cpp (`whisper-rs`).
   `--daemon` (`daemon.rs`), kept running by the compositor: records while the `dictate` key
   (Ctrl+Super+Alt, modifiers alone: `Keys::chord`) is held, between the `DictationStarted`/`DictationStopped` signals, and calls
-  Commit. Without it, a command that records until Enter and prints the text. `capture.rs` is
+  Commit, with the overlay (`overlay.rs`, ADR-0073): `--overlay bottom|top`, a patina-shell
+  pill with a waveform, started at each press and fed levels (RMS, a line each) then
+  `transcribing` on stdin, faded out when stdin closes; `PATINA_DICTATE_PREVIEW=dir cargo test
+  -p patina-dictate preview -- --ignored` draws it. Its edge is `overlay` in
+  `~/.config/patina-dictate/config.toml` (`config.rs`), which Settings' Dictation page writes.
+  Without it, a command that records until Enter and prints the text. `capture.rs` is
   cpal on Linux, `/dev/dsp` on FreeBSD; `transcribe.rs` drops segments Whisper calls no speech.
   Models in `$XDG_DATA_HOME/patina-dictate/models`; `--features cuda` for the GPU.
 - `compositor/src/typing.rs`: text typed into the focused window (ADR-0071), served as
@@ -173,7 +178,8 @@ puts them in `$(PREFIX)/share/man`.
   `position` in the bar's config, which the bar follows live, ADR-0050), Wallpaper (sets
   `wallpaper`) and Night Light (writes `[night_light]` into the compositor's config with
   `toml_edit`; state over D-Bus through `system/src/night_light.rs`), Power (the screen's
-  `[screen] off_after`, and power-profiles-daemon through `system/src/power_profiles.rs`) and
+  `[screen] off_after`, and power-profiles-daemon through `system/src/power_profiles.rs`),
+  Dictation (the overlay's edge in patina-dictate's config, `dictation.rs`) and
   Processes (ADR-0045). Also
   `patina-night-light`.
   `cargo test -p patina-settings preview -- --ignored` with PATINA_SETTINGS_PREVIEW=dir draws

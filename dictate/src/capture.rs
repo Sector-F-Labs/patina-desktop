@@ -4,10 +4,34 @@
 //! sound server runs, and shared with other programs by its virtual
 //! channels.
 
+use std::sync::{Arc, Mutex};
+
 use crate::audio::Audio;
 
 #[cfg(target_os = "linux")]
 pub use linux::Recording;
+
+/// How loud the recording is now, for the overlay's waveform; it can go to
+/// another thread, which the recording itself (cpal's stream) can't.
+#[derive(Clone)]
+pub struct Meter {
+    samples: Arc<Mutex<Vec<f32>>>,
+    rate: u32,
+}
+
+impl Meter {
+    /// The loudness (RMS) of the last thirtieth of a second.
+    pub fn level(&self) -> f32 {
+        let Ok(samples) = self.samples.lock() else {
+            return 0.0;
+        };
+        let last = &samples[samples.len().saturating_sub((self.rate as usize / 30).max(1))..];
+        if last.is_empty() {
+            return 0.0;
+        }
+        (last.iter().map(|s| s * s).sum::<f32>() / last.len() as f32).sqrt()
+    }
+}
 
 #[cfg(target_os = "freebsd")]
 pub use freebsd::Recording;
@@ -19,7 +43,7 @@ mod linux {
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     use cpal::{FromSample, SizedSample};
 
-    use super::Audio;
+    use super::{Audio, Meter};
     use crate::audio::mono;
 
     pub struct Recording {
@@ -51,6 +75,13 @@ mod linux {
                 rate,
                 samples,
             })
+        }
+
+        pub fn meter(&self) -> Meter {
+            Meter {
+                samples: self.samples.clone(),
+                rate: self.rate,
+            }
         }
 
         /// Stops and gives what was recorded.
@@ -94,11 +125,11 @@ mod freebsd {
     use std::fs::File;
     use std::io::Read;
     use std::os::fd::AsRawFd;
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex};
     use std::thread::JoinHandle;
 
-    use super::Audio;
+    use super::{Audio, Meter};
     use crate::audio::RATE;
 
     // sys/soundcard.h: _IOWR('P', n, int).
@@ -109,8 +140,9 @@ mod freebsd {
 
     pub struct Recording {
         stop: Arc<AtomicBool>,
-        reader: JoinHandle<Vec<f32>>,
+        reader: JoinHandle<()>,
         rate: u32,
+        samples: Arc<Mutex<Vec<f32>>>,
     }
 
     impl Recording {
@@ -130,31 +162,45 @@ mod freebsd {
                 .ok_or("/dev/dsp won't set a rate")? as u32;
             let stop = Arc::new(AtomicBool::new(false));
             let stopped = stop.clone();
+            let samples = Arc::new(Mutex::new(Vec::new()));
+            let read = samples.clone();
             let reader = std::thread::spawn(move || {
-                let mut samples = Vec::new();
-                // A tenth of a second at 16 kHz, so a stop is soon noticed.
-                let mut buffer = [0u8; 3200];
+                // A thirtieth of a second at 16 kHz, so a stop is soon noticed
+                // and the meter keeps up.
+                let mut buffer = [0u8; 1066];
                 while !stopped.load(Ordering::Relaxed) {
                     match dsp.read(&mut buffer) {
                         Ok(0) | Err(_) => break,
-                        Ok(n) => samples.extend(
+                        Ok(n) => read.lock().unwrap().extend(
                             buffer[..n & !1]
                                 .chunks_exact(2)
                                 .map(|b| i16::from_le_bytes([b[0], b[1]]) as f32 / 32768.0),
                         ),
                     }
                 }
-                samples
             });
-            Ok(Self { stop, reader, rate })
+            Ok(Self {
+                stop,
+                reader,
+                rate,
+                samples,
+            })
+        }
+
+        pub fn meter(&self) -> Meter {
+            Meter {
+                samples: self.samples.clone(),
+                rate: self.rate,
+            }
         }
 
         /// Stops and gives what was recorded.
         pub fn stop(self) -> Audio {
             self.stop.store(true, Ordering::Relaxed);
+            let _ = self.reader.join();
             Audio {
                 rate: self.rate,
-                samples: self.reader.join().unwrap_or_default(),
+                samples: std::mem::take(&mut *self.samples.lock().unwrap()),
             }
         }
     }

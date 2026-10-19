@@ -16,6 +16,8 @@
 .Op Fl m Ar model
 .Op Fl l Ar language
 .Nm
+.Fl -overlay Cm bottom | top
+.Nm
 .Fl h | V
 .Sh DESCRIPTION
 .Nm
@@ -39,6 +41,8 @@ starts it and keeps it running, and while the
 key (Ctrl+Super+Alt) is held it records; when the key comes up, what was said
 is typed into the focused window.
 A press under a third of a second is taken as a slip.
+Meanwhile an overlay shows at the bottom or top of the screen: a waveform
+that follows the voice, then a spinner while the words are transcribed.
 .Pp
 On Linux it records from the default input, through ALSA, which PipeWire
 and PulseAudio serve.
@@ -57,6 +61,14 @@ key, signalled on the session bus
 the text is typed by its Commit.
 The model is loaded at the start, and again at each press until it loads.
 It ends when the compositor leaves the bus, and won't start without it.
+.It Fl -overlay Cm bottom | top
+The overlay alone, at that edge, which
+.Fl d
+starts at each press.
+It reads its input a line at a time: a number is the loudness now (RMS,
+from 0), and
+.Ql transcribing
+ends the listening; at the end of its input it fades out.
 .It Fl m , -model Ar model
 The model, by whisper.cpp's name for it
 .Pq Ql base.en , Ql small , Ql large-v3-turbo ,
@@ -87,10 +99,23 @@ Print the version and exit.
 .It Pa $XDG_DATA_HOME/patina-dictate/models
 The models, downloaded from
 .Lk https://huggingface.co/ggerganov/whisper.cpp .
+.It Pa $XDG_CONFIG_HOME/patina-dictate/config.toml
+.Ql overlay = \(dqbottom\(dq
+or
+.Ql \(dqtop\(dq :
+where the overlay shows, read at each press.
+.Xr patina-settings 1 Ns 's
+Dictation page writes it.
 .El
 .Sh EXIT STATUS
 .Ex -std
 .Sh EXAMPLES
+The overlay, without dictating:
+.Bd -literal -offset indent
+(for i in $(seq 60); do echo 0.0$((RANDOM % 9)); sleep 0.03; done;
+ echo transcribing; sleep 1) | patina-dictate --overlay bottom
+.Ed
+.Pp
 Dictate to the clipboard:
 .Dl patina-dictate | wl-copy
 .Pp
@@ -98,4 +123,5 @@ A recording in Swedish, with a multilingual model:
 .Dl patina-dictate -m small -l sv talk.wav
 .Sh SEE ALSO
 .Xr patina-compositor 1 ,
+.Xr patina-settings 1 ,
 .Xr patina-desktop 7

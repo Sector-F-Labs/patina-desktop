@@ -114,6 +114,7 @@ mechanics of adding one.
 | [0070](0070-dictation-with-whisper-on-the-machine.md) | Dictation with Whisper on the machine, the transcriber built first | Accepted |
 | [0071](0071-text-is-typed-through-the-clipboard.md) | Text is typed into the focused window through the clipboard, given back after | Accepted |
 | [0072](0072-dictation-is-a-held-key-and-a-daemon.md) | Dictation is a held key in the compositor and a daemon that listens for it | Accepted |
+| [0073](0073-dictation-shows-an-overlay.md) | Dictation shows an overlay with the voice's waveform, its own process fed on stdin | Accepted |
 
 ## Decision Relationship
 
@@ -172,6 +173,8 @@ flowchart TD
     CMD --> TYPE
     TYPE --> HOLD[0072: a held key and a daemon]
     KEYS --> HOLD
+    HOLD --> SHOW[0073: an overlay with a waveform]
+    K --> SHOW
 ```
 
 ## Revisit Triggers

@@ -20,8 +20,10 @@ and prints what was said; or it transcribes a WAV file.
 
 ## Code
 
-`main.rs`, the arguments and the run; `daemon.rs`, `--daemon`: the signals, recording, and
-transcribing on a thread of its own; `capture.rs`, the microphone: cpal on Linux, `/dev/dsp`
+`main.rs`, the arguments and the run; `daemon.rs`, `--daemon`: the signals, recording,
+transcribing on a thread of its own, and the overlay started and fed levels; `overlay.rs`,
+`--overlay` (ADR-0073), the waveform pill on patina-shell, read from stdin; `config.rs`,
+`overlay` in `~/.config/patina-dictate/config.toml`; `capture.rs`, the microphone: cpal on Linux, `/dev/dsp`
 on FreeBSD; `audio.rs`, WAV files, mixing down and resampling to Whisper's 16 kHz, with their
 tests; `transcribe.rs`, the model, and dropping what Whisper thinks isn't speech.
 
@@ -34,6 +36,11 @@ curl -Lo ~/.local/share/patina-dictate/models/ggml-base.en.bin \
 cargo run --release -p patina-dictate            # speak, then Enter
 cargo run --release -p patina-dictate -- -v talk.wav
 cargo run --release -p patina-dictate --features cuda -- -m medium
+# the overlay alone, with made-up levels (on a layer-shell compositor)
+(for i in $(seq 60); do echo 0.0$((RANDOM % 9)); sleep 0.03; done; echo transcribing; sleep 1) \
+    | cargo run --release -p patina-dictate -- --overlay bottom
+# drawn in software as PNGs, to look at
+PATINA_DICTATE_PREVIEW=/tmp cargo test -p patina-dictate preview -- --ignored
 ```
 
 whisper.cpp is built with cmake, so the build needs cmake, a C++ compiler and libclang; and on

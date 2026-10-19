@@ -3022,8 +3022,14 @@ name = "patina-dictate"
 version = "0.1.0"
 dependencies = [
  "cpal",
+ "egui",
  "hound",
+ "image",
  "libc",
+ "patina-shell",
+ "patina-ui",
+ "serde",
+ "toml",
  "whisper-rs",
  "zbus",
 ]

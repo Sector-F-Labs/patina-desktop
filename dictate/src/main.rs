@@ -6,7 +6,9 @@
 
 mod audio;
 mod capture;
+mod config;
 mod daemon;
+mod overlay;
 mod transcribe;
 
 use std::io::{BufRead, IsTerminal};
@@ -18,12 +20,15 @@ use crate::transcribe::{Transcriber, model_path};
 
 const USAGE: &str = "usage: patina-dictate [-v] [-m MODEL] [-l LANGUAGE] [FILE.wav]
        patina-dictate --daemon [-v] [-m MODEL] [-l LANGUAGE]
+       patina-dictate --overlay bottom|top
 
 Records from the microphone until Enter, or the end of its input, and
 prints what was said. Given a WAV file, it prints what's said in that.
 
 With --daemon, it records while the compositor's dictate key
 (Ctrl+Super+Alt) is held, and has what was said typed into the focused window.
+--overlay is what shows meanwhile: it reads loudness levels (RMS), one a
+line, then \"transcribing\", from its input, and fades out at its end.
 
   -m, --model MODEL       whisper.cpp's name for it (base.en, small,
                           large-v3-turbo), kept in the models folder as
@@ -50,6 +55,7 @@ struct Options {
 enum Asked {
     Help,
     Version,
+    Overlay(config::Edge),
     Dictate(Options),
 }
 
@@ -60,6 +66,9 @@ fn parse(args: &[String]) -> Option<Asked> {
         match arg.as_str() {
             "-h" | "--help" => return Some(Asked::Help),
             "-V" | "--version" => return Some(Asked::Version),
+            "--overlay" if args.len() == 2 => {
+                return config::Edge::from_name(rest.next()?).map(Asked::Overlay);
+            }
             "-v" | "--verbose" => options.verbose = true,
             "-d" | "--daemon" => options.daemon = true,
             "-m" | "--model" => options.model = Some(rest.next()?.clone()),
@@ -85,6 +94,15 @@ fn main() -> ExitCode {
         Some(Asked::Version) => {
             println!("patina-dictate {}", env!("CARGO_PKG_VERSION"));
             return ExitCode::SUCCESS;
+        }
+        Some(Asked::Overlay(edge)) => {
+            return match overlay::run(edge) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(e) => {
+                    eprintln!("patina-dictate: overlay: {e}");
+                    ExitCode::FAILURE
+                }
+            };
         }
         Some(Asked::Dictate(options)) => options,
         None => {
@@ -182,5 +200,11 @@ mod tests {
         assert_eq!(parse(&args("-m")), None);
         assert_eq!(parse(&args("a.wav b.wav")), None);
         assert_eq!(parse(&args("--daemon a.wav")), None, "it records from the mic");
+        assert_eq!(
+            parse(&args("--overlay top")),
+            Some(Asked::Overlay(config::Edge::Top))
+        );
+        assert_eq!(parse(&args("--overlay left")), None);
+        assert_eq!(parse(&args("-v --overlay top")), None);
     }
 }

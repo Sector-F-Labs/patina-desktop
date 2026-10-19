@@ -6,6 +6,7 @@
 mod app;
 mod bar;
 mod compositor_config;
+mod dictation;
 mod gaps;
 mod icons;
 mod keyboard;

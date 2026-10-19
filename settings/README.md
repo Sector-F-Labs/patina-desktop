@@ -20,6 +20,9 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   fourth shown as not used), moved, removed, switched to
   and added from xkb's by search, and key repeat, written to `[keyboard]` in the compositor's
   config; while it has none, the system's are shown, and the first change copies them in.
+- **Dictation** (ADR-0073): the key held to dictate, read from `[keys]` in the compositor's
+  config, and whether the overlay shows at the bottom or top, written as `overlay` into
+  patina-dictate's config (`dictation.rs`).
 - **Night Light** (ADR-0039): off, always on, or on a schedule, and the warmth. It also shows
   what the compositor says: whether this screen can be warmed, whether it's on now (with a button
   to turn it off until the schedule changes, or back), and which apps are holding it off.
@@ -38,7 +41,7 @@ It wears the shell's skin and follows it when the desktop's menu changes it.
 ## How it fits in
 
 - **Started by** patina-menu: its Wallpaper… item runs `patina-settings --page wallpaper`, and
-  Settings… runs it at Appearance. `--page appearance|bar|wallpaper|night-light|power|processes`.
+  Settings… runs it at Appearance. `--page appearance|bar|wallpaper|keyboard|dictation|night-light|power|processes`.
 - **Writes the files the settings live in**, keeping the rest of each: the bar's config
   (`skin`, `wallpaper`) through patina-shell, and `[night_light]` in the compositor's config with
   `toml_edit`. The bar, patina-wallpaper and the compositor watch those files and change at once.
