@@ -16,6 +16,7 @@ mod grabs;
 mod idle;
 mod input;
 mod keyboard;
+mod keys;
 mod lock;
 mod maximize;
 mod media;

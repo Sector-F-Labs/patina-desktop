@@ -64,21 +64,6 @@ pub enum KeyAction {
     SentAsCtrl,
 }
 
-/// The screenshot keys, from the key's base symbol so Shift and the layout
-/// don't change which digit it is: Super+Shift+3 or Print takes the desktop,
-/// Super+Shift+4 the focused window, as Cmd+Shift+3 and 4 do on a Mac.
-pub fn screenshot_key(modifiers: &ModifiersState, base: u32) -> Option<KeyAction> {
-    use crate::screenshot::Shot;
-    let only_super_shift = modifiers.logo && modifiers.shift && !modifiers.ctrl && !modifiers.alt;
-    let none = !modifiers.logo && !modifiers.shift && !modifiers.ctrl && !modifiers.alt;
-    match base {
-        keysyms::KEY_3 if only_super_shift => Some(KeyAction::Screenshot(Shot::Desktop)),
-        keysyms::KEY_4 if only_super_shift => Some(KeyAction::Screenshot(Shot::Window)),
-        keysyms::KEY_Print if none => Some(KeyAction::Screenshot(Shot::Desktop)),
-        _ => None,
-    }
-}
-
 /// The [bindings] command for a key, if one matches: exact modifiers, and
 /// the key's base symbol (`base`, unshifted on the first layout), so Shift
 /// or another layout don't change which key it is.
@@ -99,7 +84,9 @@ pub fn binding(
         .map(|(_, command)| KeyAction::Run(command.clone()))
 }
 
-/// The compositor's own keys; everything else goes to the focused client.
+/// The keys no config changes, so a bad one can't take them: the media
+/// keys, switching consoles, and quitting or restarting the desktop. The
+/// rest are `[keys]`' (`keys.rs`, ADR-0069).
 pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     if let Some(key) = crate::media::media_key(sym) {
         return Some(KeyAction::Media(key));
@@ -115,97 +102,6 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
         } else {
             KeyAction::Quit
         });
-    }
-    if sym == keysyms::KEY_space && !modifiers.alt && !modifiers.shift {
-        if modifiers.logo && !modifiers.ctrl {
-            return Some(KeyAction::Launcher);
-        }
-        if modifiers.ctrl && !modifiers.logo {
-            return Some(KeyAction::NextLayout);
-        }
-    }
-    // Alt+Tab steps along the bar's tabs; with Shift (which makes Tab
-    // ISO_Left_Tab), backwards.
-    if modifiers.alt && !modifiers.ctrl && !modifiers.logo {
-        if sym == keysyms::KEY_Tab && !modifiers.shift {
-            return Some(KeyAction::CycleTabs { forward: true });
-        }
-        if sym == keysyms::KEY_ISO_Left_Tab || (sym == keysyms::KEY_Tab && modifiers.shift) {
-            return Some(KeyAction::CycleTabs { forward: false });
-        }
-    }
-    // Ctrl+Super+Q locks, as Ctrl+Cmd+Q does on a Mac.
-    if modifiers.logo
-        && modifiers.ctrl
-        && !modifiers.shift
-        && !modifiers.alt
-        && sym == keysyms::KEY_q
-    {
-        return Some(KeyAction::Lock);
-    }
-    // The vim keys tile with Ctrl+Super, as the arrows do with Super alone,
-    // so Super+H, J, K and L go to the app as Ctrl keys (ADR-0067):
-    // Super+L the location bar, as Cmd+L does on a Mac.
-    if modifiers.logo && modifiers.ctrl && !modifiers.alt {
-        use crate::maximize::{Resize, Snap};
-        // With Shift held, the vim keys come as capitals.
-        let action = match (modifiers.shift, sym) {
-            (false, keysyms::KEY_k) => Some(KeyAction::Snap(Snap::Up)),
-            (false, keysyms::KEY_j) => Some(KeyAction::Snap(Snap::Down)),
-            (false, keysyms::KEY_h) => Some(KeyAction::Snap(Snap::Left)),
-            (false, keysyms::KEY_l) => Some(KeyAction::Snap(Snap::Right)),
-            (true, keysyms::KEY_K) => Some(KeyAction::Resize(Resize::Grow)),
-            (true, keysyms::KEY_J) => Some(KeyAction::Resize(Resize::Shrink)),
-            (true, keysyms::KEY_L) => Some(KeyAction::Resize(Resize::Wider)),
-            (true, keysyms::KEY_H) => Some(KeyAction::Resize(Resize::Narrower)),
-            _ => None,
-        };
-        if action.is_some() {
-            return action;
-        }
-    }
-    if modifiers.logo && modifiers.shift && !modifiers.ctrl && !modifiers.alt {
-        use crate::maximize::Snap;
-        let action = match sym {
-            keysyms::KEY_Up => Some(KeyAction::Grow(Snap::Up)),
-            keysyms::KEY_Down => Some(KeyAction::Grow(Snap::Down)),
-            keysyms::KEY_Left => Some(KeyAction::Grow(Snap::Left)),
-            keysyms::KEY_Right => Some(KeyAction::Grow(Snap::Right)),
-            _ => None,
-        };
-        if action.is_some() {
-            return action;
-        }
-    }
-    if modifiers.logo && !modifiers.shift && !modifiers.ctrl && !modifiers.alt {
-        use crate::maximize::Snap;
-        let snap = match sym {
-            keysyms::KEY_Up => Some(Snap::Up),
-            keysyms::KEY_Down => Some(Snap::Down),
-            keysyms::KEY_Left => Some(Snap::Left),
-            keysyms::KEY_Right => Some(Snap::Right),
-            _ => None,
-        };
-        if let Some(snap) = snap {
-            return Some(KeyAction::Snap(snap));
-        }
-        if sym == keysyms::KEY_q {
-            return Some(KeyAction::QuitApp);
-        }
-        if sym == keysyms::KEY_Escape {
-            return Some(KeyAction::Lock);
-        }
-    }
-    if modifiers.logo
-        && !modifiers.shift
-        && !modifiers.ctrl
-        && (keysyms::KEY_1..=keysyms::KEY_9).contains(&sym)
-    {
-        return Some(KeyAction::Window((sym - keysyms::KEY_1 + 1) as usize));
-    }
-    // With Shift held, the keysym is the capital.
-    if modifiers.logo && modifiers.shift && (sym == keysyms::KEY_R || sym == keysyms::KEY_r) {
-        return Some(KeyAction::Reload);
     }
     None
 }
@@ -249,7 +145,7 @@ impl State {
                     .raw_latin_sym_or_raw_current_sym()
                     .map_or(sym, |s| s.raw());
                 let action = key_action(modifiers, sym)
-                    .or_else(|| screenshot_key(modifiers, base))
+                    .or_else(|| state.keys.lookup(modifiers, base))
                     .or_else(|| binding(&state.config.combos(), modifiers, base));
                 // Locked, the keys go to the locker; only switching consoles
                 // and the brightness and volume keys still work. Under a
@@ -285,16 +181,19 @@ impl State {
         );
         self.layout_maybe_changed();
         // Super tapped on its own (pressed and released with nothing in
-        // between) opens the launcher; any other key or a click cancels it.
+        // between) does what `[keys]` gives "Super", the launcher by default;
+        // any other key or a click cancels it.
         let is_super = sym == keysyms::KEY_Super_L || sym == keysyms::KEY_Super_R;
+        let mut action = action;
         if pressed {
             self.super_tap = is_super;
         } else if is_super
             && std::mem::take(&mut self.super_tap)
             && !self.locked()
             && self.fullscreen_on_top().is_none()
+            && action.is_none()
         {
-            self.open_launcher();
+            action = self.keys.tap().cloned();
         }
         match action {
             Some(KeyAction::NextLayout) => {
@@ -496,94 +395,6 @@ mod tests {
     }
 
     #[test]
-    fn mac_keys_take_screenshots() {
-        use crate::screenshot::Shot;
-        let super_shift = ModifiersState {
-            logo: true,
-            shift: true,
-            ..Default::default()
-        };
-        assert_eq!(
-            screenshot_key(&super_shift, keysyms::KEY_3),
-            Some(KeyAction::Screenshot(Shot::Desktop))
-        );
-        assert_eq!(
-            screenshot_key(&super_shift, keysyms::KEY_4),
-            Some(KeyAction::Screenshot(Shot::Window))
-        );
-        assert_eq!(
-            screenshot_key(&mods(false, false), keysyms::KEY_Print),
-            Some(KeyAction::Screenshot(Shot::Desktop))
-        );
-        let logo = ModifiersState {
-            logo: true,
-            ..Default::default()
-        };
-        assert_eq!(screenshot_key(&logo, keysyms::KEY_3), None);
-        assert_eq!(screenshot_key(&mods(false, false), keysyms::KEY_3), None);
-    }
-
-    #[test]
-    fn super_space_opens_the_launcher_and_ctrl_space_switches_layout() {
-        let logo = ModifiersState {
-            logo: true,
-            ..Default::default()
-        };
-        let ctrl = ModifiersState {
-            ctrl: true,
-            ..Default::default()
-        };
-        let both = ModifiersState {
-            ctrl: true,
-            logo: true,
-            ..Default::default()
-        };
-        assert_eq!(
-            key_action(&logo, keysyms::KEY_space),
-            Some(KeyAction::Launcher)
-        );
-        assert_eq!(
-            key_action(&ctrl, keysyms::KEY_space),
-            Some(KeyAction::NextLayout)
-        );
-        assert_eq!(key_action(&both, keysyms::KEY_space), None);
-        assert_eq!(key_action(&mods(false, false), keysyms::KEY_space), None);
-    }
-
-    #[test]
-    fn super_shift_r_reloads() {
-        let keys = ModifiersState {
-            logo: true,
-            shift: true,
-            ..Default::default()
-        };
-        assert_eq!(key_action(&keys, keysyms::KEY_R), Some(KeyAction::Reload));
-        let no_shift = ModifiersState {
-            logo: true,
-            ..Default::default()
-        };
-        assert_eq!(key_action(&no_shift, keysyms::KEY_r), None);
-    }
-
-    #[test]
-    fn super_and_a_digit_picks_a_tab() {
-        let logo = ModifiersState {
-            logo: true,
-            ..Default::default()
-        };
-        assert_eq!(
-            key_action(&logo, keysyms::KEY_1),
-            Some(KeyAction::Window(1))
-        );
-        assert_eq!(
-            key_action(&logo, keysyms::KEY_9),
-            Some(KeyAction::Window(9))
-        );
-        assert_eq!(key_action(&logo, keysyms::KEY_0), None);
-        assert_eq!(key_action(&mods(false, false), keysyms::KEY_1), None);
-    }
-
-    #[test]
     fn bindings_match_exact_modifiers_on_the_base_key() {
         let combos = vec![(
             crate::config::combo("Alt+T").unwrap(),
@@ -599,104 +410,6 @@ mod tests {
     }
 
     #[test]
-    fn super_with_arrows_or_ctrl_super_with_vim_keys_snaps() {
-        use crate::maximize::Snap;
-        let logo = ModifiersState {
-            logo: true,
-            ..Default::default()
-        };
-        let ctrl_logo = ModifiersState {
-            logo: true,
-            ctrl: true,
-            ..Default::default()
-        };
-        for (arrow, vim, snap) in [
-            (keysyms::KEY_Up, keysyms::KEY_k, Snap::Up),
-            (keysyms::KEY_Down, keysyms::KEY_j, Snap::Down),
-            (keysyms::KEY_Left, keysyms::KEY_h, Snap::Left),
-            (keysyms::KEY_Right, keysyms::KEY_l, Snap::Right),
-        ] {
-            assert_eq!(key_action(&logo, arrow), Some(KeyAction::Snap(snap)));
-            assert_eq!(key_action(&ctrl_logo, vim), Some(KeyAction::Snap(snap)));
-            // Super alone with a vim key is the app's, as Ctrl.
-            assert_eq!(key_action(&logo, vim), None);
-        }
-        assert_eq!(key_action(&mods(false, false), keysyms::KEY_Up), None);
-    }
-
-    #[test]
-    fn ctrl_super_q_and_super_escape_lock() {
-        let logo = ModifiersState {
-            logo: true,
-            ..Default::default()
-        };
-        let ctrl_logo = ModifiersState {
-            logo: true,
-            ctrl: true,
-            ..Default::default()
-        };
-        assert_eq!(
-            key_action(&ctrl_logo, keysyms::KEY_q),
-            Some(KeyAction::Lock)
-        );
-        assert_eq!(key_action(&logo, keysyms::KEY_q), Some(KeyAction::QuitApp));
-        assert_eq!(
-            key_action(&logo, keysyms::KEY_Escape),
-            Some(KeyAction::Lock)
-        );
-    }
-
-    #[test]
-    fn super_shift_arrows_grow_and_ctrl_super_shift_vim_keys_resize() {
-        use crate::maximize::{Resize, Snap};
-        let keys = ModifiersState {
-            logo: true,
-            shift: true,
-            ..Default::default()
-        };
-        let ctrl_keys = ModifiersState {
-            ctrl: true,
-            ..keys
-        };
-        for (sym, toward) in [
-            (keysyms::KEY_Up, Snap::Up),
-            (keysyms::KEY_Down, Snap::Down),
-            (keysyms::KEY_Left, Snap::Left),
-            (keysyms::KEY_Right, Snap::Right),
-        ] {
-            assert_eq!(key_action(&keys, sym), Some(KeyAction::Grow(toward)));
-        }
-        for (sym, how) in [
-            (keysyms::KEY_K, Resize::Grow),
-            (keysyms::KEY_J, Resize::Shrink),
-            (keysyms::KEY_L, Resize::Wider),
-            (keysyms::KEY_H, Resize::Narrower),
-        ] {
-            assert_eq!(key_action(&ctrl_keys, sym), Some(KeyAction::Resize(how)));
-            assert_eq!(key_action(&keys, sym), None, "the app's, as Ctrl+Shift");
-        }
-    }
-
-    #[test]
-    fn alt_tab_cycles_and_shift_goes_back() {
-        let alt = mods(false, true);
-        assert_eq!(
-            key_action(&alt, keysyms::KEY_Tab),
-            Some(KeyAction::CycleTabs { forward: true })
-        );
-        let alt_shift = ModifiersState {
-            alt: true,
-            shift: true,
-            ..Default::default()
-        };
-        assert_eq!(
-            key_action(&alt_shift, keysyms::KEY_ISO_Left_Tab),
-            Some(KeyAction::CycleTabs { forward: false })
-        );
-        assert_eq!(key_action(&mods(false, false), keysyms::KEY_Tab), None);
-    }
-
-    #[test]
     fn a_fullscreen_game_keeps_its_keys() {
         let alt = mods(false, true);
         let combos = [(
@@ -705,38 +418,20 @@ mod tests {
         )];
         let run = binding(&combos, &alt, keysyms::KEY_w).unwrap();
         assert!(!works_in_fullscreen(&run));
-        let alt_tab = key_action(&alt, keysyms::KEY_Tab).unwrap();
+        let keys = crate::keys::Keys::new(&Default::default()).0;
+        let alt_tab = keys.lookup(&alt, keysyms::KEY_Tab).unwrap();
         assert!(works_in_fullscreen(&alt_tab));
         let logo = ModifiersState {
             logo: true,
             ..Default::default()
         };
         for sym in [keysyms::KEY_q, keysyms::KEY_Left, keysyms::KEY_1] {
-            assert!(!works_in_fullscreen(&key_action(&logo, sym).unwrap()));
+            assert!(!works_in_fullscreen(&keys.lookup(&logo, sym).unwrap()));
         }
         let ctrl_alt = mods(true, true);
         assert!(works_in_fullscreen(
             &key_action(&ctrl_alt, keysyms::KEY_BackSpace).unwrap()
         ));
-    }
-
-    #[test]
-    fn super_q_quits() {
-        let logo = ModifiersState {
-            logo: true,
-            ..Default::default()
-        };
-        assert_eq!(key_action(&logo, keysyms::KEY_q), Some(KeyAction::QuitApp));
-    }
-
-    #[test]
-    fn super_w_and_t_go_to_the_app() {
-        let logo = ModifiersState {
-            logo: true,
-            ..Default::default()
-        };
-        assert_eq!(key_action(&logo, keysyms::KEY_w), None);
-        assert_eq!(key_action(&logo, keysyms::KEY_t), None);
     }
 
     #[test]

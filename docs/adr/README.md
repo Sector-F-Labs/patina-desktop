@@ -110,6 +110,7 @@ mechanics of adding one.
 | [0066](0066-the-session-has-default-apps.md) | The session has default apps of its own, in patina-mimeapps.list | Accepted |
 | [0067](0067-super-is-cmd.md) | Super is Cmd: the compositor sends Ctrl, or Ctrl+Shift to a terminal | Accepted |
 | [0068](0068-keyboard-layouts-on-the-bus.md) | Keyboard layouts on the bus: the bar shows the one in use, Settings manages them | Accepted |
+| [0069](0069-the-desktops-keys-are-config.md) | The desktop's own keys are config, by action, applied without a restart | Accepted |
 
 ## Decision Relationship
 
@@ -161,6 +162,8 @@ flowchart TD
     Z --> CMD[0067: Super is Cmd]
     S --> KB[0068: keyboard layouts on the bus]
     U --> KB
+    S --> KEYS[0069: the desktop's keys are config]
+    CMD --> KEYS
 ```
 
 ## Revisit Triggers

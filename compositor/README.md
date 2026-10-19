@@ -25,7 +25,8 @@ this workspace is a Wayland client of it.
   Ctrl+key (Super+T a new tab, Super+W closes one), or as Ctrl+Shift+key to a terminal, by its
   desktop entry's `TerminalEmulator` category (Super+Shift+key as Ctrl+Alt+Shift+key there, so it
   differs from Super+key). Only that client is told Ctrl is down.
-- **The desktop's own keys:** Super alone or Super+Space opens the launcher; Ctrl+Super+Q and Super+Escape lock
+- **The desktop's own keys** (`keys.rs`, ADR-0069), by action, changed in `[keys]` within a
+  second of a save; these are the defaults. Super alone or Super+Space opens the launcher; Ctrl+Super+Q and Super+Escape lock
   (ADR-0026); Super+Shift+3 or Print screenshots the desktop and Super+Shift+4 the focused window
   (ADR-0034); the brightness and volume keys change them and flash the volume menu (ADR-0020,
   ADR-0033); Ctrl+Space switches keyboard layout; Super+Shift+R reloads the config.
@@ -98,7 +99,7 @@ this workspace is a Wayland client of it.
 ## Code
 
 `main.rs` (start-up, choosing the backend), `state.rs` (the protocols, placement, focus),
-`input.rs` and `keyboard.rs` with `keyboard/dbus.rs` (input, the compositor's own keys and the layouts), `grabs.rs`, `maximize.rs`,
+`input.rs`, `keys.rs` (the compositor's own keys) and `keyboard.rs` with `keyboard/dbus.rs` (input and the layouts), `grabs.rs`, `maximize.rs`,
 `tiling.rs` with `tiling/dbus.rs`, `tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`,
 `night_light.rs` with `night_light/dbus.rs`, `idle.rs` with `idle/dbus.rs`, `xwayland.rs` and `focus.rs` (X11 windows and
 what has the keyboard), `fullscreen.rs`, `constraints.rs` (pointer locks for games), `dnd.rs` (the icon a drag shows),

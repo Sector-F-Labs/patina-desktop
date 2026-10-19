@@ -87,6 +87,10 @@ Print a short usage message.
 Print the version.
 .El
 .Sh KEYS
+The defaults.
+.Ic [keys]
+in the config changes all but quitting, restarting, the consoles and the
+media keys, within a second of a save.
 .Bl -tag -width "Ctrl+Alt+Shift+Backspace"
 .It Super , Super+Space
 Open the launcher: Super tapped on its own, or with Space, as Cmd+Space
@@ -272,6 +276,32 @@ Off by default.
 Keys that run commands, such as
 .Dl \(dqAlt+T\(dq = \(dqfoot\(dq
 Modifiers (Super, Alt, Ctrl, Shift) and a key by its name.
+.It Ic [keys]
+The desktop's own keys, by action: one key or a list each, written as for
+.Ic [bindings] ,
+with
+.Dq Super
+alone for Super tapped on its own, as
+.Dl snap_right = [\(dqSuper+Right\(dq, \(dqCtrl+Super+L\(dq]
+An action set here replaces its defaults, and the rest keep theirs;
+.Dq
+or [] takes its keys away, and a Super key no action has goes to the app as
+Ctrl.
+The actions are
+.Ic launcher , next_layout , next_tab , previous_tab , quit_app , lock ,
+.Ic reload , screenshot , screenshot_window ,
+.Ic snap_ Ns Ar side
+and
+.Ic grow_ Ns Ar side
+(up, down, left, right),
+.Ic resize_grow , resize_shrink , resize_wider , resize_narrower
+and
+.Ic window_1
+to
+.Ic window_9 ;
+the config written on first start lists each with its keys.
+An unknown action or key, or a key given two actions, is logged and left
+out.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds

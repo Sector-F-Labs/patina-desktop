@@ -83,6 +83,10 @@ puts them in `$(PREFIX)/share/man`.
   Settings' Keyboard page edits `[keyboard]`, four layouts at most (`MOST_LAYOUTS`: xkb drops the
   rest silently). Super+Space opens the launcher, Ctrl+Space switches.
   `dbus-run-session -- cargo test -p patina-compositor keyboard -- --ignored` tests the service.
+- `compositor/src/keys.rs`: the desktop's own keys (ADR-0069): `DEFAULTS` names each action and its
+  keys, `[keys]` in the config replaces an action's, `Keys::new` builds them on every config load
+  (live), `Keys::lookup` matches exact modifiers on the base keysym, `Keys::tap` is Super alone.
+  Only quit, restart, consoles and media keys stay fixed in `input::key_action`.
 - `compositor/src/xwayland.rs`: X11 apps (ADR-0040): Xwayland spawned at start-up, `DISPLAY` for
   clients, and the `XwmHandler` that maps, places, moves and resizes X windows as `Window`s in
   the space. `focus.rs`: the keyboard focus is a `FocusTarget` (Wayland surface or X11 window, so

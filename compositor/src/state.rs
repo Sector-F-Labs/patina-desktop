@@ -109,6 +109,8 @@ pub struct State {
     pub night_light: crate::night_light::NightLight,
     /// The keyboard's layouts, as told to the bus (ADR-0068).
     pub layouts: crate::keyboard::Layouts,
+    /// The compositor's own keys, from `[keys]` (ADR-0069).
+    pub keys: crate::keys::Keys,
     /// The lock screen (ADR-0025).
     pub lock: crate::lock::Lock,
     pub session_lock: smithay::wayland::session_lock::SessionLockManagerState,
@@ -254,6 +256,7 @@ impl State {
             toplevels: ForeignToplevels::new(&dh),
             night_light: crate::night_light::NightLight::new(&config.night_light),
             layouts: Default::default(),
+            keys: crate::keys::Keys::new(&config.keys).0,
             config,
             lock: crate::lock::Lock::Unlocked,
             session_lock: smithay::wayland::session_lock::SessionLockManagerState::new::<Self, _>(

@@ -30,6 +30,9 @@ pub struct Config {
     /// Key combinations ("Alt+T") and the commands they run. A [bindings]
     /// section replaces these defaults.
     pub bindings: std::collections::BTreeMap<String, String>,
+    /// The compositor's own keys by action (ADR-0069): each one set here
+    /// replaces that action's defaults (`keys.rs`).
+    pub keys: std::collections::BTreeMap<String, crate::keys::KeyList>,
 }
 
 /// A key combination from [bindings], ready to match.
@@ -309,6 +312,7 @@ impl Default for Config {
             launcher: "patina-launcher".into(),
             desktop_menu: "patina-menu".into(),
             bindings: default_bindings(),
+            keys: Default::default(),
         }
     }
 }
@@ -414,6 +418,7 @@ pub fn parse(text: &str) -> Result<(Config, Vec<String>), String> {
             warnings.push(format!("binding {e}; ignored"));
         }
     }
+    warnings.extend(crate::keys::Keys::new(&config.keys).1);
     if !(1..=50).contains(&config.media.brightness_step) {
         warnings.push(format!(
             "brightness step {} is outside 1 to 50; using 5",
@@ -575,6 +580,7 @@ impl crate::state::State {
             }
         }
         self.night_light.configure(&config.night_light);
+        self.keys = crate::keys::Keys::new(&config.keys).0;
         let gaps_changed = config.gap() != self.config.gap();
         self.config = config;
         if gaps_changed {
@@ -617,6 +623,19 @@ mod tests {
         assert!(c.touchpad.tap);
         assert!(c.touchpad.natural_scroll);
         assert_eq!(c.keyboard.repeat_rate, 25);
+    }
+
+    #[test]
+    fn keys_are_read_and_mistakes_are_warnings() {
+        let (c, w) = parse(
+            "[keys]\nsnap_right = \"Super+Right\"\nlock = [\"Super+Escape\"]\nbogus = \"Super+X\"\n",
+        )
+        .unwrap();
+        assert_eq!(c.keys.len(), 3);
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert!(w[0].contains("bogus"), "{w:?}");
+        let (_, w) = parse(STARTER).unwrap();
+        assert!(w.is_empty(), "the starter config is clean: {w:?}");
     }
 
     #[test]

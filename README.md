@@ -64,7 +64,8 @@ Windows float and cascade; click to focus and raise.
 touchpad via libinput, console switching (Ctrl+Alt+F1–F12), Ctrl+Alt+Backspace to quit, Ctrl+Alt+Shift+Backspace to
 restart the desktop without logging out.
 
-Window keys (on hardware): **Super** or **Super+Space** opens launcher, **Super+1–9** brings tab forward,
+Window keys (on hardware; change them in `[keys]` in the compositor's config, applied within a
+second, ADR-0069): **Super** or **Super+Space** opens launcher, **Super+1–9** brings tab forward,
 **Alt+Tab** / **Alt+Shift+Tab** cycles, **Super+Up/Down** maximise/restore, **Super+Left/Right**
 half-screen tile (**Ctrl+Super+K/J/H/L** too), **Super+Shift+arrows** grow/shrink by 1/10 screen,
 **Ctrl+Super+Shift+K/J/L/H** resize around centre, drag a maximised/tiled window to restore under pointer, **Super+W** close
