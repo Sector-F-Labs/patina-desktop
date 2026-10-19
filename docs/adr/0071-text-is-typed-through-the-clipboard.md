@@ -39,7 +39,10 @@ Wayland, so X11 support is kept minimal.
      text types.
   3. Presses Ctrl+V, or Ctrl+Shift+V in a terminal (as `cmd.rs` tells them, ADR-0067), through
      `KeyboardHandle::input`, so the compositor's own keys never see them. V is looked up in the
-     layout in use, so it's V on Dvorak too.
+     layout in use, so it's V on Dvorak too. V is let go at once, but Ctrl and Shift stay down
+     until the window has read the text, as a hand would: Teleprinter, like other egui apps,
+     looks at the modifiers when the paste arrives, and pressed and let go in one burst, it saw
+     a plain Ctrl+V and sent ^V to the shell.
   4. Gives the old clipboard back (`Served::Saved`), 150 ms after the text was read, or after a
      second if it never is. An empty clipboard is left empty.
   Texts committed meanwhile wait their turn, and the clipboard is given back after the last.
@@ -57,6 +60,8 @@ Wayland, so X11 support is kept minimal.
   clipboard manager reading the text first starts the 150 ms early.
 - Apps that bind Ctrl+V to something other than paste (Vim's visual block in a GUI) do that
   instead.
+- While Ctrl is held for the paste (150 ms after the read, at most a second), keys typed by
+  hand arrive with Ctrl.
 - If a modifier is physically held when Commit arrives, the window sees it with Ctrl+V.
   Dictation's key acting on release (next) avoids that.
 - The selection's user data is now `Served`, not `()`, which is where an X11 bridge would have to

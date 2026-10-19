@@ -90,6 +90,10 @@ pub struct Typing {
     stage: Stage,
     /// Bumped by each paste, so a timer for an earlier one does nothing.
     paste: u64,
+    /// The paste key's modifiers, held down until the window has read the
+    /// text, as a hand would: some apps (Teleprinter) look at them when
+    /// the paste arrives, not when V went down.
+    held: Vec<Keycode>,
 }
 
 #[derive(Default)]
@@ -221,6 +225,7 @@ impl State {
             if state.typing.paste == paste
                 && let Stage::Pasted { saved } = std::mem::take(&mut state.typing.stage)
             {
+                state.release_held();
                 state.paste_next(saved);
             }
             TimeoutAction::Drop
@@ -239,7 +244,8 @@ impl State {
     }
 
     /// Ctrl+V to the focused window, Ctrl+Shift+V to a terminal, past the
-    /// compositor's own keys. False if the keymap has no V.
+    /// compositor's own keys: V pressed and let go, Ctrl and Shift left
+    /// down until [`State::release_held`]. False if the keymap has no V.
     fn press_paste(&mut self) -> bool {
         let Some(keyboard) = self.seat.get_keyboard() else {
             return false;
@@ -251,15 +257,29 @@ impl State {
             key_for(unsafe { xkb.keymap() }, layout, Keysym::v)
         });
         let Some(v) = v else { return false };
-        let mut keys = vec![LEFT_CTRL];
+        let mut held = vec![LEFT_CTRL];
         if self.focused_is_terminal() {
-            keys.push(LEFT_SHIFT);
+            held.push(LEFT_SHIFT);
         }
-        keys.push(v);
+        let presses = held.iter().chain([&v]).map(|&k| (k, KeyState::Pressed));
+        self.input_keys(presses.chain([(v, KeyState::Released)]));
+        self.typing.held = held;
+        true
+    }
+
+    /// Lets go of the paste key's modifiers.
+    fn release_held(&mut self) {
+        let held = std::mem::take(&mut self.typing.held);
+        self.input_keys(held.into_iter().rev().map(|k| (k, KeyState::Released)));
+    }
+
+    /// Keys into the seat as if typed, past the compositor's own.
+    fn input_keys(&mut self, keys: impl IntoIterator<Item = (Keycode, KeyState)>) {
+        let Some(keyboard) = self.seat.get_keyboard() else {
+            return;
+        };
         let time = self.start.elapsed().as_millis() as u32;
-        let presses = keys.iter().map(|&k| (k, KeyState::Pressed));
-        let releases = keys.iter().rev().map(|&k| (k, KeyState::Released));
-        for (key, state) in presses.chain(releases) {
+        for (key, state) in keys {
             keyboard.input::<(), _>(
                 self,
                 key,
@@ -269,7 +289,6 @@ impl State {
                 |_, _, _| FilterResult::Forward,
             );
         }
-        true
     }
 }
 
