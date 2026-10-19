@@ -1,0 +1,25 @@
+[package]
+name = "patina-dictate"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "Speech to text on the machine, with Whisper: for dictating into any field"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[features]
+# Whisper on an NVIDIA GPU; needs the CUDA toolkit to build. The CPU otherwise.
+cuda = ["whisper-rs/cuda"]
+# Whisper through Vulkan, where FreeBSD has a GPU driver.
+vulkan = ["whisper-rs/vulkan"]
+
+[dependencies]
+hound = "3.5"
+whisper-rs = "0.16"
+
+# The microphone: cpal (ALSA, so PipeWire or PulseAudio through it) on Linux,
+# the kernel's /dev/dsp on FreeBSD, whatever sound server runs there.
+[target.'cfg(target_os = "linux")'.dependencies]
+cpal = "0.17"
+
+[target.'cfg(target_os = "freebsd")'.dependencies]
+libc = "0.2"

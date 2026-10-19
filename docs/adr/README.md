@@ -111,6 +111,7 @@ mechanics of adding one.
 | [0067](0067-super-is-cmd.md) | Super is Cmd: the compositor sends Ctrl, or Ctrl+Shift to a terminal | Accepted |
 | [0068](0068-keyboard-layouts-on-the-bus.md) | Keyboard layouts on the bus: the bar shows the one in use, Settings manages them | Accepted |
 | [0069](0069-the-desktops-keys-are-config.md) | The desktop's own keys are config, by action, applied without a restart | Accepted |
+| [0070](0070-dictation-with-whisper-on-the-machine.md) | Dictation with Whisper on the machine, the transcriber built first | Accepted |
 
 ## Decision Relationship
 
@@ -164,6 +165,7 @@ flowchart TD
     U --> KB
     S --> KEYS[0069: the desktop's keys are config]
     CMD --> KEYS
+    KEYS --> DICT[0070: dictation with Whisper]
 ```
 
 ## Revisit Triggers

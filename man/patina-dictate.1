@@ -1,0 +1,77 @@
+.Dd October 19, 2026
+.Dt PATINA-DICTATE 1
+.Os
+.Sh NAME
+.Nm patina-dictate
+.Nd speech to text on the machine, with Whisper
+.Sh SYNOPSIS
+.Nm
+.Op Fl v
+.Op Fl m Ar model
+.Op Fl l Ar language
+.Op Ar file.wav
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+records from the microphone until Enter is pressed, or its standard input
+ends, and prints what was said.
+Given
+.Ar file.wav ,
+it prints what's said in that instead.
+Everything is transcribed on the machine, by Whisper through whisper.cpp;
+nothing is sent anywhere.
+.Pp
+What Whisper takes to be no speech is left out, so silence prints an empty
+line.
+.Pp
+On Linux it records from the default input, through ALSA, which PipeWire
+and PulseAudio serve.
+On
+.Fx
+it reads
+.Pa /dev/dsp ,
+whatever sound server runs.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl m , -model Ar model
+The model, by whisper.cpp's name for it
+.Pq Ql base.en , Ql small , Ql large-v3-turbo ,
+kept in the models folder as
+.Pa ggml- Ns Ar model Ns Pa .bin ;
+or a path to the file.
+The default is base.en.
+.It Fl l , -language Ar code
+What's spoken
+.Pq Ql en , Ql sv ,
+or
+.Ql auto
+to detect it.
+English for an English-only model
+.Pq Ql *.en ,
+else
+.Ql auto .
+.It Fl v , -verbose
+whisper.cpp's log, the sound's length, rate and loudness, and how long
+each step took, on standard error.
+.It Fl h , -help
+Print usage and exit.
+.It Fl V , -version
+Print the version and exit.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa $XDG_DATA_HOME/patina-dictate/models
+The models, downloaded from
+.Lk https://huggingface.co/ggerganov/whisper.cpp .
+.El
+.Sh EXIT STATUS
+.Ex -std
+.Sh EXAMPLES
+Dictate to the clipboard:
+.Dl patina-dictate | wl-copy
+.Pp
+A recording in Swedish, with a multilingual model:
+.Dl patina-dictate -m small -l sv talk.wav
+.Sh SEE ALSO
+.Xr patina-desktop 7

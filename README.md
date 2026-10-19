@@ -27,6 +27,9 @@ A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
   bar's clock: Lock, Log Out, Restart and Shut Down, each but Lock asking first.
 - **[patina-lock](lock/README.md)** (`lock/`): the lock screen, in the bar's skin: the time, and a password box
   checked through PAM. The compositor runs it on Ctrl+Super+Q, Super+Escape and before sleep.
+- **[patina-dictate](dictate/README.md)** (`dictate/`): speech to text on the machine, with Whisper
+  (ADR-0070). For now a command that records until Enter and prints what was said; it'll be
+  what a held key dictates into any field with.
 - **[patina-menu](menu/README.md)** (`menu/`): the desktop's menu, opened by a right click on the desktop. It's the
   skin menu Patina apps have, for the whole shell: choosing a skin sets it in the bar's config,
   the bar and wallpaper change at once and the other pieces follow it when they next open. It

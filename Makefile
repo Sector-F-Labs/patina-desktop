@@ -27,8 +27,9 @@ help: ## Show this help
 
 deps: ## Show the system packages the build needs
 	@echo "Ubuntu/Debian: sudo apt install pkg-config libxkbcommon-dev libpixman-1-dev libudev-dev \\"
-	@echo "                   libinput-dev libseat-dev libgbm-dev libegl-dev libdrm-dev libwayland-dev"
-	@echo "FreeBSD:       pkg install pkgconf libxkbcommon pixman libudev-devd libinput seatd mesa-libs libdrm wayland"
+	@echo "                   libinput-dev libseat-dev libgbm-dev libegl-dev libdrm-dev libwayland-dev \\"
+	@echo "                   libasound2-dev cmake clang"
+	@echo "FreeBSD:       pkg install pkgconf libxkbcommon pixman libudev-devd libinput seatd mesa-libs libdrm wayland cmake llvm"
 	@echo "To run X11 apps (Steam), Xwayland too: apt install xwayland, or pkg install xwayland."
 
 run: ## Run the compositor in a window on this desktop, with the bar, on a bus of its own
@@ -49,7 +50,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-night-light patina-power patina-raise patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
+BINARIES := patina-bar patina-compositor patina-dictate patina-lock patina-menu patina-night-light patina-power patina-raise patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
 # The launcher lives in its own repository (ADR-0037); install builds it from there.
 LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 # The session's terminal, which deploy installs too: the checkout beside this

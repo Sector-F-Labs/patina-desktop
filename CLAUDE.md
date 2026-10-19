@@ -144,6 +144,11 @@ puts them in `$(PREFIX)/share/man`.
 - `power/`: patina-power, the bar's power menu (ADR-0048): Lock and Log Out through the
   compositor's `com.sectorflabs.Patina.Session` (`compositor/src/session/dbus.rs`), Restart and
   Shut Down through logind or ConsoleKit2, all in `system/src/session.rs`.
+- `dictate/`: patina-dictate (ADR-0070), speech to text with whisper.cpp (`whisper-rs`): for now a
+  command that records until Enter and prints the text. `capture.rs` is cpal on Linux, `/dev/dsp`
+  on FreeBSD; `transcribe.rs` drops segments Whisper calls no speech. Models in
+  `$XDG_DATA_HOME/patina-dictate/models`; `--features cuda` for the GPU. Next: the compositor's
+  `com.sectorflabs.Patina.Input` `Commit(text)` and keys acting on release.
 - `lock/`: patina-lock, the lock screen (ADR-0028): `Options::lock` makes the host draw on
   ext-session-lock surfaces and unlock when the shell finishes; `pam.rs` declares the PAM calls.
   The compositor's side is `compositor/src/lock.rs` (ADR-0025).
