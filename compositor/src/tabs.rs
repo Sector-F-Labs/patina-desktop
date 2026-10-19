@@ -55,7 +55,14 @@ pub fn set_opener(window: &Window, from: &Window) {
 }
 
 fn opener(window: &Window) -> Option<WlSurface> {
-    window.user_data().get::<Opener>()?.0.borrow().as_ref()?.upgrade().ok()
+    window
+        .user_data()
+        .get::<Opener>()?
+        .0
+        .borrow()
+        .as_ref()?
+        .upgrade()
+        .ok()
 }
 
 impl State {
