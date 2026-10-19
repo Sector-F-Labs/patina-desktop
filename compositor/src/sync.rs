@@ -55,7 +55,9 @@ pub fn wait_for_buffers(surface: &WlSurface) {
             (dmabuf, acquire)
         });
         let Some(dmabuf) = dmabuf else { return };
-        let Some(client) = surface.client() else { return };
+        let Some(client) = surface.client() else {
+            return;
+        };
         // The commit goes ahead once the source fires.
         let release = move |state: &mut State| {
             let dh = state.display_handle.clone();

@@ -313,6 +313,17 @@ impl Default for Config {
     }
 }
 
+impl Keyboard {
+    /// Whether `other` makes the same keymap: all but key repeat alike.
+    pub fn same_keymap(&self, other: &Keyboard) -> bool {
+        Keyboard {
+            repeat_delay: other.repeat_delay,
+            repeat_rate: other.repeat_rate,
+            ..self.clone()
+        } == *other
+    }
+}
+
 impl Default for Keyboard {
     fn default() -> Self {
         Self {
@@ -529,13 +540,15 @@ impl crate::state::State {
         }
     }
 
-    /// Applies `config`. The keymap is set again only if `[keyboard]`
-    /// changed or the reload was `asked` for (which also picks up
-    /// /etc/default/keyboard), since setting it goes back to the first
-    /// layout, and a save of another setting mustn't do that.
+    /// Applies `config`. The keymap is set again only if its part of
+    /// `[keyboard]` changed or the reload was `asked` for (which also picks
+    /// up /etc/default/keyboard), since setting it goes back to the first
+    /// layout, and a save of another setting, key repeat included, mustn't
+    /// do that.
     fn apply_config(&mut self, config: Config, asked: bool) {
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
-        if asked || config.keyboard != self.config.keyboard {
+        let new_keymap = asked || !config.keyboard.same_keymap(&self.config.keyboard);
+        if new_keymap {
             let settings = crate::keyboard::KeyboardSettings::load(&config.keyboard);
             if let Err(e) = keyboard.set_xkb_config(self, settings.config()) {
                 eprintln!(
@@ -543,6 +556,8 @@ impl crate::state::State {
                     settings.layout
                 );
             }
+        }
+        if asked || config.keyboard != self.config.keyboard {
             keyboard.change_repeat_info(config.keyboard.repeat_rate, config.keyboard.repeat_delay);
         }
 
@@ -564,6 +579,9 @@ impl crate::state::State {
         self.config = config;
         if gaps_changed {
             self.relayout_maximized();
+        }
+        if new_keymap {
+            self.keymap_changed();
         }
         self.night_light_update();
         self.needs_redraw = true;
@@ -599,6 +617,22 @@ mod tests {
         assert!(c.touchpad.tap);
         assert!(c.touchpad.natural_scroll);
         assert_eq!(c.keyboard.repeat_rate, 25);
+    }
+
+    #[test]
+    fn key_repeat_alone_keeps_the_keymap() {
+        let keyboard = Keyboard::default();
+        let faster = Keyboard {
+            repeat_rate: 40,
+            repeat_delay: 300,
+            ..Keyboard::default()
+        };
+        assert!(keyboard.same_keymap(&faster));
+        let swedish = Keyboard {
+            layout: "us,se".into(),
+            ..Keyboard::default()
+        };
+        assert!(!keyboard.same_keymap(&swedish));
     }
 
     #[test]

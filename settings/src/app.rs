@@ -28,16 +28,18 @@ pub enum Page {
     Appearance,
     Bar,
     Wallpaper,
+    Keyboard,
     NightLight,
     Power,
     Processes,
 }
 
 impl Page {
-    const ALL: [Page; 6] = [
+    const ALL: [Page; 7] = [
         Page::Appearance,
         Page::Bar,
         Page::Wallpaper,
+        Page::Keyboard,
         Page::NightLight,
         Page::Power,
         Page::Processes,
@@ -48,6 +50,7 @@ impl Page {
             "appearance" => Some(Page::Appearance),
             "bar" => Some(Page::Bar),
             "wallpaper" => Some(Page::Wallpaper),
+            "keyboard" => Some(Page::Keyboard),
             "night-light" => Some(Page::NightLight),
             "power" => Some(Page::Power),
             "processes" => Some(Page::Processes),
@@ -60,6 +63,7 @@ impl Page {
             Page::Appearance => "Appearance",
             Page::Bar => "Bar",
             Page::Wallpaper => "Wallpaper",
+            Page::Keyboard => "Keyboard",
             Page::NightLight => "Night Light",
             Page::Power => "Power",
             Page::Processes => "Processes",
@@ -109,6 +113,7 @@ pub struct App {
     flask: Option<TextureHandle>,
     bar: crate::bar::BarPage,
     gaps: crate::gaps::GapsSection,
+    keyboard: crate::keyboard::KeyboardPage,
     night_light: NightLightPage,
     power: crate::power::PowerPage,
     processes: crate::processes::ProcessesPage,
@@ -134,6 +139,7 @@ impl App {
             flask: None,
             bar: crate::bar::BarPage::new(),
             gaps: crate::gaps::GapsSection::new(),
+            keyboard: crate::keyboard::KeyboardPage::new(ctx),
             night_light: NightLightPage::new(ctx),
             power: crate::power::PowerPage::new(ctx),
             processes: crate::processes::ProcessesPage::new(ctx),
@@ -540,6 +546,10 @@ impl App {
                     egui::ScrollArea::vertical().show(ui, |ui| self.bar.ui(ui, &mut self.message));
                 }
                 Page::Wallpaper => self.wallpaper_page(ui),
+                Page::Keyboard => {
+                    egui::ScrollArea::vertical()
+                        .show(ui, |ui| self.keyboard.ui(ui, &mut self.message));
+                }
                 Page::NightLight => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.night_light.ui(ui, &mut self.message));

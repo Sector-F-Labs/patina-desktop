@@ -88,6 +88,9 @@ pub struct Bar {
     pub wifi: Option<Option<u8>>,
     /// The battery, for the tray; `None` without one.
     pub battery: Option<patina_system::power::Battery>,
+    /// The compositor's keyboard layouts, for the tray's indicator
+    /// (ADR-0068); `None` when nothing serves them.
+    pub keyboard: Option<patina_system::keyboard::Status>,
     /// Apps' status icons (ADR-0064), and the tray that serves them.
     pub tray_items: Vec<patina_system::sni::Item>,
     pub tray: Option<patina_system::sni::Tray>,
@@ -130,6 +133,7 @@ impl Bar {
                 volume: None,
                 wifi: None,
                 battery: None,
+                keyboard: None,
                 tray_items: Vec::new(),
                 tray: None,
                 named_icons: RefCell::new(HashMap::new()),
@@ -285,6 +289,19 @@ impl Bar {
         }
     }
 
+    /// The layout in use, with more than one (ADR-0068): a click lists them
+    /// in patina-menu to choose from.
+    fn keyboard_layout(&self, ui: &mut Ui) {
+        let Some(status) = &self.keyboard else { return };
+        let Some((rect, response)) = crate::tray::layout(ui, status) else {
+            return;
+        };
+        if response.clicked() {
+            let args = crate::menu::layout_args(self.popup(ui.ctx(), rect.center()), status);
+            crate::menu::open_layouts(args);
+        }
+    }
+
     /// The name of `app_id`'s app, once it's known: its `.desktop` entry's,
     /// or else the last part of the app id. Asked for the first time it's
     /// wanted; until the answer comes, `None`.
@@ -381,6 +398,7 @@ impl Bar {
                 ui.scope(|ui| {
                     ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
                     self.tray_items(ui);
+                    self.keyboard_layout(ui);
                     crate::tray::wifi(ui, self.wifi, &self.config.wifi, &self.skin.name, &opening);
                     crate::tray::speaker(
                         ui,
@@ -1019,6 +1037,7 @@ mod tests {
             volume: None,
             wifi: None,
             battery: None,
+            keyboard: None,
             tray_items: Vec::new(),
             tray: None,
             named_icons: RefCell::new(HashMap::new()),
@@ -1322,6 +1341,30 @@ mod tests {
         for l in lines {
             bar.status.apply(l);
         }
+    }
+
+    #[test]
+    fn the_tray_shows_the_layout_only_with_more_than_one() {
+        use patina_system::keyboard::{Layout, Status};
+        let layout = |code: &str| Layout {
+            code: code.into(),
+            variant: String::new(),
+            name: code.into(),
+            label: code.to_uppercase(),
+        };
+        let mut b = bar("left = []\ncenter = []\nright = [\"tray\"]");
+        b.keyboard = Some(Status {
+            layouts: vec![layout("us"), layout("se")],
+            current: 1,
+        });
+        let words: Vec<_> = texts(&mut b, "A").into_iter().map(|(s, _)| s).collect();
+        assert!(words.contains(&"SE".to_string()), "{words:?}");
+        b.keyboard = Some(Status {
+            layouts: vec![layout("us")],
+            current: 0,
+        });
+        let words: Vec<_> = texts(&mut b, "A").into_iter().map(|(s, _)| s).collect();
+        assert!(!words.contains(&"US".to_string()), "{words:?}");
     }
 
     #[test]

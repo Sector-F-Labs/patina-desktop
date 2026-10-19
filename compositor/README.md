@@ -85,7 +85,8 @@ this workspace is a Wayland client of it.
 - **On the session bus:** `org.freedesktop.ScreenSaver` (`idle/dbus.rs`), for apps holding the
   screen on; `com.sectorflabs.Patina.Session` (`session/dbus.rs`), Lock and LogOut for
   patina-power (ADR-0048); `com.sectorflabs.Patina.Tiling` (`tiling/dbus.rs`, ADR-0049), drags,
-  windows and placing them, for tilers. On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
+  windows and placing them, for tilers; `com.sectorflabs.Patina.Keyboard` (`keyboard/dbus.rs`,
+  ADR-0068), the layouts and the one in use, for the bar's tray and Settings. On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
   Uninhibit, SetOverride, and its state as properties), for patina-settings,
   `patina-night-light` and apps that need true colour.
 - **Shares code with the shell pieces** through patina-system: the backlight (`backlight.rs`) for
@@ -94,7 +95,7 @@ this workspace is a Wayland client of it.
 ## Code
 
 `main.rs` (start-up, choosing the backend), `state.rs` (the protocols, placement, focus),
-`input.rs` and `keyboard.rs` (input and the compositor's own keys), `grabs.rs`, `maximize.rs`,
+`input.rs` and `keyboard.rs` with `keyboard/dbus.rs` (input, the compositor's own keys and the layouts), `grabs.rs`, `maximize.rs`,
 `tiling.rs` with `tiling/dbus.rs`, `tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`,
 `night_light.rs` with `night_light/dbus.rs`, `idle.rs` with `idle/dbus.rs`, `xwayland.rs` and `focus.rs` (X11 windows and
 what has the keyboard), `fullscreen.rs`, `constraints.rs` (pointer locks for games), `dnd.rs` (the icon a drag shows),

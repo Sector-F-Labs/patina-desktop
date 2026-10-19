@@ -182,7 +182,8 @@ and
 .Ic options
 as in XKB, from
 .Pa /etc/default/keyboard
-when unset;
+when unset, the layouts as a list Ctrl+Space steps through,
+.Dq us,se ;
 .Ic repeat_delay
 (milliseconds) and
 .Ic repeat_rate
@@ -314,6 +315,13 @@ and LogOut, which quits cleanly; for
 .It com.sectorflabs.Patina.NightLight
 Night Light's state, overrides and inhibitors, on the hardware; see
 .Xr patina-night-light 1 .
+.It com.sectorflabs.Patina.Keyboard
+The keymap's layouts (Layouts: each one's XKB layout, variant and name)
+and the one in use (Current), announced as they change, and SetCurrent;
+for the layout in
+.Xr patina-bar 1 Ns 's
+tray and
+.Xr patina-settings 1 .
 .It org.freedesktop.ScreenSaver
 Inhibit and UnInhibit, which hold the screen on until let go of or until
 the caller leaves the bus; SimulateUserActivity, as if there were input;

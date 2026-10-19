@@ -268,6 +268,7 @@ impl State {
                 }
             },
         );
+        self.layout_maybe_changed();
         // Super tapped on its own (pressed and released with nothing in
         // between) opens the launcher; any other key or a click cancels it.
         let is_super = sym == keysyms::KEY_Super_L || sym == keysyms::KEY_Super_R;
@@ -283,6 +284,7 @@ impl State {
         match action {
             Some(KeyAction::NextLayout) => {
                 keyboard.with_xkb_state(self, |mut xkb| xkb.cycle_next_layout());
+                self.layout_maybe_changed();
                 None
             }
             Some(KeyAction::Reload) => {
@@ -689,11 +691,7 @@ mod tests {
             logo: true,
             ..Default::default()
         };
-        for sym in [
-            keysyms::KEY_q,
-            keysyms::KEY_Left,
-            keysyms::KEY_1,
-        ] {
+        for sym in [keysyms::KEY_q, keysyms::KEY_Left, keysyms::KEY_1] {
             assert!(!works_in_fullscreen(&key_action(&logo, sym).unwrap()));
         }
         let ctrl_alt = mods(true, true);

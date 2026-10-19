@@ -1,7 +1,14 @@
 //! The keyboard layout: `XKB_DEFAULT_*` environment variables first (as
 //! xkbcommon's own defaults), then the `[keyboard]` section of the
 //! compositor's config, then the system's, from `/etc/default/keyboard`
-//! (which Ubuntu's installer and the text console use).
+//! (which Ubuntu's installer and the text console use). Which layout is in
+//! use, and the choice of one, are on the bus (`dbus.rs`, ADR-0068).
+
+pub mod dbus;
+
+use smithay::input::keyboard::Layout;
+
+use crate::state::State;
 
 /// xkb's rules, model, layout, variant and options, as names.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -54,6 +61,106 @@ impl KeyboardSettings {
             variant: &self.variant,
             options: self.options.clone(),
         }
+    }
+}
+
+/// The layouts as last told to the bus, and the service telling it.
+#[derive(Default)]
+pub struct Layouts {
+    service: Option<dbus::Service>,
+    told: dbus::Status,
+}
+
+/// Each layout's xkb layout and variant names, from `settings`' lists
+/// ("us,se" and ",nodeadkeys"), beside the names xkb gave the keymap's
+/// layouts. A keymap that fell back to US has no names from the lists.
+fn named(settings: &KeyboardSettings, names: Vec<String>) -> Vec<dbus::Layout> {
+    let mut codes = settings.layout.split(',');
+    let mut variants = settings.variant.split(',');
+    names
+        .into_iter()
+        .map(|name| {
+            let code = codes.next().unwrap_or_default().trim().to_string();
+            let variant = variants.next().unwrap_or_default().trim().to_string();
+            (code, variant, name)
+        })
+        .collect()
+}
+
+impl State {
+    /// Serves the layouts on the bus; called once at start-up.
+    pub fn start_keyboard(&mut self) {
+        match dbus::Service::start(&self.loop_handle) {
+            Ok(service) => self.layouts.service = Some(service),
+            Err(e) => eprintln!("patina-compositor: keyboard layouts aren't on D-Bus: {e}"),
+        }
+        self.keymap_changed();
+    }
+
+    /// The xkb names of the keymap's layouts, and the index of the one in
+    /// use.
+    fn xkb_layouts(&mut self) -> (Vec<String>, u32) {
+        let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
+        keyboard.with_xkb_state(self, |context| {
+            let xkb = context.xkb().lock().expect("xkb isn't poisoned");
+            let names = xkb
+                .layouts()
+                .map(|l| xkb.layout_name(l).to_string())
+                .collect();
+            (names, xkb.active_layout().0)
+        })
+    }
+
+    /// Tells the bus about a new keymap: at start-up, and after `[keyboard]`
+    /// changed.
+    pub fn keymap_changed(&mut self) {
+        if self.layouts.service.is_none() {
+            return;
+        }
+        let (names, current) = self.xkb_layouts();
+        let settings = KeyboardSettings::load(&self.config.keyboard);
+        self.tell_layouts(dbus::Status {
+            layouts: named(&settings, names),
+            current,
+        });
+    }
+
+    /// Tells the bus if another layout is now in use: after Ctrl+Space, a
+    /// choice from the bus, or any key (an xkb option can switch layouts
+    /// itself, as grp:alt_shift_toggle does).
+    pub fn layout_maybe_changed(&mut self) {
+        if self.layouts.service.is_none() || self.layouts.told.layouts.len() < 2 {
+            return;
+        }
+        let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
+        let current = keyboard.with_xkb_state(self, |context| {
+            context
+                .xkb()
+                .lock()
+                .expect("xkb isn't poisoned")
+                .active_layout()
+                .0
+        });
+        if current != self.layouts.told.current {
+            self.tell_layouts(dbus::Status {
+                current,
+                ..self.layouts.told.clone()
+            });
+        }
+    }
+
+    fn tell_layouts(&mut self, status: dbus::Status) {
+        if let Some(service) = &self.layouts.service {
+            service.publish(status.clone());
+        }
+        self.layouts.told = status;
+    }
+
+    /// Switches to layout `index`, chosen on the bus.
+    pub fn choose_layout(&mut self, index: u32) {
+        let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
+        keyboard.with_xkb_state(self, |mut context| context.set_layout(Layout(index)));
+        self.layout_maybe_changed();
     }
 }
 
@@ -128,6 +235,28 @@ mod tests {
         assert_eq!(
             with_option(Some("ctrl:swapcaps".into()), "ctrl:nocaps"),
             "ctrl:nocaps"
+        );
+    }
+
+    #[test]
+    fn each_layout_gets_its_names_from_the_lists() {
+        let settings = KeyboardSettings {
+            layout: "us,se,futhark".into(),
+            variant: ",nodeadkeys".into(),
+            ..Default::default()
+        };
+        let names = ["English (US)", "Swedish (no dead keys)", "Runic"].map(String::from);
+        assert_eq!(
+            named(&settings, names.to_vec()),
+            [
+                ("us".into(), "".into(), "English (US)".into()),
+                (
+                    "se".into(),
+                    "nodeadkeys".into(),
+                    "Swedish (no dead keys)".into()
+                ),
+                ("futhark".into(), "".into(), "Runic".into()),
+            ]
         );
     }
 

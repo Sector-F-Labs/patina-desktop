@@ -31,6 +31,15 @@ from a list.
 The default, and the images in
 .Pa ~/Pictures/Wallpapers
 and the system's backgrounds.
+.It Keyboard
+The keyboard layouts Ctrl+Space steps through, in order: each moved up or
+down, removed, or switched to, and more added from those XKB offers, found
+by name; and how soon and how fast a held key repeats.
+While the compositor's config has no layouts it shows the system's, from
+.Pa /etc/default/keyboard ,
+and the first change copies them into
+.Ic [keyboard] .
+Changing the list goes back to the first layout.
 .It Night Light
 Off, always on, or on a schedule, and how warm.
 It shows whether this screen can be warmed, whether it's on now, with a
@@ -54,11 +63,15 @@ Settings can't restart itself.
 .Pp
 Settings changes the files the settings live in, keeping the rest of each:
 the bar's config for the skin and wallpaper, and
-.Ic [night_light]
+.Ic [night_light] ,
+.Ic [gaps] ,
+.Ic [screen]
+and
+.Ic [keyboard]
 in the compositor's.
 Those watching them change at once.
-Night Light's state and the processes come from the compositor over the
-session bus; nested in another desktop, the pages say what isn't there.
+Night Light's state, the layout in use and the processes come from the
+compositor over the session bus; nested in another desktop, the pages say what isn't there.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl -page Ar page
@@ -68,6 +81,7 @@ Open at
 (the default),
 .Cm bar ,
 .Cm wallpaper ,
+.Cm keyboard ,
 .Cm night-light ,
 .Cm power
 or

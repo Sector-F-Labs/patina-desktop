@@ -2,7 +2,8 @@
 //! Wi-Fi menu (patina-wifi, ADR-0022); the speaker, showing the level and
 //! mute, opens the volume menu (patina-volume), which also flashes up when
 //! the volume keys are used (ADR-0021); the battery shows the charge
-//! (ADR-0024). The power button, after the clock, opens the power menu
+//! (ADR-0024). The keyboard layout in use shows when there's more than one
+//! (ADR-0068). The power button, after the clock, opens the power menu
 //! (patina-power, ADR-0048).
 
 use egui::{Sense, Ui, vec2};
@@ -99,6 +100,50 @@ pub fn wifi(
     if response.clicked() {
         crate::launcher::run(command, skin, &opening(rect));
     }
+}
+
+/// The keyboard layout in use, as "US", when there's more than one to
+/// switch between; its button and how it was clicked.
+pub fn layout(
+    ui: &mut Ui,
+    status: &patina_system::keyboard::Status,
+) -> Option<(egui::Rect, egui::Response)> {
+    if status.layouts.len() < 2 {
+        return None;
+    }
+    let layout = status.current()?;
+    let side = side(ui);
+    let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
+    let v = ui.visuals();
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
+    }
+    let colour = if response.hovered() {
+        v.strong_text_color()
+    } else {
+        v.text_color()
+    };
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    // A rune the skin's font hasn't got would be a box.
+    let label = if ui.ctx().fonts_mut(|f| f.has_glyphs(&font, &layout.label)) {
+        layout.label.clone()
+    } else {
+        patina_system::keyboard::plain_label(&layout.code)
+    };
+    ui.painter().text(
+        rect.center(),
+        egui::Align2::CENTER_CENTER,
+        label,
+        font,
+        colour,
+    );
+    crate::tooltip::hover(
+        ui,
+        &response,
+        format!("{}\nCtrl+Space for the next", layout.name),
+    );
+    Some((rect, response))
 }
 
 /// The power button; runs `command`, the power menu, when it's clicked.

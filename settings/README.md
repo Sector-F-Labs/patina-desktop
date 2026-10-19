@@ -15,6 +15,9 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   bar or split (ADR-0063), each part dragged to its spot on a map of the screen.
 - **Wallpaper**: the default "Sector F Labs" and the images in `~/Pictures/Wallpapers` and the
   system's backgrounds, as thumbnails decoded off the UI thread.
+- **Keyboard** (ADR-0068): the layouts Ctrl+Space steps through, moved, removed, switched to
+  and added from xkb's by search, and key repeat, written to `[keyboard]` in the compositor's
+  config; while it has none, the system's are shown, and the first change copies them in.
 - **Night Light** (ADR-0039): off, always on, or on a schedule, and the warmth. It also shows
   what the compositor says: whether this screen can be warmed, whether it's on now (with a button
   to turn it off until the schedule changes, or back), and which apps are holding it off.

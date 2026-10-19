@@ -19,7 +19,8 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   `patina-menu --tooltip` past the bar's edge too (`tooltip.rs`, ADR-0057); egui's own are off.
 - `tray`: apps' status icons first (ADR-0064): the bar is the system tray apps such as Steam
   register with (`patina_system::sni`, StatusNotifierItem on the session bus); a click
-  activates the app, a right click opens its menu in patina-menu. Then Wi-Fi (opens patina-wifi), the speaker (opens patina-volume) and the battery
+  activates the app, a right click opens its menu in patina-menu. Then, with more than one
+  keyboard layout, the one in use ("US"; a click lists them to switch, ADR-0068), Wi-Fi (opens patina-wifi), the speaker (opens patina-volume) and the battery
   (ADR-0021, ADR-0022, ADR-0024).
 - `clock`, and under dwl `tags`, `layout`, `title` and `appid`.
 - `power`: the power button after the clock, which opens patina-power: Lock, Log Out, Restart
@@ -61,7 +62,7 @@ it into a place on the screen, which menus, tooltips and the pieces the bar open
 
 ## Code
 
-`main.rs` (start-up, threads reading dwl, volume, Wi-Fi and the battery), `bar.rs` (the modules
+`main.rs` (start-up, threads reading dwl, volume, Wi-Fi, the keyboard layout and the battery), `bar.rs` (the modules
 and their layout), `tray.rs`, `launcher.rs` (the flask button), `dwl.rs`, `config.rs`. The
 surface and drawing come from patina-shell.
 

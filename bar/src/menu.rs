@@ -123,6 +123,38 @@ pub fn tray_args(
     args
 }
 
+/// patina-menu's arguments for the keyboard layouts' menu (ADR-0068),
+/// opening at `at`: each layout by its index, the one in use ticked.
+pub fn layout_args(
+    at: crate::split::Popup,
+    status: &patina_system::keyboard::Status,
+) -> Vec<String> {
+    let mut args = vec![
+        "--at".to_string(),
+        format!("{:.0},{:.0}", at.x, at.y),
+        "--edge".into(),
+        at.edge.into(),
+    ];
+    for (i, layout) in status.layouts.iter().enumerate() {
+        let tick = if i == status.current { "✔ " } else { "" };
+        args.push("--item".into());
+        args.push(format!("{i}={tick}{}", layout.name));
+    }
+    args
+}
+
+/// Opens the layouts' menu with `args` on a thread, and switches to the one
+/// chosen.
+pub fn open_layouts(args: Vec<String>) {
+    std::thread::spawn(move || {
+        if let Ok(i) = run_menu(&args).parse::<usize>()
+            && let Err(e) = patina_system::keyboard::set_current(i)
+        {
+            eprintln!("patina-bar: can't switch keyboard layout: {e}");
+        }
+    });
+}
+
 /// Opens a tray item's menu with `args` on a thread, and gives the chosen
 /// entry's ID to `chosen`.
 pub fn open_tray(args: Vec<String>, chosen: impl FnOnce(i32) + Send + 'static) {
@@ -176,6 +208,31 @@ mod tests {
                 "--item",
                 "close=Close Window"
             ]
+        );
+    }
+
+    #[test]
+    fn the_layouts_menu_ticks_the_one_in_use() {
+        use patina_system::keyboard::{Layout, Status};
+        let layout = |code: &str, name: &str| Layout {
+            code: code.into(),
+            variant: String::new(),
+            name: name.into(),
+            label: code.to_uppercase(),
+        };
+        let status = Status {
+            layouts: vec![layout("us", "English (US)"), layout("se", "Swedish")],
+            current: 1,
+        };
+        let at = crate::split::Popup {
+            edge: "top",
+            x: 10.0,
+            y: 20.0,
+            far: None,
+        };
+        assert_eq!(
+            layout_args(at, &status)[4..],
+            ["--item", "0=English (US)", "--item", "1=✔ Swedish"]
         );
     }
 

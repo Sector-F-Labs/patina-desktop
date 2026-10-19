@@ -351,6 +351,25 @@ fn run(
             .map_err(|e| e.to_string())?;
     }
 
+    // The tray's keyboard layout (ADR-0068), as the compositor announces it.
+    if uses_tray {
+        let (statuses, keyboard) = channel::channel::<Option<patina_system::keyboard::Status>>();
+        std::thread::Builder::new()
+            .name("keyboard".into())
+            .spawn(move || patina_system::keyboard::watch(|s| statuses.send(s).is_ok()))
+            .map_err(|e| e.to_string())?;
+        handle
+            .insert_source(keyboard, |event, _, host| {
+                if let Event::Msg(s) = event
+                    && host.shell.keyboard != s
+                {
+                    host.shell.keyboard = s;
+                    host.redraw_all();
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
+
     // The tray's battery, read every few seconds, so plugging in shows soon.
     if uses_tray {
         let (readings, battery) = channel::channel::<Option<patina_system::power::Battery>>();

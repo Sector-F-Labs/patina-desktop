@@ -1,6 +1,7 @@
-//! `[night_light]`, and the screen turning off (`[screen] off_after` and
-//! `[lock] on_screen_off`), in the compositor's config (ADR-0019, ADR-0039,
-//! ADR-0047), read and written in place: the rest of the file, its comments
+//! `[night_light]`, the screen turning off (`[screen] off_after` and
+//! `[lock] on_screen_off`), gaps, and the keyboard's layouts and key repeat,
+//! in the compositor's config (ADR-0019, ADR-0039, ADR-0047, ADR-0051,
+//! ADR-0068), read and written in place: the rest of the file, its comments
 //! included, stays as it is. The compositor notices the change and applies
 //! it.
 
@@ -233,6 +234,92 @@ pub fn with_gaps(text: &str, gaps: &Gaps) -> Result<String, String> {
     Ok(doc.to_string())
 }
 
+/// `[keyboard]`'s layouts and key repeat, as the compositor has them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Keyboard {
+    /// xkb layout and variant names, in Ctrl+Space's order; none when the
+    /// config leaves them to the system's (/etc/default/keyboard).
+    pub layouts: Vec<(String, String)>,
+    /// Milliseconds before a held key repeats.
+    pub repeat_delay: u32,
+    /// Repeats per second.
+    pub repeat_rate: u32,
+}
+
+impl Default for Keyboard {
+    fn default() -> Self {
+        Self {
+            layouts: Vec::new(),
+            repeat_delay: 200,
+            repeat_rate: 25,
+        }
+    }
+}
+
+/// `[keyboard]` from the config's text, the defaults for what's missing or
+/// wrong.
+pub fn parse_keyboard(text: &str) -> Keyboard {
+    let mut keyboard = Keyboard::default();
+    let Ok(doc) = text.parse::<DocumentMut>() else {
+        return keyboard;
+    };
+    let Some(table) = doc.get("keyboard") else {
+        return keyboard;
+    };
+    let text_of = |key: &str| table.get(key).and_then(|v| v.as_str()).unwrap_or("");
+    let layout = text_of("layout");
+    if !layout.trim().is_empty() {
+        let mut variants = text_of("variant").split(',');
+        keyboard.layouts = layout
+            .split(',')
+            .map(|code| {
+                let variant = variants.next().unwrap_or("").trim();
+                (code.trim().to_string(), variant.to_string())
+            })
+            .collect();
+    }
+    for (key, field) in [
+        ("repeat_delay", &mut keyboard.repeat_delay),
+        ("repeat_rate", &mut keyboard.repeat_rate),
+    ] {
+        if let Some(n) = table.get(key).and_then(|v| v.as_integer())
+            && n >= 0
+        {
+            *field = n as u32;
+        }
+    }
+    keyboard
+}
+
+/// `text` with `[keyboard]`'s layouts and key repeat set to `keyboard`,
+/// everything else kept. No layouts takes them out, leaving the system's.
+pub fn with_keyboard(text: &str, keyboard: &Keyboard) -> Result<String, String> {
+    let mut doc = text.parse::<DocumentMut>().map_err(|e| e.to_string())?;
+    let table = doc
+        .entry("keyboard")
+        .or_insert_with(toml_edit::table)
+        .as_table_mut()
+        .ok_or("keyboard in the compositor's config isn't a section")?;
+    if keyboard.layouts.is_empty() {
+        table.remove("layout");
+        table.remove("variant");
+    } else {
+        let join = |part: fn(&(String, String)) -> &str| {
+            keyboard
+                .layouts
+                .iter()
+                .map(part)
+                .collect::<Vec<_>>()
+                .join(",")
+        };
+        table["layout"] = value(join(|(code, _)| code));
+        table["variant"] = value(join(|(_, variant)| variant));
+    }
+    table["repeat_delay"] = value(keyboard.repeat_delay as i64);
+    table["repeat_rate"] = value(keyboard.repeat_rate as i64);
+    Ok(doc.to_string())
+}
+
 fn read_text() -> Option<String> {
     path().and_then(|p| std::fs::read_to_string(p).ok())
 }
@@ -250,6 +337,16 @@ pub fn read_screen() -> Screen {
 /// The gaps from the compositor's config.
 pub fn read_gaps() -> Gaps {
     read_text().map(|t| parse_gaps(&t)).unwrap_or_default()
+}
+
+/// The keyboard's settings from the compositor's config.
+pub fn read_keyboard() -> Keyboard {
+    read_text().map(|t| parse_keyboard(&t)).unwrap_or_default()
+}
+
+/// Writes the keyboard's settings into the compositor's config.
+pub fn write_keyboard(keyboard: &Keyboard) -> Result<(), String> {
+    update(|text| with_keyboard(text, keyboard))
 }
 
 /// Writes the gaps into the compositor's config.
@@ -359,6 +456,40 @@ mod tests {
         assert_eq!(text.matches("[gaps]").count(), 1);
         assert_eq!(parse_gaps(&text), Gaps::default());
         assert_eq!(parse_gaps("[gaps]\nsize = 500\n"), Gaps::default());
+    }
+
+    #[test]
+    fn the_layouts_are_written_as_xkbs_lists_keeping_the_rest() {
+        assert_eq!(parse_keyboard(STARTER), Keyboard::default());
+        let keyboard = Keyboard {
+            layouts: vec![
+                ("us".into(), String::new()),
+                ("se".into(), "nodeadkeys".into()),
+            ],
+            repeat_delay: 300,
+            repeat_rate: 30,
+        };
+        let text = with_keyboard(STARTER, &keyboard).unwrap();
+        assert!(
+            text.contains("[keyboard]\nlayout = \"us,se\"\nvariant = \",nodeadkeys\""),
+            "{text}"
+        );
+        assert!(text.contains("[night_light]\n# How warm."));
+        assert_eq!(parse_keyboard(&text), keyboard);
+        // Back to the system's: the lists go, the rest stays.
+        let system = Keyboard {
+            layouts: Vec::new(),
+            ..keyboard
+        };
+        let text = with_keyboard(&text, &system).unwrap();
+        assert!(!text.contains("layout ="), "{text}");
+        assert_eq!(text.matches("[keyboard]").count(), 1);
+        assert_eq!(parse_keyboard(&text), system);
+        // A variant list shorter than the layouts' leaves the rest plain.
+        assert_eq!(
+            parse_keyboard("[keyboard]\nlayout = \"us,ru\"\n").layouts,
+            [("us".into(), String::new()), ("ru".into(), String::new())]
+        );
     }
 
     #[test]

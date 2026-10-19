@@ -3,7 +3,8 @@
 //! (`audio`, through wpctl), Wi-Fi (`network`, NetworkManager), the battery
 //! (`power`), the backlight (`backlight`, which the compositor uses too),
 //! the tray's icons (`icons`), the Sector F flask and lettering (`logo`),
-//! Night Light's controls on the compositor (`night_light`), and power modes
+//! Night Light's controls on the compositor (`night_light`), keyboard layouts
+//! (`keyboard`), and power modes
 //! through power-profiles-daemon (`power_profiles`), the processes the
 //! compositor starts (`processes`), locking, logging out, restarting and
 //! shutting down (`session`), and the compositor's tiling (`tiling`).
@@ -12,6 +13,7 @@ pub mod apps;
 pub mod audio;
 pub mod backlight;
 pub mod icons;
+pub mod keyboard;
 pub mod logo;
 pub mod network;
 pub mod night_light;

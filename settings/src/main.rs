@@ -7,6 +7,7 @@ mod app;
 mod bar;
 mod compositor_config;
 mod gaps;
+mod keyboard;
 mod night_light;
 mod power;
 mod processes;
