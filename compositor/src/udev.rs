@@ -496,6 +496,7 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
         // Done inside State::key.
         Some(
             KeyAction::NextLayout
+            | KeyAction::Launcher
             | KeyAction::Reload
             | KeyAction::Restart
             | KeyAction::Media(_)

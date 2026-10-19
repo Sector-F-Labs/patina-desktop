@@ -28,8 +28,11 @@ pub enum KeyAction {
     /// Restart the desktop under patina-session (Ctrl+Alt+Shift+Backspace):
     /// quit, to be started again (ADR-0046).
     Restart,
-    /// The next keyboard layout (Super+Space, as on GNOME).
+    /// The next keyboard layout (Ctrl+Space, as on macOS).
     NextLayout,
+    /// Open the launcher (Super+Space, as Cmd+Space on macOS, or Super
+    /// tapped on its own).
+    Launcher,
     /// Read config.toml again (Super+Shift+R).
     Reload,
     /// A brightness or volume key.
@@ -113,8 +116,13 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
             KeyAction::Quit
         });
     }
-    if modifiers.logo && sym == keysyms::KEY_space {
-        return Some(KeyAction::NextLayout);
+    if sym == keysyms::KEY_space && !modifiers.alt && !modifiers.shift {
+        if modifiers.logo && !modifiers.ctrl {
+            return Some(KeyAction::Launcher);
+        }
+        if modifiers.ctrl && !modifiers.logo {
+            return Some(KeyAction::NextLayout);
+        }
     }
     // Alt+Tab steps along the bar's tabs; with Shift (which makes Tab
     // ISO_Left_Tab), backwards.
@@ -269,9 +277,8 @@ impl State {
             && std::mem::take(&mut self.super_tap)
             && !self.locked()
             && self.fullscreen_on_top().is_none()
-            && !self.config.launcher.is_empty()
         {
-            self.spawn_client(&self.config.launcher.clone());
+            self.open_launcher();
         }
         match action {
             Some(KeyAction::NextLayout) => {
@@ -280,6 +287,10 @@ impl State {
             }
             Some(KeyAction::Reload) => {
                 self.reload_config(true);
+                None
+            }
+            Some(KeyAction::Launcher) => {
+                self.open_launcher();
                 None
             }
             Some(KeyAction::Restart) => {
@@ -332,6 +343,13 @@ impl State {
                 None
             }
             other => other,
+        }
+    }
+
+    /// Opens the configured launcher, unless it's set to "".
+    fn open_launcher(&mut self) {
+        if !self.config.launcher.is_empty() {
+            self.spawn_client(&self.config.launcher.clone());
         }
     }
 
@@ -489,15 +507,29 @@ mod tests {
     }
 
     #[test]
-    fn super_space_switches_layout() {
+    fn super_space_opens_the_launcher_and_ctrl_space_switches_layout() {
         let logo = ModifiersState {
+            logo: true,
+            ..Default::default()
+        };
+        let ctrl = ModifiersState {
+            ctrl: true,
+            ..Default::default()
+        };
+        let both = ModifiersState {
+            ctrl: true,
             logo: true,
             ..Default::default()
         };
         assert_eq!(
             key_action(&logo, keysyms::KEY_space),
+            Some(KeyAction::Launcher)
+        );
+        assert_eq!(
+            key_action(&ctrl, keysyms::KEY_space),
             Some(KeyAction::NextLayout)
         );
+        assert_eq!(key_action(&both, keysyms::KEY_space), None);
         assert_eq!(key_action(&mods(false, false), keysyms::KEY_space), None);
     }
 

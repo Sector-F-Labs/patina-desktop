@@ -24,10 +24,10 @@ this workspace is a Wayland client of it.
 - **Super is Cmd** (`cmd.rs`, ADR-0067): any other Super key goes to the focused window as
   Ctrl+key (Super+T a new tab, Super+W closes one), or as Ctrl+Shift+key to a terminal, by its
   desktop entry's `TerminalEmulator` category. Only that client is told Ctrl is down.
-- **The desktop's own keys:** Super alone opens the launcher; Ctrl+Super+Q and Super+Escape lock
+- **The desktop's own keys:** Super alone or Super+Space opens the launcher; Ctrl+Super+Q and Super+Escape lock
   (ADR-0026); Super+Shift+3 or Print screenshots the desktop and Super+Shift+4 the focused window
   (ADR-0034); the brightness and volume keys change them and flash the volume menu (ADR-0020,
-  ADR-0033); Super+Space switches keyboard layout; Super+Shift+R reloads the config.
+  ADR-0033); Ctrl+Space switches keyboard layout; Super+Shift+R reloads the config.
 - **A right click on the empty desktop** opens patina-menu at the pointer (ADR-0029).
 - **X11 apps** (Steam, Discord, Wine) run through Xwayland (ADR-0040), started with the
   compositor; their windows float, focus, tab and move like any other.

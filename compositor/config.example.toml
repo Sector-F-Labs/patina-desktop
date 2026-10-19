@@ -11,7 +11,7 @@
 # environment overrides it.
 # scale = 1.5
 
-# What tapping Super on its own opens; "" for nothing.
+# What tapping Super on its own, or Super+Space, opens; "" for nothing.
 # launcher = "patina-launcher"
 
 # What a right click on the desktop opens, at the pointer: the desktop's menu,
@@ -19,7 +19,7 @@
 # desktop_menu = "patina-menu"
 
 [keyboard]
-# Layouts to switch between with Super+Space. Unset, the system's from
+# Layouts to switch between with Ctrl+Space. Unset, the system's from
 # /etc/default/keyboard.
 # layout = "us,se"
 # variant = ""
