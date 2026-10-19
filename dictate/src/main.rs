@@ -1,7 +1,7 @@
 //! patina-dictate: speech to text on the machine, with Whisper. As a
 //! command it records until Enter (or the end of its input) and prints what
 //! was said, or transcribes a WAV file. With `--daemon` it's dictation
-//! behind a held key (Alt+Space), which the compositor starts and keeps
+//! behind a held key (Ctrl+Super+Alt), which the compositor starts and keeps
 //! running, and the text is typed where the focus is.
 
 mod audio;
@@ -22,8 +22,8 @@ const USAGE: &str = "usage: patina-dictate [-v] [-m MODEL] [-l LANGUAGE] [FILE.w
 Records from the microphone until Enter, or the end of its input, and
 prints what was said. Given a WAV file, it prints what's said in that.
 
-With --daemon, it records while the compositor's dictate key (Alt+Space)
-is held, and has what was said typed into the focused window.
+With --daemon, it records while the compositor's dictate key
+(Ctrl+Super+Alt) is held, and has what was said typed into the focused window.
 
   -m, --model MODEL       whisper.cpp's name for it (base.en, small,
                           large-v3-turbo), kept in the models folder as

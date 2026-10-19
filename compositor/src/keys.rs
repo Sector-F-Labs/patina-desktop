@@ -18,7 +18,8 @@ use crate::config::{Combo, combo};
 use crate::input::KeyAction;
 
 /// Each action's name in `[keys]`, and the keys it has unless set there.
-/// "Super" alone is Super tapped on its own.
+/// "Super" alone is Super tapped on its own; modifiers alone
+/// ("Ctrl+Super+Alt") are held together, which only `dictate` takes.
 const DEFAULTS: &[(&str, &[&str])] = &[
     ("launcher", &["Super", "Super+Space"]),
     ("next_layout", &["Ctrl+Space"]),
@@ -29,7 +30,7 @@ const DEFAULTS: &[(&str, &[&str])] = &[
     ("reload", &["Super+Shift+R"]),
     ("screenshot", &["Super+Shift+3", "Print"]),
     ("screenshot_window", &["Super+Shift+4"]),
-    ("dictate", &["Alt+Space"]),
+    ("dictate", &["Ctrl+Super+Alt"]),
     ("snap_up", &["Super+Up", "Ctrl+Super+K"]),
     ("snap_down", &["Super+Down", "Ctrl+Super+J"]),
     ("snap_left", &["Super+Left", "Ctrl+Super+H"]),
@@ -111,10 +112,37 @@ impl KeyList {
     }
 }
 
+/// Reads modifiers alone, two or more of them ("Ctrl+Super+Alt"), as a
+/// combination with no key; `None` if it has a key or only one modifier.
+fn chord(text: &str) -> Option<Combo> {
+    let mut chord = Combo {
+        logo: false,
+        alt: false,
+        ctrl: false,
+        shift: false,
+        sym: 0,
+    };
+    let mut count = 0;
+    for part in text.split('+') {
+        match part.trim().to_ascii_lowercase().as_str() {
+            "super" | "logo" | "mod4" => chord.logo = true,
+            "alt" | "mod1" => chord.alt = true,
+            "ctrl" | "control" => chord.ctrl = true,
+            "shift" => chord.shift = true,
+            _ => return None,
+        }
+        count += 1;
+    }
+    (count >= 2).then_some(chord)
+}
+
 /// The compositor's keys, ready to match.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Keys {
     combos: Vec<(Combo, KeyAction)>,
+    /// Modifiers held together with no other key, for actions that last
+    /// while they're held (dictate).
+    chords: Vec<(Combo, KeyAction)>,
     /// What tapping Super on its own does.
     tap: Option<KeyAction>,
 }
@@ -143,7 +171,14 @@ impl Keys {
                     keys.tap = Some(act.clone());
                     continue;
                 }
-                let c = match combo(text) {
+                let held = chord(text);
+                if held.is_some() && act != KeyAction::Dictate {
+                    warnings.push(format!(
+                        "[keys] {name}: {text} is modifiers alone, which only dictate takes; ignored"
+                    ));
+                    continue;
+                }
+                let c = match held.map_or_else(|| combo(text), Ok) {
                     Ok(c) => c,
                     Err(e) => {
                         warnings.push(format!("[keys] {name}: {e}; ignored"));
@@ -157,7 +192,11 @@ impl Keys {
                     continue;
                 }
                 taken.push((c, name));
-                keys.combos.push((c, act.clone()));
+                if held.is_some() {
+                    keys.chords.push((c, act.clone()));
+                } else {
+                    keys.combos.push((c, act.clone()));
+                }
             }
         }
         (keys, warnings)
@@ -175,6 +214,19 @@ impl Keys {
                     && c.ctrl == modifiers.ctrl
                     && c.shift == modifiers.shift
                     && c.sym == base
+            })
+            .map(|(_, action)| action.clone())
+    }
+
+    /// The action held with exactly `modifiers` and no other key, if any.
+    pub fn chord(&self, modifiers: &ModifiersState) -> Option<KeyAction> {
+        self.chords
+            .iter()
+            .find(|(c, _)| {
+                c.logo == modifiers.logo
+                    && c.alt == modifiers.alt
+                    && c.ctrl == modifiers.ctrl
+                    && c.shift == modifiers.shift
             })
             .map(|(_, action)| action.clone())
     }
@@ -218,7 +270,10 @@ mod tests {
         for (name, keys) in DEFAULTS {
             assert!(action(name).is_some(), "{name}");
             for key in *keys {
-                assert!(*key == "Super" || combo(key).is_ok(), "{name}: {key}");
+                assert!(
+                    *key == "Super" || chord(key).is_some() || combo(key).is_ok(),
+                    "{name}: {key}"
+                );
             }
         }
     }
@@ -283,6 +338,29 @@ mod tests {
         // Super+T and W are the apps'.
         assert_eq!(at("Super", keysyms::KEY_t), None);
         assert_eq!(at("Super", keysyms::KEY_w), None);
+    }
+
+    #[test]
+    fn dictation_is_held_with_modifiers_alone() {
+        let k = defaults();
+        assert_eq!(k.chord(&mods("Ctrl+Super+Alt")), Some(KeyAction::Dictate));
+        assert_eq!(k.chord(&mods("Ctrl+Super")), None, "not yet all of them");
+        assert_eq!(k.chord(&mods("Ctrl+Super+Alt+Shift")), None, "exact");
+        assert_eq!(k.lookup(&mods("Ctrl+Super+Alt"), keysyms::KEY_d), None);
+
+        let set: BTreeMap<String, KeyList> =
+            toml::from_str("dictate = \"Alt+Space\"\nlock = \"Ctrl+Alt\"\n").unwrap();
+        let (k, warnings) = Keys::new(&set);
+        assert_eq!(
+            k.lookup(&mods("Alt"), keysyms::KEY_space),
+            Some(KeyAction::Dictate),
+            "a key held works too"
+        );
+        assert_eq!(k.chord(&mods("Ctrl+Super+Alt")), None);
+        assert_eq!(k.chord(&mods("Ctrl+Alt")), None, "only dictate is held");
+        assert!(warnings.iter().any(|w| w.contains("only dictate")), "{warnings:?}");
+        assert!(chord("Alt").is_none(), "one modifier is too easy to hit");
+        assert!(chord("Super+D").is_none());
     }
 
     #[test]

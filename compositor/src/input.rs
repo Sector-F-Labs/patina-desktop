@@ -59,8 +59,8 @@ pub enum KeyAction {
     Lock,
     /// Take a screenshot (Super+Shift+3 or 4, Print).
     Screenshot(crate::screenshot::Shot),
-    /// Dictate while the key is held (Alt+Space, ADR-0072): the bus is
-    /// told when it goes down and up, and patina-dictate listens.
+    /// Dictate while the key is held (Ctrl+Super+Alt, ADR-0072): the bus
+    /// is told when it goes down and up, and patina-dictate listens.
     Dictate,
     /// A Super key sent on to the focused window as Ctrl (ADR-0067):
     /// nothing more to do.
@@ -187,7 +187,8 @@ impl State {
         // between) does what `[keys]` gives "Super", the launcher by default;
         // any other key or a click cancels it.
         let is_super = sym == keysyms::KEY_Super_L || sym == keysyms::KEY_Super_R;
-        // Dictation ends when its key comes up, whatever else is down.
+        // Dictation ends when its key comes up, whatever else is down; held
+        // with modifiers alone, when any key does.
         if !pressed {
             self.dictate_key_released(code);
         }
@@ -201,6 +202,19 @@ impl State {
             && action.is_none()
         {
             action = self.keys.tap().cloned();
+        }
+        // Modifiers alone held for dictation (ADR-0072): the last of them
+        // down starts it, and letting go of Super then isn't a tap. They
+        // still reach the window, as modifiers.
+        if pressed
+            && action.is_none()
+            && smithay::input::keyboard::Keysym::new(sym).is_modifier_key()
+            && !self.locked()
+            && self.fullscreen_on_top().is_none()
+            && self.keys.chord(&keyboard.modifier_state()) == Some(KeyAction::Dictate)
+        {
+            self.super_tap = false;
+            self.dictate_chord_pressed();
         }
         match action {
             Some(KeyAction::NextLayout) => {

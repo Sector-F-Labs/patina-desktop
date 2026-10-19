@@ -1,14 +1,14 @@
 # patina-dictate
 
 Speech to text on the machine, with Whisper through whisper.cpp (ADR-0070). Dictation on the
-desktop: hold Alt+Space, speak, let go, and what was said is typed into the focused window
+desktop: hold Ctrl+Super+Alt, speak, let go, and what was said is typed into the focused window
 (ADR-0072). As a command, it records from the microphone until Enter, or the end of its input,
 and prints what was said; or it transcribes a WAV file.
 
 ## How it fits in
 
 - **Run by the compositor** as `patina-dictate --daemon`, kept running like the tiler. The
-  compositor's `dictate` key (`[keys]`, Alt+Space) signals `DictationStarted` and
+  compositor's `dictate` key (`[keys]`, Ctrl+Super+Alt) signals `DictationStarted` and
   `DictationStopped` on `com.sectorflabs.Patina.Input`; this records between them and calls
   `Commit` there, which types the text into the focused window through the clipboard
   (ADR-0071).

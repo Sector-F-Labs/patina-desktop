@@ -125,7 +125,7 @@ Save a screenshot of the desktop in
 Save a screenshot of the focused window.
 .It Ctrl+Space
 Switch to the next keyboard layout, as on a Mac.
-.It Alt+Space
+.It Ctrl+Super+Alt
 Held, dictate: what's said while it's down is typed into the focused
 window when it comes up, by
 .Xr patina-dictate 1 .
@@ -293,7 +293,9 @@ or [] takes its keys away, and a Super key no action has goes to the app as
 Ctrl.
 The actions are
 .Ic launcher , next_layout , next_tab , previous_tab , quit_app , lock ,
-.Ic reload , screenshot , screenshot_window , dictate ,
+.Ic reload , screenshot , screenshot_window , dictate
+(which may be modifiers alone, held, as
+.Dq Ctrl+Super+Alt ) ,
 .Ic snap_ Ns Ar side
 and
 .Ic grow_ Ns Ar side

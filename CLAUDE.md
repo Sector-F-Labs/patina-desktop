@@ -146,7 +146,7 @@ puts them in `$(PREFIX)/share/man`.
   Shut Down through logind or ConsoleKit2, all in `system/src/session.rs`.
 - `dictate/`: patina-dictate (ADR-0070, ADR-0072), speech to text with whisper.cpp (`whisper-rs`).
   `--daemon` (`daemon.rs`), kept running by the compositor: records while the `dictate` key
-  (Alt+Space) is held, between the `DictationStarted`/`DictationStopped` signals, and calls
+  (Ctrl+Super+Alt, modifiers alone: `Keys::chord`) is held, between the `DictationStarted`/`DictationStopped` signals, and calls
   Commit. Without it, a command that records until Enter and prints the text. `capture.rs` is
   cpal on Linux, `/dev/dsp` on FreeBSD; `transcribe.rs` drops segments Whisper calls no speech.
   Models in `$XDG_DATA_HOME/patina-dictate/models`; `--features cuda` for the GPU.

@@ -90,8 +90,8 @@ impl Served {
 #[derive(Default)]
 pub struct Typing {
     service: Option<dbus::Service>,
-    /// The dictate key's code while it's down.
-    dictate_key: Option<u32>,
+    /// How dictation is being held, while it is.
+    dictating: Option<Held>,
     /// Since when a paste has waited for modifiers to be let go.
     waiting: Option<Instant>,
     /// The types an app's clipboard offers, as it last said.
@@ -105,6 +105,14 @@ pub struct Typing {
     /// text, as a hand would: some apps (Teleprinter) look at them when
     /// the paste arrives, not when V went down.
     held: Vec<Keycode>,
+}
+
+/// What holds dictation: a key with its modifiers (by the key's code), or
+/// modifiers alone.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Held {
+    Key(u32),
+    Chord,
 }
 
 #[derive(Default)]
@@ -141,16 +149,31 @@ impl State {
     /// The dictate key went down: dictation starts, unless it has (a key
     /// repeating).
     pub fn dictate_key_pressed(&mut self, code: u32) {
-        if self.typing.dictate_key.is_none() {
-            self.typing.dictate_key = Some(code);
+        self.start_dictation(Held::Key(code));
+    }
+
+    /// The dictate chord's modifiers are all down.
+    pub fn dictate_chord_pressed(&mut self) {
+        self.start_dictation(Held::Chord);
+    }
+
+    fn start_dictation(&mut self, held: Held) {
+        if self.typing.dictating.is_none() {
+            self.typing.dictating = Some(held);
             self.announce_dictation(true);
         }
     }
 
-    /// A key came up: if it's the dictate key, dictation stops.
+    /// A key came up: dictation stops if it was the dictate key, or any key
+    /// of the chord holding it.
     pub fn dictate_key_released(&mut self, code: u32) {
-        if self.typing.dictate_key == Some(code) {
-            self.typing.dictate_key = None;
+        let stops = match self.typing.dictating {
+            Some(Held::Key(key)) => key == code,
+            Some(Held::Chord) => true,
+            None => false,
+        };
+        if stops {
+            self.typing.dictating = None;
             self.announce_dictation(false);
         }
     }

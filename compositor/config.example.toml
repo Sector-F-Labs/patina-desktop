@@ -122,7 +122,7 @@
 # action set here replaces its defaults, the others keep theirs; "" or []
 # takes its keys away, and a Super key nothing has goes to the app as Ctrl
 # (Super+L is Ctrl+L). Keys are written as for [bindings]; "Super" alone is
-# Super tapped on its own. Ctrl+Alt+Backspace, Ctrl+Alt+Shift+Backspace, the
+# Super tapped on its own, and dictate may be modifiers alone, held. Ctrl+Alt+Backspace, Ctrl+Alt+Shift+Backspace, the
 # consoles and the media keys are fixed.
 # launcher = ["Super", "Super+Space"]
 # next_layout = "Ctrl+Space"
@@ -133,7 +133,8 @@
 # reload = "Super+Shift+R"
 # screenshot = ["Super+Shift+3", "Print"]
 # screenshot_window = "Super+Shift+4"
-# dictate = "Alt+Space"           # held while speaking (patina-dictate)
+# dictate = "Ctrl+Super+Alt"      # held while speaking; modifiers alone, or a key
+#                                 # with modifiers ("Alt+Space")
 # snap_up = ["Super+Up", "Ctrl+Super+K"]
 # snap_down = ["Super+Down", "Ctrl+Super+J"]
 # snap_left = ["Super+Left", "Ctrl+Super+H"]
