@@ -56,8 +56,10 @@ this workspace is a Wayland client of it.
   `patina-bar` and `patina-tiler`, then any commands given on its command line. Its own keys run
   `patina-launcher`, `patina-menu --at X,Y`, `patina-lock` and `patina-volume
   --flash`/`--brightness` (all configurable). Clients get `WAYLAND_DISPLAY`, `DISPLAY`
-  (Xwayland's), `XDG_CURRENT_DESKTOP=Patina`, and a `PATH` with the compositor's own folder
-  first, so the pieces built beside it are found before installed copies (`clients.rs`).
+  (Xwayland's), `XDG_CURRENT_DESKTOP=Patina`, a `PATH` with the compositor's own folder
+  first, so the pieces built beside it are found before installed copies (`clients.rs`), and
+  `TERMINAL=teleprinter` where it's installed and `TERMINAL` isn't set already, so Files' "Open
+  Terminal Here" and the launcher's terminal apps open in Teleprinter.
 - **It keeps what it starts** (`processes.rs`, ADR-0045). The wallpaper, the bar and the tiler are
   started again when they exit, until one exits five times in thirty seconds. Every child's output is
   kept (its last 500 lines) and copied to the compositor's stderr with the child's name in front.

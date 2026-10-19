@@ -27,13 +27,30 @@ fn client_path() -> OsString {
     std::env::join_paths(dirs).unwrap_or_default()
 }
 
+/// The session's terminal, for the apps that open one (`$TERMINAL`, which
+/// patina-apps reads for Files and the launcher): Teleprinter where it's on
+/// `path`, unless the user set their own; else none, and they fall back to
+/// foot.
+fn terminal(path: &OsStr, own: Option<OsString>) -> Option<&'static str> {
+    if own.is_some_and(|t| !t.is_empty()) {
+        return None;
+    }
+    std::env::split_paths(path)
+        .any(|d| d.join("teleprinter").is_file())
+        .then_some("teleprinter")
+}
+
 /// `command`, through sh(1), set up as a client of the compositor whose
 /// socket is `socket`.
 pub fn command(socket: &OsStr, command: &str) -> Command {
+    let path = client_path();
     let mut c = Command::new("sh");
+    if let Some(terminal) = terminal(&path, std::env::var_os("TERMINAL")) {
+        c.env("TERMINAL", terminal);
+    }
     c.arg("-c")
         .arg(command)
-        .env("PATH", client_path())
+        .env("PATH", path)
         .env("WAYLAND_DISPLAY", socket)
         .envs(DESKTOP_ENV)
         .env_remove("WAYLAND_SOCKET")
@@ -62,5 +79,23 @@ impl crate::state::State {
     /// exits: the wallpaper and the bar.
     pub fn keep_client(&self, command_line: &str) {
         crate::processes::spawn(&self.socket_name, command_line, true);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn teleprinter_is_the_terminal_unless_the_user_chose_one() {
+        let dir = std::env::temp_dir().join(format!("patina-terminal-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = std::env::join_paths([&dir]).unwrap();
+        assert_eq!(terminal(&path, None), None, "not installed");
+        std::fs::write(dir.join("teleprinter"), "").unwrap();
+        assert_eq!(terminal(&path, None), Some("teleprinter"));
+        assert_eq!(terminal(&path, Some("".into())), Some("teleprinter"));
+        assert_eq!(terminal(&path, Some("kitty".into())), None, "theirs stays");
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

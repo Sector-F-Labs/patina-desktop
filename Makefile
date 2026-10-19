@@ -52,6 +52,10 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 BINARIES := patina-bar patina-compositor patina-lock patina-menu patina-night-light patina-power patina-raise patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
 # The launcher lives in its own repository (ADR-0037); install builds it from there.
 LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
+# The session's terminal, which deploy installs too: the checkout beside this
+# one, as it is, else GitHub's.
+TELEPRINTER ?= $(abspath ../teleprinter)
+TELEPRINTER_REPO := https://github.com/Sector-F-Labs/teleprinter
 
 install: stage ## Install the binaries into $(PREFIX)/bin, their man pages into $(MANDIR), Settings' launcher entry and the session's default apps
 	-update-desktop-database -q $(APPSDIR)
@@ -81,12 +85,15 @@ endif
 endif
 DEPLOY_DIR := target/deploy
 
-deploy: build ## Build here and install on another machine over ssh: make deploy <host>
+deploy: build ## Build here and install on another machine over ssh, Teleprinter too: make deploy <host>
 	@test -n "$(HOST)" || { echo "usage: make deploy <host>, an ssh host with rsync"; exit 1; }
 	rm -rf $(DEPLOY_DIR)
 	@# Its PREFIX in its home, which may not be where this one's is.
 	remote=$$(ssh $(HOST) 'printf %s "$$HOME"') && test -n "$$remote" && \
 	$(MAKE) --no-print-directory stage DESTDIR=$(CURDIR)/$(DEPLOY_DIR) PREFIX="$$remote/.local" && \
+	src="$(TELEPRINTER)" && { test -f "$$src/Makefile" || { src=$(CURDIR)/target/teleprinter && \
+		rm -rf "$$src" && git clone -q --depth 1 $(TELEPRINTER_REPO) "$$src"; }; } && \
+	$(MAKE) --no-print-directory -C "$$src" install DESTDIR=$(CURDIR)/$(DEPLOY_DIR) PREFIX="$$remote/.local" && \
 	rsync -a --exclude='.crates*' $(DEPLOY_DIR)$$remote/ $(HOST):$$remote/
 	@# Copied files replace the old by rename, so what's running keeps going.
 	-ssh $(HOST) 'update-desktop-database -q ~/.local/share/applications; \

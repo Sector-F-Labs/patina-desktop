@@ -293,9 +293,13 @@ Its clients get
 .Ev DISPLAY
 for Xwayland,
 .Ev XDG_CURRENT_DESKTOP Ns =Patina ,
-and a
+a
 .Ev PATH
-with the compositor's own folder first.
+with the compositor's own folder first, and
+.Ev TERMINAL Ns =teleprinter
+where it's installed, unless
+.Ev TERMINAL
+is set already: the terminal apps open.
 .Sh SESSION BUS
 .Bl -tag -width Ds
 .It com.sectorflabs.Patina.Processes
