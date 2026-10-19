@@ -154,7 +154,8 @@ puts them in `$(PREFIX)/share/man`.
   `~/.config/patina-dictate/config.toml` (`config.rs`), which Settings' Dictation page writes.
   Without it, a command that records until Enter and prints the text. `capture.rs` is
   cpal on Linux, `/dev/dsp` on FreeBSD; `transcribe.rs` drops segments Whisper calls no speech.
-  Models in `$XDG_DATA_HOME/patina-dictate/models`; `--features cuda` for the GPU.
+  Models in `$XDG_DATA_HOME/patina-dictate/models`. On the GPU through Vulkan by default (ADR-0074; CPU
+  without a driver), `--features cuda` adds CUDA; `-v` says which device.
 - `compositor/src/typing.rs`: text typed into the focused window (ADR-0071), served as
   `com.sectorflabs.Patina.Input` `Commit(text)` (`typing/dbus.rs`; `dbus-run-session -- cargo
   test -p patina-compositor typing -- --ignored`). Through the clipboard: the app's clipboard is

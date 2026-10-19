@@ -5,7 +5,8 @@ Date: 2026-10-19
 ## Status
 
 Accepted. The plan comes from the user's notes (Projects/Patina dictation); they chose to start
-with the transcriber.
+with the transcriber. The CPU as the default is superseded by
+[ADR-0074](0074-whisper-runs-on-the-gpu-through-vulkan.md): the GPU, through Vulkan.
 
 ## Context
 

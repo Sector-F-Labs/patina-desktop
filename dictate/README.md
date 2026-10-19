@@ -35,7 +35,7 @@ curl -Lo ~/.local/share/patina-dictate/models/ggml-base.en.bin \
     https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
 cargo run --release -p patina-dictate            # speak, then Enter
 cargo run --release -p patina-dictate -- -v talk.wav
-cargo run --release -p patina-dictate --features cuda -- -m medium
+cargo run --release -p patina-dictate -- -v -m small.en    # -v says which GPU, if any
 # the overlay alone, with made-up levels (on a layer-shell compositor)
 (for i in $(seq 60); do echo 0.0$((RANDOM % 9)); sleep 0.03; done; echo transcribing; sleep 1) \
     | cargo run --release -p patina-dictate -- --overlay bottom
@@ -44,4 +44,6 @@ PATINA_DICTATE_PREVIEW=/tmp cargo test -p patina-dictate preview -- --ignored
 ```
 
 whisper.cpp is built with cmake, so the build needs cmake, a C++ compiler and libclang; and on
-Linux ALSA's headers (`libasound2-dev`) for cpal. `--features cuda` needs the CUDA toolkit.
+Linux ALSA's headers (`libasound2-dev`) for cpal. It runs on the GPU through Vulkan by default
+(ADR-0074), so it needs `glslc` and the Vulkan headers too; without a Vulkan driver it runs on
+the CPU, as fast as a build without Vulkan. `--features cuda` adds CUDA, with the CUDA toolkit.

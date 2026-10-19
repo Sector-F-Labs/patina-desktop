@@ -7,10 +7,14 @@ description = "Speech to text on the machine, with Whisper: for dictating into a
 repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [features]
-# Whisper on an NVIDIA GPU; needs the CUDA toolkit to build. The CPU otherwise.
-cuda = ["whisper-rs/cuda"]
-# Whisper through Vulkan, where FreeBSD has a GPU driver.
+# Whisper on the GPU through Vulkan (ADR-0074): Intel, AMD and NVIDIA alike,
+# about three times faster than the CPU on nifl's Iris Xe, and as fast as a
+# CPU-only build where there's no Vulkan driver, which it falls back to.
+# Needs glslc and the Vulkan headers to build.
+default = ["vulkan"]
 vulkan = ["whisper-rs/vulkan"]
+# Whisper through CUDA on an NVIDIA GPU; needs the CUDA toolkit to build.
+cuda = ["whisper-rs/cuda"]
 
 [dependencies]
 egui = "0.35"

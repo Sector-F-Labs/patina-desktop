@@ -28,6 +28,8 @@ Given
 it prints what's said in that instead.
 Everything is transcribed on the machine, by Whisper through whisper.cpp;
 nothing is sent anywhere.
+It runs on the GPU through Vulkan where there's a driver for it (Intel,
+AMD or NVIDIA), and on the CPU otherwise.
 .Pp
 What Whisper takes to be no speech is left out, so silence prints an empty
 line.
@@ -87,7 +89,7 @@ English for an English-only model
 else
 .Ql auto .
 .It Fl v , -verbose
-whisper.cpp's log, the sound's length, rate and loudness, and how long
+whisper.cpp's log, with the GPU it found, if any, the sound's length, rate and loudness, and how long
 each step took, on standard error.
 .It Fl h , -help
 Print usage and exit.
