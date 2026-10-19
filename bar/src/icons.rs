@@ -10,9 +10,6 @@ use egui::ColorImage;
 
 use patina_system::apps::{Entry, entries, entry_for};
 
-/// The theme searched first, as the launcher's; then hicolor and pixmaps.
-const THEME: &str = "Adwaita";
-
 /// The icon `app_id`'s entry names (see `apps::entry_for`).
 fn icon_name<'a>(entries: &'a [Entry], app_id: &str) -> Option<&'a str> {
     entry_for(entries, app_id)?.icon.as_deref()
@@ -31,7 +28,9 @@ fn load(name: &str, size: u32) -> Option<ColorImage> {
         let source = (size * 2).max(32).min(u16::MAX as u32) as u16;
         freedesktop_icons::lookup(name)
             .with_size(source)
-            .with_theme(THEME)
+            // The theme chosen in Settings, as the launcher's and Files';
+            // then hicolor and pixmaps.
+            .with_theme(&patina_apps::icon::theme())
             .with_cache()
             .find()
     }?;
