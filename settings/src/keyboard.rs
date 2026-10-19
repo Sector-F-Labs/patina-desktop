@@ -104,22 +104,24 @@ impl KeyboardPage {
         ui.add_space(4.0);
         let from_system = self.settings.layouts.is_empty();
         let shown: Vec<(String, String)> = if from_system {
-            // What the compositor took from the system, else the system's
-            // file itself.
+            // The system's file, all of it, else what the compositor took
+            // from it.
             match self.served() {
-                Some(s) => s
+                Some(s) if self.system.is_empty() => s
                     .layouts
                     .iter()
                     .map(|l| (l.code.clone(), l.variant.clone()))
                     .collect(),
-                None => self.system.clone(),
+                _ => self.system.clone(),
             }
         } else {
             self.settings.layouts.clone()
         };
-        // Which of them is in use, when the compositor has these very ones.
+        // Which of them is in use, when the compositor has these very ones
+        // (the first four).
+        let used = shown.len().min(keyboard::MOST_LAYOUTS);
         let in_use = self.served().and_then(|s| {
-            let same = s.layouts.len() == shown.len()
+            let same = s.layouts.len() == used
                 && s.layouts
                     .iter()
                     .zip(&shown)
@@ -143,16 +145,23 @@ impl KeyboardPage {
                     } else {
                         keyboard::plain_label(code)
                     };
-                    ui.label(RichText::new(label).strong());
-                    ui.label(self.name(code, variant));
-                    if in_use == Some(i) {
-                        ui.label(RichText::new("In use").weak());
-                    } else if in_use.is_some() {
-                        if ui.small_button("Use").clicked() {
-                            switch = Some(i);
-                        }
+                    let name = self.name(code, variant);
+                    if i >= keyboard::MOST_LAYOUTS {
+                        ui.label(RichText::new(label).weak());
+                        ui.label(RichText::new(name).weak());
+                        ui.label(RichText::new("Not used").weak());
                     } else {
-                        ui.label("");
+                        ui.label(RichText::new(label).strong());
+                        ui.label(name);
+                        if in_use == Some(i) {
+                            ui.label(RichText::new("In use").weak());
+                        } else if in_use.is_some() {
+                            if ui.small_button("Use").clicked() {
+                                switch = Some(i);
+                            }
+                        } else {
+                            ui.label("");
+                        }
                     }
                     ui.horizontal(|ui| {
                         let mut list = shown.clone();
@@ -181,6 +190,14 @@ impl KeyboardPage {
             });
         if count == 0 && self.status.is_some() {
             ui.label(RichText::new("US English, xkb's default.").weak());
+        }
+        if count > keyboard::MOST_LAYOUTS {
+            ui.add_space(4.0);
+            ui.colored_label(
+                ui.visuals().warn_fg_color,
+                "Only the first four are used: a keyboard holds four layouts at most. Move the \
+                 ones you want up, or remove the others.",
+            );
         }
         ui.add_space(6.0);
         if let Some(added) = self.add_menu(ui, &shown) {
@@ -224,6 +241,13 @@ impl KeyboardPage {
     /// typed; the one clicked, if any.
     fn add_menu(&mut self, ui: &mut Ui, shown: &[(String, String)]) -> Option<(String, String)> {
         let mut added = None;
+        if shown.len() >= keyboard::MOST_LAYOUTS {
+            ui.add_enabled(false, egui::Button::new("Add a layout…"))
+                .on_disabled_hover_text(
+                    "A keyboard holds four layouts at most: remove one to add another.",
+                );
+            return None;
+        }
         let Some(catalog) = self.catalog else {
             ui.add_enabled(false, egui::Button::new("Add a layout…"));
             return None;

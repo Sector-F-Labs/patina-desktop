@@ -7,6 +7,10 @@ use std::path::{Path, PathBuf};
 
 use zbus::blocking::{Connection, Proxy};
 
+/// The most layouts the compositor uses: xkb's rules put no more than four
+/// into a keymap, and Wayland's keymap format holds no more (ADR-0068).
+pub const MOST_LAYOUTS: usize = 4;
+
 const NAME: &str = "com.sectorflabs.Patina.Keyboard";
 const PATH: &str = "/com/sectorflabs/Patina/Keyboard";
 

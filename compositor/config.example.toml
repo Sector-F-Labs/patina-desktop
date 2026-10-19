@@ -19,7 +19,8 @@
 # desktop_menu = "patina-menu"
 
 [keyboard]
-# Layouts to switch between with Ctrl+Space. Unset, the system's from
+# Layouts to switch between with Ctrl+Space, four at most (xkb leaves out
+# any after the fourth). Unset, the system's from
 # /etc/default/keyboard.
 # layout = "us,se"
 # variant = ""

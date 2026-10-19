@@ -114,11 +114,22 @@ impl State {
     /// Tells the bus about a new keymap: at start-up, and after `[keyboard]`
     /// changed.
     pub fn keymap_changed(&mut self) {
+        let settings = KeyboardSettings::load(&self.config.keyboard);
+        let unused: Vec<&str> = settings
+            .layout
+            .split(',')
+            .skip(patina_system::keyboard::MOST_LAYOUTS)
+            .collect();
+        if !unused.is_empty() {
+            eprintln!(
+                "patina-compositor: a keyboard holds four layouts at most; not using {}",
+                unused.join(", ")
+            );
+        }
         if self.layouts.service.is_none() {
             return;
         }
         let (names, current) = self.xkb_layouts();
-        let settings = KeyboardSettings::load(&self.config.keyboard);
         self.tell_layouts(dbus::Status {
             layouts: named(&settings, names),
             current,

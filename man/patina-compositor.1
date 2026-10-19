@@ -183,7 +183,8 @@ and
 as in XKB, from
 .Pa /etc/default/keyboard
 when unset, the layouts as a list Ctrl+Space steps through,
-.Dq us,se ;
+.Dq us,se ,
+four at most: XKB leaves out any after the fourth, which the log names;
 .Ic repeat_delay
 (milliseconds) and
 .Ic repeat_rate

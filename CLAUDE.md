@@ -77,7 +77,8 @@ puts them in `$(PREFIX)/share/man`.
   `keyboard/dbus.rs` (ADR-0068), `com.sectorflabs.Patina.Keyboard`: the layouts and the one in use
   (`State::layout_maybe_changed` after each key), and SetCurrent. Client and xkb's catalogue:
   `system/src/keyboard.rs`; the bar's tray shows it (`tray::layout`, `menu::layout_args`) and
-  Settings' Keyboard page edits `[keyboard]`. Super+Space opens the launcher, Ctrl+Space switches.
+  Settings' Keyboard page edits `[keyboard]`, four layouts at most (`MOST_LAYOUTS`: xkb drops the
+  rest silently). Super+Space opens the launcher, Ctrl+Space switches.
   `dbus-run-session -- cargo test -p patina-compositor keyboard -- --ignored` tests the service.
 - `compositor/src/xwayland.rs`: X11 apps (ADR-0040): Xwayland spawned at start-up, `DISPLAY` for
   clients, and the `XwmHandler` that maps, places, moves and resizes X windows as `Window`s in

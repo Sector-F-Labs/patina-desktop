@@ -47,6 +47,14 @@ Considered and ruled out:
   The page writes `layout` and `variant` into `[keyboard]` with `toml_edit`. While the config has
   none, it shows the system's, and the first change copies them in. Key repeat delay and rate are
   on the same page.
+- **Four layouts at most.** xkb's rules compile no more than four layouts into a keymap, and
+  Wayland's keymap format holds four; xkb drops the rest without an error, which is why the
+  user's fifth and sixth system layouts had never worked. Settings stops adding at four, shows
+  any past the fourth greyed as "Not used" with a line saying why, and the compositor logs the
+  layouts it leaves out. Swapping keymaps to reach a fifth, as GNOME does, was written and
+  dropped: each swap turns Caps Lock and Num Lock off, sends every app a new keymap (which some
+  Wine games handle badly), and leaves xkb's own switching options short of the extra layouts.
+  The user chose the cap.
 - **Key repeat alone no longer rebuilds the keymap.** Setting a keymap goes back to the first
   layout, so the compositor only does it when the xkb part of `[keyboard]` changes
   (`Keyboard::same_keymap`).
@@ -67,5 +75,7 @@ is `system/src/keyboard.rs`.
   goes back to it.
 - The catalogue only knows layouts listed in an `evdev.xml`. A custom layout with only a symbols
   file shows by its code, and can't be added from the page.
+- Four layouts is the most. Someone who really uses five would need the keymap swapping
+  described above, with its costs.
 - Another interface on the session bus to keep stable for the bar and Settings. Revisit if
   Wayland gains a protocol for the active layout.

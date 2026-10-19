@@ -825,12 +825,7 @@ mod bus_tests {
         fn about_to_show(&self, _id: i32) -> bool {
             false
         }
-        fn get_layout(
-            &self,
-            _parent: i32,
-            _depth: i32,
-            _props: Vec<String>,
-        ) -> (u32, Layout) {
+        fn get_layout(&self, _parent: i32, _depth: i32, _props: Vec<String>) -> (u32, Layout) {
             let entry = |id: i32, label: &str| -> OwnedValue {
                 let props: HashMap<String, OwnedValue> = [(
                     "label".to_string(),
