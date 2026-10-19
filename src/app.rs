@@ -612,9 +612,6 @@ impl Reader {
         {
             self.tab_action(action);
         }
-        if !self.single && ctx.input_mut(|i| i.consume_key(Modifiers::COMMAND, Key::T)) {
-            self.tab_action(TabAction::New);
-        }
     }
 
     // ---- Drawing ----
