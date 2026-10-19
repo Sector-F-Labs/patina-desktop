@@ -41,12 +41,12 @@ before choosing it at the login screen.
   without logging out, closing every window (as the login session, under patina-session). **Super** on its own opens the launcher,
   **Super+1** to **9** bring forward the window in that tab of the bar,
   **Alt+Tab** and **Alt+Shift+Tab** step to the next and previous tab (the bar is the switcher), **Super+Up/Down** (or
-  **K/J**) maximise and restore the focused window, **Super+Left/Right** (or **H/L**) fill the left
-  or right half, **Super+Shift** with an arrow grows the focused window that way by a
-  tenth of the screen, **Super+Shift+K/J** grow and shrink it, and **Super+Shift+L/H** widen and
-  narrow it, around its centre, **Ctrl+Super+Q** (as Ctrl+Cmd+Q on a Mac) or **Super+Escape** lock
-  the screen, **Super+W** closes the focused window, **Super+Q** quits its app (closes all its windows), **Super+Space** switches
-  keyboard layout, **Super+Shift+R** reloads the config file, and, as on a Mac,
+  **Ctrl+Super+K/J**) maximise and restore the focused window, **Super+Left/Right** (or
+  **Ctrl+Super+H/L**) fill the left or right half, **Super+Shift** with an arrow grows the focused
+  window that way by a tenth of the screen, **Ctrl+Super+Shift+K/J** grow and shrink it, and
+  **Ctrl+Super+Shift+L/H** widen and narrow it, around its centre, **Ctrl+Super+Q** (as Ctrl+Cmd+Q on a Mac) or **Super+Escape** lock
+  the screen, **Super+W** closes the focused window, **Super+Q** quits its app (closes all its windows), **Super+Space** opens the
+  launcher, **Ctrl+Space** switches keyboard layout, **Super+Shift+R** reloads the config file, and, as on a Mac,
   **Super+Shift+3** (or **Print**) saves a screenshot of the desktop and **Super+Shift+4** one of
   the focused window, in ~/Pictures/Screenshots (ADR-0034). The
   brightness and volume keys work, and the volume menu fades in to show the level (or the

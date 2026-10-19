@@ -36,7 +36,9 @@ Super+T reaches a Patina app as a plain T, and types a "t". Considered and ruled
   with `KeyboardHandle::set_modifier_state`; the real modifiers are sent again when it's released.
 - **The compositor keeps its own Super keys,** which win: Q, Escape, Space, 1 to 9, the arrows and
   H, J, K, L (with or without Shift), Shift+3 and 4, Shift+R, Ctrl+Super+Q, and the user's
-  `[bindings]`.
+  `[bindings]`. *Amended 2026-10-19:* the vim keys H, J, K and L tile with Ctrl+Super (and
+  resize with Ctrl+Super+Shift), so Super+H, J, K and L go on as Ctrl keys too, Super+L to a
+  location bar as Cmd+L on a Mac.
 - **A terminal is a window whose desktop entry says so:** `Categories` holds `TerminalEmulator`,
   found from its app id (an X window's class) with patina-system's `apps::entry_for`, which gains
   the field. Teleprinter's desktop entry gets the category.

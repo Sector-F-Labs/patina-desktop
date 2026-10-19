@@ -41,16 +41,16 @@ pub enum KeyAction {
     Window(usize),
     /// A [bindings] command from the config.
     Run(String),
-    /// Maximise, restore or tile the focused window (Super with an arrow
-    /// or a vim key).
+    /// Maximise, restore or tile the focused window (Super with an arrow,
+    /// or Ctrl+Super with a vim key).
     Snap(crate::maximize::Snap),
     /// Activate the next tab of the bar (Alt+Tab), or the one before
     /// (Alt+Shift+Tab).
     CycleTabs { forward: bool },
     /// Grow the focused window in a direction (Super+Shift with an arrow).
     Grow(crate::maximize::Snap),
-    /// Resize the focused window around its centre (Super+Shift+K/J grow
-    /// and shrink it, L/H widen and narrow it).
+    /// Resize the focused window around its centre (Ctrl+Super+Shift+K/J
+    /// grow and shrink it, L/H widen and narrow it).
     Resize(crate::maximize::Resize),
     /// Ask every window of the focused app to close (Super+Q): quitting it,
     /// politely, as Cmd+Q does on macOS.
@@ -143,19 +143,34 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     {
         return Some(KeyAction::Lock);
     }
-    if modifiers.logo && modifiers.shift && !modifiers.ctrl && !modifiers.alt {
-        use crate::maximize::Resize;
-        use crate::maximize::Snap;
+    // The vim keys tile with Ctrl+Super, as the arrows do with Super alone,
+    // so Super+H, J, K and L go to the app as Ctrl keys (ADR-0067):
+    // Super+L the location bar, as Cmd+L does on a Mac.
+    if modifiers.logo && modifiers.ctrl && !modifiers.alt {
+        use crate::maximize::{Resize, Snap};
         // With Shift held, the vim keys come as capitals.
+        let action = match (modifiers.shift, sym) {
+            (false, keysyms::KEY_k) => Some(KeyAction::Snap(Snap::Up)),
+            (false, keysyms::KEY_j) => Some(KeyAction::Snap(Snap::Down)),
+            (false, keysyms::KEY_h) => Some(KeyAction::Snap(Snap::Left)),
+            (false, keysyms::KEY_l) => Some(KeyAction::Snap(Snap::Right)),
+            (true, keysyms::KEY_K) => Some(KeyAction::Resize(Resize::Grow)),
+            (true, keysyms::KEY_J) => Some(KeyAction::Resize(Resize::Shrink)),
+            (true, keysyms::KEY_L) => Some(KeyAction::Resize(Resize::Wider)),
+            (true, keysyms::KEY_H) => Some(KeyAction::Resize(Resize::Narrower)),
+            _ => None,
+        };
+        if action.is_some() {
+            return action;
+        }
+    }
+    if modifiers.logo && modifiers.shift && !modifiers.ctrl && !modifiers.alt {
+        use crate::maximize::Snap;
         let action = match sym {
             keysyms::KEY_Up => Some(KeyAction::Grow(Snap::Up)),
             keysyms::KEY_Down => Some(KeyAction::Grow(Snap::Down)),
             keysyms::KEY_Left => Some(KeyAction::Grow(Snap::Left)),
             keysyms::KEY_Right => Some(KeyAction::Grow(Snap::Right)),
-            keysyms::KEY_K => Some(KeyAction::Resize(Resize::Grow)),
-            keysyms::KEY_J => Some(KeyAction::Resize(Resize::Shrink)),
-            keysyms::KEY_L => Some(KeyAction::Resize(Resize::Wider)),
-            keysyms::KEY_H => Some(KeyAction::Resize(Resize::Narrower)),
             _ => None,
         };
         if action.is_some() {
@@ -165,10 +180,10 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     if modifiers.logo && !modifiers.shift && !modifiers.ctrl && !modifiers.alt {
         use crate::maximize::Snap;
         let snap = match sym {
-            keysyms::KEY_Up | keysyms::KEY_k => Some(Snap::Up),
-            keysyms::KEY_Down | keysyms::KEY_j => Some(Snap::Down),
-            keysyms::KEY_Left | keysyms::KEY_h => Some(Snap::Left),
-            keysyms::KEY_Right | keysyms::KEY_l => Some(Snap::Right),
+            keysyms::KEY_Up => Some(Snap::Up),
+            keysyms::KEY_Down => Some(Snap::Down),
+            keysyms::KEY_Left => Some(Snap::Left),
+            keysyms::KEY_Right => Some(Snap::Right),
             _ => None,
         };
         if let Some(snap) = snap {
@@ -584,23 +599,27 @@ mod tests {
     }
 
     #[test]
-    fn super_with_arrows_or_vim_keys_snaps() {
+    fn super_with_arrows_or_ctrl_super_with_vim_keys_snaps() {
         use crate::maximize::Snap;
         let logo = ModifiersState {
             logo: true,
             ..Default::default()
         };
-        for (sym, snap) in [
-            (keysyms::KEY_Up, Snap::Up),
-            (keysyms::KEY_k, Snap::Up),
-            (keysyms::KEY_Down, Snap::Down),
-            (keysyms::KEY_j, Snap::Down),
-            (keysyms::KEY_Left, Snap::Left),
-            (keysyms::KEY_h, Snap::Left),
-            (keysyms::KEY_Right, Snap::Right),
-            (keysyms::KEY_l, Snap::Right),
+        let ctrl_logo = ModifiersState {
+            logo: true,
+            ctrl: true,
+            ..Default::default()
+        };
+        for (arrow, vim, snap) in [
+            (keysyms::KEY_Up, keysyms::KEY_k, Snap::Up),
+            (keysyms::KEY_Down, keysyms::KEY_j, Snap::Down),
+            (keysyms::KEY_Left, keysyms::KEY_h, Snap::Left),
+            (keysyms::KEY_Right, keysyms::KEY_l, Snap::Right),
         ] {
-            assert_eq!(key_action(&logo, sym), Some(KeyAction::Snap(snap)));
+            assert_eq!(key_action(&logo, arrow), Some(KeyAction::Snap(snap)));
+            assert_eq!(key_action(&ctrl_logo, vim), Some(KeyAction::Snap(snap)));
+            // Super alone with a vim key is the app's, as Ctrl.
+            assert_eq!(key_action(&logo, vim), None);
         }
         assert_eq!(key_action(&mods(false, false), keysyms::KEY_Up), None);
     }
@@ -622,22 +641,22 @@ mod tests {
         );
         assert_eq!(key_action(&logo, keysyms::KEY_q), Some(KeyAction::QuitApp));
         assert_eq!(
-            key_action(&logo, keysyms::KEY_l),
-            Some(KeyAction::Snap(crate::maximize::Snap::Right))
-        );
-        assert_eq!(
             key_action(&logo, keysyms::KEY_Escape),
             Some(KeyAction::Lock)
         );
     }
 
     #[test]
-    fn super_shift_arrows_grow_and_vim_keys_resize() {
+    fn super_shift_arrows_grow_and_ctrl_super_shift_vim_keys_resize() {
         use crate::maximize::{Resize, Snap};
         let keys = ModifiersState {
             logo: true,
             shift: true,
             ..Default::default()
+        };
+        let ctrl_keys = ModifiersState {
+            ctrl: true,
+            ..keys
         };
         for (sym, toward) in [
             (keysyms::KEY_Up, Snap::Up),
@@ -653,7 +672,8 @@ mod tests {
             (keysyms::KEY_L, Resize::Wider),
             (keysyms::KEY_H, Resize::Narrower),
         ] {
-            assert_eq!(key_action(&keys, sym), Some(KeyAction::Resize(how)));
+            assert_eq!(key_action(&ctrl_keys, sym), Some(KeyAction::Resize(how)));
+            assert_eq!(key_action(&keys, sym), None, "the app's, as Ctrl+Shift");
         }
     }
 
