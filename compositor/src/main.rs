@@ -32,6 +32,7 @@ mod sync;
 mod tabs;
 mod tiling;
 mod toplevels;
+mod typing;
 mod udev;
 mod winit;
 mod xwayland;
@@ -147,6 +148,7 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     state.start_keyboard();
     state.start_idle();
     state.start_tiling(&event_loop.handle());
+    state.start_typing();
     // Nested too: the VM and `make run` are where the pieces are worked on.
     let _processes = processes::dbus::serve(&state.socket_name, &event_loop.handle())
         .inspect_err(|e| eprintln!("patina-compositor: the process list isn't on D-Bus: {e}"));

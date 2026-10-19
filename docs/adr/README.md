@@ -112,6 +112,7 @@ mechanics of adding one.
 | [0068](0068-keyboard-layouts-on-the-bus.md) | Keyboard layouts on the bus: the bar shows the one in use, Settings manages them | Accepted |
 | [0069](0069-the-desktops-keys-are-config.md) | The desktop's own keys are config, by action, applied without a restart | Accepted |
 | [0070](0070-dictation-with-whisper-on-the-machine.md) | Dictation with Whisper on the machine, the transcriber built first | Accepted |
+| [0071](0071-text-is-typed-through-the-clipboard.md) | Text is typed into the focused window through the clipboard, given back after | Accepted |
 
 ## Decision Relationship
 
@@ -166,6 +167,8 @@ flowchart TD
     S --> KEYS[0069: the desktop's keys are config]
     CMD --> KEYS
     KEYS --> DICT[0070: dictation with Whisper]
+    DICT --> TYPE[0071: typed through the clipboard]
+    CMD --> TYPE
 ```
 
 ## Revisit Triggers

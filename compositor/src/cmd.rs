@@ -112,7 +112,7 @@ impl State {
 
     /// Whether the focused window is a terminal, by its app id's desktop
     /// entry; read once per app id.
-    fn focused_is_terminal(&mut self) -> bool {
+    pub fn focused_is_terminal(&mut self) -> bool {
         let Some(window) = self.focused_window() else {
             return false;
         };

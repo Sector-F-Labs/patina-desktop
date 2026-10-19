@@ -7,9 +7,9 @@ any field, the compositor typing the text where the focus is.
 
 ## How it fits in
 
-- **Nothing runs it yet.** Next, the compositor gets a `com.sectorflabs.Patina.Input` service to
-  type text into the focused client, and keys that act on release; then it keeps this running,
-  as it does the tiler.
+- **Nothing runs it yet.** The compositor types text into the focused window with `Commit` on
+  `com.sectorflabs.Patina.Input` (ADR-0071). Next, keys that act on release, and this as a
+  daemon the compositor keeps running, as it does the tiler, calling Commit.
 - **On its own**, `patina-dictate | wl-copy` puts what you said on the clipboard.
 - **Models** are whisper.cpp's GGML files in `$XDG_DATA_HOME/patina-dictate/models`, as
   `ggml-NAME.bin`; base.en is the default. Download them from

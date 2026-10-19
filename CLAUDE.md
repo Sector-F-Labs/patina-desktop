@@ -147,8 +147,14 @@ puts them in `$(PREFIX)/share/man`.
 - `dictate/`: patina-dictate (ADR-0070), speech to text with whisper.cpp (`whisper-rs`): for now a
   command that records until Enter and prints the text. `capture.rs` is cpal on Linux, `/dev/dsp`
   on FreeBSD; `transcribe.rs` drops segments Whisper calls no speech. Models in
-  `$XDG_DATA_HOME/patina-dictate/models`; `--features cuda` for the GPU. Next: the compositor's
-  `com.sectorflabs.Patina.Input` `Commit(text)` and keys acting on release.
+  `$XDG_DATA_HOME/patina-dictate/models`; `--features cuda` for the GPU. Next: keys acting on
+  release, and the daemon calling Commit.
+- `compositor/src/typing.rs`: text typed into the focused window (ADR-0071), served as
+  `com.sectorflabs.Patina.Input` `Commit(text)` (`typing/dbus.rs`; `dbus-run-session -- cargo
+  test -p patina-compositor typing -- --ignored`). Through the clipboard: the app's clipboard is
+  read out first (`save_clipboard`), the text set as the compositor's selection (`Served`, the
+  `SelectionUserData`), Ctrl+V or Ctrl+Shift+V pressed through `KeyboardHandle::input` past the
+  compositor's keys, and the old clipboard given back after the window reads it. Wayland only.
 - `lock/`: patina-lock, the lock screen (ADR-0028): `Options::lock` makes the host draw on
   ext-session-lock surfaces and unlock when the shell finishes; `pam.rs` declares the PAM calls.
   The compositor's side is `compositor/src/lock.rs` (ADR-0025).

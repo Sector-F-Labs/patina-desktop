@@ -124,6 +124,8 @@ pub struct State {
     pub super_tap: bool,
     /// Super keys sent on as Ctrl (ADR-0067).
     pub cmd: crate::cmd::Cmd,
+    /// Text typed into the focused window for dictation (ADR-0071).
+    pub typing: crate::typing::Typing,
     /// A three-finger drag, holding the left button (ADR-0031).
     pub drag: crate::drag::Drag,
     /// The scale the backend would choose by itself: the panel's density on
@@ -270,6 +272,7 @@ impl State {
             lock_shown: Default::default(),
             super_tap: false,
             cmd: Default::default(),
+            typing: Default::default(),
             drag: Default::default(),
             auto_scale,
             _fractional_scale: smithay::wayland::fractional_scale::FractionalScaleManagerState::new::<
@@ -996,7 +999,31 @@ impl SeatHandler for State {
 }
 
 impl SelectionHandler for State {
-    type SelectionUserData = ();
+    /// What the compositor puts on the clipboard: typed text, or the
+    /// clipboard given back after it (ADR-0071).
+    type SelectionUserData = crate::typing::Served;
+
+    fn new_selection(
+        &mut self,
+        ty: smithay::wayland::selection::SelectionTarget,
+        source: Option<smithay::wayland::selection::SelectionSource>,
+        _seat: Seat<Self>,
+    ) {
+        if ty == smithay::wayland::selection::SelectionTarget::Clipboard {
+            self.clipboard_offered(source.map(|s| s.mime_types()).unwrap_or_default());
+        }
+    }
+
+    fn send_selection(
+        &mut self,
+        ty: smithay::wayland::selection::SelectionTarget,
+        mime_type: String,
+        fd: std::os::fd::OwnedFd,
+        _seat: Seat<Self>,
+        _served: &crate::typing::Served,
+    ) {
+        self.send_served(ty, &mime_type, fd);
+    }
 }
 
 impl DataDeviceHandler for State {

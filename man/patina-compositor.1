@@ -359,6 +359,12 @@ for the layout in
 .Xr patina-bar 1 Ns 's
 tray and
 .Xr patina-settings 1 .
+.It com.sectorflabs.Patina.Input
+Commit, which types a text into the focused window: through the
+clipboard, with Ctrl+V, or Ctrl+Shift+V in a terminal; the clipboard is
+given back as it was after.
+Wayland windows only; for
+.Xr patina-dictate 1 .
 .It org.freedesktop.ScreenSaver
 Inhibit and UnInhibit, which hold the screen on until let go of or until
 the caller leaves the bus; SimulateUserActivity, as if there were input;
@@ -395,6 +401,7 @@ Try it as a window on the current desktop, with a terminal:
 .Dl $ patina-compositor foot
 .Sh SEE ALSO
 .Xr patina-bar 1 ,
+.Xr patina-dictate 1 ,
 .Xr patina-session 1 ,
 .Xr patina-settings 1 ,
 .Xr patina-tiler 1 ,
