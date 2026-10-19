@@ -125,6 +125,10 @@ Save a screenshot of the desktop in
 Save a screenshot of the focused window.
 .It Ctrl+Space
 Switch to the next keyboard layout, as on a Mac.
+.It Alt+Space
+Held, dictate: what's said while it's down is typed into the focused
+window when it comes up, by
+.Xr patina-dictate 1 .
 .It Super+Shift+R
 Read the config file again.
 .It Super+ Ns Ar key
@@ -289,7 +293,7 @@ or [] takes its keys away, and a Super key no action has goes to the app as
 Ctrl.
 The actions are
 .Ic launcher , next_layout , next_tab , previous_tab , quit_app , lock ,
-.Ic reload , screenshot , screenshot_window ,
+.Ic reload , screenshot , screenshot_window , dictate ,
 .Ic snap_ Ns Ar side
 and
 .Ic grow_ Ns Ar side
@@ -361,10 +365,15 @@ tray and
 .Xr patina-settings 1 .
 .It com.sectorflabs.Patina.Input
 Commit, which types a text into the focused window: through the
-clipboard, with Ctrl+V, or Ctrl+Shift+V in a terminal; the clipboard is
-given back as it was after.
-Wayland windows only; for
-.Xr patina-dictate 1 .
+clipboard, with Ctrl+V, or Ctrl+Shift+V in a terminal, once modifiers
+held by hand are let go; the clipboard is given back as it was after.
+Wayland windows only.
+And DictationStarted and DictationStopped, signalled as the
+.Ic dictate
+key goes down and comes up.
+For
+.Xr patina-dictate 1 ,
+which the compositor starts and keeps running.
 .It org.freedesktop.ScreenSaver
 Inhibit and UnInhibit, which hold the screen on until let go of or until
 the caller leaves the bus; SimulateUserActivity, as if there were input;

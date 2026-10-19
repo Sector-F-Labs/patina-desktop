@@ -162,6 +162,8 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     state.keep_client("patina-bar");
     // Tiling's decisions (ADR-0053).
     state.keep_client("patina-tiler");
+    // Dictation (ADR-0072): it listens for the dictate key on the bus.
+    state.keep_client("patina-dictate --daemon");
     for command in commands {
         state.spawn_client(command);
     }

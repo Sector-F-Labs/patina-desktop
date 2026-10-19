@@ -113,6 +113,7 @@ mechanics of adding one.
 | [0069](0069-the-desktops-keys-are-config.md) | The desktop's own keys are config, by action, applied without a restart | Accepted |
 | [0070](0070-dictation-with-whisper-on-the-machine.md) | Dictation with Whisper on the machine, the transcriber built first | Accepted |
 | [0071](0071-text-is-typed-through-the-clipboard.md) | Text is typed into the focused window through the clipboard, given back after | Accepted |
+| [0072](0072-dictation-is-a-held-key-and-a-daemon.md) | Dictation is a held key in the compositor and a daemon that listens for it | Accepted |
 
 ## Decision Relationship
 
@@ -169,6 +170,8 @@ flowchart TD
     KEYS --> DICT[0070: dictation with Whisper]
     DICT --> TYPE[0071: typed through the clipboard]
     CMD --> TYPE
+    TYPE --> HOLD[0072: a held key and a daemon]
+    KEYS --> HOLD
 ```
 
 ## Revisit Triggers

@@ -133,6 +133,7 @@
 # reload = "Super+Shift+R"
 # screenshot = ["Super+Shift+3", "Print"]
 # screenshot_window = "Super+Shift+4"
+# dictate = "Alt+Space"           # held while speaking (patina-dictate)
 # snap_up = ["Super+Up", "Ctrl+Super+K"]
 # snap_down = ["Super+Down", "Ctrl+Super+J"]
 # snap_left = ["Super+Left", "Ctrl+Super+H"]

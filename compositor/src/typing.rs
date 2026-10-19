@@ -1,5 +1,7 @@
 //! Text typed into the focused window for another program (ADR-0071):
-//! dictation's words, from `Commit` on `com.sectorflabs.Patina.Input`.
+//! dictation's words, from `Commit` on `com.sectorflabs.Patina.Input`. And
+//! the dictate key (ADR-0072): `DictationStarted` when it goes down,
+//! `DictationStopped` when it comes up, for patina-dictate to record between.
 //!
 //! It goes through the clipboard: the clipboard as it was is read out of
 //! the app that owns it, the text put there by the compositor, the focused
@@ -47,6 +49,11 @@ const MOST_SAVED: u64 = 64 << 20;
 const AFTER_READ: Duration = Duration::from_millis(150);
 /// The clipboard is given back after this even if the text wasn't read.
 const UNREAD: Duration = Duration::from_secs(1);
+/// How long a paste waits for modifiers held by hand to be let go, so the
+/// window sees Ctrl+V and not Ctrl+Alt+V; then it pastes anyway.
+const LET_GO: Duration = Duration::from_secs(2);
+/// How often it looks.
+const LET_GO_STEP: Duration = Duration::from_millis(50);
 
 /// What's on the clipboard when the compositor put it there: the
 /// selection's user data.
@@ -82,7 +89,11 @@ impl Served {
 
 #[derive(Default)]
 pub struct Typing {
-    service: Option<zbus::blocking::Connection>,
+    service: Option<dbus::Service>,
+    /// The dictate key's code while it's down.
+    dictate_key: Option<u32>,
+    /// Since when a paste has waited for modifiers to be let go.
+    waiting: Option<Instant>,
     /// The types an app's clipboard offers, as it last said.
     offered: Vec<String>,
     /// Texts waiting their turn.
@@ -111,7 +122,7 @@ impl State {
     /// Serves `com.sectorflabs.Patina.Input`.
     pub fn start_typing(&mut self) {
         match dbus::serve(&self.loop_handle) {
-            Ok(connection) => self.typing.service = Some(connection),
+            Ok(service) => self.typing.service = Some(service),
             Err(e) => eprintln!("patina-compositor: typing isn't on D-Bus: {e}"),
         }
     }
@@ -124,6 +135,29 @@ impl State {
         self.typing.queue.push_back(text.into());
         if matches!(self.typing.stage, Stage::Idle) {
             self.save_clipboard();
+        }
+    }
+
+    /// The dictate key went down: dictation starts, unless it has (a key
+    /// repeating).
+    pub fn dictate_key_pressed(&mut self, code: u32) {
+        if self.typing.dictate_key.is_none() {
+            self.typing.dictate_key = Some(code);
+            self.announce_dictation(true);
+        }
+    }
+
+    /// A key came up: if it's the dictate key, dictation stops.
+    pub fn dictate_key_released(&mut self, code: u32) {
+        if self.typing.dictate_key == Some(code) {
+            self.typing.dictate_key = None;
+            self.announce_dictation(false);
+        }
+    }
+
+    fn announce_dictation(&self, started: bool) {
+        if let Some(service) = &self.typing.service {
+            service.announce(started);
         }
     }
 
@@ -195,7 +229,17 @@ impl State {
     }
 
     /// Pastes the next text, or gives the clipboard back if there's none.
+    /// Waits, for a while, for modifiers held by hand to be let go.
     fn paste_next(&mut self, saved: Option<Served>) {
+        if !self.typing.queue.is_empty() && self.modifiers_down() {
+            let since = *self.typing.waiting.get_or_insert_with(Instant::now);
+            if since.elapsed() < LET_GO {
+                self.typing.stage = Stage::Pasted { saved };
+                self.after_paste(LET_GO_STEP);
+                return;
+            }
+        }
+        self.typing.waiting = None;
         let Some(text) = self.typing.queue.pop_front() else {
             self.give_back(saved);
             return;
@@ -265,6 +309,14 @@ impl State {
         self.input_keys(presses.chain([(v, KeyState::Released)]));
         self.typing.held = held;
         true
+    }
+
+    /// Whether a modifier is down on the keyboard.
+    fn modifiers_down(&self) -> bool {
+        self.seat.get_keyboard().is_some_and(|k| {
+            let m = k.modifier_state();
+            m.ctrl || m.alt || m.shift || m.logo
+        })
     }
 
     /// Lets go of the paste key's modifiers.

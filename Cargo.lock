@@ -3025,6 +3025,7 @@ dependencies = [
  "hound",
  "libc",
  "whisper-rs",
+ "zbus",
 ]
 
 [[package]]

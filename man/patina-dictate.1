@@ -11,6 +11,11 @@
 .Op Fl l Ar language
 .Op Ar file.wav
 .Nm
+.Fl d
+.Op Fl v
+.Op Fl m Ar model
+.Op Fl l Ar language
+.Nm
 .Fl h | V
 .Sh DESCRIPTION
 .Nm
@@ -25,6 +30,16 @@ nothing is sent anywhere.
 What Whisper takes to be no speech is left out, so silence prints an empty
 line.
 .Pp
+With
+.Fl d ,
+it's dictation on the desktop:
+.Xr patina-compositor 1
+starts it and keeps it running, and while the
+.Ic dictate
+key (Alt+Space) is held it records; when the key comes up, what was said
+is typed into the focused window.
+A press under a third of a second is taken as a slip.
+.Pp
 On Linux it records from the default input, through ALSA, which PipeWire
 and PulseAudio serve.
 On
@@ -34,6 +49,13 @@ it reads
 whatever sound server runs.
 .Sh OPTIONS
 .Bl -tag -width Ds
+.It Fl d , -daemon
+Dictation behind the compositor's
+.Ic dictate
+key, signalled on the session bus
+.Pq com.sectorflabs.Patina.Input ;
+the text is typed by its Commit.
+The model is loaded at the start, and again at each press until it loads.
 .It Fl m , -model Ar model
 The model, by whisper.cpp's name for it
 .Pq Ql base.en , Ql small , Ql large-v3-turbo ,
@@ -74,4 +96,5 @@ Dictate to the clipboard:
 A recording in Swedish, with a multilingual model:
 .Dl patina-dictate -m small -l sv talk.wav
 .Sh SEE ALSO
+.Xr patina-compositor 1 ,
 .Xr patina-desktop 7

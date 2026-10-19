@@ -15,6 +15,7 @@ vulkan = ["whisper-rs/vulkan"]
 [dependencies]
 hound = "3.5"
 whisper-rs = "0.16"
+zbus = "5"
 
 # The microphone: cpal (ALSA, so PipeWire or PulseAudio through it) on Linux,
 # the kernel's /dev/dsp on FreeBSD, whatever sound server runs there.

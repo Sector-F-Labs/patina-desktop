@@ -1,11 +1,12 @@
-//! patina-dictate: speech to text on the machine, with Whisper. For now
-//! it's a command: it records until Enter (or the end of its input) and
-//! prints what was said, or transcribes a WAV file. Later it's the daemon
-//! behind a key held to dictate into any field, which the compositor types
-//! where the focus is.
+//! patina-dictate: speech to text on the machine, with Whisper. As a
+//! command it records until Enter (or the end of its input) and prints what
+//! was said, or transcribes a WAV file. With `--daemon` it's dictation
+//! behind a held key (Alt+Space), which the compositor starts and keeps
+//! running, and the text is typed where the focus is.
 
 mod audio;
 mod capture;
+mod daemon;
 mod transcribe;
 
 use std::io::{BufRead, IsTerminal};
@@ -16,15 +17,20 @@ use std::time::Instant;
 use crate::transcribe::{Transcriber, model_path};
 
 const USAGE: &str = "usage: patina-dictate [-v] [-m MODEL] [-l LANGUAGE] [FILE.wav]
+       patina-dictate --daemon [-v] [-m MODEL] [-l LANGUAGE]
 
 Records from the microphone until Enter, or the end of its input, and
 prints what was said. Given a WAV file, it prints what's said in that.
+
+With --daemon, it records while the compositor's dictate key (Alt+Space)
+is held, and has what was said typed into the focused window.
 
   -m, --model MODEL       whisper.cpp's name for it (base.en, small,
                           large-v3-turbo), kept in the models folder as
                           ggml-MODEL.bin, or a path; base.en if not given
   -l, --language CODE     what's spoken (en, sv), or auto; English for an
                           English-only model, else auto
+  -d, --daemon            dictation behind the dictate key
   -v, --verbose           whisper.cpp's log, and how long each step took
 
 Models are kept in $XDG_DATA_HOME/patina-dictate/models.";
@@ -36,6 +42,7 @@ struct Options {
     model: Option<String>,
     language: Option<String>,
     verbose: bool,
+    daemon: bool,
     file: Option<PathBuf>,
 }
 
@@ -54,12 +61,16 @@ fn parse(args: &[String]) -> Option<Asked> {
             "-h" | "--help" => return Some(Asked::Help),
             "-V" | "--version" => return Some(Asked::Version),
             "-v" | "--verbose" => options.verbose = true,
+            "-d" | "--daemon" => options.daemon = true,
             "-m" | "--model" => options.model = Some(rest.next()?.clone()),
             "-l" | "--language" => options.language = Some(rest.next()?.clone()),
             flag if flag.starts_with('-') && flag != "-" => return None,
             file if options.file.is_none() => options.file = Some(PathBuf::from(file)),
             _ => return None,
         }
+    }
+    if options.daemon && options.file.is_some() {
+        return None;
     }
     Some(Asked::Dictate(options))
 }
@@ -81,6 +92,14 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    if options.daemon {
+        let model = model_path(options.model.as_deref().unwrap_or(DEFAULT_MODEL));
+        let ended = daemon::run(&model, options.language.as_deref(), options.verbose);
+        if let Err(e) = ended {
+            eprintln!("patina-dictate: {e}");
+        }
+        return ExitCode::FAILURE;
+    }
     match dictate(&options) {
         Ok(text) => {
             println!("{text}");
@@ -150,6 +169,7 @@ mod tests {
                 model: Some("small".into()),
                 language: Some("sv".into()),
                 verbose: true,
+                daemon: false,
                 file: Some("talk.wav".into()),
             }))
         );
@@ -161,5 +181,6 @@ mod tests {
         assert_eq!(parse(&args("-x")), None);
         assert_eq!(parse(&args("-m")), None);
         assert_eq!(parse(&args("a.wav b.wav")), None);
+        assert_eq!(parse(&args("--daemon a.wav")), None, "it records from the mic");
     }
 }

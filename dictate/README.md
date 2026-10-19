@@ -1,15 +1,17 @@
 # patina-dictate
 
-Speech to text on the machine, with Whisper through whisper.cpp (ADR-0070). For now it's a
-command: it records from the microphone until Enter, or the end of its input, and prints what
-was said; or it transcribes a WAV file. It'll become the daemon behind a key held to dictate into
-any field, the compositor typing the text where the focus is.
+Speech to text on the machine, with Whisper through whisper.cpp (ADR-0070). Dictation on the
+desktop: hold Alt+Space, speak, let go, and what was said is typed into the focused window
+(ADR-0072). As a command, it records from the microphone until Enter, or the end of its input,
+and prints what was said; or it transcribes a WAV file.
 
 ## How it fits in
 
-- **Nothing runs it yet.** The compositor types text into the focused window with `Commit` on
-  `com.sectorflabs.Patina.Input` (ADR-0071). Next, keys that act on release, and this as a
-  daemon the compositor keeps running, as it does the tiler, calling Commit.
+- **Run by the compositor** as `patina-dictate --daemon`, kept running like the tiler. The
+  compositor's `dictate` key (`[keys]`, Alt+Space) signals `DictationStarted` and
+  `DictationStopped` on `com.sectorflabs.Patina.Input`; this records between them and calls
+  `Commit` there, which types the text into the focused window through the clipboard
+  (ADR-0071).
 - **On its own**, `patina-dictate | wl-copy` puts what you said on the clipboard.
 - **Models** are whisper.cpp's GGML files in `$XDG_DATA_HOME/patina-dictate/models`, as
   `ggml-NAME.bin`; base.en is the default. Download them from
@@ -17,7 +19,8 @@ any field, the compositor typing the text where the focus is.
 
 ## Code
 
-`main.rs`, the arguments and the run; `capture.rs`, the microphone: cpal on Linux, `/dev/dsp`
+`main.rs`, the arguments and the run; `daemon.rs`, `--daemon`: the signals, recording, and
+transcribing on a thread of its own; `capture.rs`, the microphone: cpal on Linux, `/dev/dsp`
 on FreeBSD; `audio.rs`, WAV files, mixing down and resampling to Whisper's 16 kHz, with their
 tests; `transcribe.rs`, the model, and dropping what Whisper thinks isn't speech.
 

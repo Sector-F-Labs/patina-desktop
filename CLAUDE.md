@@ -144,17 +144,20 @@ puts them in `$(PREFIX)/share/man`.
 - `power/`: patina-power, the bar's power menu (ADR-0048): Lock and Log Out through the
   compositor's `com.sectorflabs.Patina.Session` (`compositor/src/session/dbus.rs`), Restart and
   Shut Down through logind or ConsoleKit2, all in `system/src/session.rs`.
-- `dictate/`: patina-dictate (ADR-0070), speech to text with whisper.cpp (`whisper-rs`): for now a
-  command that records until Enter and prints the text. `capture.rs` is cpal on Linux, `/dev/dsp`
-  on FreeBSD; `transcribe.rs` drops segments Whisper calls no speech. Models in
-  `$XDG_DATA_HOME/patina-dictate/models`; `--features cuda` for the GPU. Next: keys acting on
-  release, and the daemon calling Commit.
+- `dictate/`: patina-dictate (ADR-0070, ADR-0072), speech to text with whisper.cpp (`whisper-rs`).
+  `--daemon` (`daemon.rs`), kept running by the compositor: records while the `dictate` key
+  (Alt+Space) is held, between the `DictationStarted`/`DictationStopped` signals, and calls
+  Commit. Without it, a command that records until Enter and prints the text. `capture.rs` is
+  cpal on Linux, `/dev/dsp` on FreeBSD; `transcribe.rs` drops segments Whisper calls no speech.
+  Models in `$XDG_DATA_HOME/patina-dictate/models`; `--features cuda` for the GPU.
 - `compositor/src/typing.rs`: text typed into the focused window (ADR-0071), served as
   `com.sectorflabs.Patina.Input` `Commit(text)` (`typing/dbus.rs`; `dbus-run-session -- cargo
   test -p patina-compositor typing -- --ignored`). Through the clipboard: the app's clipboard is
   read out first (`save_clipboard`), the text set as the compositor's selection (`Served`, the
   `SelectionUserData`), Ctrl+V or Ctrl+Shift+V pressed through `KeyboardHandle::input` past the
   compositor's keys, and the old clipboard given back after the window reads it. Wayland only.
+  The `dictate` key's press and release are signalled there (`dictate_key_pressed`/`_released`,
+  called from `State::key`).
 - `lock/`: patina-lock, the lock screen (ADR-0028): `Options::lock` makes the host draw on
   ext-session-lock surfaces and unlock when the shell finishes; `pam.rs` declares the PAM calls.
   The compositor's side is `compositor/src/lock.rs` (ADR-0025).

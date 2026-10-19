@@ -59,6 +59,9 @@ pub enum KeyAction {
     Lock,
     /// Take a screenshot (Super+Shift+3 or 4, Print).
     Screenshot(crate::screenshot::Shot),
+    /// Dictate while the key is held (Alt+Space, ADR-0072): the bus is
+    /// told when it goes down and up, and patina-dictate listens.
+    Dictate,
     /// A Super key sent on to the focused window as Ctrl (ADR-0067):
     /// nothing more to do.
     SentAsCtrl,
@@ -184,6 +187,10 @@ impl State {
         // between) does what `[keys]` gives "Super", the launcher by default;
         // any other key or a click cancels it.
         let is_super = sym == keysyms::KEY_Super_L || sym == keysyms::KEY_Super_R;
+        // Dictation ends when its key comes up, whatever else is down.
+        if !pressed {
+            self.dictate_key_released(code);
+        }
         let mut action = action;
         if pressed {
             self.super_tap = is_super;
@@ -256,6 +263,10 @@ impl State {
             }
             Some(KeyAction::Screenshot(shot)) => {
                 self.screenshot(shot);
+                None
+            }
+            Some(KeyAction::Dictate) => {
+                self.dictate_key_pressed(code);
                 None
             }
             other => other,

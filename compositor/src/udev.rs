@@ -509,7 +509,8 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             | KeyAction::SentAsCtrl
             | KeyAction::QuitApp
             | KeyAction::Lock
-            | KeyAction::Screenshot(_),
+            | KeyAction::Screenshot(_)
+            | KeyAction::Dictate,
         )
         | None => {}
     }

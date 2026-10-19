@@ -91,8 +91,9 @@ this workspace is a Wayland client of it.
   patina-power (ADR-0048); `com.sectorflabs.Patina.Tiling` (`tiling/dbus.rs`, ADR-0049), drags,
   windows and placing them, for tilers; `com.sectorflabs.Patina.Keyboard` (`keyboard/dbus.rs`,
   ADR-0068), the layouts and the one in use, for the bar's tray and Settings;
-  `com.sectorflabs.Patina.Input` (`typing/dbus.rs`, ADR-0071), Commit, which types a text into
-  the focused Wayland window through the clipboard and the paste key, for dictation. On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
+  `com.sectorflabs.Patina.Input` (`typing/dbus.rs`, ADR-0071, ADR-0072), Commit, which types a
+  text into the focused Wayland window through the clipboard and the paste key, and the
+  `dictate` key's press and release as signals, for patina-dictate, which it keeps running. On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
   Uninhibit, SetOverride, and its state as properties), for patina-settings,
   `patina-night-light` and apps that need true colour.
 - **Shares code with the shell pieces** through patina-system: the backlight (`backlight.rs`) for
