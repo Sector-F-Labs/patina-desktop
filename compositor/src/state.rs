@@ -725,6 +725,10 @@ impl CompositorHandler for State {
             .compositor_state
     }
 
+    fn new_surface(&mut self, surface: &WlSurface) {
+        crate::sync::wait_for_buffers(surface);
+    }
+
     fn commit(&mut self, surface: &WlSurface) {
         on_commit_buffer_handler::<Self>(surface);
         self.needs_redraw = true;

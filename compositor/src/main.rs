@@ -26,6 +26,7 @@ mod screenshot;
 mod session;
 mod split;
 mod state;
+mod sync;
 mod tabs;
 mod tiling;
 mod toplevels;

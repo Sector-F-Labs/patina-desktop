@@ -71,7 +71,7 @@ this workspace is a Wayland client of it.
 - **The protocols the other pieces rely on:** xdg-shell for apps; wlr-layer-shell for the bar,
   menus and wallpaper; wlr-foreign-toplevel-management for the bar's window tabs (ADR-0012);
   ext-session-lock for patina-lock (ADR-0025); cursor-shape; wp_fractional_scale and
-  wp_viewporter; linux-dmabuf with the GL backends; data-device for copy and paste,
+  wp_viewporter; linux-dmabuf with the GL backends, and linux-drm-syncobj on hardware, so a buffer is shown only once drawn (`sync.rs`; NVIDIA needs it); data-device for copy and paste,
   and wlr and ext data-control, so wl-copy and clipboard managers need no window (ADR-0059).
 - **Config:** `~/.config/patina-compositor/config.toml` (ADR-0019): scale, `[keyboard]`,
   `[touchpad]`, `[cursor]`, `[media]` (the volume commands, `wpctl` by default), `[lock]`,
@@ -97,7 +97,7 @@ this workspace is a Wayland client of it.
 `night_light.rs` with `night_light/dbus.rs`, `idle.rs` with `idle/dbus.rs`, `xwayland.rs` and `focus.rs` (X11 windows and
 what has the keyboard), `fullscreen.rs`, `constraints.rs` (pointer locks for games), `dnd.rs` (the icon a drag shows),
 `cursor.rs`, `drag.rs`, `scale.rs`, `config.rs`, `clients.rs`, and the backends `winit.rs`,
-`nested.rs`, `udev.rs` with `dmabuf.rs`.
+`nested.rs`, `udev.rs` with `dmabuf.rs` and `sync.rs`.
 
 ## Running
 

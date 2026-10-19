@@ -55,6 +55,7 @@ use smithay::{
     wayland::{
         compositor::with_states,
         dmabuf::{DmabufFeedbackBuilder, DmabufGlobal, DmabufState},
+        drm_syncobj::{DrmSyncobjState, supports_syncobj_eventfd},
     },
 };
 
@@ -88,6 +89,8 @@ pub struct UdevData {
     pub(crate) renderer: GlesRenderer,
     compositor: Compositor,
     pub(crate) dmabuf_state: DmabufState,
+    /// linux-drm-syncobj, where the device supports it (`sync.rs`).
+    pub(crate) syncobj_state: Option<DrmSyncobjState>,
     _dmabuf_global: DmabufGlobal,
     cursors: crate::cursor::Cursors,
     /// Touchpads, to apply `[touchpad]` to again on a reload.
@@ -225,6 +228,10 @@ pub fn init(
         Err(_) => dmabuf_state.create_global::<State>(dh, formats),
     };
 
+    // Explicit sync (`sync.rs`): NVIDIA's clients need it not to flicker.
+    let syncobj_state =
+        supports_syncobj_eventfd(&fd).then(|| DrmSyncobjState::new::<State>(dh, fd.clone()));
+
     let mut libinput =
         Libinput::new_with_udev::<LibinputSessionInterface<LibSeatSession>>(session.clone().into());
     libinput
@@ -268,6 +275,7 @@ pub fn init(
             renderer,
             compositor,
             dmabuf_state,
+            syncobj_state,
             _dmabuf_global: dmabuf_global,
             cursors,
             touchpads: Vec::new(),
