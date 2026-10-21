@@ -23,6 +23,7 @@ mod media;
 mod nested;
 mod night_light;
 mod processes;
+mod remap;
 mod scale;
 mod screenshot;
 mod session;

@@ -88,6 +88,8 @@ puts them in `$(PREFIX)/share/man`.
   fills the starter config's `[keys]`; `[keys]` in the config replaces an action's, `Keys::new` builds them on every config load
   (live), `Keys::lookup` matches exact modifiers on the base keysym, `Keys::tap` is Super alone.
   Only Alt+Tab, quit, restart, consoles and media keys stay fixed in `input::key_action`.
+  `[remap]` (`Keys::remap`, ADR-0076) sends a key to the focused window as another;
+  `compositor/src/remap.rs` puts the sent key through the seat and fakes its modifiers.
 - `compositor/src/xwayland.rs`: X11 apps (ADR-0040): Xwayland spawned at start-up, `DISPLAY` for
   clients, and the `XwmHandler` that maps, places, moves and resizes X windows as `Window`s in
   the space. `focus.rs`: the keyboard focus is a `FocusTarget` (Wayland surface or X11 window, so

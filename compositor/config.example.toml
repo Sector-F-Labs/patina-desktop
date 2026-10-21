@@ -25,6 +25,11 @@
 # layout = "us,se"
 # variant = ""
 # model = ""
+# xkb options, comma-separated. Modifiers are swapped here, not in [remap],
+# so the desktop's keys see them swapped too: "altwin:swap_alt_win" swaps Alt
+# and Super ("altwin:swap_lalt_lwin" the left ones only), "altwin:ctrl_win"
+# makes Super Ctrl, "ctrl:swap_lwin_lctl" swaps left Super and Ctrl. The
+# keys are named by what they are after: Alt+Tab is then on the Super key.
 # options = ""
 
 # Milliseconds before a held key repeats, and repeats per second.
@@ -125,7 +130,16 @@
 # Super tapped on its own, and dictate may be modifiers alone, held, as it is
 # by default. Alt+Tab, Alt+Shift+Tab, Ctrl+Alt+Backspace,
 # Ctrl+Alt+Shift+Backspace, the consoles and the media keys are fixed.
-# {the defaults from compositor/keys.toml}
+# {the [keys] defaults from compositor/keys.toml}
+
+# [remap]
+# Any key pressed sent to the focused window as another, as written:
+# "Alt+T" = "Ctrl+T" gives the window Ctrl+T for Alt+T, whatever it is. Keys
+# are written as for [bindings]. These add to the defaults, or replace one
+# for the same key ("" takes it away). [keys] and the fixed keys come first,
+# and a remap overrides [bindings] and Super as Ctrl.
+# "Alt+T" = "Ctrl+T"
+# {the [remap] defaults from compositor/keys.toml}
 
 # Keys that run commands: modifiers (Super, Alt, Ctrl, Shift) and a key, by
 # its name ("T", "Return", "F5"). Writing a [bindings] section replaces these

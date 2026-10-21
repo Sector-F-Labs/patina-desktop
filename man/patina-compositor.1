@@ -205,6 +205,18 @@ four at most: XKB leaves out any after the fourth, which the log names;
 .Dq ctrl
 or
 .Dq swap_escape .
+Modifiers are swapped with
+.Ic options ,
+so the desktop's own keys see them swapped too:
+.Dq altwin:swap_alt_win
+swaps Alt and Super,
+.Dq altwin:swap_lalt_lwin
+only the left ones,
+.Dq altwin:ctrl_win
+makes Super Ctrl and
+.Dq ctrl:swap_lwin_lctl
+swaps left Super and Ctrl.
+Keys are named by what they are after the swap.
 .It Ic [touchpad]
 .Ic tap
 to click,
@@ -308,6 +320,20 @@ to
 the config written on first start lists each with its keys.
 An unknown action or key, or a key given two actions, is logged and left
 out.
+.It Ic [remap]
+Keys sent to the focused window as others, both written as for
+.Ic [bindings] ,
+as
+.Dl \(dqAlt+T\(dq = \(dqCtrl+T\(dq
+The window is told only the remap's modifiers are down while it's held.
+These add to the built-in ones, or replace one for the same key, and
+.Dq
+takes one away.
+A key that is fixed or in
+.Ic [keys]
+can't be remapped; a remap wins over
+.Ic [bindings]
+and over Super as Ctrl.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds

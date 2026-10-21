@@ -33,6 +33,9 @@ pub struct Config {
     /// The compositor's own keys by action (ADR-0069): each one set here
     /// replaces that action's defaults (`keys.rs`).
     pub keys: std::collections::BTreeMap<String, crate::keys::KeyList>,
+    /// Keys sent to the focused window as others, "Alt+T" = "Ctrl+T"
+    /// (ADR-0076), added to `keys.toml`'s.
+    pub remap: std::collections::BTreeMap<String, String>,
 }
 
 /// A key combination from [bindings], ready to match.
@@ -313,6 +316,7 @@ impl Default for Config {
             desktop_menu: "patina-menu".into(),
             bindings: default_bindings(),
             keys: Default::default(),
+            remap: Default::default(),
         }
     }
 }
@@ -376,13 +380,19 @@ impl Default for Touchpad {
 /// The file written on first start where there's none, but for the keys.
 const TEMPLATE: &str = include_str!("../config.example.toml");
 
-/// The line in `TEMPLATE` where the default keys go.
-const KEYS_HERE: &str = "# {the defaults from compositor/keys.toml}\n";
+/// The line in `TEMPLATE` where a section's defaults from `keys.toml` go.
+fn defaults_here(section: &str) -> String {
+    format!("# {{the [{section}] defaults from compositor/keys.toml}}\n")
+}
 
 /// The file written on first start where there's none: every setting,
 /// commented out at its default, the keys from `keys.toml`.
 pub fn starter() -> String {
-    TEMPLATE.replace(KEYS_HERE, &crate::keys::commented())
+    ["keys", "remap"]
+        .iter()
+        .fold(TEMPLATE.to_string(), |text, section| {
+            text.replace(&defaults_here(section), &crate::keys::commented(section))
+        })
 }
 
 pub fn path() -> Option<PathBuf> {
@@ -426,7 +436,15 @@ pub fn parse(text: &str) -> Result<(Config, Vec<String>), String> {
             warnings.push(format!("binding {e}; ignored"));
         }
     }
-    warnings.extend(crate::keys::Keys::new(&config.keys).1);
+    warnings.extend(crate::keys::Keys::new(&config.keys, &config.remap).1);
+    let bound = config.combos();
+    for from in config.remap.keys() {
+        if let Ok(c) = combo(from)
+            && bound.iter().any(|(b, _)| *b == c)
+        {
+            warnings.push(format!("[remap] {from} is also a binding; the remap wins"));
+        }
+    }
     if !(1..=50).contains(&config.media.brightness_step) {
         warnings.push(format!(
             "brightness step {} is outside 1 to 50; using 5",
@@ -588,7 +606,7 @@ impl crate::state::State {
             }
         }
         self.night_light.configure(&config.night_light);
-        self.keys = crate::keys::Keys::new(&config.keys).0;
+        self.keys = crate::keys::Keys::new(&config.keys, &config.remap).0;
         let gaps_changed = config.gap() != self.config.gap();
         self.config = config;
         if gaps_changed {
@@ -700,7 +718,10 @@ mod tests {
         let (c, w) = parse(&starter()).expect("the starter file parses");
         assert!(w.is_empty(), "{w:?}");
         assert_eq!(c, Config::default());
-        assert!(!starter().contains(KEYS_HERE), "the keys are in");
+        assert!(
+            !starter().contains("compositor/keys.toml}"),
+            "the keys are in"
+        );
         assert!(starter().contains("\n# quit_app = \"Super+Q\"\n"));
     }
 

@@ -117,6 +117,7 @@ mechanics of adding one.
 | [0073](0073-dictation-shows-an-overlay.md) | Dictation shows an overlay with the voice's waveform, its own process fed on stdin | Accepted |
 | [0074](0074-whisper-runs-on-the-gpu-through-vulkan.md) | Whisper runs on the GPU through Vulkan by default | Accepted |
 | [0075](0075-the-default-keys-are-a-toml-file.md) | The default keys are a TOML file built in, and Alt+Tab is fixed | Accepted |
+| [0076](0076-any-key-remaps-to-any-other.md) | Any key remaps to any other, sent to the focused window | Accepted |
 
 ## Decision Relationship
 
@@ -179,6 +180,8 @@ flowchart TD
     K --> SHOW
     DICT -->|CPU default superseded by| GPU[0074: Whisper on the GPU, Vulkan]
     KEYS --> KTOML[0075: default keys in keys.toml, Alt+Tab fixed]
+    KTOML --> REMAP[0076: any key remaps to any other]
+    CMD --> REMAP
 ```
 
 ## Revisit Triggers

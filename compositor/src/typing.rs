@@ -372,7 +372,7 @@ const LEFT_CTRL: Keycode = Keycode::new(29 + 8);
 const LEFT_SHIFT: Keycode = Keycode::new(42 + 8);
 
 /// The key that gives `sym` unshifted in `layout`.
-fn key_for(keymap: &xkb::Keymap, layout: u32, sym: Keysym) -> Option<Keycode> {
+pub fn key_for(keymap: &xkb::Keymap, layout: u32, sym: Keysym) -> Option<Keycode> {
     (keymap.min_keycode().raw()..=keymap.max_keycode().raw())
         .map(Keycode::new)
         .find(|&key| keymap.key_get_syms_by_level(key, layout, 0).contains(&sym))

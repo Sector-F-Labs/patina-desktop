@@ -4,7 +4,8 @@
 //! focused window, a Super key as Ctrl (ADR-0067), so unbinding one gives
 //! it to the apps.
 //!
-//! The defaults are `keys.toml`, built in (ADR-0075).
+//! The defaults are `keys.toml`, built in (ADR-0075), with `[remap]`'s:
+//! a key sent to the focused window as another (ADR-0076, `remap.rs`).
 //!
 //! Not here, and not changeable, so a bad config can't take them: Alt+Tab
 //! and Alt+Shift+Tab, quitting and restarting the desktop
@@ -20,24 +21,37 @@ use smithay::input::keyboard::ModifiersState;
 use crate::config::{Combo, combo};
 use crate::input::KeyAction;
 
-/// Each action's keys unless `[keys]` sets them: `keys.toml`, built in,
-/// where they're changed.
+/// Each action's keys unless `[keys]` sets them, and the remaps unless
+/// `[remap]` replaces them: `keys.toml`, built in, where they're changed.
 const DEFAULTS: &str = include_str!("../keys.toml");
 
-fn defaults() -> &'static BTreeMap<String, KeyList> {
-    static PARSED: LazyLock<BTreeMap<String, KeyList>> = LazyLock::new(|| {
-        toml::from_str(DEFAULTS).expect("keys.toml parses (the tests read it)")
-    });
+#[derive(Deserialize)]
+struct Defaults {
+    keys: BTreeMap<String, KeyList>,
+    #[serde(default)]
+    remap: BTreeMap<String, String>,
+}
+
+fn defaults() -> &'static Defaults {
+    static PARSED: LazyLock<Defaults> =
+        LazyLock::new(|| toml::from_str(DEFAULTS).expect("keys.toml parses (the tests read it)"));
     &PARSED
 }
 
-/// The defaults' lines commented out, for the config written on first start.
-pub fn commented() -> String {
-    DEFAULTS
-        .lines()
-        .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with('#'))
-        .map(|l| format!("# {l}\n"))
-        .collect()
+/// The settings in `section` of the defaults, commented out, for the config
+/// written on first start.
+pub fn commented(section: &str) -> String {
+    let header = format!("[{section}]");
+    let mut inside = false;
+    let mut out = String::new();
+    for line in DEFAULTS.lines().map(str::trim) {
+        if line.starts_with('[') {
+            inside = line == header;
+        } else if inside && !line.is_empty() && !line.starts_with('#') {
+            out += &format!("# {line}\n");
+        }
+    }
+    out
 }
 
 /// The action called `name`.
@@ -141,15 +155,21 @@ pub struct Keys {
     chords: Vec<(Combo, KeyAction)>,
     /// What tapping Super on its own does.
     tap: Option<KeyAction>,
+    /// Keys sent to the focused window as other keys (ADR-0076).
+    remaps: Vec<(Combo, Combo)>,
 }
 
 impl Keys {
-    /// The defaults, with `set`'s actions in place of theirs. Mistakes (an
-    /// unknown action or key, one key for two actions) are returned, and
-    /// left out.
-    pub fn new(set: &BTreeMap<String, KeyList>) -> (Self, Vec<String>) {
+    /// The defaults, with `set`'s actions in place of theirs and `remap`'s
+    /// remaps added (or replacing those of the same key). Mistakes (an
+    /// unknown action or key, one key for two things) are returned, and left
+    /// out.
+    pub fn new(
+        set: &BTreeMap<String, KeyList>,
+        remap: &BTreeMap<String, String>,
+    ) -> (Self, Vec<String>) {
         let mut warnings = Vec::new();
-        let mut wanted = defaults().clone();
+        let mut wanted = defaults().keys.clone();
         for (name, list) in set {
             if action(name).is_none() {
                 warnings.push(format!("[keys] has no action {name:?}; ignored"));
@@ -203,7 +223,57 @@ impl Keys {
                 }
             }
         }
+        // Remaps by the key pressed, the config's after the defaults so
+        // they replace them; "" takes one away.
+        let mut remaps: Vec<(Combo, &str, &str)> = Vec::new();
+        for (from, to) in defaults().remap.iter().chain(remap) {
+            match combo(from) {
+                Ok(c) => {
+                    remaps.retain(|(r, _, _)| *r != c);
+                    remaps.push((c, from, to));
+                }
+                Err(e) => warnings.push(format!("[remap] {e}; ignored")),
+            }
+        }
+        for (c, from, to) in remaps {
+            if to.trim().is_empty() {
+                continue;
+            }
+            let to = match combo(to) {
+                Ok(to) => to,
+                Err(e) => {
+                    warnings.push(format!("[remap] {from}: {e}; ignored"));
+                    continue;
+                }
+            };
+            if fixed(&c) {
+                warnings.push(format!(
+                    "[remap] {from} is the desktop's own, fixed; ignored"
+                ));
+                continue;
+            }
+            if let Some((_, other)) = taken.iter().find(|(t, _)| *t == c) {
+                warnings.push(format!("[remap] {from} is {other}'s in [keys]; ignored"));
+                continue;
+            }
+            keys.remaps.push((c, to));
+        }
         (keys, warnings)
+    }
+
+    /// What the focused window is sent for a key, if it's remapped: matched
+    /// as [`Keys::lookup`] matches.
+    pub fn remap(&self, modifiers: &ModifiersState, base: u32) -> Option<Combo> {
+        self.remaps
+            .iter()
+            .find(|(c, _)| {
+                c.logo == modifiers.logo
+                    && c.alt == modifiers.alt
+                    && c.ctrl == modifiers.ctrl
+                    && c.shift == modifiers.shift
+                    && c.sym == base
+            })
+            .map(|(_, to)| *to)
     }
 
     /// The action for a key: exact modifiers, and the key's base symbol
@@ -264,14 +334,14 @@ mod tests {
     }
 
     fn defaults_keys() -> Keys {
-        let (keys, warnings) = Keys::new(&BTreeMap::new());
+        let (keys, warnings) = Keys::new(&BTreeMap::new(), &BTreeMap::new());
         assert!(warnings.is_empty(), "{warnings:?}");
         keys
     }
 
     #[test]
     fn every_default_names_an_action_and_parses() {
-        for (name, keys) in defaults() {
+        for (name, keys) in &defaults().keys {
             assert!(action(name).is_some(), "{name}");
             for key in keys.keys() {
                 assert!(
@@ -280,7 +350,7 @@ mod tests {
                 );
             }
         }
-        let starter = commented();
+        let starter = commented("keys");
         assert!(starter.contains("# snap_right = [\"Super+Right\", \"Ctrl+Super+L\"]\n"));
         assert!(!starter.contains("# #"), "only the settings, not the notes");
     }
@@ -291,7 +361,7 @@ mod tests {
         assert_eq!(k.lookup(&mods("Alt"), keysyms::KEY_Tab), None, "input's");
         let set: BTreeMap<String, KeyList> =
             toml::from_str("lock = \"Alt+Tab\"\nreload = \"Ctrl+Alt+BackSpace\"\n").unwrap();
-        let (k, warnings) = Keys::new(&set);
+        let (k, warnings) = Keys::new(&set, &BTreeMap::new());
         assert_eq!(warnings.len(), 2, "{warnings:?}");
         assert!(warnings.iter().all(|w| w.contains("fixed")));
         assert_eq!(k.lookup(&mods("Alt"), keysyms::KEY_Tab), None);
@@ -361,7 +431,7 @@ mod tests {
 
         let set: BTreeMap<String, KeyList> =
             toml::from_str("dictate = \"Alt+Space\"\nlock = \"Ctrl+Alt\"\n").unwrap();
-        let (k, warnings) = Keys::new(&set);
+        let (k, warnings) = Keys::new(&set, &BTreeMap::new());
         assert_eq!(
             k.lookup(&mods("Alt"), keysyms::KEY_space),
             Some(KeyAction::Dictate),
@@ -369,7 +439,10 @@ mod tests {
         );
         assert_eq!(k.chord(&mods("Ctrl+Super+Alt")), None);
         assert_eq!(k.chord(&mods("Ctrl+Alt")), None, "only dictate is held");
-        assert!(warnings.iter().any(|w| w.contains("only dictate")), "{warnings:?}");
+        assert!(
+            warnings.iter().any(|w| w.contains("only dictate")),
+            "{warnings:?}"
+        );
         assert!(chord("Alt").is_none(), "one modifier is too easy to hit");
         assert!(chord("Super+D").is_none());
     }
@@ -380,7 +453,7 @@ mod tests {
             "snap_right = \"Super+Right\"\nlauncher = [\"Super+Space\"]\nquit_app = \"\"\n",
         )
         .unwrap();
-        let (k, warnings) = Keys::new(&set);
+        let (k, warnings) = Keys::new(&set, &BTreeMap::new());
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(
             k.lookup(&mods("Ctrl+Super"), keysyms::KEY_l),
@@ -405,7 +478,7 @@ mod tests {
             "frobnicate = \"Super+F\"\nsnap_up = \"Super+Nope\"\nreload = \"Super+Q\"\n",
         )
         .unwrap();
-        let (k, warnings) = Keys::new(&set);
+        let (k, warnings) = Keys::new(&set, &BTreeMap::new());
         assert_eq!(warnings.len(), 3, "{warnings:?}");
         assert!(warnings.iter().any(|w| w.contains("frobnicate")));
         assert!(warnings.iter().any(|w| w.contains("Super+Nope")));
@@ -419,5 +492,36 @@ mod tests {
             Some(KeyAction::QuitApp)
         );
         assert_eq!(k.lookup(&mods("Super"), keysyms::KEY_Up), None);
+    }
+
+    #[test]
+    fn any_key_remaps_to_any_other() {
+        let remap: BTreeMap<String, String> = toml::from_str(
+            "\"Alt+T\" = \"Ctrl+T\"\n\"Super+K\" = \"Ctrl+Shift+Up\"\n\"Alt+X\" = \"\"\n",
+        )
+        .unwrap();
+        let (k, warnings) = Keys::new(&BTreeMap::new(), &remap);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let to = k.remap(&mods("Alt"), keysyms::KEY_t).unwrap();
+        assert_eq!(to, combo("Ctrl+T").unwrap());
+        let to = k.remap(&mods("Super"), keysyms::KEY_k).unwrap();
+        assert!(to.ctrl && to.shift && !to.logo && to.sym == keysyms::KEY_Up);
+        assert_eq!(k.remap(&mods("Alt+Shift"), keysyms::KEY_t), None, "exact");
+        assert_eq!(k.remap(&mods("Alt"), keysyms::KEY_x), None, "\"\" is none");
+        assert!(commented("remap").is_empty(), "none by default");
+    }
+
+    #[test]
+    fn a_remap_gives_way_to_the_desktops_keys() {
+        let remap: BTreeMap<String, String> = toml::from_str(
+            "\"Super+Q\" = \"Ctrl+Q\"\n\"Alt+Tab\" = \"Ctrl+Tab\"\n\"Super+J\" = \"Nope\"\n",
+        )
+        .unwrap();
+        let (k, warnings) = Keys::new(&BTreeMap::new(), &remap);
+        assert_eq!(warnings.len(), 3, "{warnings:?}");
+        assert!(warnings.iter().any(|w| w.contains("quit_app's")));
+        assert!(warnings.iter().any(|w| w.contains("fixed")));
+        assert_eq!(k.remap(&mods("Super"), keysyms::KEY_q), None);
+        assert_eq!(k.remap(&mods("Super"), keysyms::KEY_j), None);
     }
 }

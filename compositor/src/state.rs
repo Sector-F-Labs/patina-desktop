@@ -124,6 +124,8 @@ pub struct State {
     pub super_tap: bool,
     /// Super keys sent on as Ctrl (ADR-0067).
     pub cmd: crate::cmd::Cmd,
+    /// Keys sent on as others, still down (ADR-0076).
+    pub remapped: crate::remap::Remapped,
     /// Text typed into the focused window for dictation (ADR-0071).
     pub typing: crate::typing::Typing,
     /// A three-finger drag, holding the left button (ADR-0031).
@@ -258,7 +260,7 @@ impl State {
             toplevels: ForeignToplevels::new(&dh),
             night_light: crate::night_light::NightLight::new(&config.night_light),
             layouts: Default::default(),
-            keys: crate::keys::Keys::new(&config.keys).0,
+            keys: crate::keys::Keys::new(&config.keys, &config.remap).0,
             config,
             lock: crate::lock::Lock::Unlocked,
             session_lock: smithay::wayland::session_lock::SessionLockManagerState::new::<Self, _>(
@@ -272,6 +274,7 @@ impl State {
             lock_shown: Default::default(),
             super_tap: false,
             cmd: Default::default(),
+            remapped: Default::default(),
             typing: Default::default(),
             drag: Default::default(),
             auto_scale,

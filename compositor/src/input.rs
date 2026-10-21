@@ -65,6 +65,9 @@ pub enum KeyAction {
     /// A Super key sent on to the focused window as Ctrl (ADR-0067):
     /// nothing more to do.
     SentAsCtrl,
+    /// Send the focused window this instead of the key (`[remap]`,
+    /// ADR-0076).
+    Remap(crate::config::Combo),
 }
 
 /// The [bindings] command for a key, if one matches: exact modifiers, and
@@ -160,6 +163,7 @@ impl State {
                     .map_or(sym, |s| s.raw());
                 let action = key_action(modifiers, sym)
                     .or_else(|| state.keys.lookup(modifiers, base))
+                    .or_else(|| state.keys.remap(modifiers, base).map(KeyAction::Remap))
                     .or_else(|| binding(&state.config.combos(), modifiers, base));
                 // Locked, the keys go to the locker; only switching consoles
                 // and the brightness and volume keys still work. Under a
@@ -179,7 +183,8 @@ impl State {
                 // Super with any other key goes on as Ctrl (ADR-0067), but
                 // not to the locker or a fullscreen game; its release too.
                 let sent = if !pressed {
-                    state.release_as_ctrl(handle, keycode, modifiers, time)
+                    state.remapped.holds(keycode)
+                        || state.release_as_ctrl(handle, keycode, modifiers, time)
                 } else {
                     action.is_none()
                         && !state.locked()
@@ -202,6 +207,7 @@ impl State {
         // with modifiers alone, when any key does.
         if !pressed {
             self.dictate_key_released(code);
+            self.release_remapped(keycode, time);
         }
         let mut action = action;
         if pressed {
@@ -248,6 +254,10 @@ impl State {
                 None
             }
             Some(KeyAction::SentAsCtrl) => None,
+            Some(KeyAction::Remap(to)) => {
+                self.send_remapped(keycode, to, time);
+                None
+            }
             Some(KeyAction::Lock) => {
                 self.lock_screen();
                 None
@@ -454,13 +464,10 @@ mod tests {
         )];
         let run = binding(&combos, &alt, keysyms::KEY_w).unwrap();
         assert!(!works_in_fullscreen(&run));
-        let keys = crate::keys::Keys::new(&Default::default()).0;
+        let keys = crate::keys::Keys::new(&Default::default(), &Default::default()).0;
         let alt_tab = key_action(&alt, keysyms::KEY_Tab).unwrap();
         assert!(works_in_fullscreen(&alt_tab));
-        let alt_shift = ModifiersState {
-            shift: true,
-            ..alt
-        };
+        let alt_shift = ModifiersState { shift: true, ..alt };
         assert_eq!(
             key_action(&alt_shift, keysyms::KEY_ISO_Left_Tab),
             Some(KeyAction::CycleTabs { forward: false })
