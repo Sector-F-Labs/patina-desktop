@@ -16,7 +16,7 @@ use std::cell::RefCell;
 use std::time::SystemTime;
 
 use egui::{Pos2, ViewportCommand, ViewportId};
-use patina::frame::{TitleBar, WINDOW_RADIUS, corner_radius, header_frame};
+use patina::frame::{TitleBar, corner_radius, header_frame};
 use patina::skin::Skin;
 use patina_shell::raster::Painter;
 use smithay::{
@@ -198,7 +198,9 @@ impl Frame {
         let mut border = None;
         let output = self.ctx.run_ui(input, |ui| {
             let frame = skin.frame_style(ui.visuals());
-            let radius = corner_radius(ui.ctx(), WINDOW_RADIUS);
+            // The skin's, as an app's own frame has: square in a skin that
+            // squares its windows.
+            let radius = corner_radius(ui.ctx(), frame.radius);
             egui::CentralPanel::default()
                 .frame(
                     header_frame(ui.style(), &frame, radius)
