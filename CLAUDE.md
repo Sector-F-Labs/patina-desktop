@@ -111,6 +111,15 @@ puts them in `$(PREFIX)/share/man`.
   their app's was (ADR-0065): the compositor signals `WindowOpened` on the first buffer
   (`window_shown`) and `WindowClosed` with where it floated, and serves `Move`; the tiler's
   `positions.rs` keeps them by app id and `policy::opening` moves it, or fills if too big.
+- `compositor/src/frames.rs`: frames for X11 windows that draw none (ADR-0077): `wants_frame`
+  (not override-redirect, no `_MOTIF_WM_HINTS` without decorations, a normal window or dialog),
+  `TITLE` above the window's own place in the space, so `frames::inner`/`outer` convert for
+  placement (`maximize.rs`'s `configure_placed`). The bar is patina-ui's `TitleBar` run in an
+  egui context per window and painted with patina-shell's painter; its viewport commands are
+  carried out (`frame_commands`). Every backend draws `desktop_elements`, Smithay's
+  `space_render_elements` with the frames and borders beside their windows. Skin from the bar's
+  config file (`bar_skin`), polled each second. `PATINA_FRAMES_PREVIEW=dir cargo test -p
+  patina-compositor frames -- --ignored` paints one per skin.
 - `compositor/src/fullscreen.rs`: fullscreen (ADR-0041): `State::fullscreen`, sized to the output,
   drawn over the layers by every backend and first under the pointer while it has the keyboard.
 - `compositor/src/dnd.rs`: drag and drop between clients is Smithay's; this draws the icon a

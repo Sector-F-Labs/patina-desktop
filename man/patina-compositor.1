@@ -35,7 +35,11 @@ devices through the login session, and shows one monitor, the laptop's
 panel first.
 .El
 .Pp
-At start-up it runs Xwayland, when installed, for X11 apps;
+At start-up it runs Xwayland, when installed, for X11 apps.
+An X11 window that draws no frame of its own gets a title bar from the
+compositor, in the bar's skin: drag it to move the window, double-click it
+or use its button to maximise, and drag the edges to resize.
+It also runs
 .Xr patina-wallpaper 1 ,
 .Xr patina-bar 1
 and

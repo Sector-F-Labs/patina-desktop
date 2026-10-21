@@ -55,6 +55,11 @@ pub fn command(socket: &OsStr, command: &str) -> Command {
         .envs(DESKTOP_ENV)
         .env_remove("WAYLAND_SOCKET")
         .env_remove(crate::session::VAR)
+        // What the bar tells the pieces it opens, which a compositor
+        // started from one of them (a terminal) would pass on to its own.
+        .env_remove("PATINA_SKIN")
+        .env_remove("PATINA_BAR_EDGE")
+        .env_remove("PATINA_OPEN_AT")
         .stdin(Stdio::null());
     // X11 apps reach Xwayland (ADR-0040); without it, not the parent's X.
     match crate::xwayland::display() {

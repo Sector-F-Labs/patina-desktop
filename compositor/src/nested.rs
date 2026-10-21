@@ -12,7 +12,7 @@ use smithay::{
         input::{Axis, AxisSource},
         renderer::{Bind, damage::OutputDamageTracker, pixman::PixmanRenderer},
     },
-    desktop::{layer_map_for_output, space::render_output},
+    desktop::layer_map_for_output,
     input::pointer::AxisFrame,
     output::{Mode, Output},
     reexports::pixman::{FormatCode, Image},
@@ -166,12 +166,8 @@ pub fn render(state: &mut State) {
         .collect();
     let dnd_icon = state.dnd_icon_at();
     let fullscreen = state.fullscreen_drawn();
-    // Locked, only the locker, over black.
-    let spaces: Vec<&smithay::desktop::Space<smithay::desktop::Window>> = if locked {
-        Vec::new()
-    } else {
-        vec![&state.space]
-    };
+    state.paint_frames();
+    let fullscreen_window = state.fullscreen.clone();
     let Some(n) = state.nested.as_mut() else {
         return;
     };
@@ -198,6 +194,10 @@ pub fn render(state: &mut State) {
         flash,
         dnd_icon.as_ref(),
         fullscreen.as_ref(),
+        // Locked, only the locker, over black.
+        (!locked).then_some(&state.space),
+        &state.output,
+        fullscreen_window.as_ref(),
     );
     let damaged = {
         let mut target = match n.renderer.bind(image) {
@@ -207,15 +207,11 @@ pub fn render(state: &mut State) {
                 return;
             }
         };
-        match render_output::<_, crate::screenshot::Overlay<PixmanRenderer>, _, _>(
-            &state.output,
+        match n.damage_tracker.render_output(
             &mut n.renderer,
             &mut target,
-            1.0,
             n.age,
-            spaces,
             &overlay,
-            &mut n.damage_tracker,
             BACKGROUND,
         ) {
             Ok(result) => result.damage.is_some(),

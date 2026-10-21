@@ -10,7 +10,7 @@ use smithay::{
     backend::{
         allocator::Fourcc,
         renderer::{
-            Bind, ExportMem, ImportAll, Offscreen, Renderer, Texture,
+            Bind, ExportMem, ImportAll, ImportMem, Offscreen, Renderer, Texture,
             damage::OutputDamageTracker,
             element::{
                 AsRenderElements, Kind, RenderElement,
@@ -19,7 +19,7 @@ use smithay::{
             },
         },
     },
-    desktop::{Space, Window, space::space_render_elements},
+    desktop::{Space, Window},
     output::Output,
     render_elements,
     utils::{Logical, Physical, Point, Rectangle, Size, Transform},
@@ -59,7 +59,9 @@ impl State {
                 }
             },
         };
+        let framed = window.as_ref().is_some_and(|w| self.framed(w));
         let (space, output) = (&self.space, &self.output);
+        let fullscreen = self.fullscreen.as_ref();
         let window = window.as_ref();
         let picture = if let Some(u) = self.udev.as_mut() {
             take::<_, smithay::backend::renderer::gles::GlesTexture>(
@@ -67,6 +69,8 @@ impl State {
                 space,
                 output,
                 window,
+                fullscreen,
+                framed,
             )
         } else if let Some(w) = self.winit.as_mut() {
             take::<_, smithay::backend::renderer::gles::GlesTexture>(
@@ -74,6 +78,8 @@ impl State {
                 space,
                 output,
                 window,
+                fullscreen,
+                framed,
             )
         } else if let Some(n) = self.nested.as_mut() {
             take::<_, smithay::reexports::pixman::Image<'static, 'static>>(
@@ -81,6 +87,8 @@ impl State {
                 space,
                 output,
                 window,
+                fullscreen,
+                framed,
             )
         } else {
             return;
@@ -88,7 +96,7 @@ impl State {
         match picture {
             Ok(picture) => {
                 let area = match window {
-                    Some(window) => self.space.element_geometry(window),
+                    Some(window) => self.outer_rect(window),
                     None => self.space.output_geometry(&self.output),
                 };
                 if let Some(area) = area {
@@ -136,14 +144,18 @@ impl Flash {
 }
 
 render_elements! {
-    /// What's drawn over the desktop in a window: the locker, or a flash.
-    pub Overlay<R> where R: ImportAll;
+    /// What a backend drawing into a window draws: the locker or a flash
+    /// over the desktop.
+    pub Overlay<R> where R: ImportAll + ImportMem;
     Surface=WaylandSurfaceRenderElement<R>,
     Flash=SolidColorRenderElement,
+    Desktop=crate::frames::DesktopElement<R>,
 }
 
 /// What's being dragged, on top, then the flash and tiling preview, then
-/// the locker, for a backend drawing into a window.
+/// the locker, then `desktop` (the space, unless locked) on `output`, for a
+/// backend drawing into a window.
+#[allow(clippy::too_many_arguments)]
 pub fn overlay<R>(
     renderer: &mut R,
     lock_surface: Option<&smithay::reexports::wayland_server::protocol::wl_surface::WlSurface>,
@@ -157,10 +169,13 @@ pub fn overlay<R>(
         smithay::desktop::Window,
         smithay::utils::Point<i32, smithay::utils::Logical>,
     )>,
+    desktop: Option<&Space<Window>>,
+    output: &Output,
+    fullscreen_window: Option<&Window>,
 ) -> Vec<Overlay<R>>
 where
-    R: Renderer + ImportAll,
-    R::TextureId: Clone + Texture + 'static,
+    R: Renderer + ImportAll + ImportMem,
+    R::TextureId: Send + Clone + Texture + 'static,
 {
     crate::dnd::elements(renderer, dnd_icon, scale)
         .into_iter()
@@ -175,6 +190,15 @@ where
             crate::lock::elements(renderer, lock_surface, scale)
                 .into_iter()
                 .map(Overlay::Surface),
+        )
+        .chain(
+            desktop
+                .map(|space| {
+                    crate::frames::desktop_elements(renderer, space, output, fullscreen_window)
+                })
+                .unwrap_or_default()
+                .into_iter()
+                .map(Overlay::Desktop),
         )
         .collect()
 }
@@ -205,33 +229,48 @@ impl State {
 }
 
 /// The desktop, or `window` alone, drawn by `renderer` into a `T`.
+/// `fullscreen` is drawn without its frame, and `window` with its own if
+/// it's `framed` (ADR-0077).
 fn take<R, T>(
     renderer: &mut R,
     space: &Space<Window>,
     output: &Output,
     window: Option<&Window>,
+    fullscreen: Option<&Window>,
+    framed: bool,
 ) -> Result<Picture, String>
 where
-    R: Renderer + ImportAll + Offscreen<T> + Bind<T> + ExportMem,
-    R::TextureId: Clone + Texture + 'static,
+    R: Renderer + ImportAll + ImportMem + Offscreen<T> + Bind<T> + ExportMem,
+    R::TextureId: Send + Clone + Texture + 'static,
 {
     let scale = output.current_scale().fractional_scale();
     match window {
         None => {
             let size = output.current_mode().ok_or("the output has no mode")?.size;
-            let elements = space_render_elements(renderer, [space], output, 1.0)
-                .map_err(|e| format!("{e:?}"))?;
+            let elements = crate::frames::desktop_elements(renderer, space, output, fullscreen);
             draw::<R, T, _>(renderer, &elements, size, scale, crate::nested::BACKGROUND)
         }
         Some(window) => {
             // The window's own edges, without the shadow a client may draw
             // around them.
+            // around them; with the frame drawn for it, if it has one.
             let geometry = window.geometry();
-            let size = geometry.size.to_physical_precise_round(scale);
-            let at = Point::<i32, Physical>::from((0, 0))
-                - geometry.loc.to_physical_precise_round(scale);
-            let elements: Vec<WaylandSurfaceRenderElement<R>> =
-                window.render_elements(renderer, at, scale.into(), 1.0);
+            let top = if framed { crate::frames::TITLE } else { 0 };
+            let size = Size::<i32, Logical>::from((geometry.size.w, geometry.size.h + top))
+                .to_physical_precise_round(scale);
+            let at = (Point::<i32, Logical>::from((0, top)) - geometry.loc)
+                .to_physical_precise_round(scale);
+            let mut elements: Vec<crate::frames::DesktopElement<R>> = window
+                .render_elements::<WaylandSurfaceRenderElement<R>>(renderer, at, scale.into(), 1.0)
+                .into_iter()
+                .map(crate::frames::DesktopElement::Surface)
+                .collect();
+            if framed {
+                elements.extend(
+                    crate::frames::screenshot_element(renderer, window, scale)
+                        .map(crate::frames::DesktopElement::Frame),
+                );
+            }
             draw::<R, T, _>(renderer, &elements, size, scale, [0.0; 4])
         }
     }

@@ -34,7 +34,10 @@ this workspace is a Wayland client of it.
   ADR-0033); Ctrl+Space switches keyboard layout; Super+Shift+R reloads the config.
 - **A right click on the empty desktop** opens patina-menu at the pointer (ADR-0029).
 - **X11 apps** (Steam, Discord, Wine) run through Xwayland (ADR-0040), started with the
-  compositor; their windows float, focus, tab and move like any other.
+  compositor; their windows float, focus, tab and move like any other. One that draws no frame
+  of its own, as the Minecraft launcher, gets one here (`frames.rs`, ADR-0077): Patina's title
+  bar, painted with egui in the bar's skin, to move, maximise and close it, with edges that
+  resize. Fullscreen windows, menus and apps that draw their own never get one.
 - **Fullscreen** for games and videos that ask (ADR-0041): the whole screen, over the bar.
   Smithay comes from a fork whose X11 window manager names the focused window as the active one,
   so Wine's fullscreen games don't minimise themselves (ADR-0044).

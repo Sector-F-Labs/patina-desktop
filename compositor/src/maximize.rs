@@ -228,6 +228,39 @@ fn set_states(
     });
 }
 
+/// Gives `window` `rect` with its frame, if it has one (ADR-0077), as
+/// `placement` (none, floating) in the work area `area`; returns where its
+/// own surface goes. An X window takes the size at once; an xdg toplevel
+/// is asked to.
+fn configure_placed(
+    window: &Window,
+    placement: Option<Placement>,
+    rect: Rectangle<i32, Logical>,
+    area: Rectangle<i32, Logical>,
+) -> Point<i32, Logical> {
+    let own = crate::frames::inner(window, rect);
+    if let Some(toplevel) = window.toplevel() {
+        set_states(toplevel, placement.map(|p| (p, rect)), area);
+        toplevel.with_pending_state(|s| {
+            s.size = (own.size.w > 0 && own.size.h > 0).then_some(own.size);
+        });
+        if toplevel.is_initial_configure_sent() {
+            toplevel.send_pending_configure();
+        }
+    } else if let Some(x11) = window.x11_surface() {
+        // Only a change: placed windows are laid out again on every commit
+        // of the bar.
+        let maximized = placement == Some(Placement::Maximized);
+        if x11.is_maximized() != maximized {
+            let _ = x11.set_maximized(maximized);
+        }
+        if x11.geometry() != own {
+            let _ = x11.configure(own);
+        }
+    }
+    own.loc
+}
+
 impl State {
     /// The area a maximised window fills.
     pub fn work_area(&self) -> Rectangle<i32, Logical> {
@@ -248,9 +281,6 @@ impl State {
     /// Places `window` as `placement`, remembering where it was the first
     /// time.
     pub fn place_as(&mut self, window: &Window, placement: Placement) {
-        let Some(toplevel) = window.toplevel() else {
-            return;
-        };
         let area = self.work_area();
         let rect = self.placed_rect(placement);
         let slot = placed(window);
@@ -262,12 +292,8 @@ impl State {
             ),
         };
         *slot.0.borrow_mut() = Some((placement, before));
-        set_states(toplevel, Some((placement, rect)), area);
-        toplevel.with_pending_state(|s| s.size = Some(rect.size));
-        if toplevel.is_initial_configure_sent() {
-            toplevel.send_pending_configure();
-        }
-        self.place(window, rect.loc);
+        let location = configure_placed(window, Some(placement), rect, area);
+        self.place(window, location);
         self.needs_redraw = true;
     }
 
@@ -306,20 +332,16 @@ impl State {
     /// Puts `window` back where it was before it was placed; `at` overrides
     /// where (for a drag).
     pub fn unmaximize(&mut self, window: &Window, at: Option<Point<i32, Logical>>) {
-        let Some(toplevel) = window.toplevel() else {
-            return;
-        };
         let Some((_, before)) = placed(window).0.borrow_mut().take() else {
             return;
         };
-        set_states(toplevel, None, Rectangle::default());
-        toplevel.with_pending_state(|s| {
-            s.size = (before.size.w > 0 && before.size.h > 0).then_some(before.size);
-        });
-        if toplevel.is_initial_configure_sent() {
-            toplevel.send_pending_configure();
+        // `at` is where the window goes with its frame, if it has one.
+        let mut rect = crate::frames::outer(window, before);
+        if let Some(at) = at {
+            rect.loc = at;
         }
-        self.place(window, at.unwrap_or(before.loc));
+        let location = configure_placed(window, None, rect, Rectangle::default());
+        self.place(window, location);
         self.needs_redraw = true;
     }
 
@@ -457,16 +479,9 @@ impl State {
             // Called on every commit of a layer surface (the bar redraws
             // each second), so only a real change is sent: a new size, or
             // new tiled sides after the gaps changed.
-            let Some(toplevel) = window.toplevel() else {
-                continue;
-            };
             let rect = self.placed_rect(placement);
-            set_states(toplevel, Some((placement, rect)), work_area);
-            toplevel.with_pending_state(|s| s.size = Some(rect.size));
-            if toplevel.is_initial_configure_sent() {
-                toplevel.send_pending_configure();
-            }
-            self.place(&window, rect.loc);
+            let location = configure_placed(&window, Some(placement), rect, work_area);
+            self.place(&window, location);
         }
     }
 

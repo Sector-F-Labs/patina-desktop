@@ -36,7 +36,6 @@ use smithay::{
     },
     desktop::{
         layer_map_for_output,
-        space::{SpaceRenderElements, space_render_elements},
         utils::send_frames_surface_tree,
     },
     input::pointer::{CursorImageAttributes, CursorImageStatus},
@@ -68,7 +67,7 @@ type Compositor =
 
 render_elements! {
     pub OutputElement<=GlesRenderer>;
-    Space=SpaceRenderElements<GlesRenderer, WaylandSurfaceRenderElement<GlesRenderer>>,
+    Desktop=crate::frames::DesktopElement<GlesRenderer>,
     Cursor=MemoryRenderBufferRenderElement<GlesRenderer>,
     Flash=smithay::backend::renderer::element::solid::SolidColorRenderElement,
     Surface=WaylandSurfaceRenderElement<GlesRenderer>,
@@ -586,6 +585,7 @@ fn render(state: &mut State) {
         .collect();
     let dnd_icon = state.dnd_icon_at();
     let fullscreen = state.fullscreen_drawn();
+    state.paint_frames();
     let Some(u) = state.udev.as_mut() else { return };
     let scale = state.output.current_scale().fractional_scale();
 
@@ -627,10 +627,16 @@ fn render(state: &mut State) {
                 .into_iter()
                 .map(OutputElement::Surface),
         );
-        match space_render_elements(&mut u.renderer, [&state.space], &state.output, 1.0) {
-            Ok(space) => elements.extend(space.into_iter().map(OutputElement::Space)),
-            Err(e) => eprintln!("patina-compositor: {e:?}"),
-        }
+        elements.extend(
+            crate::frames::desktop_elements(
+                &mut u.renderer,
+                &state.space,
+                &state.output,
+                state.fullscreen.as_ref(),
+            )
+            .into_iter()
+            .map(OutputElement::Desktop),
+        );
     }
 
     let queued =

@@ -39,11 +39,15 @@ Considered and ruled out:
   some games), isn't fullscreen (asked for, or sized to the screen, which is taken as fullscreen
   per ADR-0041), and hasn't set `_MOTIF_WM_HINTS` with decorations off. Everything else is drawn
   as now. A window that goes fullscreen loses its frame, and gets it back when it leaves.
-- **The compositor draws it, painted with egui:** a title bar with the window's title, and
-  maximise and close buttons, in the skin's colours, through patina-shell's CPU painter
-  (`raster.rs`), the way the bar is drawn. The desktop has nowhere to minimise to, so there's no
-  minimise button. The bar's pixels are uploaded as a texture and drawn above the window by every
-  backend; they're painted again only when the title, width, focus, hover or skin change.
+- **The compositor draws it, painted with egui:** patina-ui's own `TitleBar` with the window's
+  title, and maximise and close buttons, in the skin's colours, through patina-shell's CPU
+  painter (`raster.rs`), the way the bar is drawn. The desktop has nowhere to minimise to, so
+  there's no minimise button (`TitleBar::minimise(false)`). It has less padding above and below
+  than an app's header (33 pixels high, not 41), as it holds nothing else. Patina's one-pixel
+  border goes round the bar and the window. The skin is read from the bar's config file, never
+  `PATINA_SKIN`, which the compositor's clients don't inherit either. The bar's pixels are
+  uploaded as a texture and drawn beside the window in the stacking order by every backend;
+  they're painted again only when the title, width, maximised state, hover or skin change.
 - **It acts as a native frame:** dragging the title bar is the compositor's move (snapping and
   tiling included), its edges resize, maximise is the compositor's (`State::maximize`), close is
   `WM_DELETE_WINDOW`.

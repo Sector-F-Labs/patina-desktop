@@ -156,11 +156,14 @@ impl XwmHandler for State {
             return;
         }
         // Where it asked to be, as Steam's dialogs do; otherwise cascaded.
-        let location = if geometry.loc != Point::from((0, 0)) {
+        // A frame drawn for it (ADR-0077) goes above, kept below the bar.
+        let top = crate::frames::top(&window);
+        let mut location = if geometry.loc != Point::from((0, 0)) {
             geometry.loc
         } else {
-            self.cascade()
+            self.cascade() + Point::from((0, top))
         };
+        location.y = location.y.max(self.work_area().loc.y + top);
         self.space.map_element(window.clone(), location, false);
         let _ = surface.configure(Rectangle::new(location, geometry.size));
         self.focus_window(window.clone());
@@ -292,6 +295,18 @@ impl XwmHandler for State {
         let _ = surface.set_suspended(false);
     }
 
+    fn maximize_request(&mut self, _: XwmId, surface: X11Surface) {
+        if let Some(window) = self.x11_window(&surface) {
+            self.maximize(&window);
+        }
+    }
+
+    fn unmaximize_request(&mut self, _: XwmId, surface: X11Surface) {
+        if let Some(window) = self.x11_window(&surface) {
+            self.unmaximize(&window, None);
+        }
+    }
+
     fn move_request(&mut self, _: XwmId, surface: X11Surface, _: u32) {
         let Some((start, window)) = self.x11_grab(&surface) else {
             return;
@@ -307,19 +322,29 @@ impl XwmHandler for State {
         let Some((start, window)) = self.x11_grab(&surface) else {
             return;
         };
-        let Some(location) = self.space.element_location(&window) else {
+        self.start_x11_resize(&window, edges(edge), start);
+    }
+}
+
+impl State {
+    /// Resizes X `window` from `edges` as the pointer moves: what the app
+    /// asks for, or a press on its frame's edge (ADR-0077).
+    pub fn start_x11_resize(&mut self, window: &Window, edges: Edges, start: GrabStartData<State>) {
+        let Some(surface) = window.x11_surface().cloned() else {
+            return;
+        };
+        let Some(location) = self.space.element_location(window) else {
             return;
         };
         let Some(pointer) = self.seat.get_pointer() else {
             return;
         };
-        let edges = edges(edge);
         let grab = X11ResizeGrab {
             start,
-            window,
-            surface: surface.clone(),
-            edges,
+            window: window.clone(),
             initial: Rectangle::new(location, surface.geometry().size),
+            surface,
+            edges,
         };
         self.grab_cursor = Some(edges.cursor());
         pointer.set_grab(self, grab, SERIAL_COUNTER.next_serial(), Focus::Clear);

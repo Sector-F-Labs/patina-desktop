@@ -126,6 +126,8 @@ pub struct State {
     pub cmd: crate::cmd::Cmd,
     /// Keys sent on as others, still down (ADR-0076).
     pub remapped: crate::remap::Remapped,
+    /// Frames drawn for X11 windows without their own (ADR-0077).
+    pub frames: crate::frames::Frames,
     /// Text typed into the focused window for dictation (ADR-0071).
     pub typing: crate::typing::Typing,
     /// A three-finger drag, holding the left button (ADR-0031).
@@ -275,6 +277,7 @@ impl State {
             super_tap: false,
             cmd: Default::default(),
             remapped: Default::default(),
+            frames: Default::default(),
             typing: Default::default(),
             drag: Default::default(),
             auto_scale,
@@ -346,7 +349,9 @@ impl State {
         let pointer = self.seat.get_pointer().expect("seat has a pointer");
         // On the line between tiled windows, neither window has the
         // pointer.
-        let under = if self.hover_split(pos, pointer.is_grabbed()) {
+        // Nor on a window's frame (ADR-0077).
+        let grabbed = pointer.is_grabbed();
+        let under = if (!grabbed && self.frame_pointer(pos)) || self.hover_split(pos, grabbed) {
             None
         } else {
             self.surface_under(pos)
@@ -399,6 +404,10 @@ impl State {
             })
         {
             pointer.set_grab(self, grab, serial, Focus::Clear);
+            return;
+        }
+        // A click on a window's frame is the frame's (ADR-0077).
+        if !pointer.is_grabbed() && self.frame_button(button, pressed, pointer.current_location()) {
             return;
         }
         // A click on a layer surface (the bar, a launcher) focuses it only

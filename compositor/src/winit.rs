@@ -11,7 +11,7 @@ use smithay::{
         renderer::{ImportDma, ImportMemWl, damage::OutputDamageTracker, gles::GlesRenderer},
         winit::{self as smithay_winit, WinitEvent, WinitEventLoop, WinitGraphicsBackend},
     },
-    desktop::{layer_map_for_output, space::render_output},
+    desktop::layer_map_for_output,
     output::{Mode, Output, Scale},
     reexports::{
         calloop::{
@@ -263,12 +263,8 @@ fn render(state: &mut State) {
         .collect();
     let dnd_icon = state.dnd_icon_at();
     let fullscreen = state.fullscreen_drawn();
-    // Locked, only the locker, over black.
-    let spaces: Vec<&smithay::desktop::Space<smithay::desktop::Window>> = if locked {
-        Vec::new()
-    } else {
-        vec![&state.space]
-    };
+    state.paint_frames();
+    let fullscreen_window = state.fullscreen.clone();
     let Some(w) = state.winit.as_mut() else {
         return;
     };
@@ -287,16 +283,16 @@ fn render(state: &mut State) {
                 flash,
                 dnd_icon.as_ref(),
                 fullscreen.as_ref(),
-            );
-            match render_output::<_, crate::screenshot::Overlay<GlesRenderer>, _, _>(
+                // Locked, only the locker, over black.
+                (!locked).then_some(&state.space),
                 &state.output,
+                fullscreen_window.as_ref(),
+            );
+            match w.damage_tracker.render_output(
                 renderer,
                 &mut framebuffer,
-                1.0,
                 age,
-                spaces,
                 &overlay,
-                &mut w.damage_tracker,
                 BACKGROUND,
             ) {
                 Ok(result) => result.damage.cloned(),

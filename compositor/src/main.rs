@@ -11,6 +11,7 @@ mod dmabuf;
 mod dnd;
 mod drag;
 mod focus;
+mod frames;
 mod fullscreen;
 mod grabs;
 mod idle;

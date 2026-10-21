@@ -19,5 +19,7 @@ rustix = { version = "1", features = ["process"] }
 png = "0.18"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 patina-shell = { workspace = true }
+patina-ui = { workspace = true }
+egui = "0.35"
 patina-system = { path = "../system" }
 smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop", "xkbcommon"] }
