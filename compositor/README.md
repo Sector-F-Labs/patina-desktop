@@ -119,7 +119,7 @@ what has the keyboard), `fullscreen.rs`, `constraints.rs` (pointer locks for gam
 ```sh
 make run                          # nested on this desktop, with the bar, on a bus of its own
 patina-compositor foot            # and a terminal
-patina-compositor --session       # as the login session (make install-session adds it to GDM)
+patina-compositor --session       # as the login session (make install adds it to the login screen)
 ```
 
 See [docs/running-as-a-session.md](../docs/running-as-a-session.md) for running it as your

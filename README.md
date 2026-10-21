@@ -62,7 +62,7 @@ patina-session --session          # as a login session (from a text console or t
 **Nested** (on GNOME/sway/etc.): the compositor opens a window; move it with Super+drag.
 Windows float and cascade; click to focus and raise.
 
-**On hardware** (text console or login screen via `make install-session`): one monitor
+**On hardware** (text console or login screen via `make install`): one monitor
 (internal panel first), GPU via Mesa/NVIDIA, fractional scaling (1.0, 1.5, 2.0), keyboard/mouse/
 touchpad via libinput, console switching (Ctrl+Alt+F1–F12), Ctrl+Alt+Backspace to quit, Ctrl+Alt+Shift+Backspace to
 restart the desktop without logging out.
@@ -154,9 +154,9 @@ commands above (for PipeWire).
 |---|---|
 | `make run` | The compositor in a window on this desktop |
 | `make check` | Tests and clippy |
-| `make install` | The binaries into `~/.local/bin` |
-| `make deploy <host>` | Build here, and install into `~/.local` on an ssh host (needs rsync there), with Teleprinter from `../teleprinter` (else GitHub) as its terminal |
-| `make install-session` | Also add Patina to the login screen ([how](docs/running-as-a-session.md)) |
+| `make install` | Build, then install for every user into `/usr/local`, with the login screen's session and the lock screen's PAM service; asks doas or sudo ([how](docs/running-as-a-session.md), ADR-0078) |
+| `make deploy <host>` | Build here, and install the same on an ssh host through `doas rsync` (needs rsync and doas there), with Teleprinter from `../teleprinter` (else GitHub) as its terminal |
+| `make uninstall` | Remove what `make install` put in place |
 | `make vm` | The FreeBSD test VM: the compositor in a window on dwl ([bsdt](https://bsdt.divanv.com)) |
 | `make vm-restart` | Rebuild in the VM and restart its desktop |
 | `make vm-gui` | Open the VM's desktop over VNC |

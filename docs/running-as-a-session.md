@@ -9,7 +9,7 @@ with GDM), and how to get back if something goes wrong.
 |---|---|
 | Running nested, as a window on GNOME or another desktop (`make run`) | Works |
 | Running on the hardware itself: one monitor, keyboard, mouse and touchpad, GPU | **Works** (tested on real hardware) |
-| A login-screen entry: `make install-session` | Works |
+| A login-screen entry, for every user: `make install` | Works |
 | The session setup (`patina-session --session`) | Partly: the desktop's environment, not yet portals and helpers |
 | Restarting the desktop without logging out (`patina-session`) | Works: Ctrl+Alt+Shift+Backspace, or after a crash |
 
@@ -119,19 +119,17 @@ GDM gains nothing and loses the fallback.
 ## Installing the session
 
 ```sh
-make install-session         # run it without sudo; it asks for your password itself
+make install                 # as yourself: it builds, then asks doas (or sudo) to install
 ```
 
-It installs the binaries (patina-compositor, patina-bar and the other pieces, and patina-launcher
-from its own repository) into
-`~/.local/bin`, and their man pages into `~/.local/share/man` (`man patina-desktop` for the
-overview), as `make install` does, then the session entry into
-`/usr/share/wayland-sessions/patina.desktop`, which is the only part that needs root: GDM only
-reads sessions from that system folder. Don't run it as `sudo make install-session`; it refuses,
-since under sudo the binaries would go to root's home.
-
-`make install-session PREFIX=/usr/local` puts the binaries in `/usr/local/bin` instead (then the
-binaries need root too, so run `sudo make install PREFIX=/usr/local` first).
+It builds everything as you, including patina-launcher from its own repository, then runs itself
+again as root to install for every user of the machine, as a BSD port does
+([ADR-0078](adr/0078-installed-for-every-user.md)): the binaries into `/usr/local/bin`, their
+man pages into `/usr/local/share/man` (`man patina-desktop` for the overview), the session entry
+into `/usr/share/wayland-sessions/patina.desktop`, where every login manager reads sessions, and
+the lock screen's PAM service into `/etc/pam.d/patina-lock`. Every account on the machine can then
+choose Patina at the login screen. Run as root after `make build` (`doas make install`), it only
+installs; it never builds as root.
 
 The entry it installs, from `packaging/linux/patina.desktop`, names patina-session by its full
 path, since a login session doesn't read your shell's `PATH`. patina-session runs the compositor
@@ -142,7 +140,7 @@ beside it, passing `--session` on, and starts it again when it restarts or crash
 [Desktop Entry]
 Name=Patina
 Comment=The Patina desktop
-Exec=/home/you/.local/bin/patina-session --session
+Exec=/usr/local/bin/patina-session --session
 Type=Application
 DesktopNames=Patina
 ```
@@ -180,7 +178,7 @@ Still to do, so these don't work in the session yet:
 
 GNOME's choice of default apps (`gnome-mimeapps.list`) is only read in a GNOME session, so in
 Patina a file would open in the first app that claims its type, alphabetically: often the web
-browser for images. `make install` puts `patina-mimeapps.list` in `~/.local/share/applications`
+browser for images. `make install` puts `patina-mimeapps.list` in `/usr/local/share/applications`
 (ADR-0066), so images open in an image viewer, PDFs in a document viewer, folders in Files, and
 so on, with whichever of the usual apps is installed. What you choose with an app's Open With
 still comes first.
@@ -250,8 +248,7 @@ GPU GNOME holds, so it exits with "Resource temporarily unavailable" and leaves 
 ## Removing it
 
 ```sh
-make uninstall-session        # the login-screen entry (asks for sudo)
-make uninstall                # the binaries; or: sudo make uninstall PREFIX=/usr/local
+make uninstall                # the binaries, the login-screen entry and the PAM service (asks doas or sudo)
 ```
 
 and set `Session=ubuntu` in `/var/lib/AccountsService/users/<your user name>` if it says `patina`.

@@ -7,7 +7,7 @@ means logging in again.
 ## How it fits in
 
 - **Started by** the login screen, from `packaging/linux/patina.desktop`
-  (`Exec=patina-session --session`), which `make install-session` installs. Its arguments go to
+  (`Exec=patina-session --session`), which `make install` installs for every user (ADR-0078). Its arguments go to
   the compositor.
 - **Runs patina-compositor**, found beside it (as `make install` and the build put them) or else
   on `PATH`, with `PATINA_SESSION` set to its own process ID, so the compositor knows a restart

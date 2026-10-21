@@ -54,10 +54,10 @@ built from its own repository.
 .Sh STARTING THE DESKTOP
 .Bl -tag -width Ds
 .It \&At the login screen
-.Ql make install-session
-adds a
+.Ql make install
+installs the desktop for every user of the machine and adds a
 .Dq Patina
-session to GDM, which runs
+session to the login screen, which runs
 .Ql patina-session --session .
 Choose it from the session button on the password screen.
 .It From a text console
@@ -99,7 +99,8 @@ Skins of your own, beside Patina's built-in ones.
 .It Pa ~/Pictures/Screenshots/
 Screenshots, from Super+Shift+3, Super+Shift+4 and Print.
 .It Pa ~/Pictures/Wallpapers/
-Images offered as wallpapers, with the system's backgrounds..It Pa ~/.local/share/applications/patina-mimeapps.list
+Images offered as wallpapers, with the system's backgrounds.
+.It Pa /usr/local/share/applications/patina-mimeapps.list
 Which app opens a file when no choice of your own says otherwise:
 images in an image viewer, folders in Files.
 Installed by

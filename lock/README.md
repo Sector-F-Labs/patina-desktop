@@ -20,7 +20,7 @@ password" under the box.
   input only to those; if the locker crashes, the session stays locked. Unlocking is the
   locker's to do, once the password is right.
 - **Checks the password through PAM** (`pam.rs`), with the service `/etc/pam.d/patina-lock`,
-  which `make install-session` installs (without it PAM falls back to `other`). The few PAM calls
+  which `make install` installs (without it PAM falls back to `other`). The few PAM calls
   are declared by hand; Linux-PAM and FreeBSD's OpenPAM share them.
 - **The password** is never kept in a text field, whose undo history would hold copies: keys are
   read straight from egui's input and the buffer is wiped once checked.

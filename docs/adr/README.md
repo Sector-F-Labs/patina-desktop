@@ -119,6 +119,7 @@ mechanics of adding one.
 | [0075](0075-the-default-keys-are-a-toml-file.md) | The default keys are a TOML file built in, and Alt+Tab is fixed | Accepted |
 | [0076](0076-any-key-remaps-to-any-other.md) | Any key remaps to any other, sent to the focused window | Accepted |
 | [0077](0077-x11-windows-without-a-frame-get-one.md) | X11 windows that draw no frame get one from the compositor, painted with egui | Accepted |
+| [0078](0078-installed-for-every-user.md) | The desktop is installed for every user, in /usr/local, as a BSD port is | Accepted |
 
 ## Decision Relationship
 
@@ -185,6 +186,7 @@ flowchart TD
     CMD --> REMAP
     XW[0040: X11 apps] --> FRAMES[0077: frames for X11 windows without one]
     K --> FRAMES
+    P --> SYSTEM[0078: installed for every user in /usr/local]
 ```
 
 ## Revisit Triggers

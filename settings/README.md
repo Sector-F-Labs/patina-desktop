@@ -64,7 +64,7 @@ patina-night-light inhibit -- darktable   # held off while a command runs
 `compositor_config.rs` (`[night_light]` read and written in place), `wallpapers.rs` (the images on
 offer and their thumbnails), `bin/patina-night-light.rs`. `packaging/` holds its icon
 (`settings.svg`, also drawn as the window icon) and its desktop entry, which `make install` puts
-in `~/.local/share` (ADR-0062).
+in `/usr/local/share` (ADR-0062).
 
 ## Running
 

@@ -25,9 +25,12 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 ## Commands
 
 - `make` lists targets; `make check` (workspace tests + clippy -D warnings) before committing.
-- `make deploy <host>` builds here and installs on an ssh host (`stage` into `target/deploy` with
-  its home's PREFIX, then rsync), with Teleprinter (`../teleprinter` as it is, else a clone from
-  GitHub) through its own `make install DESTDIR=`; it never adds the login session there. The
+- `make install` (ADR-0078) builds as you, then runs itself again through doas (else sudo) to
+  install for every user: `/usr/local`, the session entry in `/usr/share/wayland-sessions`
+  (FreeBSD: under PREFIX) and `/etc/pam.d/patina-lock`. As root it never builds. `make deploy
+  <host>` builds here and installs the same on an ssh host (`stage` into `target/deploy`, then
+  `rsync --rsync-path="doas rsync"`), with Teleprinter (`../teleprinter` as it is, else a clone
+  from GitHub) through its own `make install DESTDIR= PREFIX=/usr/local`. The
   compositor gives clients `TERMINAL=teleprinter` where it's installed (`clients.rs`).
 - `make run` opens the compositor as a window on the current desktop, on a session bus of its own
   (`dbus-run-session`) so it never takes a running Patina session's names (it pops up on the user's
