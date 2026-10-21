@@ -16,7 +16,7 @@ use std::cell::RefCell;
 use std::time::SystemTime;
 
 use egui::{Pos2, ViewportCommand, ViewportId};
-use patina::frame::{TitleBar, corner_radius, header_frame};
+use patina::frame::{TitleBar, corner_radius, header_frame, release_grab};
 use patina::skin::Skin;
 use patina_shell::raster::Painter;
 use smithay::{
@@ -192,6 +192,10 @@ impl Frame {
             focused: true,
             ..Default::default()
         };
+        // After the bar handed a drag to the compositor's move, the button
+        // came up under the grab: tell egui, as an app's input hook does,
+        // or it thinks the bar's still held and the next drag never starts.
+        release_grab(&self.ctx, &mut input);
         let viewport = input.viewports.entry(ViewportId::ROOT).or_default();
         viewport.native_pixels_per_point = Some(look.scale as f32);
         viewport.maximized = Some(look.maximized);
@@ -695,9 +699,10 @@ impl State {
                     let Some(pointer) = self.seat.get_pointer() else {
                         continue;
                     };
-                    // The bar won't see the button come up under the grab.
+                    // The button comes up under the grab; `release_grab` tells
+                    // the bar on its next run, which this is.
                     if self.frames.pressed.take().is_some() {
-                        self.frame_input(window, vec![egui::Event::PointerGone]);
+                        self.frame_input(window, Vec::new());
                     }
                     let start = GrabStartData {
                         focus: None,
@@ -761,6 +766,41 @@ mod tests {
         assert_eq!(edge(300, 200 - TITLE), (true, false, false, false));
         assert_eq!(edge(98, 498), (false, true, true, false), "a corner");
         assert_eq!(edge(105, 200 - TITLE), (true, false, true, false));
+    }
+
+    /// Presses on `frame`'s title bar and drags: whether a move was asked.
+    fn drag(frame: &mut Frame, look: &Look, skin: &Skin) -> bool {
+        let at = Pos2::new(200.0, 15.0);
+        let mut asked = false;
+        for events in [
+            vec![egui::Event::PointerMoved(at)],
+            vec![click(at, true)],
+            vec![egui::Event::PointerMoved(at + egui::vec2(10.0, 0.0))],
+            vec![egui::Event::PointerMoved(at + egui::vec2(30.0, 0.0))],
+        ] {
+            asked |= frame
+                .run(look, skin, events)
+                .contains(&ViewportCommand::StartDrag);
+        }
+        asked
+    }
+
+    #[test]
+    fn the_bar_can_be_dragged_again_after_a_move() {
+        let skin = Skin::default_skin();
+        let look = Look {
+            width: 600,
+            scale: 1.0,
+            title: "Minecraft Launcher".into(),
+            maximized: false,
+            skin: skin.name.clone(),
+        };
+        let mut frame = Frame::default();
+        frame.run(&look, &skin, Vec::new());
+        assert!(drag(&mut frame, &look, &skin), "the first drag");
+        // The move's grab keeps the release; the next run is told of it.
+        frame.run(&look, &skin, Vec::new());
+        assert!(drag(&mut frame, &look, &skin), "the second");
     }
 
     /// Paints a frame in every built-in skin, as PNGs in the folder
