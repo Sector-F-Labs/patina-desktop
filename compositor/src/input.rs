@@ -99,6 +99,17 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
             (sym - keysyms::KEY_XF86Switch_VT_1 + 1) as i32,
         ));
     }
+    // Alt+Tab, the way back out of a fullscreen game, is no config's to
+    // take; with Shift it's ISO_Left_Tab.
+    if modifiers.alt
+        && !modifiers.ctrl
+        && !modifiers.logo
+        && (sym == keysyms::KEY_Tab || sym == keysyms::KEY_ISO_Left_Tab)
+    {
+        return Some(KeyAction::CycleTabs {
+            forward: !modifiers.shift,
+        });
+    }
     if modifiers.ctrl && modifiers.alt && sym == keysyms::KEY_BackSpace {
         return Some(if modifiers.shift {
             KeyAction::Restart
@@ -444,8 +455,16 @@ mod tests {
         let run = binding(&combos, &alt, keysyms::KEY_w).unwrap();
         assert!(!works_in_fullscreen(&run));
         let keys = crate::keys::Keys::new(&Default::default()).0;
-        let alt_tab = keys.lookup(&alt, keysyms::KEY_Tab).unwrap();
+        let alt_tab = key_action(&alt, keysyms::KEY_Tab).unwrap();
         assert!(works_in_fullscreen(&alt_tab));
+        let alt_shift = ModifiersState {
+            shift: true,
+            ..alt
+        };
+        assert_eq!(
+            key_action(&alt_shift, keysyms::KEY_ISO_Left_Tab),
+            Some(KeyAction::CycleTabs { forward: false })
+        );
         let logo = ModifiersState {
             logo: true,
             ..Default::default()

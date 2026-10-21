@@ -1,0 +1,54 @@
+# The desktop's own keys and what they do by default (ADR-0069, ADR-0075),
+# built into patina-compositor. `[keys]` in the user's config replaces an
+# action's keys with its own; the others keep these. The config written on
+# first start lists them, commented out.
+#
+# Each action has one key or a list. Keys are modifiers (Super, Alt, Ctrl,
+# Shift) and a key by its xkb name, matched on exact modifiers and the key
+# unshifted on the first layout. "Super" alone is Super tapped on its own,
+# and modifiers alone ("Ctrl+Super+Alt") are held together, which only
+# dictate takes. A Super key no action has goes to the app as Ctrl
+# (ADR-0067), so Super+T and Super+W are left out for new and closed tabs.
+#
+# A new action needs its name in `keys::action` too; `cargo test -p
+# patina-compositor keys` checks every name and key here.
+#
+# Not here, and no config can take them: Alt+Tab and Alt+Shift+Tab (the
+# bar's tabs, the way out of a fullscreen game), Ctrl+Alt+Backspace and
+# Ctrl+Alt+Shift+Backspace (quit and restart the desktop), the consoles and
+# the media keys (`input::key_action`).
+
+launcher = ["Super", "Super+Space"]
+next_layout = "Ctrl+Space"
+quit_app = "Super+Q"
+lock = ["Super+Escape", "Ctrl+Super+Q"]
+reload = "Super+Shift+R"
+screenshot = ["Super+Shift+3", "Print"]
+screenshot_window = "Super+Shift+4"
+# Held while speaking.
+dictate = "Ctrl+Super+Alt"
+
+# Tiling: fill a side, grow or shrink a placed window, resize by the split.
+snap_up = ["Super+Up", "Ctrl+Super+K"]
+snap_down = ["Super+Down", "Ctrl+Super+J"]
+snap_left = ["Super+Left", "Ctrl+Super+H"]
+snap_right = ["Super+Right", "Ctrl+Super+L"]
+grow_up = "Super+Shift+Up"
+grow_down = "Super+Shift+Down"
+grow_left = "Super+Shift+Left"
+grow_right = "Super+Shift+Right"
+resize_grow = "Ctrl+Super+Shift+K"
+resize_shrink = "Ctrl+Super+Shift+J"
+resize_wider = "Ctrl+Super+Shift+L"
+resize_narrower = "Ctrl+Super+Shift+H"
+
+# The bar's tabs, by place.
+window_1 = "Super+1"
+window_2 = "Super+2"
+window_3 = "Super+3"
+window_4 = "Super+4"
+window_5 = "Super+5"
+window_6 = "Super+6"
+window_7 = "Super+7"
+window_8 = "Super+8"
+window_9 = "Super+9"

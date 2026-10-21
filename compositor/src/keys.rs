@@ -4,12 +4,15 @@
 //! focused window, a Super key as Ctrl (ADR-0067), so unbinding one gives
 //! it to the apps.
 //!
-//! Not here, and not changeable, so a bad config can't take them: quitting
-//! and restarting the desktop (Ctrl+Alt+Backspace, Ctrl+Alt+Shift+Backspace),
-//! switching consoles, and the brightness and volume keys
-//! (`input::key_action`).
+//! The defaults are `keys.toml`, built in (ADR-0075).
+//!
+//! Not here, and not changeable, so a bad config can't take them: Alt+Tab
+//! and Alt+Shift+Tab, quitting and restarting the desktop
+//! (Ctrl+Alt+Backspace, Ctrl+Alt+Shift+Backspace), switching consoles, and
+//! the brightness and volume keys (`input::key_action`).
 
 use std::collections::BTreeMap;
+use std::sync::LazyLock;
 
 use serde::Deserialize;
 use smithay::input::keyboard::ModifiersState;
@@ -17,42 +20,25 @@ use smithay::input::keyboard::ModifiersState;
 use crate::config::{Combo, combo};
 use crate::input::KeyAction;
 
-/// Each action's name in `[keys]`, and the keys it has unless set there.
-/// "Super" alone is Super tapped on its own; modifiers alone
-/// ("Ctrl+Super+Alt") are held together, which only `dictate` takes.
-const DEFAULTS: &[(&str, &[&str])] = &[
-    ("launcher", &["Super", "Super+Space"]),
-    ("next_layout", &["Ctrl+Space"]),
-    ("next_tab", &["Alt+Tab"]),
-    ("previous_tab", &["Alt+Shift+Tab"]),
-    ("quit_app", &["Super+Q"]),
-    ("lock", &["Super+Escape", "Ctrl+Super+Q"]),
-    ("reload", &["Super+Shift+R"]),
-    ("screenshot", &["Super+Shift+3", "Print"]),
-    ("screenshot_window", &["Super+Shift+4"]),
-    ("dictate", &["Ctrl+Super+Alt"]),
-    ("snap_up", &["Super+Up", "Ctrl+Super+K"]),
-    ("snap_down", &["Super+Down", "Ctrl+Super+J"]),
-    ("snap_left", &["Super+Left", "Ctrl+Super+H"]),
-    ("snap_right", &["Super+Right", "Ctrl+Super+L"]),
-    ("grow_up", &["Super+Shift+Up"]),
-    ("grow_down", &["Super+Shift+Down"]),
-    ("grow_left", &["Super+Shift+Left"]),
-    ("grow_right", &["Super+Shift+Right"]),
-    ("resize_grow", &["Ctrl+Super+Shift+K"]),
-    ("resize_shrink", &["Ctrl+Super+Shift+J"]),
-    ("resize_wider", &["Ctrl+Super+Shift+L"]),
-    ("resize_narrower", &["Ctrl+Super+Shift+H"]),
-    ("window_1", &["Super+1"]),
-    ("window_2", &["Super+2"]),
-    ("window_3", &["Super+3"]),
-    ("window_4", &["Super+4"]),
-    ("window_5", &["Super+5"]),
-    ("window_6", &["Super+6"]),
-    ("window_7", &["Super+7"]),
-    ("window_8", &["Super+8"]),
-    ("window_9", &["Super+9"]),
-];
+/// Each action's keys unless `[keys]` sets them: `keys.toml`, built in,
+/// where they're changed.
+const DEFAULTS: &str = include_str!("../keys.toml");
+
+fn defaults() -> &'static BTreeMap<String, KeyList> {
+    static PARSED: LazyLock<BTreeMap<String, KeyList>> = LazyLock::new(|| {
+        toml::from_str(DEFAULTS).expect("keys.toml parses (the tests read it)")
+    });
+    &PARSED
+}
+
+/// The defaults' lines commented out, for the config written on first start.
+pub fn commented() -> String {
+    DEFAULTS
+        .lines()
+        .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with('#'))
+        .map(|l| format!("# {l}\n"))
+        .collect()
+}
 
 /// The action called `name`.
 fn action(name: &str) -> Option<KeyAction> {
@@ -61,8 +47,6 @@ fn action(name: &str) -> Option<KeyAction> {
     Some(match name {
         "launcher" => KeyAction::Launcher,
         "next_layout" => KeyAction::NextLayout,
-        "next_tab" => KeyAction::CycleTabs { forward: true },
-        "previous_tab" => KeyAction::CycleTabs { forward: false },
         "quit_app" => KeyAction::QuitApp,
         "lock" => KeyAction::Lock,
         "reload" => KeyAction::Reload,
@@ -136,6 +120,18 @@ fn chord(text: &str) -> Option<Combo> {
     (count >= 2).then_some(chord)
 }
 
+/// Whether `c` is one of the keys fixed in code, matched before these.
+fn fixed(c: &Combo) -> bool {
+    let modifiers = ModifiersState {
+        logo: c.logo,
+        alt: c.alt,
+        ctrl: c.ctrl,
+        shift: c.shift,
+        ..Default::default()
+    };
+    crate::input::key_action(&modifiers, c.sym).is_some()
+}
+
 /// The compositor's keys, ready to match.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Keys {
@@ -153,20 +149,22 @@ impl Keys {
     /// left out.
     pub fn new(set: &BTreeMap<String, KeyList>) -> (Self, Vec<String>) {
         let mut warnings = Vec::new();
-        for name in set.keys() {
+        let mut wanted = defaults().clone();
+        for (name, list) in set {
             if action(name).is_none() {
                 warnings.push(format!("[keys] has no action {name:?}; ignored"));
+                continue;
             }
+            wanted.insert(name.clone(), list.clone());
         }
         let mut keys = Keys::default();
         let mut taken: Vec<(Combo, &str)> = Vec::new();
-        for (name, defaults) in DEFAULTS {
-            let Some(act) = action(name) else { continue };
-            let wanted = match set.get(*name) {
-                Some(list) => list.keys(),
-                None => defaults.to_vec(),
+        for (name, list) in &wanted {
+            let Some(act) = action(name) else {
+                warnings.push(format!("keys.toml has no action {name:?}; ignored"));
+                continue;
             };
-            for text in wanted {
+            for text in list.keys() {
                 if text.trim().eq_ignore_ascii_case("super") {
                     keys.tap = Some(act.clone());
                     continue;
@@ -185,6 +183,12 @@ impl Keys {
                         continue;
                     }
                 };
+                if held.is_none() && fixed(&c) {
+                    warnings.push(format!(
+                        "[keys] {name}: {text} is the desktop's own, fixed; ignored"
+                    ));
+                    continue;
+                }
                 if let Some((_, other)) = taken.iter().find(|(t, _)| *t == c) {
                     warnings.push(format!(
                         "[keys] {text} is both {other} and {name}; it stays {other}"
@@ -259,7 +263,7 @@ mod tests {
         m
     }
 
-    fn defaults() -> Keys {
+    fn defaults_keys() -> Keys {
         let (keys, warnings) = Keys::new(&BTreeMap::new());
         assert!(warnings.is_empty(), "{warnings:?}");
         keys
@@ -267,33 +271,40 @@ mod tests {
 
     #[test]
     fn every_default_names_an_action_and_parses() {
-        for (name, keys) in DEFAULTS {
+        for (name, keys) in defaults() {
             assert!(action(name).is_some(), "{name}");
-            for key in *keys {
+            for key in keys.keys() {
                 assert!(
-                    *key == "Super" || chord(key).is_some() || combo(key).is_ok(),
+                    key == "Super" || chord(key).is_some() || combo(key).is_ok(),
                     "{name}: {key}"
                 );
             }
         }
+        let starter = commented();
+        assert!(starter.contains("# snap_right = [\"Super+Right\", \"Ctrl+Super+L\"]\n"));
+        assert!(!starter.contains("# #"), "only the settings, not the notes");
+    }
+
+    #[test]
+    fn alt_tab_is_fixed() {
+        let k = defaults_keys();
+        assert_eq!(k.lookup(&mods("Alt"), keysyms::KEY_Tab), None, "input's");
+        let set: BTreeMap<String, KeyList> =
+            toml::from_str("lock = \"Alt+Tab\"\nreload = \"Ctrl+Alt+BackSpace\"\n").unwrap();
+        let (k, warnings) = Keys::new(&set);
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
+        assert!(warnings.iter().all(|w| w.contains("fixed")));
+        assert_eq!(k.lookup(&mods("Alt"), keysyms::KEY_Tab), None);
     }
 
     #[test]
     fn the_defaults() {
-        let k = defaults();
+        let k = defaults_keys();
         let at = |m: &str, sym| k.lookup(&mods(m), sym);
         assert_eq!(k.tap(), Some(&KeyAction::Launcher));
         assert_eq!(at("Super", keysyms::KEY_space), Some(KeyAction::Launcher));
         assert_eq!(at("Ctrl", keysyms::KEY_space), Some(KeyAction::NextLayout));
         assert_eq!(at("Ctrl+Super", keysyms::KEY_space), None);
-        assert_eq!(
-            at("Alt", keysyms::KEY_Tab),
-            Some(KeyAction::CycleTabs { forward: true })
-        );
-        assert_eq!(
-            at("Alt+Shift", keysyms::KEY_Tab),
-            Some(KeyAction::CycleTabs { forward: false })
-        );
         assert_eq!(at("Super", keysyms::KEY_q), Some(KeyAction::QuitApp));
         assert_eq!(at("Ctrl+Super", keysyms::KEY_q), Some(KeyAction::Lock));
         assert_eq!(at("Super", keysyms::KEY_Escape), Some(KeyAction::Lock));
@@ -342,7 +353,7 @@ mod tests {
 
     #[test]
     fn dictation_is_held_with_modifiers_alone() {
-        let k = defaults();
+        let k = defaults_keys();
         assert_eq!(k.chord(&mods("Ctrl+Super+Alt")), Some(KeyAction::Dictate));
         assert_eq!(k.chord(&mods("Ctrl+Super")), None, "not yet all of them");
         assert_eq!(k.chord(&mods("Ctrl+Super+Alt+Shift")), None, "exact");

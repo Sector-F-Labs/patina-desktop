@@ -26,7 +26,8 @@ this workspace is a Wayland client of it.
   desktop entry's `TerminalEmulator` category (Super+Shift+key as Ctrl+Alt+Shift+key there, so it
   differs from Super+key). Only that client is told Ctrl is down.
 - **The desktop's own keys** (`keys.rs`, ADR-0069), by action, changed in `[keys]` within a
-  second of a save; these are the defaults. Super alone or Super+Space opens the launcher; Ctrl+Super+Q and Super+Escape lock
+  second of a save. The defaults are `keys.toml`, built in (ADR-0075); Alt+Tab is fixed with
+  the escape hatches. These are the defaults. Super alone or Super+Space opens the launcher; Ctrl+Super+Q and Super+Escape lock
   (ADR-0026); Super+Shift+3 or Print screenshots the desktop and Super+Shift+4 the focused window
   (ADR-0034); the brightness and volume keys change them and flash the volume menu (ADR-0020,
   ADR-0033); Ctrl+Space switches keyboard layout; Super+Shift+R reloads the config.

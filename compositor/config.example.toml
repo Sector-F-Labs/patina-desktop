@@ -122,32 +122,10 @@
 # action set here replaces its defaults, the others keep theirs; "" or []
 # takes its keys away, and a Super key nothing has goes to the app as Ctrl
 # (Super+L is Ctrl+L). Keys are written as for [bindings]; "Super" alone is
-# Super tapped on its own, and dictate may be modifiers alone, held. Ctrl+Alt+Backspace, Ctrl+Alt+Shift+Backspace, the
-# consoles and the media keys are fixed.
-# launcher = ["Super", "Super+Space"]
-# next_layout = "Ctrl+Space"
-# next_tab = "Alt+Tab"
-# previous_tab = "Alt+Shift+Tab"
-# quit_app = "Super+Q"
-# lock = ["Super+Escape", "Ctrl+Super+Q"]
-# reload = "Super+Shift+R"
-# screenshot = ["Super+Shift+3", "Print"]
-# screenshot_window = "Super+Shift+4"
-# dictate = "Ctrl+Super+Alt"      # held while speaking; modifiers alone, or a key
-#                                 # with modifiers ("Alt+Space")
-# snap_up = ["Super+Up", "Ctrl+Super+K"]
-# snap_down = ["Super+Down", "Ctrl+Super+J"]
-# snap_left = ["Super+Left", "Ctrl+Super+H"]
-# snap_right = ["Super+Right", "Ctrl+Super+L"]
-# grow_up = "Super+Shift+Up"
-# grow_down = "Super+Shift+Down"
-# grow_left = "Super+Shift+Left"
-# grow_right = "Super+Shift+Right"
-# resize_grow = "Ctrl+Super+Shift+K"
-# resize_shrink = "Ctrl+Super+Shift+J"
-# resize_wider = "Ctrl+Super+Shift+L"
-# resize_narrower = "Ctrl+Super+Shift+H"
-# window_1 = "Super+1"            # and so on to window_9, the bar's tabs
+# Super tapped on its own, and dictate may be modifiers alone, held, as it is
+# by default. Alt+Tab, Alt+Shift+Tab, Ctrl+Alt+Backspace,
+# Ctrl+Alt+Shift+Backspace, the consoles and the media keys are fixed.
+# {the defaults from compositor/keys.toml}
 
 # Keys that run commands: modifiers (Super, Alt, Ctrl, Shift) and a key, by
 # its name ("T", "Return", "F5"). Writing a [bindings] section replaces these

@@ -373,9 +373,17 @@ impl Default for Touchpad {
     }
 }
 
+/// The file written on first start where there's none, but for the keys.
+const TEMPLATE: &str = include_str!("../config.example.toml");
+
+/// The line in `TEMPLATE` where the default keys go.
+const KEYS_HERE: &str = "# {the defaults from compositor/keys.toml}\n";
+
 /// The file written on first start where there's none: every setting,
-/// commented out at its default.
-pub const STARTER: &str = include_str!("../config.example.toml");
+/// commented out at its default, the keys from `keys.toml`.
+pub fn starter() -> String {
+    TEMPLATE.replace(KEYS_HERE, &crate::keys::commented())
+}
 
 pub fn path() -> Option<PathBuf> {
     dirs::config_dir().map(|d| d.join("patina-compositor").join("config.toml"))
@@ -490,7 +498,7 @@ pub fn write_starter(path: &Path) -> std::io::Result<bool> {
         .create_new(true)
         .open(path)
     {
-        Ok(mut file) => file.write_all(STARTER.as_bytes()).map(|()| true),
+        Ok(mut file) => file.write_all(starter().as_bytes()).map(|()| true),
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Ok(false),
         Err(e) => Err(e),
     }
@@ -634,7 +642,7 @@ mod tests {
         assert_eq!(c.keys.len(), 3);
         assert_eq!(w.len(), 1, "{w:?}");
         assert!(w[0].contains("bogus"), "{w:?}");
-        let (_, w) = parse(STARTER).unwrap();
+        let (_, w) = parse(&starter()).unwrap();
         assert!(w.is_empty(), "the starter config is clean: {w:?}");
     }
 
@@ -689,9 +697,11 @@ mod tests {
 
     #[test]
     fn the_starter_file_is_the_defaults() {
-        let (c, w) = parse(STARTER).expect("the starter file parses");
+        let (c, w) = parse(&starter()).expect("the starter file parses");
         assert!(w.is_empty(), "{w:?}");
         assert_eq!(c, Config::default());
+        assert!(!starter().contains(KEYS_HERE), "the keys are in");
+        assert!(starter().contains("\n# quit_app = \"Super+Q\"\n"));
     }
 
     #[test]
@@ -700,7 +710,7 @@ mod tests {
         let path = dir.join("patina-compositor").join("config.toml");
         let _ = std::fs::remove_dir_all(&dir);
         assert!(write_starter(&path).unwrap());
-        assert_eq!(std::fs::read_to_string(&path).unwrap(), STARTER);
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), starter());
         std::fs::write(&path, "scale = 2.0\n").unwrap();
         assert!(!write_starter(&path).unwrap());
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "scale = 2.0\n");
