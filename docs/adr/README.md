@@ -118,6 +118,7 @@ mechanics of adding one.
 | [0074](0074-whisper-runs-on-the-gpu-through-vulkan.md) | Whisper runs on the GPU through Vulkan by default | Accepted |
 | [0075](0075-the-default-keys-are-a-toml-file.md) | The default keys are a TOML file built in, and Alt+Tab is fixed | Accepted |
 | [0076](0076-any-key-remaps-to-any-other.md) | Any key remaps to any other, sent to the focused window | Accepted |
+| [0077](0077-x11-windows-without-a-frame-get-one.md) | X11 windows that draw no frame get one from the compositor, painted with egui | Accepted |
 
 ## Decision Relationship
 
@@ -182,6 +183,8 @@ flowchart TD
     KEYS --> KTOML[0075: default keys in keys.toml, Alt+Tab fixed]
     KTOML --> REMAP[0076: any key remaps to any other]
     CMD --> REMAP
+    XW[0040: X11 apps] --> FRAMES[0077: frames for X11 windows without one]
+    K --> FRAMES
 ```
 
 ## Revisit Triggers
