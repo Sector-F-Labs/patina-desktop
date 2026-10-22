@@ -1,4 +1,4 @@
-.Dd October 18, 2026
+.Dd October 22, 2026
 .Dt PATINA-DESKTOP 7
 .Os
 .Sh NAME
@@ -42,8 +42,8 @@ The lock screen.
 Dictation: hold Ctrl+Super+Alt and speak, and what was said is typed into the
 focused window, transcribed on the machine with Whisper.
 .It Xr patina-settings 1
-Settings: the skin, wallpaper, Night Light, power modes, and the desktop's
-processes.
+Settings: the skin, wallpaper, default apps, Night Light, power modes, and
+the desktop's processes.
 .It Xr patina-night-light 1
 Night Light from the command line.
 .El
@@ -100,6 +100,14 @@ Skins of your own, beside Patina's built-in ones.
 Screenshots, from Super+Shift+3, Super+Shift+4 and Print.
 .It Pa ~/Pictures/Wallpapers/
 Images offered as wallpapers, with the system's backgrounds.
+.It Pa ~/.config/patina/defaults.toml
+The default apps chosen on Settings' Defaults page, a line per kind, such as
+.Ql browser = \(dqfirefox\(dq .
+They're written out as
+.Pa ~/.config/patina-mimeapps.list ,
+which only this desktop reads, so other desktops keep their own, and which
+comes before an app's Open With choices.
+Settings writes it at once; a change by hand applies from the next session.
 .It Pa /usr/local/share/applications/patina-mimeapps.list
 Which app opens a file when no choice of your own says otherwise:
 images in an image viewer, folders in Files.

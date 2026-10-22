@@ -1,4 +1,4 @@
-.Dd October 17, 2026
+.Dd October 22, 2026
 .Dt PATINA-SETTINGS 1
 .Os
 .Sh NAME
@@ -34,6 +34,18 @@ from a list.
 The default, and the images in
 .Pa ~/Pictures/Wallpapers
 and the system's backgrounds.
+.It Defaults
+The app that opens links and each kind of file: the web browser, email,
+calendar, folders, images, documents, text, music, video and archives,
+each chosen from the installed apps that take it.
+A choice is saved in
+.Pa ~/.config/patina/defaults.toml
+and written out as
+.Pa ~/.config/patina-mimeapps.list ,
+which
+.Xr xdg-open 1
+follows at once, in this desktop only.
+Each row shows the app that opens it now.
 .It Keyboard
 The keyboard layouts Ctrl+Space steps through, in order: each moved up or
 down, removed, or switched to, and more added from those XKB offers, found
@@ -92,6 +104,7 @@ Open at
 (the default),
 .Cm bar ,
 .Cm wallpaper ,
+.Cm defaults ,
 .Cm keyboard ,
 .Cm dictation ,
 .Cm night-light ,

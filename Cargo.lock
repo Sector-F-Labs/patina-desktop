@@ -3119,6 +3119,7 @@ dependencies = [
  "patina-shell",
  "resvg",
  "roxmltree",
+ "toml_edit",
  "zbus",
 ]
 

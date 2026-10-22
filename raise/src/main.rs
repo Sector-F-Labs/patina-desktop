@@ -380,6 +380,7 @@ mod tests {
             command: None,
             exec: Some(exec.iter().map(|s| s.to_string()).collect()),
             terminal_emulator: false,
+            mime_types: Vec::new(),
         }
     }
 

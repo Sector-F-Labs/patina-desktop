@@ -21,6 +21,9 @@ pub struct Entry {
     /// It's a terminal (`TerminalEmulator` in its Categories), so Super
     /// keys reach it with Shift as well as Ctrl (ADR-0067).
     pub terminal_emulator: bool,
+    /// The types it opens, from its MimeType: what Settings' Defaults page
+    /// offers it for (ADR-0079).
+    pub mime_types: Vec<String>,
 }
 
 /// `args` run in a terminal, if `terminal`: `$TERMINAL`, or foot.
@@ -72,6 +75,13 @@ pub fn entries() -> Vec<Entry> {
             command: command(&e),
             exec: exec(&e),
             terminal_emulator: terminal_emulator(&e),
+            mime_types: e
+                .mime_type()
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|t| !t.is_empty())
+                .map(str::to_string)
+                .collect(),
         })
         .collect()
 }
@@ -127,6 +137,7 @@ mod tests {
             command: None,
             exec: None,
             terminal_emulator: false,
+            mime_types: Vec::new(),
         }
     }
 

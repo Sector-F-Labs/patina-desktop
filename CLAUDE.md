@@ -195,7 +195,9 @@ puts them in `$(PREFIX)/share/man`.
   `wallpaper`) and Night Light (writes `[night_light]` into the compositor's config with
   `toml_edit`; state over D-Bus through `system/src/night_light.rs`), Power (the screen's
   `[screen] off_after`, and power-profiles-daemon through `system/src/power_profiles.rs`),
-  Dictation (the overlay's edge in patina-dictate's config, `dictation.rs`) and
+  Defaults (`defaults.rs`, ADR-0079: an app per role in `~/.config/patina/defaults.toml`,
+  `system/src/defaults.rs` writing it out as `~/.config/patina-mimeapps.list`, also at the
+  compositor's start), Dictation (the overlay's edge in patina-dictate's config, `dictation.rs`) and
   Processes (ADR-0045). Also
   `patina-night-light`.
   `cargo test -p patina-settings preview -- --ignored` with PATINA_SETTINGS_PREVIEW=dir draws

@@ -120,6 +120,7 @@ mechanics of adding one.
 | [0076](0076-any-key-remaps-to-any-other.md) | Any key remaps to any other, sent to the focused window | Accepted |
 | [0077](0077-x11-windows-without-a-frame-get-one.md) | X11 windows that draw no frame get one from the compositor, painted with egui | Accepted |
 | [0078](0078-installed-for-every-user.md) | The desktop is installed for every user, in /usr/local, as a BSD port is | Accepted |
+| [0079](0079-settings-chooses-default-apps.md) | Default apps are chosen in Patina's own defaults.toml, from a Settings page | Accepted |
 
 ## Decision Relationship
 

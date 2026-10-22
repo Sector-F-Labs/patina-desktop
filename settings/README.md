@@ -16,6 +16,11 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   bar or split (ADR-0063), each part dragged to its spot on a map of the screen.
 - **Wallpaper**: the default "Sector F Labs" and the images in `~/Pictures/Wallpapers` and the
   system's backgrounds, as thumbnails decoded off the UI thread.
+- **Defaults** (ADR-0079): the app that opens links and each kind of file Files opens (web
+  browser, email, calendar, folders, images, documents, text, music, video, archives), chosen
+  from the installed apps that take it and saved in `~/.config/patina/defaults.toml`, which
+  `patina_system::defaults` writes out as `~/.config/patina-mimeapps.list` for xdg-open, read in
+  Patina only; each row shows what opens it now.
 - **Keyboard** (ADR-0068): the layouts Ctrl+Space steps through, four at most (any past the
   fourth shown as not used), moved, removed, switched to
   and added from xkb's by search, and key repeat, written to `[keyboard]` in the compositor's
@@ -41,7 +46,7 @@ It wears the shell's skin and follows it when the desktop's menu changes it.
 ## How it fits in
 
 - **Started by** patina-menu: its Wallpaper… item runs `patina-settings --page wallpaper`, and
-  Settings… runs it at Appearance. `--page appearance|bar|wallpaper|keyboard|dictation|night-light|power|processes`.
+  Settings… runs it at Appearance. `--page appearance|bar|wallpaper|defaults|keyboard|dictation|night-light|power|processes`.
 - **Writes the files the settings live in**, keeping the rest of each: the bar's config
   (`skin`, `wallpaper`) through patina-shell, and `[night_light]` in the compositor's config with
   `toml_edit`. The bar, patina-wallpaper and the compositor watch those files and change at once.
@@ -59,7 +64,8 @@ patina-night-light inhibit -- darktable   # held off while a command runs
 
 ## Code
 
-`main.rs`, `app.rs` (the window, the Appearance and Wallpaper pages), `bar.rs` (the Bar page), `night_light.rs` and
+`main.rs`, `app.rs` (the window, the Appearance and Wallpaper pages), `bar.rs` (the Bar page),
+`defaults.rs` (the Defaults page), `night_light.rs` and
 `power.rs` and `processes.rs` (theirs),
 `compositor_config.rs` (`[night_light]` read and written in place), `wallpapers.rs` (the images on
 offer and their thumbnails), `bin/patina-night-light.rs`. `packaging/` holds its icon

@@ -28,6 +28,7 @@ pub enum Page {
     Appearance,
     Bar,
     Wallpaper,
+    Defaults,
     Keyboard,
     Dictation,
     NightLight,
@@ -36,10 +37,11 @@ pub enum Page {
 }
 
 impl Page {
-    const ALL: [Page; 8] = [
+    const ALL: [Page; 9] = [
         Page::Appearance,
         Page::Bar,
         Page::Wallpaper,
+        Page::Defaults,
         Page::Keyboard,
         Page::Dictation,
         Page::NightLight,
@@ -52,6 +54,7 @@ impl Page {
             "appearance" => Some(Page::Appearance),
             "bar" => Some(Page::Bar),
             "wallpaper" => Some(Page::Wallpaper),
+            "defaults" => Some(Page::Defaults),
             "keyboard" => Some(Page::Keyboard),
             "dictation" => Some(Page::Dictation),
             "night-light" => Some(Page::NightLight),
@@ -66,6 +69,7 @@ impl Page {
             Page::Appearance => "Appearance",
             Page::Bar => "Bar",
             Page::Wallpaper => "Wallpaper",
+            Page::Defaults => "Defaults",
             Page::Keyboard => "Keyboard",
             Page::Dictation => "Dictation",
             Page::NightLight => "Night Light",
@@ -116,6 +120,7 @@ pub struct App {
     /// The flask, for the default wallpaper's tile.
     flask: Option<TextureHandle>,
     bar: crate::bar::BarPage,
+    defaults: crate::defaults::DefaultsPage,
     gaps: crate::gaps::GapsSection,
     icons: crate::icons::IconsSection,
     keyboard: crate::keyboard::KeyboardPage,
@@ -144,6 +149,7 @@ impl App {
             decoded: None,
             flask: None,
             bar: crate::bar::BarPage::new(),
+            defaults: crate::defaults::DefaultsPage::new(),
             gaps: crate::gaps::GapsSection::new(),
             icons: crate::icons::IconsSection::new(),
             keyboard: crate::keyboard::KeyboardPage::new(ctx),
@@ -556,6 +562,10 @@ impl App {
                     egui::ScrollArea::vertical().show(ui, |ui| self.bar.ui(ui, &mut self.message));
                 }
                 Page::Wallpaper => self.wallpaper_page(ui),
+                Page::Defaults => {
+                    egui::ScrollArea::vertical()
+                        .show(ui, |ui| self.defaults.ui(ui, &mut self.message));
+                }
                 Page::Keyboard => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.keyboard.ui(ui, &mut self.message));

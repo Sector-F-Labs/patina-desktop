@@ -157,6 +157,13 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     let _session = session::dbus::serve(&event_loop.handle()).inspect_err(|e| {
         eprintln!("patina-compositor: locking and logging out aren't on D-Bus: {e}")
     });
+    // The default apps chosen in defaults.toml, as xdg-open reads them
+    // (ADR-0079), off the loop: it reads every desktop entry.
+    std::thread::spawn(|| {
+        if let Err(e) = patina_system::defaults::sync(&patina_system::apps::entries()) {
+            eprintln!("patina-compositor: the default apps aren't written: {e}");
+        }
+    });
     // Before any client starts, so they all get DISPLAY.
     state.start_xwayland();
     // The wallpaper first, so it's there by the time the bar is.
