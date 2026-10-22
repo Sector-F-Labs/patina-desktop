@@ -366,7 +366,7 @@ impl State {
             .loop_handle
             .insert_source(Timer::from_duration(POLL), |_, _, state| {
                 state.poll_config();
-                state.poll_frame_skin();
+                state.poll_bar_config();
                 state.night_light_update();
                 TimeoutAction::ToDuration(POLL)
             });

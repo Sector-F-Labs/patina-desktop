@@ -2,7 +2,10 @@
 //! tabs are the one list of open windows, so Alt+Tab steps along them, and
 //! closing a window gives the keyboard back to the window it came from, or
 //! else its neighbouring tab, as in a browser (ADR-0059), rather than a
-//! separate switcher or a hidden most-recently-used order.
+//! separate switcher or a hidden most-recently-used order. Pinned apps come
+//! first (ADR-0080), and the bar can move a window along (`dbus`).
+
+pub mod dbus;
 
 use std::cell::RefCell;
 

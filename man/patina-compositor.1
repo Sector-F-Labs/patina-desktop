@@ -71,6 +71,10 @@ maximises a window, edge to edge even with gaps.
 The bar's tabs are the list of windows: Alt+Tab steps along them, and
 closing a window gives the keyboard back to the window it came from, or,
 if that's gone, focuses its neighbouring tab.
+The apps pinned in the bar's config come first, and dragging a tab
+moves its window along the others
+.Pq Sy com.sectorflabs.Patina.Tabs ,
+which the keys follow.
 A window asking for fullscreen covers the whole screen, over the bar.
 .Sh OPTIONS
 .Bl -tag -width Ds
@@ -100,7 +104,8 @@ and the media keys, within a second of a save.
 Open the launcher: Super tapped on its own, or with Space, as Cmd+Space
 on a Mac.
 .It Super+1 No to Sy 9
-Bring forward the window in that tab of the bar.
+Bring forward the window in that tab of the bar, or start the pinned app
+whose tab it is.
 .It Alt+Tab , Alt+Shift+Tab
 Step to the next or previous tab.
 .It Super+Q

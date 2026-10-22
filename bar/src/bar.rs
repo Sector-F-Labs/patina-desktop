@@ -13,6 +13,7 @@ use crate::config::{Config, Position};
 use crate::dwl::{Monitor, Status};
 use patina::tabs::{TabAction, TabStrip};
 use patina_shell::{Shell, Toplevel, ToplevelRequest};
+use patina_system::pins::Tab;
 
 /// Space between modules, and at the bar's ends.
 const GAP: f32 = 12.0;
@@ -58,6 +59,16 @@ pub fn tab_title(name: Option<&str>, title: &str, app_id: &str) -> String {
     }
 }
 
+/// The windows `now`, in the order of `before` (as moves left it), those
+/// that opened since after them in the order they came.
+fn in_order(before: &[Toplevel], now: &[Toplevel]) -> Vec<Toplevel> {
+    let still = before
+        .iter()
+        .filter_map(|b| now.iter().find(|t| t.id == b.id));
+    let new = now.iter().filter(|t| !before.iter().any(|b| b.id == t.id));
+    still.chain(new).cloned().collect()
+}
+
 /// A window tab's tooltip: what it says, and for the first nine, the key
 /// that switches to it, as the compositor's Super+1 to 9 follow the tabs.
 pub fn tab_tip(title: &str, index: usize) -> String {
@@ -97,8 +108,17 @@ pub struct Bar {
     /// Tray icons by name, by `icons::named_key`.
     named_icons: RefCell<HashMap<String, Icon>>,
     skin: Skin,
-    /// The open windows, from the compositor, in the order they opened.
+    /// The open windows, from the compositor, in the order they opened,
+    /// but for those moved since (ADR-0080).
     toplevels: Vec<Toplevel>,
+    /// The apps pinned to the bar, as the config says, or as a drop or a
+    /// tab's menu just made it.
+    pinned: RefCell<Vec<String>>,
+    /// The config file, which pinning writes.
+    pub config_path: Option<std::path::PathBuf>,
+    /// Where a window's move goes when the compositor can't keep it, as
+    /// another desktop's can't, and where its `Moved` signals go.
+    pub moves: Option<patina_shell::calloop::channel::Sender<(usize, usize)>>,
     /// Clicks on the window tabs, for the host to pass on.
     requests: RefCell<Vec<ToplevelRequest>>,
     /// The window tabs' icons by app id, and where to ask for one.
@@ -126,6 +146,7 @@ impl Bar {
     /// never fatal.
     pub fn new(config: Config) -> (Self, Vec<String>) {
         let (skin, warnings) = find_skin(&config.skin);
+        let pinned = RefCell::new(config.pinned.clone());
         (
             Self {
                 config,
@@ -139,6 +160,9 @@ impl Bar {
                 named_icons: RefCell::new(HashMap::new()),
                 skin,
                 toplevels: Vec::new(),
+                pinned,
+                config_path: None,
+                moves: None,
                 requests: RefCell::new(Vec::new()),
                 icons: RefCell::new(HashMap::new()),
                 names: RefCell::new(HashMap::new()),
@@ -164,6 +188,30 @@ impl Bar {
         self.config.skin = name.to_string();
         self.skin = skin;
         (true, warnings)
+    }
+
+    /// The pinned apps, as the config file says now. Redraw after.
+    pub fn set_pinned(&mut self, pinned: Vec<String>) {
+        *self.pinned.get_mut() = pinned;
+    }
+
+    /// Pins these apps, writing them into the config file.
+    fn pin(&self, pinned: Vec<String>) {
+        if let Some(path) = &self.config_path
+            && let Err(e) = patina_system::pins::set(path, &pinned)
+        {
+            eprintln!("patina-bar: can't pin: {e}");
+        }
+        *self.pinned.borrow_mut() = pinned;
+    }
+
+    /// Window `from` moved to `to`, as the compositor said, or as the bar
+    /// keeps it itself. Redraw after.
+    pub fn moved(&mut self, from: usize, to: usize) {
+        if from < self.toplevels.len() && to < self.toplevels.len() {
+            let window = self.toplevels.remove(from);
+            self.toplevels.insert(to, window);
+        }
     }
 
     /// The icon thread's answer for `app_id`. Redraw after.
@@ -517,31 +565,58 @@ impl Bar {
 }
 
 impl Bar {
-    /// The open windows as Patina tabs, the active one shown: a click
-    /// activates a window, its cross or a middle click closes it, and its
-    /// menu opens another window of its app (ADR-0055).
+    /// The bar's tabs: the pinned apps, each as its windows or, with none
+    /// open, a launcher; then the other windows (ADR-0080).
+    fn tabs(&self) -> Vec<Tab> {
+        let app_ids: Vec<&str> = self.toplevels.iter().map(|t| t.app_id.as_str()).collect();
+        patina_system::pins::arrange(&self.pinned.borrow(), &app_ids)
+    }
+
+    /// The app id of a tab's app.
+    fn tab_app(&self, tab: Tab) -> String {
+        match tab {
+            Tab::Window(i) => self.toplevels[i].app_id.clone(),
+            Tab::Launcher(p) => self.pinned.borrow()[p].clone(),
+        }
+    }
+
+    /// The open windows as Patina tabs, after the pinned apps, the active
+    /// one shown: a click activates a window or starts a pinned app, its
+    /// cross or a middle click closes it, its menu opens another window of
+    /// its app (ADR-0055) or pins it, and a drag puts it elsewhere
+    /// (ADR-0080).
     fn windows(&self, ui: &mut Ui) {
-        if self.toplevels.is_empty() {
+        let tabs = self.tabs();
+        if tabs.is_empty() {
             return;
         }
-        let titles: Vec<String> = self
-            .toplevels
+        let titles: Vec<String> = tabs
             .iter()
-            .map(|t| tab_title(self.app_name(&t.app_id).as_deref(), &t.title, &t.app_id))
+            .map(|&tab| match tab {
+                Tab::Window(i) => {
+                    let t = &self.toplevels[i];
+                    tab_title(self.app_name(&t.app_id).as_deref(), &t.title, &t.app_id)
+                }
+                Tab::Launcher(_) => {
+                    let app_id = self.tab_app(tab);
+                    tab_title(self.app_name(&app_id).as_deref(), "", &app_id)
+                }
+            })
             .collect();
-        let shown = self
-            .toplevels
+        let launchers: Vec<bool> = tabs.iter().map(|t| matches!(t, Tab::Launcher(_))).collect();
+        let shown = tabs
             .iter()
-            .position(|t| t.activated)
+            .position(|t| matches!(t, Tab::Window(i) if self.toplevels[*i].activated))
             .unwrap_or(usize::MAX);
         let label = self.config.window_tabs.into();
-        let icons: Vec<Option<egui::TextureId>> = if label == patina::tabs::TabLabel::Title {
-            Vec::new()
-        } else {
-            self.toplevels
-                .iter()
-                .map(|t| self.icon(ui.ctx(), &t.app_id))
+        // A launcher is its icon, whatever the tabs show.
+        let iconic = label != patina::tabs::TabLabel::Title || launchers.contains(&true);
+        let icons: Vec<Option<egui::TextureId>> = if iconic {
+            tabs.iter()
+                .map(|&tab| self.icon(ui.ctx(), &self.tab_app(tab)))
                 .collect()
+        } else {
+            Vec::new()
         };
         // The bar is the tabs' "title bar", so the shown tab is set off
         // from it the way TabStrip sets tabs off a panel-coloured bar.
@@ -552,6 +627,8 @@ impl Bar {
         let mut open_menu = |i: usize, at: egui::Pos2| menu_at = Some((i, at));
         let mut hovered_tab = None;
         let mut hover_tab = |i: usize, rect: egui::Rect| hovered_tab = Some((i, rect));
+        let mut dropped = None;
+        let mut moved = |from: usize, to: usize| dropped = Some((from, to));
         // TabStrip zeroes the item spacing; keep that from the next module.
         let action = ui
             .scope(|ui| {
@@ -561,7 +638,9 @@ impl Bar {
                     .noun("Window")
                     .icons(&icons)
                     .label(label)
+                    .launchers(&launchers)
                     .span(span)
+                    .movable(&mut moved)
                     .own_menu(&mut open_menu)
                     .own_tooltip(&mut hover_tab)
                     // On the bar, a line sets the tabs off from the launcher
@@ -574,15 +653,24 @@ impl Bar {
             crate::tooltip::note(ui, rect, tab_tip(&titles[i], i));
         }
         if let Some((i, at)) = menu_at {
-            self.open_tab_menu(ui.ctx(), i, at);
+            self.open_tab_menu(ui.ctx(), tabs[i], at);
         }
-        let request = match action {
-            Some(TabAction::Show(i)) => self
-                .toplevels
-                .get(i)
-                .map(|t| ToplevelRequest::Activate(t.id)),
-            Some(TabAction::Close(i)) => {
-                self.toplevels.get(i).map(|t| ToplevelRequest::Close(t.id))
+        if let Some((from, to)) = dropped {
+            self.dropped(&tabs, from, to);
+        }
+        let request = match action.and_then(|a| match a {
+            TabAction::Show(i) | TabAction::Close(i) => Some((a, *tabs.get(i)?)),
+            TabAction::New => None,
+        }) {
+            Some((TabAction::Show(_), Tab::Window(i))) => {
+                Some(ToplevelRequest::Activate(self.toplevels[i].id))
+            }
+            Some((TabAction::Close(_), Tab::Window(i))) => {
+                Some(ToplevelRequest::Close(self.toplevels[i].id))
+            }
+            Some((TabAction::Show(_), launcher)) => {
+                self.start(&self.tab_app(launcher), false);
+                None
             }
             _ => None,
         };
@@ -637,39 +725,87 @@ impl Bar {
         )
     }
 
-    /// Opens tab `i`'s menu in patina-menu, at `at` on the bar, just past
+    /// Opens `tab`'s menu in patina-menu, at `at` on the bar, just past
     /// its edge (ADR-0056).
-    fn open_tab_menu(&self, ctx: &egui::Context, i: usize, at: egui::Pos2) {
-        let (Some(t), Some(send)) = (self.toplevels.get(i), self.tab_menu.clone()) else {
+    fn open_tab_menu(&self, ctx: &egui::Context, tab: Tab, at: egui::Pos2) {
+        let Some(send) = self.tab_menu.clone() else {
             return;
         };
-        let args = crate::menu::args(self.popup(ctx, at));
-        crate::menu::open(args, t.id, t.app_id.clone(), move |chosen| {
+        let app_id = self.tab_app(tab);
+        let window = match tab {
+            Tab::Window(i) => Some(self.toplevels[i].id),
+            Tab::Launcher(_) => None,
+        };
+        let pinned = self.pinned.borrow().contains(&app_id);
+        let choices = crate::menu::choices(window.is_some(), pinned);
+        let args = crate::menu::args(self.popup(ctx, at), &choices);
+        crate::menu::open(args, window, app_id, move |chosen| {
             let _ = send.send(chosen);
         });
     }
 
     /// Does what was chosen in a tab's menu.
     pub fn tab_menu_chosen(&mut self, chosen: crate::menu::Chosen) {
+        use crate::menu::Choice;
+        let mut pinned = self.pinned.borrow().clone();
         match chosen.choice {
-            crate::menu::Choice::NewWindow => self.open_new_window(&chosen.app_id),
-            crate::menu::Choice::Close => self
-                .requests
-                .get_mut()
-                .push(ToplevelRequest::Close(chosen.window)),
+            Choice::NewWindow => self.start(&chosen.app_id, true),
+            Choice::Open => self.start(&chosen.app_id, false),
+            Choice::Pin if !pinned.contains(&chosen.app_id) => {
+                pinned.push(chosen.app_id);
+                self.pin(pinned);
+            }
+            Choice::Unpin => {
+                pinned.retain(|p| *p != chosen.app_id);
+                self.pin(pinned);
+            }
+            Choice::Pin => {}
+            Choice::Close => {
+                if let Some(window) = chosen.window {
+                    self.requests.get_mut().push(ToplevelRequest::Close(window));
+                }
+            }
         }
     }
 
-    /// Opens another window of `app_id`'s app, as its `.desktop` entry
-    /// says (its New Window action, if it has one), on a thread, since
-    /// that reads the installed entries.
-    fn open_new_window(&self, app_id: &str) {
+    /// Does what dropping tab `from` of `tabs` at `to` means: the pins
+    /// change, or a window moves along, which the compositor keeps so its
+    /// keys follow the tabs; the bar moves it itself where nothing does.
+    fn dropped(&self, tabs: &[Tab], from: usize, to: usize) {
+        let app_ids: Vec<&str> = self.toplevels.iter().map(|t| t.app_id.as_str()).collect();
+        let drop = crate::pins::drop(tabs, &self.pinned.borrow(), &app_ids, from, to);
+        match drop {
+            crate::pins::Drop::Pins(pinned) => self.pin(pinned),
+            crate::pins::Drop::Window { from, to } => {
+                let Some(moves) = self.moves.clone() else {
+                    return;
+                };
+                std::thread::spawn(move || {
+                    // Moved, the compositor's signal moves the tab.
+                    if patina_system::pins::move_window(from, to).is_err() {
+                        let _ = moves.send((from, to));
+                    }
+                });
+            }
+            crate::pins::Drop::Nothing => {}
+        }
+    }
+
+    /// Starts `app_id`'s app, as its `.desktop` entry says: another window
+    /// (its New Window action, if it has one) if `new_window`, else as it
+    /// starts. On a thread, since that reads the installed entries.
+    fn start(&self, app_id: &str, new_window: bool) {
         let app_id = app_id.to_string();
         let skin = self.skin.name.clone();
         let edge = self.edge();
         std::thread::spawn(move || {
-            match patina_system::apps::new_window_command(&patina_system::apps::entries(), &app_id)
-            {
+            let entries = patina_system::apps::entries();
+            let command = if new_window {
+                patina_system::apps::new_window_command(&entries, &app_id)
+            } else {
+                patina_system::apps::start_command(&entries, &app_id)
+            };
+            match command {
                 Some(command) => {
                     let opening = crate::launcher::Opening { edge, at: None };
                     crate::launcher::run(&command, &skin, &opening)
@@ -702,8 +838,10 @@ fn no_egui_tooltips(ctx: &egui::Context) {
 }
 
 impl Shell for Bar {
+    /// Keeps the windows in the order the bar has them, which moves
+    /// change, with the new ones after.
     fn toplevels_changed(&mut self, toplevels: &[Toplevel]) {
-        self.toplevels = toplevels.to_vec();
+        self.toplevels = in_order(&self.toplevels, toplevels);
     }
 
     fn take_toplevel_requests(&mut self) -> Vec<ToplevelRequest> {
@@ -768,7 +906,7 @@ impl Bar {
             Section::Reserve(_) => {}
             Section::Windows if vertical => {
                 self.windows_column(ui, inner);
-                let rows = self.toplevels.len().max(1) as f32;
+                let rows = self.tabs().len().max(1) as f32;
                 let length = rows * inner.width() + 2.0 * line.width;
                 self.wanted.set(Some((height, length.ceil() as u32)));
             }
@@ -785,7 +923,20 @@ impl Bar {
                     .max_rect(tabs)
                     .layout(Layout::left_to_right(Align::Center));
                 ui.scope_builder(row, |ui| self.windows(ui));
-                let width = self.toplevels.len().max(1) as f32 * per + 2.0 * GAP;
+                // A pinned app with no window is an icon's width.
+                let width = self
+                    .tabs()
+                    .iter()
+                    .map(|t| {
+                        if matches!(t, Tab::Launcher(_)) {
+                            44.0
+                        } else {
+                            per
+                        }
+                    })
+                    .sum::<f32>()
+                    .max(per)
+                    + 2.0 * GAP;
                 self.wanted.set(Some((width.ceil() as u32, height)));
             }
             Section::Launcher | Section::Tray if vertical => {
@@ -825,22 +976,33 @@ impl Bar {
         }
     }
 
-    /// The window list as a column of icons, split on the left or right:
-    /// a click focuses a window, a middle click closes it, a right click
-    /// opens its menu, and hovering shows its name and title.
+    /// The window list as a column of icons, split on the left or right,
+    /// after the pinned apps (ADR-0080): a click focuses a window or starts
+    /// a pinned app, a middle click closes a window, a right click opens
+    /// its menu, and hovering shows its name and title. Unlike the row,
+    /// it can't be dragged.
     fn windows_column(&self, ui: &mut Ui, rect: Rect) {
         let side = rect.width();
         let v = ui.visuals().clone();
         let mut request = None;
         let mut menu_at = None;
-        for (i, t) in self.toplevels.iter().enumerate() {
+        let tabs = self.tabs();
+        for (i, &tab) in tabs.iter().enumerate() {
+            let app_id = self.tab_app(tab);
+            let window = match tab {
+                Tab::Window(w) => Some(&self.toplevels[w]),
+                Tab::Launcher(_) => None,
+            };
             let cell = Rect::from_min_size(
                 egui::pos2(rect.left(), rect.top() + i as f32 * side),
                 vec2(side, side),
             );
-            let response =
-                ui.interact(cell, egui::Id::new(("window-column", t.id)), Sense::click());
-            let fill = if t.activated {
+            let id = match window {
+                Some(t) => egui::Id::new(("window-column", t.id)),
+                None => egui::Id::new(("pinned-column", &app_id)),
+            };
+            let response = ui.interact(cell, id, Sense::click());
+            let fill = if window.is_some_and(|t| t.activated) {
                 v.extreme_bg_color
             } else if response.hovered() {
                 v.widgets.hovered.weak_bg_fill
@@ -848,54 +1010,74 @@ impl Bar {
                 Color32::TRANSPARENT
             };
             ui.painter().rect_filled(cell.shrink(3.0), 6.0, fill);
-            let name = self.app_name(&t.app_id);
+            let name = self.app_name(&app_id);
+            // A pinned app with no window is half there, as in the row.
+            let tint = if window.is_some() {
+                Color32::WHITE
+            } else {
+                Color32::WHITE.gamma_multiply(0.5)
+            };
             // At the size it was drawn for, on whole pixels: anything else
             // blurs it.
             let corner = cell.center() - vec2(ICON, ICON) / 2.0;
             let corner =
                 egui::emath::GuiRounding::round_to_pixels(corner, ui.ctx().pixels_per_point());
             let mark = Rect::from_min_size(corner, vec2(ICON, ICON));
-            match self.icon(ui.ctx(), &t.app_id) {
+            match self.icon(ui.ctx(), &app_id) {
                 Some(texture) => {
                     let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
-                    ui.painter().image(texture, mark, uv, Color32::WHITE);
+                    ui.painter().image(texture, mark, uv, tint);
                 }
                 None => {
                     let letter = name
                         .as_deref()
-                        .unwrap_or(&t.app_id)
+                        .unwrap_or(&app_id)
                         .chars()
                         .next()
                         .map(|c| c.to_uppercase().to_string())
                         .unwrap_or_default();
-                    ui.painter()
-                        .rect_filled(mark, 5.0, v.widgets.inactive.bg_fill);
+                    ui.painter().rect_filled(
+                        mark,
+                        5.0,
+                        v.widgets
+                            .inactive
+                            .bg_fill
+                            .gamma_multiply(tint.a() as f32 / 255.0),
+                    );
                     ui.painter().text(
                         mark.center(),
                         egui::Align2::CENTER_CENTER,
                         letter,
                         egui::TextStyle::Body.resolve(ui.style()),
-                        v.text_color(),
+                        v.text_color().gamma_multiply(tint.a() as f32 / 255.0),
                     );
                 }
             }
             if response.hovered() {
-                let title = tab_title(name.as_deref(), &t.title, &t.app_id);
+                let title = tab_title(name.as_deref(), window.map_or("", |t| &t.title), &app_id);
                 crate::tooltip::note(ui, cell, tab_tip(&title, i));
             }
             if response.clicked() {
-                request = Some(ToplevelRequest::Activate(t.id));
-            } else if response.middle_clicked() {
+                match window {
+                    Some(t) => request = Some(ToplevelRequest::Activate(t.id)),
+                    None => self.start(&app_id, false),
+                }
+            } else if response.middle_clicked()
+                && let Some(t) = window
+            {
                 request = Some(ToplevelRequest::Close(t.id));
             } else if response.secondary_clicked() {
-                menu_at = Some((i, response.interact_pointer_pos().unwrap_or(cell.center())));
+                menu_at = Some((
+                    tab,
+                    response.interact_pointer_pos().unwrap_or(cell.center()),
+                ));
             }
         }
         if let Some(request) = request {
             self.requests.borrow_mut().push(request);
         }
-        if let Some((i, at)) = menu_at {
-            self.open_tab_menu(ui.ctx(), i, at);
+        if let Some((tab, at)) = menu_at {
+            self.open_tab_menu(ui.ctx(), tab, at);
         }
     }
 
@@ -1032,7 +1214,6 @@ mod tests {
     fn bar(config_text: &str) -> Bar {
         let (config, _) = config::parse(config_text);
         Bar {
-            config,
             status: Status::default(),
             volume: None,
             wifi: None,
@@ -1043,6 +1224,9 @@ mod tests {
             named_icons: RefCell::new(HashMap::new()),
             skin: Skin::default_skin(),
             toplevels: Vec::new(),
+            pinned: RefCell::new(config.pinned.clone()),
+            config_path: None,
+            moves: None,
             requests: RefCell::new(Vec::new()),
             icons: RefCell::new(HashMap::new()),
             names: RefCell::new(HashMap::new()),
@@ -1053,6 +1237,7 @@ mod tests {
             gaps: crate::gaps::Gaps::default(),
             section: None,
             wanted: Cell::new(None),
+            config,
         }
     }
 
@@ -1108,14 +1293,21 @@ mod tests {
             gap: 8,
             radius: 8.0,
         };
-        for (name, tabs, gaps) in [
-            ("both", "both", Default::default()),
-            ("icons", "icons", Default::default()),
-            ("titles", "titles", Default::default()),
-            ("floating", "both", floating),
+        for (name, tabs, gaps, pinned) in [
+            ("both", "both", Default::default(), ""),
+            ("icons", "icons", Default::default(), ""),
+            ("titles", "titles", Default::default(), ""),
+            ("floating", "both", floating, ""),
+            // Files pinned, and a terminal that isn't open (ADR-0080).
+            (
+                "pinned",
+                "both",
+                Default::default(),
+                "\"org.gnome.Nautilus\", \"org.gnome.Terminal\"",
+            ),
         ] {
             let mut b = bar(&format!(
-                "left = [\"windows\"]\ncenter = []\nright = [\"clock\"]\nwindow_tabs = \"{tabs}\""
+                "left = [\"windows\"]\ncenter = []\nright = [\"clock\"]\nwindow_tabs = \"{tabs}\"\npinned = [{pinned}]"
             ));
             b.gaps = gaps;
             let (ask, asked) = mpsc::channel();
@@ -1454,6 +1646,116 @@ mod tests {
         frame(&mut b, &ctx, &mut time, vec![button(false)]);
         assert_eq!(b.take_toplevel_requests(), [ToplevelRequest::Activate(7)]);
         assert!(b.take_toplevel_requests().is_empty(), "taken once");
+    }
+
+    /// Drags from `from` to `to` in steps, and lets go there.
+    fn drag(b: &mut Bar, ctx: &egui::Context, time: &mut f64, from: egui::Pos2, to: egui::Pos2) {
+        let button = |pos, pressed| egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Default::default(),
+        };
+        frame(b, ctx, time, vec![egui::Event::PointerMoved(from)]);
+        frame(b, ctx, time, vec![button(from, true)]);
+        for step in 1..=4 {
+            let at = from.lerp(to, step as f32 / 4.0);
+            frame(b, ctx, time, vec![egui::Event::PointerMoved(at)]);
+        }
+        frame(b, ctx, time, vec![button(to, false)]);
+    }
+
+    #[test]
+    fn pinned_apps_come_first_and_one_not_open_starts_it() {
+        let mut b = bar("center = []\nright = []\npinned = [\"app9\", \"steam\"]");
+        b.toplevels_changed(&[window(7, "notes", true), window(9, "nine", false)]);
+        let ctx = egui::Context::default();
+        b.setup(&ctx);
+        let mut time = 0.0;
+        frame(&mut b, &ctx, &mut time, vec![]);
+        let tab = |i: usize| {
+            ctx.read_response(egui::Id::new("windows").with(("tab", i)))
+                .unwrap()
+                .rect
+        };
+        assert_eq!(b.tabs(), [Tab::Window(1), Tab::Launcher(1), Tab::Window(0)]);
+        assert!(
+            tab(1).width() < tab(0).width(),
+            "steam, not open, is its icon"
+        );
+        let at = tab(0).left_center() + vec2(12.0, 0.0);
+        let button = |pressed| egui::Event::PointerButton {
+            pos: at,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: Default::default(),
+        };
+        frame(&mut b, &ctx, &mut time, vec![egui::Event::PointerMoved(at)]);
+        frame(&mut b, &ctx, &mut time, vec![button(true)]);
+        frame(&mut b, &ctx, &mut time, vec![button(false)]);
+        assert_eq!(
+            b.take_toplevel_requests(),
+            [ToplevelRequest::Activate(9)],
+            "the pinned app's window, first"
+        );
+    }
+
+    #[test]
+    fn a_window_dragged_among_the_pins_pins_its_app() {
+        let dir = std::env::temp_dir().join(format!("patina-bar-pins-{}", std::process::id()));
+        let path = dir.join("config.toml");
+        let mut b = bar("center = []\nright = []\npinned = [\"app9\"]");
+        b.config_path = Some(path.clone());
+        b.toplevels_changed(&[window(7, "notes", true), window(9, "nine", false)]);
+        let ctx = egui::Context::default();
+        b.setup(&ctx);
+        let mut time = 0.0;
+        frame(&mut b, &ctx, &mut time, vec![]);
+        let tab = |i: usize| {
+            ctx.read_response(egui::Id::new("windows").with(("tab", i)))
+                .unwrap()
+                .rect
+        };
+        // notes, last, to before nine, the first.
+        let (from, to) = (tab(1).center(), tab(0).left_center() + vec2(4.0, 0.0));
+        drag(&mut b, &ctx, &mut time, from, to);
+        let written = std::fs::read_to_string(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(patina_system::pins::read(&written), ["app7", "app9"]);
+        assert_eq!(b.tabs(), [Tab::Window(0), Tab::Window(1)]);
+        assert!(
+            b.take_toplevel_requests().is_empty(),
+            "a drag isn't a click"
+        );
+    }
+
+    #[test]
+    fn windows_keep_the_order_they_were_moved_to() {
+        let mut b = bar("");
+        b.toplevels_changed(&[
+            window(1, "a", false),
+            window(2, "b", false),
+            window(3, "c", false),
+        ]);
+        b.moved(0, 2);
+        b.toplevels_changed(&[
+            window(2, "b", true),
+            window(3, "c", false),
+            window(1, "a!", false),
+            window(4, "d", false),
+        ]);
+        let ids: Vec<u64> = b.toplevels.iter().map(|t| t.id).collect();
+        assert_eq!(ids, [2, 3, 1, 4]);
+        assert_eq!(b.toplevels[2].title, "a!", "with what they say now");
+        b.toplevels_changed(&[
+            window(3, "c", false),
+            window(4, "d", false),
+            window(1, "a", false),
+        ]);
+        let ids: Vec<u64> = b.toplevels.iter().map(|t| t.id).collect();
+        assert_eq!(ids, [3, 1, 4], "closed ones go, the rest stay put");
+        b.moved(7, 0);
+        assert_eq!(b.toplevels.len(), 3, "a move past the end is ignored");
     }
 
     #[test]

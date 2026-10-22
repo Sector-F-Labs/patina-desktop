@@ -10,6 +10,7 @@ mod gaps;
 mod icons;
 mod launcher;
 mod menu;
+mod pins;
 mod split;
 mod tooltip;
 mod tray;
@@ -115,6 +116,7 @@ fn main() -> ExitCode {
     let (mut bar, skin_warnings) = bar::Bar::new(config);
     bar.gaps = gaps;
     bar.section = section;
+    bar.config_path = config_path.clone();
     warnings.extend(skin_warnings);
     for w in &warnings {
         eprintln!("patina-bar: {w}");
@@ -244,6 +246,26 @@ fn run(
         .insert_source(answers, |event, _, host| {
             if let Event::Msg(answer) = event {
                 host.shell.app_found(answer);
+                host.redraw_all();
+            }
+        })
+        .map_err(|e| e.to_string())?;
+
+    // Windows moved along the tabs (ADR-0080): by the compositor, which
+    // signals each, or by the bar itself where nothing keeps the order.
+    let (moved, moves) = channel::channel::<(usize, usize)>();
+    if matches!(host.shell.section, None | Some(Section::Windows)) {
+        let signalled = moved.clone();
+        std::thread::Builder::new()
+            .name("tab-moves".into())
+            .spawn(move || patina_system::pins::watch_moves(|m| signalled.send(m).is_ok()))
+            .map_err(|e| e.to_string())?;
+    }
+    host.shell.moves = Some(moved);
+    handle
+        .insert_source(moves, |event, _, host| {
+            if let Event::Msg((from, to)) = event {
+                host.shell.moved(from, to);
                 host.redraw_all();
             }
         })
@@ -425,6 +447,7 @@ fn run(
                             restart(&mut parts);
                         }
                         host.shell.config.window_tabs = config.window_tabs;
+                        host.shell.set_pinned(config.pinned.clone());
                         if !split && config.position != host.shell.config.position {
                             host.shell.config.position = config.position;
                             host.set_anchor(anchor(config.position));

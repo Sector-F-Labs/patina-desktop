@@ -20,6 +20,8 @@ use smithay::{
     wayland::{compositor::with_states, shell::xdg::XdgToplevelSurfaceData},
 };
 
+use patina_system::pins::{self, Tab};
+
 use crate::maximize::is_maximized;
 use crate::state::State;
 
@@ -28,8 +30,12 @@ const VERSION: u32 = 3;
 #[derive(Default)]
 pub struct ForeignToplevels {
     managers: Vec<ZwlrForeignToplevelManagerV1>,
-    /// In the order the windows opened, which is the order clients see.
+    /// In the order the windows opened, which is the order clients see,
+    /// but for windows the bar moved (ADR-0080).
     entries: Vec<Entry>,
+    /// The apps pinned to the bar, from its config, whose windows' tabs
+    /// come first.
+    pub pinned: Vec<String>,
 }
 
 /// One window, and what its clients were last told about it.
@@ -47,24 +53,72 @@ pub struct HandleData {
     surface: WlSurface,
 }
 
+/// What one of the bar's tabs stands for.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Nth {
+    Window(WlSurface),
+    /// A pinned app with no window open, by its app id.
+    Launcher(String),
+}
+
 impl ForeignToplevels {
-    /// The open windows in the order the bar's tabs show them.
-    pub fn order(&self) -> Vec<WlSurface> {
-        self.entries.iter().map(|e| e.surface.clone()).collect()
+    /// The bar's tabs, as it works them out (ADR-0080).
+    fn tabs(&self) -> Vec<Tab> {
+        let app_ids: Vec<&str> = self.entries.iter().map(|e| e.app_id.as_str()).collect();
+        pins::arrange(&self.pinned, &app_ids)
     }
 
-    /// The `n`th open window (from 1), in the order the bar's tabs show
-    /// them: the order they opened.
-    pub fn nth(&self, n: usize) -> Option<WlSurface> {
-        self.entries
-            .get(n.checked_sub(1)?)
-            .map(|e| e.surface.clone())
+    fn of(&self, tab: Tab) -> Nth {
+        match tab {
+            Tab::Window(i) => Nth::Window(self.entries[i].surface.clone()),
+            Tab::Launcher(p) => Nth::Launcher(self.pinned[p].clone()),
+        }
+    }
+
+    /// The open windows in the order the bar's tabs show them.
+    pub fn order(&self) -> Vec<WlSurface> {
+        self.tabs()
+            .into_iter()
+            .filter_map(|tab| match self.of(tab) {
+                Nth::Window(surface) => Some(surface),
+                Nth::Launcher(_) => None,
+            })
+            .collect()
+    }
+
+    /// The bar's `n`th tab (from 1): a window, or a pinned app to start.
+    pub fn nth(&self, n: usize) -> Option<Nth> {
+        let tab = *self.tabs().get(n.checked_sub(1)?)?;
+        Some(self.of(tab))
+    }
+
+    /// Moves the window at `from`, in the order clients were told of them,
+    /// to `to`, as the bar asks when a tab is dragged; whether both are
+    /// windows. Clients keep their own order and follow the `Moved` signal.
+    pub fn move_window(&mut self, from: usize, to: usize) -> bool {
+        if from >= self.entries.len() || to >= self.entries.len() {
+            return false;
+        }
+        let entry = self.entries.remove(from);
+        self.entries.insert(to, entry);
+        true
     }
 
     pub fn new(dh: &DisplayHandle) -> Self {
         dh.create_global::<State, ZwlrForeignToplevelManagerV1, ()>(VERSION, ());
-        Self::default()
+        Self {
+            pinned: bar_pins(),
+            ..Self::default()
+        }
     }
+}
+
+/// The apps pinned in the bar's config.
+pub fn bar_pins() -> Vec<String> {
+    patina_shell::bar::config_path()
+        .and_then(|path| std::fs::read_to_string(path).ok())
+        .map(|text| pins::read(&text))
+        .unwrap_or_default()
 }
 
 /// What a client should see of `surface`'s window.

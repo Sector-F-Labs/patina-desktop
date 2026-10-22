@@ -539,12 +539,14 @@ impl State {
     }
 
     /// Reads the skin again if the bar's config changed, so the frames
-    /// follow it as the bar does.
-    pub fn poll_frame_skin(&mut self) {
+    /// follow it as the bar does, and the pinned apps, so the tab keys
+    /// follow its tabs (ADR-0080).
+    pub fn poll_bar_config(&mut self) {
         let mtime = bar_mtime();
         if mtime != self.frames.skin_read {
             self.frames.skin_read = mtime;
             self.frames.skin = bar_skin();
+            self.toplevels.pinned = crate::toplevels::bar_pins();
             self.needs_redraw = true;
         }
     }

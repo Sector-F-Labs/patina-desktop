@@ -205,6 +205,13 @@ puts them in `$(PREFIX)/share/man`.
 - `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,
   or the default flask (`system/src/logo.rs`, with Ubuntu Mono) in the skin's colours. `cargo test
   -p patina-wallpaper -- --ignored` with PATINA_WALLPAPER_PREVIEW=dir renders the default per skin.
+- Pinned apps and dragging tabs (ADR-0080): `pinned` in the bar's config; `system/src/pins.rs`
+  `arrange`s the tabs (pins first, a launcher for one not open) for the bar and the compositor
+  alike (`toplevels.rs` `order`/`nth`; Super+N on a launcher `start_app`s it). A drop is decided
+  in `bar/src/pins.rs`: pins rewritten, or a window `Move`d by the compositor
+  (`compositor/src/tabs/dbus.rs`, `com.sectorflabs.Patina.Tabs`), whose `Moved` the bar
+  applies to its own list. Patina's `TabStrip::movable`/`launchers` draw it.
+  `dbus-run-session -- cargo test -p patina-compositor tabs -- --ignored` tests the service.
 - `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`;
   `system/src/apps.rs`: a window's `.desktop` entry by app id, for its tab's icon (`icons.rs`) and
   New Window in the tab's menu (ADR-0055). The tab's menu opens in patina-menu

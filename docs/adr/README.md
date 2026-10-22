@@ -121,6 +121,7 @@ mechanics of adding one.
 | [0077](0077-x11-windows-without-a-frame-get-one.md) | X11 windows that draw no frame get one from the compositor, painted with egui | Accepted |
 | [0078](0078-installed-for-every-user.md) | The desktop is installed for every user, in /usr/local, as a BSD port is | Accepted |
 | [0079](0079-settings-chooses-default-apps.md) | Default apps are chosen in Patina's own defaults.toml, from a Settings page | Accepted |
+| [0080](0080-pinned-apps-and-moving-tabs.md) | Apps pin to the bar, and its tabs drag into another order the compositor keeps | Accepted |
 
 ## Decision Relationship
 
@@ -188,10 +189,13 @@ flowchart TD
     XW[0040: X11 apps] --> FRAMES[0077: frames for X11 windows without one]
     K --> FRAMES
     P --> SYSTEM[0078: installed for every user in /usr/local]
+    AA --> PINS[0080: pinned apps, tabs dragged into order]
 ```
 
 ## Revisit Triggers
 
+- `ext-foreign-toplevel-list`'s identifiers reach window management: the bar moves windows by
+  id, not index ([ADR-0080](0080-pinned-apps-and-moving-tabs.md)).
 - Folder apps get their base from Patina OS's runner, or open files and links
   ([ADR-0035](0035-the-launcher-lists-folder-apps.md)).
 - A surface that is large or animated draws too slowly on the CPU

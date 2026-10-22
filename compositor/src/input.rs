@@ -287,8 +287,12 @@ impl State {
                 None
             }
             Some(KeyAction::Window(n)) => {
-                if let Some(surface) = self.toplevels.nth(n) {
-                    self.activate_toplevel(&surface);
+                match self.toplevels.nth(n) {
+                    Some(crate::toplevels::Nth::Window(surface)) => {
+                        self.activate_toplevel(&surface)
+                    }
+                    Some(crate::toplevels::Nth::Launcher(app_id)) => self.start_app(app_id),
+                    None => {}
                 }
                 None
             }

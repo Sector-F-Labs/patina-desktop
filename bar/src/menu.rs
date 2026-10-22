@@ -10,31 +10,50 @@ use std::process::{Command, Stdio};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Choice {
     NewWindow,
+    /// Start a pinned app with no window open (ADR-0080).
+    Open,
+    Pin,
+    Unpin,
     Close,
 }
 
-const ITEMS: [(Choice, &str, &str); 2] = [
+const ITEMS: [(Choice, &str, &str); 5] = [
     (Choice::NewWindow, "new-window", "New Window"),
+    (Choice::Open, "open", "Open"),
+    (Choice::Pin, "pin", "Pin to Bar"),
+    (Choice::Unpin, "unpin", "Unpin from Bar"),
     (Choice::Close, "close", "Close Window"),
 ];
 
-/// What was chosen in window `window`'s menu.
+/// What a tab's menu offers: a window's, New Window, Pin or Unpin and
+/// Close Window; a pinned app's with no window, Open and Unpin.
+pub fn choices(window: bool, pinned: bool) -> Vec<Choice> {
+    let pin = if pinned { Choice::Unpin } else { Choice::Pin };
+    if window {
+        vec![Choice::NewWindow, pin, Choice::Close]
+    } else {
+        vec![Choice::Open, Choice::Unpin]
+    }
+}
+
+/// What was chosen in a tab's menu: for window `window`, or with none for
+/// a pinned app's.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Chosen {
-    pub window: u64,
+    pub window: Option<u64>,
     pub app_id: String,
     pub choice: Choice,
 }
 
-/// patina-menu's arguments for a tab's menu, opening at `at`.
-pub fn args(at: crate::split::Popup) -> Vec<String> {
+/// patina-menu's arguments for a tab's menu of `choices`, opening at `at`.
+pub fn args(at: crate::split::Popup, choices: &[Choice]) -> Vec<String> {
     let mut args = vec![
         "--at".to_string(),
         format!("{:.0},{:.0}", at.x, at.y),
         "--edge".into(),
         at.edge.into(),
     ];
-    for (_, id, label) in ITEMS {
+    for (_, id, label) in ITEMS.iter().filter(|(c, ..)| choices.contains(c)) {
         args.push("--item".into());
         args.push(format!("{id}={label}"));
     }
@@ -170,7 +189,7 @@ pub fn open_tray(args: Vec<String>, chosen: impl FnOnce(i32) + Send + 'static) {
 /// first.
 pub fn open(
     args: Vec<String>,
-    window: u64,
+    window: Option<u64>,
     app_id: String,
     send: impl Fn(Chosen) + Send + 'static,
 ) {
@@ -191,13 +210,14 @@ mod tests {
 
     #[test]
     fn the_menu_opens_past_the_bar_with_its_items() {
+        let at = crate::split::Popup {
+            edge: "bottom",
+            x: 212.4,
+            y: 53.0,
+            far: None,
+        };
         assert_eq!(
-            args(crate::split::Popup {
-                edge: "bottom",
-                x: 212.4,
-                y: 53.0,
-                far: None
-            }),
+            args(at, &choices(true, false)),
             [
                 "--at",
                 "212,53",
@@ -206,8 +226,19 @@ mod tests {
                 "--item",
                 "new-window=New Window",
                 "--item",
+                "pin=Pin to Bar",
+                "--item",
                 "close=Close Window"
             ]
+        );
+        assert_eq!(
+            args(at, &choices(true, true))[6..8],
+            ["--item", "unpin=Unpin from Bar"]
+        );
+        assert_eq!(
+            args(at, &choices(false, true))[4..],
+            ["--item", "open=Open", "--item", "unpin=Unpin from Bar"],
+            "a pinned app with no window"
         );
     }
 
@@ -240,6 +271,7 @@ mod tests {
     fn the_printed_id_is_the_choice() {
         assert_eq!(choice("new-window\n"), Some(Choice::NewWindow));
         assert_eq!(choice("close"), Some(Choice::Close));
+        assert_eq!(choice("unpin"), Some(Choice::Unpin));
         assert_eq!(choice(""), None, "closed without a choice");
         assert_eq!(choice("other"), None);
     }

@@ -80,6 +80,19 @@ impl crate::state::State {
         spawn(&self.socket_name, command_line);
     }
 
+    /// Starts `app_id`'s app, as its `.desktop` entry says, for a pinned
+    /// app's tab with no window (ADR-0080); on a thread, since that reads
+    /// the installed entries.
+    pub fn start_app(&self, app_id: String) {
+        let socket = self.socket_name.clone();
+        std::thread::spawn(move || {
+            match patina_system::apps::start_command(&patina_system::apps::entries(), &app_id) {
+                Some(command) => spawn(&socket, &command),
+                None => eprintln!("patina-compositor: no .desktop entry or program for {app_id:?}"),
+            }
+        });
+    }
+
     /// Starts a piece of the desktop that's started again whenever it
     /// exits: the wallpaper and the bar.
     pub fn keep_client(&self, command_line: &str) {

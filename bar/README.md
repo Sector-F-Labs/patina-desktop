@@ -15,7 +15,11 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   to its `.desktop` entry, and `icons.rs` finds the icon through the icon theme, on a thread.
   A tab's right-click menu opens in patina-menu, so it isn't cut off at the bar's edge
   (`menu.rs`, ADR-0056): New Window, which runs the entry's `new-window` action, or its Exec
-  (ADR-0055), and Close Window. Tooltips, the tabs' titles and the tray's, show in
+  (ADR-0055), Pin to Bar or Unpin from Bar, and Close Window. Pinned apps come first (ADR-0080),
+  `pinned` in the config: each as its windows' tabs, or, with none open, a faded icon that starts
+  it. Dragging a tab moves it: a pinned app among the pins, a window onto the pins pins its app,
+  and among the other windows it moves along them, which the compositor keeps
+  (`com.sectorflabs.Patina.Tabs`), so its keys follow; `pins.rs` decides. Tooltips, the tabs' titles and the tray's, show in
   `patina-menu --tooltip` past the bar's edge too (`tooltip.rs`, ADR-0057); egui's own are off.
 - `tray`: apps' status icons first (ADR-0064): the bar is the system tray apps such as Steam
   register with (`patina_system::sni`, StatusNotifierItem on the session bus); a click
@@ -41,7 +45,8 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   anywhere else, or without a session bus, it starts them itself.
 - **Owns the shared config**, `~/.config/patina-bar/config.toml` (`config.rs`): `position`,
   `height`, `skin`, the modules of each side, `clock` (a strftime format), the four commands,
-  `tags`, and `wallpaper`, which patina-wallpaper draws. patina-menu writes `skin` and
+  `tags`, `pinned` (the pinned apps, which the compositor reads too), and `wallpaper`, which
+  patina-wallpaper draws. patina-menu writes `skin` and
   `wallpaper`; the bar checks the file's time each second and restyles itself, and the other
   pieces read it when they open.
 - **Floats with gaps** (ADR-0051): `gaps.rs` reads `[gaps]` from the compositor's config, which
@@ -62,8 +67,9 @@ it into a place on the screen, which menus, tooltips and the pieces the bar open
 
 ## Code
 
-`main.rs` (start-up, threads reading dwl, volume, Wi-Fi, the keyboard layout and the battery), `bar.rs` (the modules
-and their layout), `tray.rs`, `launcher.rs` (the flask button), `dwl.rs`, `config.rs`. The
+`main.rs` (start-up, threads reading dwl, volume, Wi-Fi, the keyboard layout, the battery and the
+compositor's window moves), `bar.rs` (the modules and their layout), `pins.rs` (what a dropped
+tab does), `tray.rs`, `launcher.rs` (the flask button), `dwl.rs`, `config.rs`. The
 surface and drawing come from patina-shell.
 
 ## Running

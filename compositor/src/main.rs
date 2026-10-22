@@ -157,6 +157,8 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     let _session = session::dbus::serve(&event_loop.handle()).inspect_err(|e| {
         eprintln!("patina-compositor: locking and logging out aren't on D-Bus: {e}")
     });
+    let _tabs = tabs::dbus::serve(&event_loop.handle())
+        .inspect_err(|e| eprintln!("patina-compositor: the tab order isn't on D-Bus: {e}"));
     // The default apps chosen in defaults.toml, as xdg-open reads them
     // (ADR-0079), off the loop: it reads every desktop entry.
     std::thread::spawn(|| {

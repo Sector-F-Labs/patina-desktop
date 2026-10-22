@@ -116,9 +116,24 @@ pub fn shell_line(args: &[String]) -> String {
 /// its entry, or else the app id itself if a program of that name is
 /// installed (`foot`).
 pub fn new_window_command(entries: &[Entry], app_id: &str) -> Option<String> {
-    if let Some(args) = entry_for(entries, app_id).and_then(|e| e.command.as_ref()) {
-        return Some(shell_line(args));
+    match entry_for(entries, app_id).and_then(|e| e.command.as_ref()) {
+        Some(args) => Some(shell_line(args)),
+        None => program(app_id),
     }
+}
+
+/// The command line, for sh(1), that starts `app_id`'s app, as a pinned
+/// app's tab does when it isn't running (ADR-0080): its entry's Exec, or
+/// else the app id itself, as [`new_window_command`].
+pub fn start_command(entries: &[Entry], app_id: &str) -> Option<String> {
+    match entry_for(entries, app_id).and_then(|e| e.exec.as_ref()) {
+        Some(args) => Some(shell_line(args)),
+        None => program(app_id),
+    }
+}
+
+/// `app_id` as a command line, if a program of that name is installed.
+fn program(app_id: &str) -> Option<String> {
     let on_path = std::env::var_os("PATH")
         .is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(app_id).is_file()));
     (on_path && !app_id.contains('/')).then(|| shell_line(&[app_id.to_string()]))

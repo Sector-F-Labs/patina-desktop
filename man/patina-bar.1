@@ -36,6 +36,15 @@ is
 A click focuses it, a middle click closes it; the compositor's Alt+Tab
 and Super+1 to 9 follow the same order, and hovering one of the first nine
 says its key.
+The apps in
+.Ic pinned
+come first, each as its windows' tabs, or, with none open, a faded icon
+that starts it.
+Dragging a tab moves it: a pinned app's among the pins; another window's,
+dropped among the pins, pins its app there, and dropped among the other
+windows, moves it along them, which
+.Xr patina-compositor 1
+keeps, so its keys follow.
 A right click opens its menu, in
 .Xr patina-menu 1
 so it isn't cut off at the bar's edge: New Window opens another window of
@@ -46,7 +55,8 @@ entry's
 .Dq new-window
 action if it has one, else by its
 .Ic Exec ;
-and Close Window.
+Pin to Bar or Unpin from Bar; and Close Window.
+A pinned app with no window offers Open and Unpin from Bar.
 Hovering a tab, or an icon in the tray, shows its tooltip a moment later,
 also in
 .Xr patina-menu 1 ,
@@ -136,6 +146,8 @@ write
 .Ic window_tabs
 and
 .Ic position ,
+and the bar writes
+.Ic pinned ,
 keeping the rest of the file.
 .Bl -tag -width Ds
 .It Ic position
@@ -151,6 +163,12 @@ its app's icon and its title (the default);
 .Dq icons ,
 narrow tabs with only the icon and the title on hover; or
 .Dq titles .
+.It Ic pinned
+The apps pinned to the window tabs, by app id, in order, as
+.Ql pinned = ["firefox", "org.gnome.Nautilus"] ;
+none by default.
+.Xr patina-compositor 1
+reads it too, so Super+1 to 9 reach the same tabs.
 .It Ic layout
 .Dq bar ,
 one bar along an edge (the default); or
