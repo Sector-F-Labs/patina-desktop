@@ -9,8 +9,11 @@ RSS feeds, and found through Apple's podcast search (no account or key needed).
 
 - **Subscribe** by searching in the sidebar, or by pasting a feed URL or an Apple Podcasts link
   (such as `https://podcasts.apple.com/us/podcast/…/id1494880178`).
-- **Episodes** newest first, with their date, length, how much is left, and their show notes.
-  Click one to read its notes; double-click or press its ▶ to play.
+- **Episodes** with their date, length, how much is left, and their show notes. Click one to read
+  its notes; double-click or press its ▶ to play.
+- **Each podcast in its own order**: newest first, or oldest first for a course or a series you
+  start from the beginning. Played episodes can be hidden, also per podcast. Both are above the
+  episode list and in the View menu.
 - **Plays while it downloads**: an episode starts in about a second and is kept for offline
   listening. Right-click an episode to download it ahead, or delete the download.
 - **Picks up where you left off** in every episode, and marks an episode played when it ends.

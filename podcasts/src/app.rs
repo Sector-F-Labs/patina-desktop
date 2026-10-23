@@ -10,7 +10,7 @@ use egui::{Key, KeyboardShortcut, Modifiers, RichText};
 use patina::frame::{self, TitleBar};
 use patina::skin::{self, Skin};
 
-use crate::config::{Config, Listening};
+use crate::config::{Config, Listening, ShowView};
 use crate::download::Downloads;
 use crate::feed::{self, Episode, Found, Show};
 use crate::fetch::{self, Fetcher, Reply};
@@ -86,7 +86,8 @@ enum Do {
     Download(String, String),
     CancelDownload(String),
     DeleteDownload(String, String),
-    ShowPlayed(bool),
+    /// How a podcast's episodes are listed, by its feed URL.
+    View(String, ShowView),
     SetSkin(String),
     SetLightDark(String),
     ReloadSkins,
@@ -415,8 +416,12 @@ impl App {
                     self.downloads.delete(&e);
                 }
             }
-            Do::ShowPlayed(on) => {
-                self.config.show_played = on;
+            Do::View(url, view) => {
+                if view == ShowView::default() {
+                    self.config.views.remove(&url);
+                } else {
+                    self.config.views.insert(url, view);
+                }
                 self.config.save();
             }
             Do::SetSkin(name) => {
@@ -549,11 +554,21 @@ impl App {
             }
         });
         ui.menu_button("View", |ui| {
-            let mut played = self.config.show_played;
-            if ui.checkbox(&mut played, "Show played episodes").changed() {
-                actions.push(Do::ShowPlayed(played));
+            if let Some(url) = &selected {
+                let view = self.config.view(url);
+                if ui.radio(!view.oldest_first, "Newest First").clicked() {
+                    actions.push(Do::View(url.clone(), ShowView { oldest_first: false, ..view }));
+                }
+                if ui.radio(view.oldest_first, "Oldest First").clicked() {
+                    actions.push(Do::View(url.clone(), ShowView { oldest_first: true, ..view }));
+                }
+                ui.separator();
+                let mut hide = view.hide_played;
+                if ui.checkbox(&mut hide, "Hide Played Episodes").changed() {
+                    actions.push(Do::View(url.clone(), ShowView { hide_played: hide, ..view }));
+                }
+                ui.separator();
             }
-            ui.separator();
             let mut system = self.config.system_title_bar;
             if ui.checkbox(&mut system, "System title bar").changed() {
                 actions.push(Do::SystemTitleBar(system));
@@ -774,18 +789,39 @@ impl App {
             });
             ui.add_space(10.0);
             let played = show.episodes.iter().filter(|e| self.listening.get(&e.id).played).count();
+            let view = self.config.view(&url);
             ui.horizontal(|ui| {
                 ui.label(RichText::new(format!("{} episodes, {played} played", show.episodes.len())).weak().small());
                 if self.loading.contains(&url) {
                     ui.spinner();
                 }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let order = if view.oldest_first { "Oldest first" } else { "Newest first" };
+                    egui::ComboBox::from_id_salt(("order", &url)).selected_text(order).show_ui(ui, |ui| {
+                        for (oldest_first, label) in [(false, "Newest first"), (true, "Oldest first")] {
+                            if ui.selectable_label(view.oldest_first == oldest_first, label).clicked() {
+                                actions.push(Do::View(url.clone(), ShowView { oldest_first, ..view }));
+                            }
+                        }
+                    });
+                    let mut hide = view.hide_played;
+                    if ui.checkbox(&mut hide, "Hide played").changed() {
+                        actions.push(Do::View(url.clone(), ShowView { hide_played: hide, ..view }));
+                    }
+                });
             });
             ui.separator();
-            for e in &show.episodes {
-                let progress = self.listening.get(&e.id);
-                if progress.played && !self.config.show_played && self.engine.current() != Some(e.id.as_str()) {
-                    continue;
-                }
+            let listed = self.listed(show, view);
+            if listed.is_empty() && !show.episodes.is_empty() {
+                ui.add_space(16.0);
+                ui.vertical_centered(|ui| {
+                    ui.label(RichText::new(format!("All {} episodes are played.", show.episodes.len())).weak());
+                    if ui.button("Show Played Episodes").clicked() {
+                        actions.push(Do::View(url.clone(), ShowView { hide_played: false, ..view }));
+                    }
+                });
+            }
+            for e in listed {
                 self.episode_row(ui, &url, e, &mut actions);
                 ui.separator();
             }
@@ -793,6 +829,20 @@ impl App {
         for a in actions {
             self.act(ui.ctx(), a);
         }
+    }
+
+    /// A podcast's episodes in its order, without the played ones if it hides them.
+    /// The episode in the player stays, played or not.
+    fn listed<'a>(&self, show: &'a Show, view: ShowView) -> Vec<&'a Episode> {
+        let shown = |e: &&Episode| {
+            !view.hide_played || !self.listening.get(&e.id).played || self.engine.current() == Some(e.id.as_str())
+        };
+        // Feeds are parsed newest first.
+        let mut listed: Vec<&Episode> = show.episodes.iter().filter(shown).collect();
+        if view.oldest_first {
+            listed.reverse();
+        }
+        listed
     }
 
     fn episode_row(&self, ui: &mut egui::Ui, show: &str, e: &Episode, actions: &mut Vec<Do>) -> egui::Response {
@@ -1283,6 +1333,26 @@ mod tests {
         assert_eq!(minutes(10.0), "1 min");
     }
 
+    #[test]
+    fn listing_order_and_played() {
+        let url = "https://example.com/feed".to_string();
+        let show = feed::parse(&url, include_bytes!("../testdata/coffee-break-swedish.xml")).unwrap();
+        let ctx = egui::Context::default();
+        let (newest, oldest) = (show.episodes[0].id.clone(), show.episodes.last().unwrap().id.clone());
+        let mut listening = Listening::default();
+        listening.set_played(&oldest, true);
+        let app = App::with(&ctx, Config::default(), listening, HashMap::new(), Engine::silent());
+
+        let all = app.listed(&show, ShowView::default());
+        assert_eq!((all.len(), &all[0].id), (show.episodes.len(), &newest));
+        let old = app.listed(&show, ShowView { oldest_first: true, hide_played: false });
+        assert_eq!(&old[0].id, &oldest);
+        let unplayed = app.listed(&show, ShowView { oldest_first: true, hide_played: true });
+        assert_eq!(unplayed.len(), show.episodes.len() - 1);
+        assert!(unplayed.iter().all(|e| e.id != oldest));
+        assert!(unplayed.windows(2).all(|w| w[0].published <= w[1].published));
+    }
+
     /// Clicks an episode's ▶ and the row beside it, with real pointer events.
     #[test]
     fn play_button_plays_and_the_row_opens_notes() {
@@ -1358,7 +1428,7 @@ mod tests {
         frame(&mut app, vec![]);
         assert_eq!(app.title(), "Coffee Break Swedish");
         // Set directly: acting would save the config, and tests never touch yours.
-        app.config.show_played = false;
+        app.config.views.insert(url.clone(), ShowView { oldest_first: true, hide_played: true });
         frame(&mut app, vec![]);
     }
 }

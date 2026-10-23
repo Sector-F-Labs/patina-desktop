@@ -15,12 +15,20 @@ pub struct Config {
     /// The episode last played, as (feed URL, episode id), shown in the player at start-up.
     pub last: Option<(String, String)>,
     pub volume: f32,
-    /// Whether the episode list shows ones already played.
-    pub show_played: bool,
     pub skin: Option<String>,
     /// "light" or "dark" while the skin follows the desktop; anything else follows it.
     pub light_dark: String,
     pub system_title_bar: bool,
+    /// How each podcast's episodes are listed, by feed URL.
+    pub views: HashMap<String, ShowView>,
+}
+
+/// How a podcast's episodes are listed. A course reads oldest first; news, newest.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ShowView {
+    pub oldest_first: bool,
+    pub hide_played: bool,
 }
 
 impl Default for Config {
@@ -30,10 +38,10 @@ impl Default for Config {
             selected: None,
             last: None,
             volume: 1.0,
-            show_played: true,
             skin: None,
             light_dark: "system".into(),
             system_title_bar: false,
+            views: HashMap::new(),
         }
     }
 }
@@ -56,6 +64,10 @@ impl Config {
             .and_then(|d| std::fs::read_to_string(d.join("config.toml")).ok())
             .and_then(|t| toml::from_str(&t).ok())
             .unwrap_or_default()
+    }
+
+    pub fn view(&self, url: &str) -> ShowView {
+        self.views.get(url).copied().unwrap_or_default()
     }
 
     pub fn save(&self) {
@@ -164,5 +176,15 @@ mod tests {
         let c: Config = toml::from_str("subscriptions = [\"https://a/rss\"]").unwrap();
         assert_eq!(c.subscriptions.len(), 1);
         assert_eq!(c.volume, 1.0);
+    }
+
+    #[test]
+    fn views_survive_a_round_trip() {
+        let url = "https://feeds.example.com/show?id=1";
+        let mut c = Config { last: Some((url.into(), "e".into())), ..Config::default() };
+        c.views.insert(url.into(), ShowView { oldest_first: true, hide_played: false });
+        let back: Config = toml::from_str(&toml::to_string(&c).unwrap()).unwrap();
+        assert_eq!(back.view(url), ShowView { oldest_first: true, hide_played: false });
+        assert_eq!(back.view("https://other"), ShowView::default());
     }
 }
