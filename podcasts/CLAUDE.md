@@ -49,5 +49,5 @@ Screenshot mode: `PODCASTS_SCREENSHOT=path.png`, and `PODCASTS_SKIN=<name>`.
   plays silence when the decoding thread is behind.
 - MP3s seek coarsely; an accurate Symphonia MP3 seek parses from the file's start, which would
   wait for the whole download.
-- With a window on GNOME Shell that gets no frame callbacks (Patina's `docs/known-issues.md`),
-  the app never runs a frame, so `make screenshot` hangs; it isn't the app.
+- Inside Claude Code's Bash sandbox the window never gets a frame, so the app (and
+  `make screenshot`) sits there without fetching anything. Run it outside the sandbox.
