@@ -36,7 +36,11 @@ matched by app id, so `cargo run` shows it only after `make install`.
 - `src/caldav.rs`: blocking CalDAV client (ureq, roxmltree), plus a live test.
 - `src/sync.rs`: worker thread, commands and updates, disk cache.
 - `src/views.rs`: month, week/day time grid, mini month; return `Action`s.
-- `src/app.rs`: window, header and menus, sidebar, dialogs, shortcuts, screenshot mode.
+- `src/app.rs`: window, header and menus, sidebar, dialogs, shortcuts, screenshot mode;
+  `Opening`, where `--open` points it.
+- `src/agenda.rs`: `--agenda`, the coming days as JSON from the cache, for the Patina desktop's
+  clock (ADR-0009). Its fields are an interface: add, don't rename.
+- `src/main.rs`: the command line (`parse`), then `--agenda` or the window.
 - `src/config.rs`: `config.toml` and the private `account.toml`.
 - Skins: the Calendar skin lives in Patina (`skins/calendar.toml` there, ADR-0008); this app only
   makes it the starting one (`HOME_SKIN` in `app.rs`). Patina's `TitleBar` colours the bar's

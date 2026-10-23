@@ -94,9 +94,20 @@ pub struct App {
     custom_color: Color32,
     /// Screenshot mode: where to save, whether asked, and when data arrived.
     screenshot: Option<(std::path::PathBuf, bool, Option<f64>)>,
+    /// An event to open, by its day and UID, once it's among the events
+    /// (the cache can be empty until the first sync).
+    opening: Option<(NaiveDate, String)>,
 }
 
-fn local_zone() -> Tz {
+/// Where the window opens, from the command line: a day, and an event's
+/// occurrence on it, by UID.
+#[derive(Debug, Default, PartialEq)]
+pub struct Opening {
+    pub day: Option<NaiveDate>,
+    pub event: Option<String>,
+}
+
+pub fn local_zone() -> Tz {
     iana_time_zone::get_timezone().ok().and_then(|n| n.parse().ok()).unwrap_or(Tz::UTC)
 }
 
@@ -149,7 +160,7 @@ fn export_summary(copied: &[String], skipped: &[String]) -> String {
 
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, opening: Opening) -> Self {
         patina::appearance::watch(&cc.egui_ctx);
         let mut config = Config::load();
         if let Some(view) = std::env::var("CALENDAR_VIEW").ok().and_then(|v| match v.as_str() {
@@ -188,7 +199,11 @@ impl App {
             last_refresh: 0.0,
             custom_color: Color32::from_rgb(0x00, 0x7A, 0xFF),
             screenshot,
+            opening: opening.day.zip(opening.event),
         };
+        if let Some(day) = opening.day {
+            app.go_to(day);
+        }
         app.adopt(cached);
         app.apply_skin(&cc.egui_ctx);
         if app.account.is_set() {
@@ -220,6 +235,19 @@ impl App {
         self.calendars = snapshot.calendars.iter().map(Calendar::from).collect();
         self.objects = snapshot.objects;
         self.rebuild();
+        self.open_asked();
+    }
+
+    /// Opens the event the command line asked for, at its occurrence on
+    /// the day it named, once it's there.
+    fn open_asked(&mut self) {
+        let Some((day, uid)) = &self.opening else { return };
+        let found = self.occurrences(*day, *day).into_iter().find(|o| self.events[o.event].uid == *uid);
+        if let Some(occ) = found {
+            let draft = Draft::of(&self.events[occ.event], self.local);
+            self.dialog = Some(Dialog::Event { draft, existing: Some((occ.event, occ.start)), error: None });
+            self.opening = None;
+        }
     }
 
     /// Re-reads the events and colours from the stored objects.

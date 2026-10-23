@@ -50,6 +50,7 @@ mechanics of adding one.
 | [0006](0006-own-calendar-skin-as-default.md) | Ship a built-in Calendar skin, red bar on paper, and start in it | Accepted (skin); Proposed (default, bar colouring); colour changed by [ADR-0007](0007-freebsd-red.md) |
 | [0007](0007-freebsd-red.md) | Use freebsd.org's deep red for the Calendar skin and the icon | Accepted |
 | [0008](0008-skin-moves-into-patina.md) | Move the Calendar skin and bar_controls into Patina | Accepted |
+| [0009](0009-agenda-and-open-on-the-command-line.md) | Other programs read the agenda and open the app through its command line | Accepted |
 
 ## Decision Relationship
 
@@ -62,6 +63,7 @@ flowchart TD
     A --> F[0006: Calendar skin, the default]
     F --> G[0007: freebsd.org's red]
     F --> H[0008: Skin moved into Patina]
+    C --> I[0009: --agenda and --open for other programs]
 ```
 
 ## Revisit Triggers

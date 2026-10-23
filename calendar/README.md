@@ -29,6 +29,21 @@ it shares a window frame and skins with Notebook, Photograph and UnAmp.
 
 ![Month view in Dark Orange](docs/screenshot-month.png)
 
+## From the command line
+
+Other programs (the Patina desktop's clock) read what's coming up and open the app where they
+point:
+
+```bash
+calendar --agenda                          # today's events, as JSON
+calendar --agenda --from 2026-10-23 --days 7
+calendar --open 2026-10-24                 # the window, at that day
+calendar --open 2026-10-24 --event <uid>   # and that event's occurrence on it
+```
+
+`--agenda` reads the cache, with no window or network, so it's as fresh as the last sync. Each
+item has `uid`, `title`, `location`, `calendar`, `color`, `start`, `end` (RFC 3339) and `all_day`.
+
 ## Shortcuts
 
 | Keys | Does |
