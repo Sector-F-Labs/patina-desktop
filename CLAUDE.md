@@ -58,7 +58,8 @@ puts them in `$(PREFIX)/share/man`.
   they exit. `processes/dbus.rs` serves `com.sectorflabs.Patina.Processes`, nested too; Settings'
   Processes page restarts, stops and reads them through `system/src/processes.rs`, and the bar and
   menu start what they open through its `Spawn`, falling back to starting it themselves.
-- `session/`: patina-session (ADR-0046), the login session's `Exec=`: runs the compositor and starts
+- `session/`: patina-session (ADR-0046), the login session's `Exec=`: takes the environment of
+  `/bin/sh -l` (`~/.profile`'s PATH, ADR-0083; five seconds, else goes on without), runs the compositor and starts
   it again on exit status 75 (`session::RESTART`, Ctrl+Alt+Shift+Backspace or `RestartDesktop`) or a
   crash. `compositor/src/session.rs` is the compositor's side, with the marker that keeps the screen
   locked across a restart.

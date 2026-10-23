@@ -19,6 +19,21 @@ when it crashes, so neither means logging in again.
 The login screen's entry runs it as
 .Ql patina-session --session .
 .Pp
+First it reads the environment a login shell sets up, as
+.Ql /bin/sh -l
+prints it:
+.Pa /etc/profile ,
+then
+.Pa ~/.profile ,
+with the
+.Ev PATH
+that puts
+.Pa ~/.local/bin
+on it on Ubuntu.
+The compositor, and so every app on the desktop, runs with it.
+A profile that fails, or takes over five seconds, is given up on, and the
+session goes on with the environment the login screen gave.
+.Pp
 The compositor is found beside
 .Nm ,
 as

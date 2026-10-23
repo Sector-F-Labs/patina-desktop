@@ -132,8 +132,10 @@ choose Patina at the login screen. Run as root after `make build` (`doas make in
 installs; it never builds as root.
 
 The entry it installs, from `packaging/linux/patina.desktop`, names patina-session by its full
-path, since a login session doesn't read your shell's `PATH`. patina-session runs the compositor
-beside it, passing `--session` on, and starts it again when it restarts or crashes
+path, since the login screen doesn't read your shell's `PATH`. patina-session then reads what a
+login shell sets up (`/bin/sh -l`: `/etc/profile` and `~/.profile`, so `~/.local/bin` on Ubuntu)
+and gives it to the compositor and every app, as other desktops' Xsession does
+([ADR-0083](adr/0083-the-session-reads-the-login-profile.md)). It runs the compositor beside it, passing `--session` on, and starts it again when it restarts or crashes
 ([ADR-0046](adr/0046-patina-session-restarts-the-compositor.md)):
 
 ```ini

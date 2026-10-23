@@ -124,6 +124,7 @@ mechanics of adding one.
 | [0080](0080-pinned-apps-and-moving-tabs.md) | Apps pin to the bar, and its tabs drag into another order the compositor keeps | Accepted |
 | [0081](0081-battery-history-from-upower.md) | The battery's history is graphed in Settings, from what UPower keeps | Accepted |
 | [0082](0082-the-clock-opens-a-month-with-calendars-events.md) | The clock opens a month with the day's events, which the Calendar app supplies | Accepted |
+| [0083](0083-the-session-reads-the-login-profile.md) | The session takes the environment a login shell sets up | Accepted |
 
 ## Decision Relationship
 
