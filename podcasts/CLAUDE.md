@@ -51,3 +51,6 @@ Screenshot mode: `PODCASTS_SCREENSHOT=path.png`, and `PODCASTS_SKIN=<name>`.
   wait for the whole download.
 - Inside Claude Code's Bash sandbox the window never gets a frame, so the app (and
   `make screenshot`) sits there without fetching anything. Run it outside the sandbox.
+- A clickable row must sense clicks through `UiBuilder::sense` on its own `Ui`, beneath its
+  contents. A `ui.interact` over the row's rect after drawing it sits on top and takes the
+  clicks of the buttons inside (▶ once only opened the notes). Test clicks with pointer events.

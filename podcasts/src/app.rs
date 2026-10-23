@@ -795,7 +795,7 @@ impl App {
         }
     }
 
-    fn episode_row(&self, ui: &mut egui::Ui, show: &str, e: &Episode, actions: &mut Vec<Do>) {
+    fn episode_row(&self, ui: &mut egui::Ui, show: &str, e: &Episode, actions: &mut Vec<Do>) -> egui::Response {
         let progress = self.listening.get(&e.id);
         let current = self.engine.current() == Some(e.id.as_str());
         let playing = current && self.engine.state() == PlayState::Playing;
@@ -803,62 +803,66 @@ impl App {
         let downloaded = self.downloads.is_downloaded(e);
         let open = self.open.as_ref() == Some(&e.id);
 
-        let row = ui.horizontal_top(|ui| {
-            let label = if playing { "⏸" } else { "▶" };
-            let button = egui::Button::new(RichText::new(label).size(16.0)).min_size(egui::vec2(32.0, 32.0));
-            if ui.add(button).on_hover_text(if playing { "Pause" } else { "Play" }).clicked() {
-                actions.push(Do::Play(show.to_string(), e.id.clone()));
-            }
-            ui.vertical(|ui| {
-                ui.set_width(ui.available_width());
-                let mut title = RichText::new(&e.title).strong();
-                if progress.played && !current {
-                    title = title.weak();
-                } else if current {
-                    title = title.color(ui.visuals().selection.bg_fill);
+        // The row senses clicks beneath its contents, so its ▶ button still gets its own.
+        let sense = egui::UiBuilder::new().id_salt(("episode", &e.id)).sense(egui::Sense::click());
+        let row = ui.scope_builder(sense, |ui| {
+            ui.horizontal_top(|ui| {
+                let label = if playing { "⏸" } else { "▶" };
+                let button = egui::Button::new(RichText::new(label).size(16.0)).min_size(egui::vec2(32.0, 32.0));
+                if ui.add(button).on_hover_text(if playing { "Pause" } else { "Play" }).clicked() {
+                    actions.push(Do::Play(show.to_string(), e.id.clone()));
                 }
-                ui.add(egui::Label::new(title).wrap());
-                let mut facts = Vec::new();
-                if let Some(d) = e.published {
-                    facts.push(d.with_timezone(&chrono::Local).format("%-d %b %Y").to_string());
-                }
-                let position = if current { self.engine.position().as_secs_f64() } else { progress.position };
-                match e.duration {
-                    Some(d) if position > 1.0 && !progress.played => {
-                        facts.push(format!("{} left", minutes((d as f64 - position).max(0.0))))
+                ui.vertical(|ui| {
+                    ui.set_width(ui.available_width());
+                    let mut title = RichText::new(&e.title).strong();
+                    if progress.played && !current {
+                        title = title.weak();
+                    } else if current {
+                        title = title.color(ui.visuals().selection.bg_fill);
                     }
-                    Some(d) => facts.push(minutes(d as f64)),
-                    None => {}
-                }
-                if progress.played {
-                    facts.push("Played".into());
-                }
-                if let Some(d) = download {
-                    facts.push(match d.fraction() {
-                        Some(f) => format!("Downloading {:.0}%", f * 100.0),
-                        None => "Downloading".into(),
-                    });
-                } else if downloaded {
-                    facts.push("Downloaded".into());
-                }
-                ui.label(RichText::new(facts.join(" · ")).small().weak());
-                if let Some(d) = e.duration.filter(|d| *d > 0)
-                    && position > 1.0
-                    && !progress.played
-                {
-                    let bar = egui::ProgressBar::new((position / d as f64) as f32).desired_height(3.0);
-                    ui.add(bar.desired_width(ui.available_width().min(240.0)));
-                }
-                if open && !e.notes.is_empty() {
-                    ui.add_space(4.0);
-                    ui.add(egui::Label::new(&e.notes).wrap().selectable(true));
-                } else if !e.notes.is_empty() {
-                    let first = e.notes.lines().find(|l| !l.trim().is_empty()).unwrap_or("");
-                    ui.add(egui::Label::new(RichText::new(first).small()).truncate());
-                }
-            });
+                    ui.add(egui::Label::new(title).wrap().selectable(false));
+                    let mut facts = Vec::new();
+                    if let Some(d) = e.published {
+                        facts.push(d.with_timezone(&chrono::Local).format("%-d %b %Y").to_string());
+                    }
+                    let position = if current { self.engine.position().as_secs_f64() } else { progress.position };
+                    match e.duration {
+                        Some(d) if position > 1.0 && !progress.played => {
+                            facts.push(format!("{} left", minutes((d as f64 - position).max(0.0))))
+                        }
+                        Some(d) => facts.push(minutes(d as f64)),
+                        None => {}
+                    }
+                    if progress.played {
+                        facts.push("Played".into());
+                    }
+                    if let Some(d) = download {
+                        facts.push(match d.fraction() {
+                            Some(f) => format!("Downloading {:.0}%", f * 100.0),
+                            None => "Downloading".into(),
+                        });
+                    } else if downloaded {
+                        facts.push("Downloaded".into());
+                    }
+                    ui.add(egui::Label::new(RichText::new(facts.join(" · ")).small().weak()).selectable(false));
+                    if let Some(d) = e.duration.filter(|d| *d > 0)
+                        && position > 1.0
+                        && !progress.played
+                    {
+                        let bar = egui::ProgressBar::new((position / d as f64) as f32).desired_height(3.0);
+                        ui.add(bar.desired_width(ui.available_width().min(240.0)));
+                    }
+                    if open && !e.notes.is_empty() {
+                        ui.add_space(4.0);
+                        ui.add(egui::Label::new(&e.notes).wrap().selectable(true));
+                    } else if !e.notes.is_empty() {
+                        let first = e.notes.lines().find(|l| !l.trim().is_empty()).unwrap_or("");
+                        ui.add(egui::Label::new(RichText::new(first).small()).truncate().selectable(false));
+                    }
+                });
+            })
         });
-        let resp = ui.interact(row.response.rect, ui.id().with(("episode", &e.id)), egui::Sense::click());
+        let resp = row.response;
         if resp.clicked() {
             actions.push(Do::Open(e.id.clone()));
         }
@@ -892,6 +896,7 @@ impl App {
                 ui.close();
             }
         });
+        resp
     }
 
     /// The episode in the player: its controls, where it's at, and the volume.
@@ -1248,6 +1253,52 @@ mod tests {
         assert_eq!(minutes(1380.0), "23 min");
         assert_eq!(minutes(3720.0), "1 h 2 min");
         assert_eq!(minutes(10.0), "1 min");
+    }
+
+    /// Clicks an episode's ▶ and the row beside it, with real pointer events.
+    #[test]
+    fn play_button_plays_and_the_row_opens_notes() {
+        let url = "https://example.com/feed".to_string();
+        let show = feed::parse(&url, include_bytes!("../testdata/coffee-break-swedish.xml")).unwrap();
+        let episode = show.episodes[0].clone();
+        let ctx = egui::Context::default();
+        let config = Config { subscriptions: vec![url.clone()], selected: Some(url.clone()), ..Config::default() };
+        let app = App::with(&ctx, config, Listening::default(), HashMap::from([(url.clone(), show)]), Engine::silent());
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(900.0, 600.0));
+        let frame = |events: Vec<egui::Event>| {
+            let mut actions = Vec::new();
+            let mut rect = egui::Rect::NOTHING;
+            let input = egui::RawInput { screen_rect: Some(screen), events, ..Default::default() };
+            let _ = ctx.run_ui(input, |ui| {
+                rect = app.episode_row(ui, &url, &episode, &mut actions).rect;
+            });
+            (rect, actions)
+        };
+        let click = |at: egui::Pos2| {
+            let button = |pressed| egui::Event::PointerButton {
+                pos: at,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: Modifiers::NONE,
+            };
+            [vec![egui::Event::PointerMoved(at)], vec![button(true)], vec![button(false)]]
+        };
+        let (row, _) = frame(vec![]);
+        let mut seen = Vec::new();
+        for events in click(row.left_top() + egui::vec2(16.0, 16.0)) {
+            seen.extend(frame(events).1);
+        }
+        assert!(matches!(seen.as_slice(), [Do::Play(_, id)] if *id == episode.id), "▶ should play");
+
+        // Later than a double-click, on the title.
+        std::thread::sleep(Duration::from_millis(10));
+        let mut seen = Vec::new();
+        let input = egui::RawInput { time: Some(10.0), screen_rect: Some(screen), ..Default::default() };
+        let _ = ctx.run_ui(input, |_| {});
+        for events in click(row.left_top() + egui::vec2(120.0, 8.0)) {
+            seen.extend(frame(events).1);
+        }
+        assert!(matches!(seen.as_slice(), [Do::Open(id)] if *id == episode.id), "the row should open its notes");
     }
 
     /// Draws the window with a real feed in it, in every state the player

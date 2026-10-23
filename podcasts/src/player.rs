@@ -510,7 +510,9 @@ mod tests {
         }
         let dir = std::env::temp_dir().join(format!("podcasts-player-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let path = dir.join(format!("{seconds}.wav"));
+        // A file per call: tests run in parallel and must not write each other's.
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let path = dir.join(format!("{}.wav", NEXT.fetch_add(1, Ordering::SeqCst)));
         std::fs::File::create(&path).unwrap().write_all(&bytes).unwrap();
         std::fs::File::open(&path).unwrap()
     }
