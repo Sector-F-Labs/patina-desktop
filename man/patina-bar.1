@@ -82,7 +82,9 @@ Then Wi-Fi, which opens
 .Xr patina-wifi 1 ;
 the speaker, which opens
 .Xr patina-volume 1 ;
-and the battery, red at 10% or less while discharging.
+and the battery, red at 10% or less while discharging, which opens
+.Xr patina-settings 1
+at its Power page.
 .It Ic clock
 The time.
 .It Ic power
@@ -223,8 +225,8 @@ A
 format;
 .Dq %a %-d %b  %H:%M
 by default.
-.It Ic launcher , volume , wifi , power
-What the flask, the speaker, the Wi-Fi icon and the power button run,
+.It Ic launcher , volume , wifi , battery , power
+What the flask, the speaker, the Wi-Fi icon, the battery and the power button run,
 through
 .Xr sh 1 .
 .It Ic wallpaper
@@ -257,6 +259,7 @@ again:
 .Sh SEE ALSO
 .Xr patina-compositor 1 ,
 .Xr patina-power 1 ,
+.Xr patina-settings 1 ,
 .Xr patina-volume 1 ,
 .Xr patina-wallpaper 1 ,
 .Xr patina-wifi 1 ,

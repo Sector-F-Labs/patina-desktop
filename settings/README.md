@@ -46,7 +46,7 @@ It wears the shell's skin and follows it when the desktop's menu changes it.
 ## How it fits in
 
 - **Started by** patina-menu: its Wallpaper… item runs `patina-settings --page wallpaper`, and
-  Settings… runs it at Appearance. `--page appearance|bar|wallpaper|defaults|keyboard|dictation|night-light|power|processes`.
+  Settings… runs it at Appearance; and by the bar's battery, at Power (its `battery` command). `--page appearance|bar|wallpaper|defaults|keyboard|dictation|night-light|power|processes`.
 - **Writes the files the settings live in**, keeping the rest of each: the bar's config
   (`skin`, `wallpaper`) through patina-shell, and `[night_light]` in the compositor's config with
   `toml_edit`. The bar, patina-wallpaper and the compositor watch those files and change at once.

@@ -193,6 +193,8 @@ pub struct Config {
     pub volume: String,
     /// What the tray's Wi-Fi icon runs, through sh(1).
     pub wifi: String,
+    /// What the tray's battery runs, through sh(1): Settings' Power page.
+    pub battery: String,
     /// What the power button runs, through sh(1).
     pub power: String,
     /// The desktop's wallpaper, an image file, drawn by patina-wallpaper
@@ -231,6 +233,7 @@ impl Default for Config {
             launcher: "patina-launcher".into(),
             volume: "patina-volume".into(),
             wifi: "patina-wifi".into(),
+            battery: "patina-settings --page power".into(),
             power: "patina-power".into(),
             wallpaper: String::new(),
             pinned: Vec::new(),

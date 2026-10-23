@@ -456,7 +456,13 @@ impl Bar {
                         &opening,
                     );
                     ui.add_space(4.0);
-                    crate::tray::battery(ui, self.battery);
+                    crate::tray::battery(
+                        ui,
+                        self.battery,
+                        &self.config.battery,
+                        &self.skin.name,
+                        &opening,
+                    );
                 });
             }
             "launcher" => {

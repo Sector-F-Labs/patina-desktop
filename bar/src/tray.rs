@@ -2,7 +2,7 @@
 //! Wi-Fi menu (patina-wifi, ADR-0022); the speaker, showing the level and
 //! mute, opens the volume menu (patina-volume), which also flashes up when
 //! the volume keys are used (ADR-0021); the battery shows the charge
-//! (ADR-0024). The keyboard layout in use shows when there's more than one
+//! (ADR-0024) and opens Settings' Power page. The keyboard layout in use shows when there's more than one
 //! (ADR-0068). The power button, after the clock, opens the power menu
 //! (patina-power, ADR-0048).
 
@@ -214,19 +214,23 @@ pub fn speaker(
 
 /// The battery and its percentage, with the time left on hover; nothing
 /// on a machine without one. At 10% or under, while discharging, it's in
-/// the error colour.
-pub fn battery(ui: &mut Ui, battery: Option<patina_system::power::Battery>) {
+/// the error colour. Runs `command` when it's clicked.
+pub fn battery(
+    ui: &mut Ui,
+    battery: Option<patina_system::power::Battery>,
+    command: &str,
+    skin: &str,
+    opening: &dyn Fn(egui::Rect) -> crate::launcher::Opening,
+) {
     let Some(b) = battery else { return };
     let v = ui.visuals().clone();
-    let colour = if b.low() {
-        v.error_fg_color
-    } else {
-        v.text_color()
-    };
     let charging = b.charge == patina_system::power::Charge::Charging;
     let text = format!("{}%", b.percent);
     let font = egui::TextStyle::Body.resolve(ui.style());
-    let galley = ui.painter().layout_no_wrap(text, font, colour);
+    // Coloured when painted, once it's known whether it's hovered.
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text, font, egui::Color32::PLACEHOLDER);
     let side = side(ui);
     // In a column there's no room for the percentage: it's on hover.
     let column = ui.layout().main_dir().is_vertical();
@@ -235,7 +239,21 @@ pub fn battery(ui: &mut Ui, battery: Option<patina_system::power::Battery>) {
     } else {
         vec2(side * 0.7 + galley.size().x + 6.0, side)
     };
-    let (rect, response) = ui.allocate_exact_size(size, Sense::hover());
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let background = if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
+        v.widgets.hovered.weak_bg_fill
+    } else {
+        v.panel_fill
+    };
+    let colour = if b.low() {
+        v.error_fg_color
+    } else if response.hovered() {
+        v.strong_text_color()
+    } else {
+        v.text_color()
+    };
     let icon = if column {
         egui::Rect::from_center_size(rect.center(), vec2(side * 0.7, side))
     } else {
@@ -247,7 +265,7 @@ pub fn battery(ui: &mut Ui, battery: Option<patina_system::power::Battery>) {
         b.percent,
         charging,
         colour,
-        v.panel_fill,
+        background,
     );
     if !column {
         ui.painter().galley(
@@ -257,6 +275,9 @@ pub fn battery(ui: &mut Ui, battery: Option<patina_system::power::Battery>) {
         );
     }
     crate::tooltip::hover(ui, &response, b.describe());
+    if response.clicked() {
+        crate::launcher::run(command, skin, &opening(rect));
+    }
 }
 
 #[cfg(test)]

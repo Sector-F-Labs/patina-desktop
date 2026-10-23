@@ -24,7 +24,8 @@ const USAGE: &str =
     "usage: patina-settings [--page appearance|bar|wallpaper|defaults|keyboard|dictation|night-light|power|processes]
 
 Opens the Patina desktop's Settings, at the page given (Appearance without
-one). The desktop's menu opens it at the wallpaper page.";
+one). The desktop's menu opens it at the wallpaper page, the bar's battery
+at the power page.";
 
 fn main() -> ExitCode {
     let mut page = Page::Appearance;
