@@ -1,0 +1,6 @@
+# A scratch config for `make dev` and `make screenshot`.
+subscriptions = [
+    "https://feeds.acast.com/public/shows/22083847-8ca0-434d-9684-2341e66a347f",
+    "https://rss.buzzsprout.com/2437832.rss",
+]
+selected = "https://feeds.acast.com/public/shows/22083847-8ca0-434d-9684-2341e66a347f"

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Podcasts
+GenericName=Podcast Player
+Comment=Subscribe to podcasts and listen to them
+Exec=podcasts
+Icon=com.sectorflabs.Podcasts
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=podcast;rss;audio;episodes;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.Podcasts
