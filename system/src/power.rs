@@ -1,7 +1,8 @@
 //! The battery, from /sys/class/power_supply: the charge, whether it's
 //! charging, and the time left at the current draw (ADR-0024). Plain file
 //! reads, cheap enough to repeat every few seconds; laptops with two
-//! batteries count as one.
+//! batteries count as one. Also how worn it is (`health`); its history is
+//! `battery_history`.
 
 use std::path::Path;
 
@@ -102,10 +103,12 @@ fn read_one(dir: &Path) -> Option<Reading> {
     })
 }
 
-/// The batteries combined, or `None` on a machine without one.
-pub fn read() -> Option<Battery> {
-    let readings: Vec<Reading> = std::fs::read_dir("/sys/class/power_supply")
-        .ok()?
+/// The machine's own batteries' folders in sysfs.
+fn batteries() -> Vec<std::path::PathBuf> {
+    let Ok(entries) = std::fs::read_dir("/sys/class/power_supply") else {
+        return Vec::new();
+    };
+    entries
         .filter_map(|e| e.ok().map(|e| e.path()))
         .filter(|p| {
             std::fs::read_to_string(p.join("type")).is_ok_and(|t| t.trim() == "Battery")
@@ -113,9 +116,51 @@ pub fn read() -> Option<Battery> {
                 // machine's own power them.
                 && std::fs::read_to_string(p.join("scope")).map_or(true, |s| s.trim() != "Device")
         })
-        .filter_map(|p| read_one(&p))
-        .collect();
+        .collect()
+}
+
+/// The batteries combined, or `None` on a machine without one.
+pub fn read() -> Option<Battery> {
+    let readings: Vec<Reading> = batteries().iter().filter_map(|p| read_one(p)).collect();
     combine(&readings)
+}
+
+/// How worn the battery is.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Health {
+    /// What it holds when full, as a percentage of what it held new.
+    pub capacity: f64,
+    /// Charge cycles, where the battery counts them.
+    pub cycles: Option<u32>,
+}
+
+impl Health {
+    /// "Holds 80% of its original capacity · 126 charge cycles".
+    pub fn describe(&self) -> String {
+        let held = format!("Holds {:.0}% of its original capacity", self.capacity);
+        match self.cycles {
+            Some(1) => format!("{held} · 1 charge cycle"),
+            Some(n) => format!("{held} · {n} charge cycles"),
+            None => held,
+        }
+    }
+}
+
+/// The first battery's health, where it says what it held new.
+pub fn health() -> Option<Health> {
+    batteries().iter().find_map(|dir| {
+        let (full, design) = match number(dir, "energy_full") {
+            Some(full) => (full, number(dir, "energy_full_design")?),
+            None => (number(dir, "charge_full")?, number(dir, "charge_full_design")?),
+        };
+        (design > 0.0).then(|| Health {
+            capacity: (full / design * 100.0).min(100.0),
+            // 0 where it doesn't count them.
+            cycles: number(dir, "cycle_count")
+                .filter(|n| *n > 0.0)
+                .map(|n| n as u32),
+        })
+    })
 }
 
 /// Several batteries as one: summed charge, and the most telling status

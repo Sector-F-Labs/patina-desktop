@@ -73,7 +73,7 @@ impl Page {
             Page::Keyboard => "Keyboard",
             Page::Dictation => "Dictation",
             Page::NightLight => "Night Light",
-            Page::Power => "Power",
+            Page::Power => "Power and Battery",
             Page::Processes => "Processes",
         }
     }

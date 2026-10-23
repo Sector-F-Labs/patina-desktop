@@ -1,6 +1,7 @@
-//! The Power page: when the screen turns off without input (ADR-0047), and
-//! the power modes this machine has (ADR-0042), through power-profiles-daemon,
-//! with why performance is held back and which apps are holding a mode.
+//! The Power and Battery page: when the screen turns off without input
+//! (ADR-0047), the power modes this machine has (ADR-0042), through
+//! power-profiles-daemon, with why performance is held back and which apps
+//! are holding a mode; then the battery and its history (`battery.rs`).
 
 use std::sync::mpsc;
 use std::time::Duration;
@@ -25,6 +26,7 @@ pub struct PowerPage {
     switched: mpsc::Receiver<Result<(), String>>,
     switch: mpsc::Sender<Result<(), String>>,
     screen: Screen,
+    battery: crate::battery::BatterySection,
 }
 
 impl PowerPage {
@@ -36,6 +38,7 @@ impl PowerPage {
             switched,
             switch,
             screen: config::read_screen(),
+            battery: crate::battery::BatterySection::new(ctx),
         }
     }
 
@@ -62,11 +65,12 @@ impl PowerPage {
                 )));
             }
         }
-        ui.heading("Power");
+        ui.heading("Power and Battery");
         ui.add_space(8.0);
         self.screen(ui, message);
         ui.add_space(16.0);
         self.modes(ui);
+        self.battery.ui(ui);
     }
 
     /// When the screen turns off, and whether that locks it.

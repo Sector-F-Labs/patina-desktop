@@ -2,7 +2,7 @@
 //! Wi-Fi menu (patina-wifi, ADR-0022); the speaker, showing the level and
 //! mute, opens the volume menu (patina-volume), which also flashes up when
 //! the volume keys are used (ADR-0021); the battery shows the charge
-//! (ADR-0024) and opens Settings' Power page. The keyboard layout in use shows when there's more than one
+//! (ADR-0024) and opens Settings' Power and Battery page. The keyboard layout in use shows when there's more than one
 //! (ADR-0068). The power button, after the clock, opens the power menu
 //! (patina-power, ADR-0048).
 

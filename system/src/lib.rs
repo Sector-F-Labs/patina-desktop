@@ -1,7 +1,7 @@
 //! What the Patina desktop's pieces read and change on the machine, and
 //! draw, beyond the generic layer-shell host in patina-shell: the volume
 //! (`audio`, through wpctl), Wi-Fi (`network`, NetworkManager), the battery
-//! (`power`), the backlight (`backlight`, which the compositor uses too),
+//! (`power`) and its history (`battery_history`, UPower), the backlight (`backlight`, which the compositor uses too),
 //! the tray's icons (`icons`), the Sector F flask and lettering (`logo`),
 //! Night Light's controls on the compositor (`night_light`), keyboard layouts
 //! (`keyboard`), default apps (`defaults`), and power modes
@@ -13,6 +13,7 @@
 pub mod apps;
 pub mod audio;
 pub mod backlight;
+pub mod battery_history;
 pub mod defaults;
 pub mod icons;
 pub mod keyboard;

@@ -122,6 +122,7 @@ mechanics of adding one.
 | [0078](0078-installed-for-every-user.md) | The desktop is installed for every user, in /usr/local, as a BSD port is | Accepted |
 | [0079](0079-settings-chooses-default-apps.md) | Default apps are chosen in Patina's own defaults.toml, from a Settings page | Accepted |
 | [0080](0080-pinned-apps-and-moving-tabs.md) | Apps pin to the bar, and its tabs drag into another order the compositor keeps | Accepted |
+| [0081](0081-battery-history-from-upower.md) | The battery's history is graphed in Settings, from what UPower keeps | Accepted |
 
 ## Decision Relationship
 
@@ -190,6 +191,7 @@ flowchart TD
     K --> FRAMES
     P --> SYSTEM[0078: installed for every user in /usr/local]
     AA --> PINS[0080: pinned apps, tabs dragged into order]
+    X --> BHIST[0081: battery history graphed, from UPower]
 ```
 
 ## Revisit Triggers

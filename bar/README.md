@@ -25,7 +25,7 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   register with (`patina_system::sni`, StatusNotifierItem on the session bus); a click
   activates the app, a right click opens its menu in patina-menu. Then, with more than one
   keyboard layout, the one in use ("US"; a click lists them to switch, ADR-0068), Wi-Fi (opens patina-wifi), the speaker (opens patina-volume) and the battery
-  (opens Settings' Power page; ADR-0021, ADR-0022, ADR-0024).
+  (opens Settings' Power and Battery page; ADR-0021, ADR-0022, ADR-0024).
 - `clock`, and under dwl `tags`, `layout`, `title` and `appid`.
 - `power`: the power button after the clock, which opens patina-power: Lock, Log Out, Restart
   and Shut Down (ADR-0048).

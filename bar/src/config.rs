@@ -193,7 +193,7 @@ pub struct Config {
     pub volume: String,
     /// What the tray's Wi-Fi icon runs, through sh(1).
     pub wifi: String,
-    /// What the tray's battery runs, through sh(1): Settings' Power page.
+    /// What the tray's battery runs, through sh(1): Settings' Power and Battery page.
     pub battery: String,
     /// What the power button runs, through sh(1).
     pub power: String,

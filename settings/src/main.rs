@@ -5,6 +5,7 @@
 
 mod app;
 mod bar;
+mod battery;
 mod compositor_config;
 mod defaults;
 mod dictation;
@@ -25,7 +26,7 @@ const USAGE: &str =
 
 Opens the Patina desktop's Settings, at the page given (Appearance without
 one). The desktop's menu opens it at the wallpaper page, the bar's battery
-at the power page.";
+at the power and battery page.";
 
 fn main() -> ExitCode {
     let mut page = Page::Appearance;

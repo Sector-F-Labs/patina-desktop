@@ -32,10 +32,12 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   what the compositor says: whether this screen can be warmed, whether it's on now (with a button
   to turn it off until the schedule changes, or back), and which apps are holding it off.
 
-- **Power** (ADR-0042, ADR-0047): when the screen turns off without input (never, or 1 to 15
-  minutes) and whether that locks it, written as `[screen] off_after` and `[lock] on_screen_off`
-  in the compositor's config; and the power modes this machine has (performance, balanced, power
-  saver) through power-profiles-daemon, why performance is held back, and which apps hold a mode.
+- **Power and Battery** (ADR-0042, ADR-0047, ADR-0081): when the screen turns off without input
+  (never, or 1 to 15 minutes) and whether that locks it, written as `[screen] off_after` and
+  `[lock] on_screen_off` in the compositor's config; the power modes this machine has
+  (performance, balanced, power saver) through power-profiles-daemon, why performance is held
+  back, and which apps hold a mode; and with a battery, its health and graphs of its charge and
+  power draw over a day or a week, from UPower's history, painted from the skin's visuals.
 
 - **Processes** (ADR-0045): what the compositor started, with each one's state, PID, uptime and
   restarts, and buttons to restart or stop it. A click on a name opens a window that follows its
@@ -46,7 +48,7 @@ It wears the shell's skin and follows it when the desktop's menu changes it.
 ## How it fits in
 
 - **Started by** patina-menu: its Wallpaper… item runs `patina-settings --page wallpaper`, and
-  Settings… runs it at Appearance; and by the bar's battery, at Power (its `battery` command). `--page appearance|bar|wallpaper|defaults|keyboard|dictation|night-light|power|processes`.
+  Settings… runs it at Appearance; and by the bar's battery, at Power and Battery (its `battery` command). `--page appearance|bar|wallpaper|defaults|keyboard|dictation|night-light|power|processes`.
 - **Writes the files the settings live in**, keeping the rest of each: the bar's config
   (`skin`, `wallpaper`) through patina-shell, and `[night_light]` in the compositor's config with
   `toml_edit`. The bar, patina-wallpaper and the compositor watch those files and change at once.
@@ -66,7 +68,9 @@ patina-night-light inhibit -- darktable   # held off while a command runs
 
 `main.rs`, `app.rs` (the window, the Appearance and Wallpaper pages), `bar.rs` (the Bar page),
 `defaults.rs` (the Defaults page), `night_light.rs` and
-`power.rs` and `processes.rs` (theirs),
+`power.rs` and `processes.rs` (theirs), `battery.rs` (the Power and Battery page's battery and its
+graphs; `cargo test -p patina-settings preview_the_battery -- --ignored` with
+PATINA_SETTINGS_PREVIEW=dir draws them from made-up history),
 `compositor_config.rs` (`[night_light]` read and written in place), `wallpapers.rs` (the images on
 offer and their thumbnails), `bin/patina-night-light.rs`. `packaging/` holds its icon
 (`settings.svg`, also drawn as the window icon) and its desktop entry, which `make install` puts
