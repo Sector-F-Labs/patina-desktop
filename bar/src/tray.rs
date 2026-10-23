@@ -146,6 +146,48 @@ pub fn layout(
     Some((rect, response))
 }
 
+/// The clock showing `text`; runs `command`, its menu, when it's clicked,
+/// with the date in full on hover.
+pub fn clock(
+    ui: &mut Ui,
+    text: String,
+    command: &str,
+    skin: &str,
+    opening: &dyn Fn(egui::Rect) -> crate::launcher::Opening,
+) {
+    let v = ui.visuals().clone();
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text, font, egui::Color32::PLACEHOLDER);
+    let side = side(ui);
+    let size = if ui.layout().main_dir().is_vertical() {
+        vec2(side, galley.size().y + 2.0 * PADDING)
+    } else {
+        vec2(galley.size().x + 2.0 * PADDING, side)
+    };
+    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
+    }
+    let colour = if response.hovered() {
+        v.strong_text_color()
+    } else {
+        v.text_color()
+    };
+    ui.painter()
+        .galley(rect.center() - galley.size() / 2.0, galley, colour);
+    crate::tooltip::hover(
+        ui,
+        &response,
+        chrono::Local::now().format("%A %-d %B %Y").to_string(),
+    );
+    if response.clicked() {
+        crate::launcher::run(command, skin, &opening(rect));
+    }
+}
+
 /// The power button; runs `command`, the power menu, when it's clicked.
 pub fn power(
     ui: &mut Ui,

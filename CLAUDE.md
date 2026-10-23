@@ -153,6 +153,9 @@ puts them in `$(PREFIX)/share/man`.
   `.desktop` names, which `patina_system::apps` reads): `choose.rs` decides, `main.rs` lists and activates
   windows over wlr-foreign-toplevel with plain wayland-client; `--list` prints app ids.
 - `wifi/`: patina-wifi, the tray's Wi-Fi menu (ADR-0022), on `system/src/network.rs`.
+- `clock/`: patina-clock, the clock's menu (ADR-0082): a month and the day's events, which the
+  Calendar app (`../calendar`) prints with `calendar --agenda` (`agenda.rs`); a click runs
+  `calendar --open DATE [--event UID]`. The menu draws, Calendar keeps the data.
 - `volume/`: patina-volume, the tray's volume menu, also flashed by the compositor after a
   volume key (`--flash`) or a brightness key (`--brightness`) (ADR-0021, ADR-0033).
   On `system/src/audio.rs` and `backlight.rs`.

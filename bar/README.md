@@ -26,7 +26,8 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   activates the app, a right click opens its menu in patina-menu. Then, with more than one
   keyboard layout, the one in use ("US"; a click lists them to switch, ADR-0068), Wi-Fi (opens patina-wifi), the speaker (opens patina-volume) and the battery
   (opens Settings' Power and Battery page; ADR-0021, ADR-0022, ADR-0024).
-- `clock`, and under dwl `tags`, `layout`, `title` and `appid`.
+- `clock`, the date in full on hover, which opens patina-clock: a month and the day's events from
+  Calendar (ADR-0082); and under dwl `tags`, `layout`, `title` and `appid`.
 - `power`: the power button after the clock, which opens patina-power: Lock, Log Out, Restart
   and Shut Down (ADR-0048).
 
@@ -40,11 +41,11 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   `toplevels.rs`), and asks the compositor to activate or close them.
 - **Opens the other pieces** by running their commands through `sh`, with `PATINA_SKIN` and
   `PATINA_BAR_EDGE` set so they match it and open from its edge: `launcher`, `volume`, `wifi`,
-  `battery` and `power` in its config. Under patina-compositor it asks the compositor to start them (`Spawn` on the
+  `battery`, `calendar` and `power` in its config. Under patina-compositor it asks the compositor to start them (`Spawn` on the
   session bus), so they're listed in Settings' Processes page with their output (ADR-0045);
   anywhere else, or without a session bus, it starts them itself.
 - **Owns the shared config**, `~/.config/patina-bar/config.toml` (`config.rs`): `position`,
-  `height`, `skin`, the modules of each side, `clock` (a strftime format), the four commands,
+  `height`, `skin`, the modules of each side, `clock` (a strftime format), the commands,
   `tags`, `pinned` (the pinned apps, which the compositor reads too), and `wallpaper`, which
   patina-wallpaper draws. patina-menu writes `skin` and
   `wallpaper`; the bar checks the file's time each second and restyles itself, and the other

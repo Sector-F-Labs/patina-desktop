@@ -193,6 +193,9 @@ pub struct Config {
     pub volume: String,
     /// What the tray's Wi-Fi icon runs, through sh(1).
     pub wifi: String,
+    /// What the clock runs, through sh(1): its menu, a month and the day's
+    /// events from Calendar.
+    pub calendar: String,
     /// What the tray's battery runs, through sh(1): Settings' Power and Battery page.
     pub battery: String,
     /// What the power button runs, through sh(1).
@@ -233,6 +236,7 @@ impl Default for Config {
             launcher: "patina-launcher".into(),
             volume: "patina-volume".into(),
             wifi: "patina-wifi".into(),
+            calendar: "patina-clock".into(),
             battery: "patina-settings --page power".into(),
             power: "patina-power".into(),
             wallpaper: String::new(),

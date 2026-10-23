@@ -1,0 +1,55 @@
+.Dd October 23, 2026
+.Dt PATINA-CLOCK 1
+.Os
+.Sh NAME
+.Nm patina-clock
+.Nd the Patina desktop's clock menu
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is the menu the bar's clock opens, at the bar's right end: today's date, a
+month with ISO week numbers, today marked and a dot under each day with
+something on, and the chosen day's events.
+.Pp
+The events come from the Calendar app, through
+.Ql calendar --agenda ,
+which reads what Calendar last synced without opening it.
+A click on a day chooses it, and a double click opens Calendar at it; a
+click on an event opens it in Calendar, at that day's occurrence.
+The arrow keys move the chosen day, Page Up and Page Down the month, Home
+goes back to today and Enter opens Calendar at the chosen day.
+Escape, a click elsewhere, or the clock again closes it; running it while
+one is open closes that one.
+.Pp
+Without Calendar it shows the month alone, and says Calendar isn't
+installed.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN
+The skin to wear, as the bar sets it; otherwise the bar's config's.
+.It Ev PATINA_BAR_EDGE
+.Dq top
+or
+.Dq bottom :
+which edge to open from.
+.It Ev PATINA_OPEN_AT
+Where the clock is, as
+.Ql edge,x,y Ns Op ,far
+in logical pixels: it opens just past it.
+Without it, it opens on
+.Ev PATINA_BAR_EDGE Ns 's
+edge.
+.El
+.Sh SEE ALSO
+.Xr patina-bar 1 ,
+.Xr patina-desktop 7

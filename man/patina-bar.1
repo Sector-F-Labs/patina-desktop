@@ -86,7 +86,9 @@ and the battery, red at 10% or less while discharging, which opens
 .Xr patina-settings 1
 at its Power and Battery page.
 .It Ic clock
-The time.
+The time, the date in full on hover; a click opens
+.Xr patina-clock 1 ,
+a month and the day's events.
 .It Ic power
 The power button, after the clock, which opens
 .Xr patina-power 1 :
@@ -225,8 +227,8 @@ A
 format;
 .Dq %a %-d %b  %H:%M
 by default.
-.It Ic launcher , volume , wifi , battery , power
-What the flask, the speaker, the Wi-Fi icon, the battery and the power button run,
+.It Ic launcher , volume , wifi , battery , calendar , power
+What the flask, the speaker, the Wi-Fi icon, the battery, the clock and the power button run,
 through
 .Xr sh 1 .
 .It Ic wallpaper
@@ -257,6 +259,7 @@ again:
 .Pp
 .Dl $ pkill -x patina-bar
 .Sh SEE ALSO
+.Xr patina-clock 1 ,
 .Xr patina-compositor 1 ,
 .Xr patina-power 1 ,
 .Xr patina-settings 1 ,

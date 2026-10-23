@@ -123,6 +123,7 @@ mechanics of adding one.
 | [0079](0079-settings-chooses-default-apps.md) | Default apps are chosen in Patina's own defaults.toml, from a Settings page | Accepted |
 | [0080](0080-pinned-apps-and-moving-tabs.md) | Apps pin to the bar, and its tabs drag into another order the compositor keeps | Accepted |
 | [0081](0081-battery-history-from-upower.md) | The battery's history is graphed in Settings, from what UPower keeps | Accepted |
+| [0082](0082-the-clock-opens-a-month-with-calendars-events.md) | The clock opens a month with the day's events, which the Calendar app supplies | Accepted |
 
 ## Decision Relationship
 
@@ -192,6 +193,7 @@ flowchart TD
     P --> SYSTEM[0078: installed for every user in /usr/local]
     AA --> PINS[0080: pinned apps, tabs dragged into order]
     X --> BHIST[0081: battery history graphed, from UPower]
+    U --> CLOCK[0082: the clock opens a month with Calendar's events]
 ```
 
 ## Revisit Triggers

@@ -471,12 +471,15 @@ impl Bar {
                 crate::launcher::button(ui, &self.config.launcher, &self.skin.name, &opening)
             }
             "clock" => {
+                let ctx = ui.ctx().clone();
+                let opening = |rect| self.opening(&ctx, rect);
                 // In a column, the hours over the minutes.
-                if ui.layout().main_dir().is_vertical() {
-                    ui.add(egui::Label::new(clock("%H\n%M")).halign(Align::Center));
+                let text = if ui.layout().main_dir().is_vertical() {
+                    clock("%H\n%M")
                 } else {
-                    ui.label(clock(&self.config.clock));
-                }
+                    clock(&self.config.clock)
+                };
+                crate::tray::clock(ui, text, &self.config.calendar, &self.skin.name, &opening);
             }
             "power" => {
                 let ctx = ui.ctx().clone();
