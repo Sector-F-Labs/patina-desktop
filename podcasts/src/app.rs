@@ -807,9 +807,8 @@ impl App {
         let sense = egui::UiBuilder::new().id_salt(("episode", &e.id)).sense(egui::Sense::click());
         let row = ui.scope_builder(sense, |ui| {
             ui.horizontal_top(|ui| {
-                let label = if playing { "⏸" } else { "▶" };
-                let button = egui::Button::new(RichText::new(label).size(16.0)).min_size(egui::vec2(32.0, 32.0));
-                if ui.add(button).on_hover_text(if playing { "Pause" } else { "Play" }).clicked() {
+                let button = play_button(ui, playing, egui::vec2(32.0, 32.0));
+                if button.on_hover_text(if playing { "Pause" } else { "Play" }).clicked() {
                     actions.push(Do::Play(show.to_string(), e.id.clone()));
                 }
                 ui.vertical(|ui| {
@@ -926,9 +925,9 @@ impl App {
                 actions.push(Do::Skip(-BACK));
             }
             let playing = state == PlayState::Playing;
-            let label = if playing { "⏸" } else { "▶" };
-            let play = egui::Button::new(RichText::new(label).size(18.0)).min_size(egui::vec2(40.0, 32.0));
-            if ui.add_enabled(state != PlayState::Loading, play).on_hover_text("Play or pause (Space)").clicked() {
+            let play =
+                ui.add_enabled_ui(state != PlayState::Loading, |ui| play_button(ui, playing, egui::vec2(40.0, 32.0)));
+            if play.inner.on_hover_text("Play or pause (Space)").clicked() {
                 actions.push(Do::TogglePause);
             }
             if ui.button(format!("{FORWARD} ↻")).on_hover_text(format!("Forward {FORWARD} seconds (→)")).clicked() {
@@ -1044,6 +1043,35 @@ impl App {
             self.now = Some((show.url.clone(), first.id.clone()));
         }
     }
+}
+
+/// A play or pause button. The symbol is painted rather than a ▶ glyph,
+/// whose side bearings leave it off the button's centre.
+fn play_button(ui: &mut egui::Ui, playing: bool, size: egui::Vec2) -> egui::Response {
+    let (rect, resp) = ui.allocate_exact_size(size, egui::Sense::click());
+    if ui.is_rect_visible(rect) {
+        let v = ui.style().interact(&resp);
+        let painter = ui.painter();
+        painter.rect(rect, v.corner_radius, v.weak_bg_fill, v.bg_stroke, egui::StrokeKind::Inside);
+        let color = v.text_color();
+        let h = (size.x.min(size.y) * 0.42).round();
+        let c = rect.center();
+        if playing {
+            let (bar, gap) = (h * 0.3, h * 0.28);
+            for x in [c.x - gap / 2.0 - bar, c.x + gap / 2.0] {
+                let r = egui::Rect::from_min_size(egui::pos2(x, c.y - h / 2.0), egui::vec2(bar, h));
+                painter.rect_filled(r, 1.0, color);
+            }
+        } else {
+            // Its box is centred, nudged right a little: a triangle's weight sits on its flat side.
+            let w = h * 0.9;
+            let left = c.x - w / 2.0 + w * 0.08;
+            let points =
+                vec![egui::pos2(left, c.y - h / 2.0), egui::pos2(left + w, c.y), egui::pos2(left, c.y + h / 2.0)];
+            painter.add(egui::Shape::convex_polygon(points, color, egui::Stroke::NONE));
+        }
+    }
+    resp
 }
 
 /// A show's artwork, or a plain tile until it's here.
