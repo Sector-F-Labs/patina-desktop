@@ -124,6 +124,11 @@ puts them in `$(PREFIX)/share/man`.
   `space_render_elements` with the frames and borders beside their windows. Skin from the bar's
   config file (`bar_skin`), polled each second. `PATINA_FRAMES_PREVIEW=dir cargo test -p
   patina-compositor frames -- --ignored` paints one per skin.
+- `compositor/src/minimize.rs`: minimising (ADR-0084): a minimised window is out of the space,
+  kept in `State::minimized` with its place; `window_for`, the foreign toplevels and `quit_app`
+  still see it, and `State::focus` restores it, so its tab, Alt+Tab and Super+N bring it back.
+  Super+M, xdg and foreign-toplevel `set_minimized`, X11 requests (Wine's games) and frames'
+  button minimise.
 - `compositor/src/fullscreen.rs`: fullscreen (ADR-0041): `State::fullscreen`, sized to the output,
   drawn over the layers by every backend and first under the pointer while it has the keyboard.
 - `compositor/src/dnd.rs`: drag and drop between clients is Smithay's; this draws the icon a

@@ -21,6 +21,7 @@ mod keys;
 mod lock;
 mod maximize;
 mod media;
+mod minimize;
 mod nested;
 mod night_light;
 mod processes;

@@ -1,6 +1,7 @@
 //! wlr-foreign-toplevel-management: tells clients such as patina-bar (or
 //! waybar's taskbar) which windows are open, their titles and app ids and
-//! which is active, and lets them activate or close one (ADR-0012).
+//! which is active, maximised or minimised, and lets them activate, close,
+//! maximise or minimise one (ADR-0012, ADR-0084).
 //!
 //! It works as a diff: after each pass of the event loop, [`refresh`]
 //! compares the windows with what clients were last told and sends only
@@ -46,6 +47,7 @@ struct Entry {
     app_id: String,
     activated: bool,
     maximized: bool,
+    minimized: bool,
 }
 
 /// A handle's link back to its window.
@@ -167,6 +169,7 @@ fn send_state(handle: &ZwlrForeignToplevelHandleV1, entry: &Entry) {
     let flags = [
         (entry.activated, S::Activated),
         (entry.maximized, S::Maximized),
+        (entry.minimized, S::Minimized),
     ];
     let state: Vec<u8> = flags
         .iter()
@@ -205,9 +208,11 @@ pub fn refresh(state: &mut State) {
     let focused = state.seat.get_keyboard().and_then(|k| k.current_focus());
     // X windows (ADR-0040) once Xwayland has given them a surface, with
     // their title and class; Wayland ones' are read from their surface.
-    let windows: Vec<(WlSurface, bool, Option<TitleAndClass>)> = state
+    // Minimised windows are still open (ADR-0084).
+    let windows: Vec<(WlSurface, bool, bool, Option<TitleAndClass>)> = state
         .space
         .elements()
+        .chain(state.minimized.windows())
         .filter_map(|w| {
             let x11 = w.x11_surface();
             if x11.is_some_and(|x| x.is_override_redirect()) {
@@ -217,6 +222,7 @@ pub fn refresh(state: &mut State) {
             Some((
                 surface,
                 is_maximized(w),
+                state.minimized.contains(w),
                 x11.map(|x| (x.title(), x.class())),
             ))
         })
@@ -225,7 +231,7 @@ pub fn refresh(state: &mut State) {
     let this = &mut state.toplevels;
 
     this.entries.retain(|entry| {
-        let open = windows.iter().any(|(s, _, _)| s == &entry.surface);
+        let open = windows.iter().any(|(s, ..)| s == &entry.surface);
         if !open {
             for handle in &entry.handles {
                 handle.closed();
@@ -234,7 +240,7 @@ pub fn refresh(state: &mut State) {
         open
     });
 
-    for (surface, maximized, x11) in windows {
+    for (surface, maximized, minimized, x11) in windows {
         let (title, app_id) = x11.unwrap_or_else(|| describe(&surface));
         let activated = focused.as_ref().is_some_and(|f| f.is(&surface));
         match this.entries.iter_mut().find(|e| e.surface == surface) {
@@ -246,6 +252,7 @@ pub fn refresh(state: &mut State) {
                     app_id,
                     activated,
                     maximized,
+                    minimized,
                 };
                 for manager in &this.managers {
                     announce(&dh, manager, &mut entry);
@@ -255,7 +262,9 @@ pub fn refresh(state: &mut State) {
             Some(entry) => {
                 let title_changed = entry.title != title;
                 let app_id_changed = entry.app_id != app_id;
-                let state_changed = entry.activated != activated || entry.maximized != maximized;
+                let state_changed = entry.activated != activated
+                    || entry.maximized != maximized
+                    || entry.minimized != minimized;
                 if !(title_changed || app_id_changed || state_changed) {
                     continue;
                 }
@@ -263,6 +272,7 @@ pub fn refresh(state: &mut State) {
                 entry.app_id = app_id;
                 entry.activated = activated;
                 entry.maximized = maximized;
+                entry.minimized = minimized;
                 for handle in &entry.handles {
                     if title_changed {
                         handle.title(entry.title.clone());
@@ -356,8 +366,18 @@ impl Dispatch<ZwlrForeignToplevelHandleV1, HandleData> for State {
                     state.unmaximize(&window, None);
                 }
             }
+            Request::SetMinimized => {
+                if let Some(window) = state.window_for(&data.surface) {
+                    state.minimize(&window);
+                }
+            }
+            Request::UnsetMinimized => {
+                if let Some(window) = state.window_for(&data.surface) {
+                    state.restore(&window);
+                }
+            }
             Request::Destroy => forget(state, handle),
-            // No minimise or fullscreen yet, and no use for a taskbar's
+            // No fullscreen from here yet, and no use for a taskbar's
             // rectangle.
             _ => {}
         }

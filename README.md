@@ -72,7 +72,7 @@ second, ADR-0069): **Super** or **Super+Space** opens launcher, **Super+1–9** 
 **Alt+Tab** / **Alt+Shift+Tab** cycles, **Super+Up/Down** maximise/restore, **Super+Left/Right**
 half-screen tile (**Ctrl+Super+K/J/H/L** too), **Super+Shift+arrows** grow/shrink by 1/10 screen,
 **Ctrl+Super+Shift+K/J/L/H** resize around centre, drag a maximised/tiled window to restore under pointer, **Super+W** close
-window, **Super+Q** quit app, **Ctrl+Space** switch keyboard layout, **Super+Shift+R** reload
+window, **Super+Q** quit app, **Super+M** minimise to its tab, **Ctrl+Space** switch keyboard layout, **Super+Shift+R** reload
 config, **Super+Shift+3** or **Print** screenshots the desktop and **Super+Shift+4** the focused
 window (to ~/Pictures/Screenshots), brightness/volume keys work with on-screen flash.
 

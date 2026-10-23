@@ -21,6 +21,9 @@ this workspace is a Wayland client of it.
 - **Moving between windows** follows the bar's tabs (ADR-0027): Alt+Tab steps along them,
   Super+1–9 picks one, closing a window gives the keyboard back to the window it came from (or
   its neighbouring tab, ADR-0059). Super+Q quits the app.
+- **Minimising** (`minimize.rs`, ADR-0084) takes a window out of the space to its tab, from its
+  minimise button, xdg-shell, foreign-toplevel, an X11 request or Super+M; focusing it in any way
+  puts it back where it was.
 - **Super is Cmd** (`cmd.rs`, ADR-0067): any other Super key goes to the focused window as
   Ctrl+key (Super+T a new tab, Super+W closes one), or as Ctrl+Shift+key to a terminal, by its
   desktop entry's `TerminalEmulator` category (Super+Shift+key as Ctrl+Alt+Shift+key there, so it
@@ -36,11 +39,12 @@ this workspace is a Wayland client of it.
 - **X11 apps** (Steam, Discord, Wine) run through Xwayland (ADR-0040), started with the
   compositor; their windows float, focus, tab and move like any other. One that draws no frame
   of its own, as the Minecraft launcher, gets one here (`frames.rs`, ADR-0077): Patina's title
-  bar, painted with egui in the bar's skin, to move, maximise and close it, with edges that
+  bar, painted with egui in the bar's skin, to move, minimise, maximise and close it, with edges that
   resize. Fullscreen windows, menus and apps that draw their own never get one.
 - **Fullscreen** for games and videos that ask (ADR-0041): the whole screen, over the bar.
   Smithay comes from a fork whose X11 window manager names the focused window as the active one,
-  so Wine's fullscreen games don't minimise themselves (ADR-0044).
+  so Wine's fullscreen games don't minimise themselves (ADR-0044); one that does on Alt+Tab is
+  minimised to its tab and restored when focused (ADR-0084).
 - **Mouse-look** for games (ADR-0043): relative pointer motion, and the pointer locked or confined
   to a window that asks, on the hardware.
 - **The screen turns off** after `[screen] off_after` seconds without input, five minutes by

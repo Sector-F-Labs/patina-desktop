@@ -55,6 +55,9 @@ pub enum KeyAction {
     /// Ask every window of the focused app to close (Super+Q): quitting it,
     /// politely, as Cmd+Q does on macOS.
     QuitApp,
+    /// Minimise the focused window to its tab (Super+M), as Cmd+M does on
+    /// macOS (ADR-0084).
+    Minimize,
     /// Lock the screen (Super+Escape).
     Lock,
     /// Take a screenshot (Super+Shift+3 or 4, Print).
@@ -264,6 +267,10 @@ impl State {
             }
             Some(KeyAction::QuitApp) => {
                 self.quit_focused_app();
+                None
+            }
+            Some(KeyAction::Minimize) => {
+                self.minimize_focused();
                 None
             }
             Some(KeyAction::CycleTabs { forward }) => {

@@ -150,6 +150,8 @@ pub struct State {
     pub dnd_icon: Option<crate::dnd::Icon>,
     /// The window covering the screen, if one is (ADR-0041).
     pub fullscreen: Option<Window>,
+    /// Windows out of the space, minimised to their tabs (ADR-0084).
+    pub minimized: crate::minimize::Minimized,
     /// Tiling by dragging, and the tiler deciding it (ADR-0049).
     pub tiling: crate::tiling::Tiling,
     _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
@@ -239,7 +241,10 @@ impl State {
             // their window buttons.
             xdg_shell_state: XdgShellState::new_with_capabilities::<Self>(
                 &dh,
-                [xdg_toplevel::WmCapabilities::Maximize],
+                [
+                    xdg_toplevel::WmCapabilities::Maximize,
+                    xdg_toplevel::WmCapabilities::Minimize,
+                ],
             ),
             layer_shell_state: WlrLayerShellState::new::<Self>(&dh),
             shm_state: ShmState::new::<Self>(&dh, vec![]),
@@ -291,6 +296,7 @@ impl State {
             flash: None,
             dnd_icon: None,
             fullscreen: None,
+            minimized: Default::default(),
             tiling: Default::default(),
             _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState::new::<Self>(
                 &dh,
@@ -525,7 +531,8 @@ impl State {
     /// `map_element` puts the window on top, so the ones that were above
     /// it are raised back over it, in order.)
     pub fn place(&mut self, window: &Window, location: Point<i32, Logical>) {
-        if self.space.element_location(window) == Some(location) {
+        // A minimised window stays off screen, whatever grab still has it.
+        if self.space.element_location(window) == Some(location) || self.is_minimized(window) {
             return;
         }
         let above: Vec<Window> = self
@@ -612,6 +619,7 @@ impl State {
             crate::tabs::set_opener(window, &from);
         }
         if let Some(window) = &window {
+            self.unminimize(window);
             self.space.raise_element(window, true);
             self.raise_x11(window);
             self.restore_x11(window);
@@ -663,7 +671,7 @@ impl State {
         // Every X app is the one Xwayland client: its windows go by the
         // app's process instead.
         if let Some(pid) = focused.x11_surface().and_then(|x| x.pid()) {
-            for window in self.space.elements() {
+            for window in self.space.elements().chain(self.minimized.windows()) {
                 if let Some(x11) = window.x11_surface().filter(|x| x.pid() == Some(pid)) {
                     let _ = x11.close();
                 }
@@ -676,6 +684,7 @@ impl State {
         let windows: Vec<ToplevelSurface> = self
             .space
             .elements()
+            .chain(self.minimized.windows())
             .filter_map(|w| w.toplevel().cloned())
             .filter(|t| t.wl_surface().client().as_ref() == Some(&client))
             .collect();
@@ -692,11 +701,12 @@ impl State {
         self.window_for(&surface)
     }
 
-    /// The window drawn on `surface`, Wayland or X11.
+    /// The window drawn on `surface`, Wayland or X11, shown or minimised.
     pub fn window_for(&self, surface: &WlSurface) -> Option<Window> {
         use smithay::wayland::seat::WaylandFocus;
         self.space
             .elements()
+            .chain(self.minimized.windows())
             .find(|w| w.wl_surface().as_deref() == Some(surface))
             .cloned()
     }
@@ -876,10 +886,14 @@ impl XdgShellHandler for State {
     }
 
     fn toplevel_destroyed(&mut self, toplevel: ToplevelSurface) {
-        if let Some(window) = self.window_for(toplevel.wl_surface()) {
-            self.window_closed(&window);
+        let window = self.window_for(toplevel.wl_surface());
+        if let Some(window) = &window {
+            self.window_closed(window);
         }
         self.focus_after_close(toplevel.wl_surface());
+        if let Some(window) = &window {
+            self.forget_minimized(window);
+        }
     }
 
     fn new_popup(&mut self, surface: PopupSurface, _: PositionerState) {
@@ -919,6 +933,12 @@ impl XdgShellHandler for State {
     fn unmaximize_request(&mut self, surface: ToplevelSurface) {
         if let Some(window) = self.window_for(surface.wl_surface()) {
             self.unmaximize(&window, None);
+        }
+    }
+
+    fn minimize_request(&mut self, surface: ToplevelSurface) {
+        if let Some(window) = self.window_for(surface.wl_surface()) {
+            self.minimize(&window);
         }
     }
 

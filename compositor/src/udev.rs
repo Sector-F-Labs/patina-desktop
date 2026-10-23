@@ -508,6 +508,7 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             | KeyAction::SentAsCtrl
             | KeyAction::Remap(_)
             | KeyAction::QuitApp
+            | KeyAction::Minimize
             | KeyAction::Lock
             | KeyAction::Screenshot(_)
             | KeyAction::Dictate,

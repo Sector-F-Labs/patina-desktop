@@ -27,6 +27,7 @@
 launcher = ["Super", "Super+Space"]
 next_layout = "Ctrl+Space"
 quit_app = "Super+Q"
+minimise = "Super+M"
 lock = ["Super+Escape", "Ctrl+Super+Q"]
 reload = "Super+Shift+R"
 screenshot = ["Super+Shift+3", "Print"]

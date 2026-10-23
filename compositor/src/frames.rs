@@ -211,9 +211,7 @@ impl Frame {
                         .inner_margin(egui::Margin::symmetric(12, PADDING)),
                 )
                 .show(ui, |ui| {
-                    TitleBar::new(&look.title, &frame)
-                        .minimise(false)
-                        .show(ui, |_| {}, |_| {});
+                    TitleBar::new(&look.title, &frame).show(ui, |_| {}, |_| {});
                 });
             // The window's border, as `patina::frame::edges` draws it, of
             // which this is the top: the rest lies below the bar.
@@ -693,7 +691,7 @@ impl State {
     }
 
     /// What a title bar's buttons and drags asked for, as the app's own
-    /// would: a move, maximising or restoring, closing.
+    /// would: a move, minimising, maximising or restoring, closing.
     fn frame_commands(&mut self, window: &Window, commands: Vec<ViewportCommand>) {
         for command in commands {
             match command {
@@ -714,6 +712,7 @@ impl State {
                     let serial = SERIAL_COUNTER.next_serial();
                     self.start_move(window.clone(), start, pointer, serial);
                 }
+                ViewportCommand::Minimized(true) => self.minimize(window),
                 ViewportCommand::Maximized(true) => self.maximize(window),
                 ViewportCommand::Maximized(false) => self.unmaximize(window, None),
                 ViewportCommand::Close => {

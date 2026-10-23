@@ -84,10 +84,11 @@ impl State {
         }
     }
 
-    /// The window showing `surface`, if it's mapped.
+    /// The window showing `surface`, if it's mapped, shown or minimised.
     fn x11_window(&self, surface: &X11Surface) -> Option<Window> {
         self.space
             .elements()
+            .chain(self.minimized.windows())
             .find(|w| w.x11_surface() == Some(surface))
             .cloned()
     }
@@ -271,19 +272,24 @@ impl XwmHandler for State {
     }
 
     /// A window asking to be minimised, as a Windows game under Wine does
-    /// when it loses focus in fullscreen. There's nowhere to minimise to, so
-    /// it stays where it is, but it's told it's iconic: Wine restores the
-    /// game when that ends, which focusing it again does (`restore_x11`).
+    /// when it loses focus in fullscreen (ADR-0044). It's minimised to its
+    /// tab (ADR-0084) and told it's iconic: Wine restores the game when that
+    /// ends, which focusing it again does (`restore_x11`).
     fn minimize_request(&mut self, _: XwmId, surface: X11Surface) {
         eprintln!(
             "patina-compositor: {:?} asks to be minimised",
             surface.title()
         );
-        if let Err(e) = surface.set_suspended(true) {
-            eprintln!(
-                "patina-compositor: can't minimise {:?}: {e}",
-                surface.title()
-            );
+        match self.x11_window(&surface) {
+            Some(window) => self.minimize(&window),
+            None => {
+                if let Err(e) = surface.set_suspended(true) {
+                    eprintln!(
+                        "patina-compositor: can't minimise {:?}: {e}",
+                        surface.title()
+                    );
+                }
+            }
         }
     }
 
@@ -292,7 +298,12 @@ impl XwmHandler for State {
             "patina-compositor: {:?} asks to be restored",
             surface.title()
         );
-        let _ = surface.set_suspended(false);
+        match self.x11_window(&surface) {
+            Some(window) => self.restore(&window),
+            None => {
+                let _ = surface.set_suspended(false);
+            }
+        }
     }
 
     fn maximize_request(&mut self, _: XwmId, surface: X11Surface) {
@@ -372,6 +383,7 @@ impl State {
         if self.fullscreen.as_ref() == Some(&window) {
             self.fullscreen = None;
         }
+        self.forget_minimized(&window);
         self.space.unmap_elem(&window);
         self.needs_redraw = true;
         if surface.is_override_redirect() {

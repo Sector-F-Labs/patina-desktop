@@ -181,8 +181,9 @@ impl State {
         ));
     }
 
-    /// Tells tilers `window` is closing, with where it floats, or floated
-    /// before it was placed or went fullscreen.
+    /// Tells tilers `window` is closing, with where it floats (or floated
+    /// before it was minimised), or floated before it was placed or went
+    /// fullscreen.
     pub fn window_closed(&mut self, window: &Window) {
         let Some(toplevel) = window.toplevel() else {
             return;
@@ -190,7 +191,10 @@ impl State {
         let floated = crate::fullscreen::was(window)
             .or_else(|| crate::maximize::before(window))
             .or_else(|| {
-                let location = self.space.element_location(window)?;
+                let location = self
+                    .space
+                    .element_location(window)
+                    .or_else(|| self.minimized.location(window))?;
                 Some(Rectangle::new(location, window.geometry().size))
             });
         let Some(floated) = floated else {

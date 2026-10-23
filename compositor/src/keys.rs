@@ -62,6 +62,7 @@ fn action(name: &str) -> Option<KeyAction> {
         "launcher" => KeyAction::Launcher,
         "next_layout" => KeyAction::NextLayout,
         "quit_app" => KeyAction::QuitApp,
+        "minimise" => KeyAction::Minimize,
         "lock" => KeyAction::Lock,
         "reload" => KeyAction::Reload,
         "screenshot" => KeyAction::Screenshot(Shot::Desktop),

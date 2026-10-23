@@ -38,7 +38,8 @@ panel first.
 At start-up it runs Xwayland, when installed, for X11 apps.
 An X11 window that draws no frame of its own gets a title bar from the
 compositor, in the bar's skin: drag it to move the window, double-click it
-or use its button to maximise, and drag the edges to resize.
+or use its button to maximise, its other buttons to minimise and close, and
+drag the edges to resize.
 It also runs
 .Xr patina-wallpaper 1 ,
 .Xr patina-bar 1
@@ -71,6 +72,8 @@ maximises a window, edge to edge even with gaps.
 The bar's tabs are the list of windows: Alt+Tab steps along them, and
 closing a window gives the keyboard back to the window it came from, or,
 if that's gone, focuses its neighbouring tab.
+A minimised window leaves the screen and keeps its tab; focusing it again,
+by its tab, Alt+Tab or Super+1 to 9, puts it back where it was.
 The apps pinned in the bar's config come first, and dragging a tab
 moves its window along the others
 .Pq Sy com.sectorflabs.Patina.Tabs ,
@@ -110,6 +113,8 @@ whose tab it is.
 Step to the next or previous tab.
 .It Super+Q
 Quit the focused app: ask all its windows to close.
+.It Super+M
+Minimise the focused window to its tab.
 .It Super+Up , Super+Down
 Fill the screen with the focused window, tiled, and restore it; also
 Ctrl+Super+K and Ctrl+Super+J.
@@ -313,7 +318,7 @@ An action set here replaces its defaults, and the rest keep theirs;
 or [] takes its keys away, and a Super key no action has goes to the app as
 Ctrl.
 The actions are
-.Ic launcher , next_layout , quit_app , lock ,
+.Ic launcher , next_layout , quit_app , minimise , lock ,
 .Ic reload , screenshot , screenshot_window , dictate
 (which may be modifiers alone, held, as
 .Dq Ctrl+Super+Alt ) ,

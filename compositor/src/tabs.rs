@@ -84,6 +84,7 @@ impl State {
     /// When the window `closing` goes: if it had the keyboard, gives it back
     /// to the window it came from, if that's still open; else focuses its
     /// neighbouring tab (or the top window, if it wasn't in the tabs yet).
+    /// Minimised windows stay minimised (ADR-0084): they're passed over.
     pub fn focus_after_close(&mut self, closing: &WlSurface) {
         let focus = self.seat.get_keyboard().and_then(|k| k.current_focus());
         let had_focus = focus.as_ref().is_none_or(|f| {
@@ -102,7 +103,12 @@ impl State {
             self.focus_window(window);
             return;
         }
-        let order = self.toplevels.order();
+        let order: Vec<WlSurface> = self
+            .toplevels
+            .order()
+            .into_iter()
+            .filter(|s| s == closing || self.window_for(s).is_some_and(|w| !self.is_minimized(&w)))
+            .collect();
         let next = order
             .iter()
             .position(|s| s == closing)
