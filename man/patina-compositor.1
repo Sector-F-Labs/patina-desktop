@@ -101,8 +101,8 @@ Print the version.
 .Sh KEYS
 The defaults.
 .Ic [keys]
-in the config changes all but Alt+Tab, quitting, restarting, the consoles
-and the media keys, within a second of a save.
+in the config changes all but Alt+Tab, the process manager, quitting,
+restarting, the consoles and the media keys, within a second of a save.
 .Bl -tag -width "Ctrl+Alt+Shift+Backspace"
 .It Super , Super+Space
 Open the launcher: Super tapped on its own, or with Space, as Cmd+Space
@@ -112,6 +112,10 @@ Bring forward the window in that tab of the bar, or start the pinned app
 whose tab it is.
 .It Alt+Tab , Alt+Shift+Tab
 Step to the next or previous tab.
+.It Ctrl+Shift+Escape
+Open the process manager,
+.Xr patina-processes 1 ,
+or bring its window forward.
 .It Super+Q
 Quit the focused app: ask all its windows to close.
 .It Super+M
@@ -175,8 +179,8 @@ A right click on the empty desktop opens
 On a touchpad, three fingers drag.
 While the screen is locked, only the console and media keys work.
 While a fullscreen window has the keyboard, as a game does, its keys go to
-it: only Alt+Tab, Ctrl+Alt+Backspace, Ctrl+Alt+Shift+Backspace, the
-console and the media keys still work, and tapping Super doesn't open the
+it: only Alt+Tab, Ctrl+Shift+Escape, Ctrl+Alt+Backspace,
+Ctrl+Alt+Shift+Backspace, the console and the media keys still work, and tapping Super doesn't open the
 launcher.
 .Sh CONFIGURATION
 The settings are in

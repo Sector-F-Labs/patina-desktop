@@ -123,6 +123,51 @@ pub fn bar_pins() -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// A window as the process manager sees it: its surface, app id, title and
+/// process.
+type WithPid = (WlSurface, String, String, u32);
+
+impl State {
+    /// The open windows in the bar's order, with each one's process, for
+    /// the process manager (`tabs/dbus.rs`). An X window's process is its own
+    /// (`_NET_WM_PID`), not Xwayland's; one without it is left out.
+    pub fn windows_with_pids(&self) -> Vec<WithPid> {
+        self.toplevels
+            .order()
+            .into_iter()
+            .filter_map(|surface| {
+                let window = self.window_for(&surface)?;
+                let (app_id, title, pid) = match window.x11_surface() {
+                    Some(x11) => (x11.class(), x11.title(), x11.pid()?),
+                    None => {
+                        let (title, app_id) = describe(&surface);
+                        let client = surface.client()?;
+                        let pid = client.get_credentials(&self.display_handle).ok()?.pid;
+                        (app_id, title, u32::try_from(pid).ok()?)
+                    }
+                };
+                Some((surface, app_id, title, pid))
+            })
+            .collect()
+    }
+
+    /// Brings forward the first window of process `pid`, shown or
+    /// minimised; whether it has one.
+    pub fn activate_pid(&mut self, pid: u32) -> bool {
+        let found = self
+            .windows_with_pids()
+            .into_iter()
+            .find(|(.., p)| *p == pid);
+        match found {
+            Some((surface, ..)) => {
+                self.activate_toplevel(&surface);
+                true
+            }
+            None => false,
+        }
+    }
+}
+
 /// What a client should see of `surface`'s window.
 /// The program a client is, by its process's name.
 fn program(client: &Client, dh: &DisplayHandle) -> String {

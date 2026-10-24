@@ -38,6 +38,10 @@ A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
 - **[patina-wallpaper](wallpaper/README.md)** (`wallpaper/`): the wallpaper, on the background layer of every screen: the
   bar config's `wallpaper` image, filling the screen, or by default the Sector F Labs flask and
   name (in Ubuntu Mono) in the skin's colours.
+- **[patina-processes](processes/README.md)** (`processes/`): the process manager, on Ctrl+Shift+Escape, a key no
+  config can take: the apps with their windows, and every process, with what each costs the CPU,
+  memory and disks; ending, killing and pausing them; and graphs of the CPU, memory, disks and
+  network over the last minute.
 - **[patina-system](system/README.md)** (`system/`): what the pieces read and change on the
   machine (volume, Wi-Fi, battery, backlight), and the tray's icons and the logo they draw.
 - **[patina-shell](https://github.com/Sector-F-Labs/patina-shell)** (its own repository): what

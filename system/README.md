@@ -33,6 +33,8 @@ painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in it
 - **`pins.rs`**: the apps pinned to the bar (`pinned` in its config) and the tabs' order that
   follows from them, worked out the same way by the bar and the compositor; and moving a window
   along the tabs through the compositor's `com.sectorflabs.Patina.Tabs` (ADR-0080).
+- **`windows.rs`**: the open windows and each one's process, and bringing one forward, from the
+  compositor's `com.sectorflabs.Patina.Tabs` (ADR-0088), for patina-processes.
 - **`tiling.rs`**: the compositor's `com.sectorflabs.Patina.Tiling` (ADR-0049, ADR-0053): drags and
   Super+arrows in, placing windows and the preview out, and holding the Tiler name, for
   patina-tiler and other tilers (`cargo run -p patina-system --example thirds`).

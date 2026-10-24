@@ -17,6 +17,9 @@ use smithay::{
 
 use crate::state::State;
 
+/// patina-processes' app id.
+const PROCESS_MANAGER_ID: &str = "com.sectorflabs.ProcessManager";
+
 /// What a key the compositor keeps asks for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyAction {
@@ -47,6 +50,9 @@ pub enum KeyAction {
     /// Activate the next tab of the bar (Alt+Tab), or the one before
     /// (Alt+Shift+Tab).
     CycleTabs { forward: bool },
+    /// Bring forward the process manager, or start it (Ctrl+Shift+Escape,
+    /// ADR-0088).
+    ProcessManager,
     /// Grow the focused window in a direction (Super+Shift with an arrow).
     Grow(crate::maximize::Snap),
     /// Resize the focused window around its centre (Ctrl+Super+Shift+K/J
@@ -94,8 +100,8 @@ pub fn binding(
 }
 
 /// The keys no config changes, so a bad one can't take them: the media
-/// keys, switching consoles, and quitting or restarting the desktop. The
-/// rest are `[keys]`' (`keys.rs`, ADR-0069).
+/// keys, switching consoles, the process manager, and quitting or restarting
+/// the desktop. The rest are `[keys]`' (`keys.rs`, ADR-0069).
 pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
     if let Some(key) = crate::media::media_key(sym) {
         return Some(KeyAction::Media(key));
@@ -116,6 +122,16 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
             forward: !modifiers.shift,
         });
     }
+    // The process manager, as on Windows: the way to end what's hung, so
+    // nothing may take it (ADR-0088).
+    if modifiers.ctrl
+        && modifiers.shift
+        && !modifiers.alt
+        && !modifiers.logo
+        && sym == keysyms::KEY_Escape
+    {
+        return Some(KeyAction::ProcessManager);
+    }
     if modifiers.ctrl && modifiers.alt && sym == keysyms::KEY_BackSpace {
         return Some(if modifiers.shift {
             KeyAction::Restart
@@ -128,12 +144,13 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
 
 /// Whether the compositor keeps `action` while a fullscreen window has the
 /// keyboard: a game's own keys (Alt+letter, Super) go to the game, and only
-/// stepping away, quitting or restarting the desktop, switching consoles
-/// and the volume and brightness keys stay.
+/// stepping away, the process manager, quitting or restarting the desktop,
+/// switching consoles and the volume and brightness keys stay.
 pub fn works_in_fullscreen(action: &KeyAction) -> bool {
     matches!(
         action,
         KeyAction::CycleTabs { .. }
+            | KeyAction::ProcessManager
             | KeyAction::Quit
             | KeyAction::Restart
             | KeyAction::SwitchVt(_)
@@ -290,6 +307,10 @@ impl State {
                 self.cycle_tabs(forward);
                 None
             }
+            Some(KeyAction::ProcessManager) => {
+                self.open_process_manager();
+                None
+            }
             Some(KeyAction::Grow(toward)) => {
                 self.grow(toward);
                 None
@@ -329,6 +350,19 @@ impl State {
                 None
             }
             other => other,
+        }
+    }
+
+    /// Brings the process manager's window forward, or starts it: one task
+    /// manager, however often the key is pressed.
+    fn open_process_manager(&mut self) {
+        let open = self
+            .windows_with_pids()
+            .into_iter()
+            .find(|(_, app_id, ..)| app_id == PROCESS_MANAGER_ID);
+        match open {
+            Some((surface, ..)) => self.activate_toplevel(&surface),
+            None => self.spawn_client("patina-processes"),
         }
     }
 
@@ -507,6 +541,25 @@ mod tests {
         assert!(works_in_fullscreen(
             &key_action(&ctrl_alt, keysyms::KEY_BackSpace).unwrap()
         ));
+    }
+
+    #[test]
+    fn ctrl_shift_escape_is_the_process_manager_even_over_a_game() {
+        let ctrl_shift = ModifiersState {
+            ctrl: true,
+            shift: true,
+            ..Default::default()
+        };
+        let action = key_action(&ctrl_shift, keysyms::KEY_Escape);
+        assert_eq!(action, Some(KeyAction::ProcessManager));
+        assert!(works_in_fullscreen(&action.unwrap()));
+        // Not with Super or Alt as well, nor without Shift.
+        let more = ModifiersState {
+            logo: true,
+            ..ctrl_shift
+        };
+        assert_eq!(key_action(&more, keysyms::KEY_Escape), None);
+        assert_eq!(key_action(&mods(true, false), keysyms::KEY_Escape), None);
     }
 
     #[test]

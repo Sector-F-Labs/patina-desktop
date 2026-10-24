@@ -1,0 +1,134 @@
+.Dd October 24, 2026
+.Dt PATINA-PROCESSES 1
+.Os
+.Sh NAME
+.Nm patina-processes
+.Nd the Patina desktop's process manager
+.Sh SYNOPSIS
+.Nm
+.Op Fl -processes | -performance
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+shows what is running and what it costs the machine, and ends what has
+hung.
+The desktop opens it on
+.Sy Ctrl+Shift+Escape ,
+a key no config can take, which works over a fullscreen game too; pressed
+again, it brings the open one forward.
+.Pp
+It has three views, as tabs in the title bar, and opens at the first:
+.Bl -tag -width "Performance"
+.It Overview
+The machine's name, system, kernel and uptime; a tile for the CPU, memory,
+each GPU, the disks and the network, with the last minute's graph, which a
+click opens in Performance; and the ten busiest on the CPU, on the GPU and
+on memory, apps counted whole.
+Those lists hold still to be read: values are averaged over a few
+readings, a row keeps its place until something clearly beats it, and the
+list is sorted again only when a new one clearly leads.
+A click shows one in Processes, a double click switches to an app, and a
+right click has the menu below.
+.It Processes
+The apps first: each is the process whose windows are open, with every
+process it started, such as a browser's content processes, counted
+together; the arrow before its name lists them.
+Then the background processes.
+Each row shows the name, PID, user, CPU as a share of the whole machine,
+memory in use, disk reading and writing and, where there is a GPU, its share
+of the GPU, the numbers tinted by how much they are; a row's tooltip has the
+GPU memory it holds.
+A click on a column's name sorts by it, and again the other way.
+The filter keeps what matches by name, command line, user or PID.
+.It Performance
+The CPU, memory, disks, each GPU and each network interface down the side,
+each with a graph of the last minute; the CPU's and GPU's in their maker's
+colour, NVIDIA green, AMD red and Intel blue.
+The one chosen is drawn large, with each CPU's graph, the speed, load and
+uptime, memory and swap, the space on each disk, the GPU's memory,
+temperature, power, clocks, fan and video encoding and decoding, or the
+interface's addresses, and the five things using it most; a click on one shows it in
+Processes.
+.El
+.Pp
+A right click on a row, in Processes or the Overview, or the Process menu,
+offers:
+.Bl -tag -width "Switch To"
+.It Switch To
+Bring the app's window forward.
+.It End Task , End Process
+Ask it to end
+.Pq Dv SIGTERM ,
+as closing it would.
+An app's own process is asked; the rest follow it.
+.It Kill
+End it at once
+.Pq Dv SIGKILL ,
+for what does not listen; an app's processes all.
+.It Pause , Resume
+Stop it
+.Pq Dv SIGSTOP
+and let it go on
+.Pq Dv SIGCONT .
+.It Copy PID , Copy Command Line
+.El
+.Pp
+Ending the compositor or the session it runs under is asked about first:
+the desktop would go with it.
+Processes of other users can be listed but not ended.
+.Pp
+View chooses how often the machine is read (twice a second to every four
+seconds, or paused), whether to list only your processes, and the kernel's
+threads, hidden by default.
+.Sh KEYS
+.Bl -tag -width "Shift+Delete"
+.It Up , Down , Home , End
+Choose a row.
+.It Right , Left
+Open or close an app's processes.
+.It Enter
+Switch to the app's window.
+.It Delete
+End it.
+.It Shift+Delete
+Kill it.
+.It Ctrl+F
+Filter; Escape clears it.
+.It Alt+1 , Alt+2 , Alt+3
+Overview, Processes and Performance; Ctrl+PageUp and Ctrl+PageDown step
+along the tabs.
+.It Ctrl+Q
+Quit.
+.El
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl -processes
+Open at the Processes view.
+.It Fl -performance
+Open at the Performance view.
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ~/.config/patina-bar/config.toml
+.Ic skin ,
+the desktop's skin, which it wears and follows.
+.It Pa /usr/local/share/applications/com.sectorflabs.ProcessManager.desktop
+Its launcher entry, shown only on the Patina desktop.
+.El
+.Pp
+GPUs are read as
+.Xr nvtop 1
+reads them: NVIDIA's through NVML, when its driver is installed, and the
+others' through each process's
+.Pa /proc/ Ns Ar pid Ns Pa /fdinfo
+and sysfs, on Linux.
+.Sh SEE ALSO
+.Xr kill 1 ,
+.Xr patina-compositor 1 ,
+.Xr patina-settings 1 ,
+.Xr patina-desktop 7

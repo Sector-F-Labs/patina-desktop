@@ -47,6 +47,9 @@ focused window, transcribed on the machine with Whisper.
 .It Xr patina-settings 1
 Settings: the skin, wallpaper, default apps, Night Light, power modes, and
 the desktop's processes.
+.It Xr patina-processes 1
+The process manager, on Ctrl+Shift+Escape: what's running, what it costs, and
+ending it; graphs of the CPU, memory, disks and network.
 .It Xr patina-night-light 1
 Night Light from the command line.
 .El
@@ -124,6 +127,13 @@ come first; to change one by hand, run
 .El
 .Sh RESTARTING AND RECOVERING
 .Bl -tag -width Ds
+.It An app hangs
+Press
+.Sy Ctrl+Shift+Escape
+for the process manager,
+.Xr patina-processes 1 ,
+even over a fullscreen game; choose the app and press Delete to end it, or
+Shift+Delete to kill it.
 .It A piece misbehaves
 Open Settings at its Processes page
 .Pq Ql patina-settings --page processes .
@@ -177,6 +187,7 @@ The Processes page shows the last 500 lines of each.
 .Xr patina-menu 1 ,
 .Xr patina-night-light 1 ,
 .Xr patina-power 1 ,
+.Xr patina-processes 1 ,
 .Xr patina-raise 1 ,
 .Xr patina-session 1 ,
 .Xr patina-settings 1 ,

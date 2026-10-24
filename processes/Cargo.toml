@@ -1,0 +1,20 @@
+[package]
+name = "patina-processes"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's process manager: what's running, what it costs, and ending it"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+eframe = "0.35"
+egui = "0.35"
+freedesktop-icons = "0.4"
+image = { version = "0.25", default-features = false, features = ["png"] }
+libc = "0.2"
+nvml-wrapper = "0.13"
+patina-apps = { git = "https://github.com/Sector-F-Labs/patina-apps", features = ["icon"] }
+patina-shell = { workspace = true }
+patina-system = { path = "../system" }
+patina-ui = { workspace = true }
+sysinfo = { version = "0.39", default-features = false, features = ["system", "disk", "network", "user"] }

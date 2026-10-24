@@ -216,6 +216,18 @@ puts them in `$(PREFIX)/share/man`.
   `patina-night-light`.
   `cargo test -p patina-settings preview -- --ignored` with PATINA_SETTINGS_PREVIEW=dir draws
   each page in software, without opening a window.
+- `processes/`: patina-processes (ADR-0088), the process manager, on Ctrl+Shift+Escape (fixed in
+  `input::key_action`, works over fullscreen; `open_process_manager` raises its window by app id
+  `com.sectorflabs.ProcessManager`, else starts it). `sample.rs` reads processes, CPU, memory,
+  disks and network with `sysinfo` on a thread and sends signals; `groups.rs` makes apps of
+  the processes with windows, from the compositor's `Windows()`/`Activate(pid)` on the Tabs
+  service (`State::windows_with_pids` in `toplevels.rs`; client `system/src/windows.rs`);
+  `gpu.rs` reads GPUs as nvtop does (NVML; DRM fdinfo and sysfs; `cargo test -p patina-processes
+  gpus_here -- --ignored --nocapture` prints this machine's);
+  `overview.rs` (where it opens), `processes.rs` and `performance.rs` are the three views, as
+  Patina's fixed tabs; the Overview's busiest lists hold still through `ranking.rs`; `graph.rs`
+  draws the graphs (CPU and GPU in their maker's colour, the one exception to skin colours).
+  `PATINA_PROCESSES_PREVIEW=dir cargo test -p patina-processes preview -- --ignored` draws each.
 - `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,
   or the default flask (`system/src/logo.rs`, with Ubuntu Mono) in the skin's colours. `cargo test
   -p patina-wallpaper -- --ignored` with PATINA_WALLPAPER_PREVIEW=dir renders the default per skin.

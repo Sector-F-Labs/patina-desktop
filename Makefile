@@ -9,6 +9,7 @@ MANDIR ?= $(PREFIX)/share/man
 APPSDIR := $(PREFIX)/share/applications
 ICONDIR := $(PREFIX)/share/icons/hicolor
 SETTINGS_ID := com.sectorflabs.Settings
+PROCESSES_ID := com.sectorflabs.ProcessManager
 # The login screen's session entry and the lock screen's PAM service go
 # where the system looks: on FreeBSD under PREFIX, as ports put them; on
 # Linux, where every login manager reads sessions, and /etc/pam.d.
@@ -67,7 +68,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := patina-bar patina-clock patina-compositor patina-dictate patina-lock patina-menu patina-night-light patina-power patina-raise patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
+BINARIES := patina-bar patina-clock patina-compositor patina-dictate patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
 # The launcher lives in its own repository (ADR-0037); install builds it from there.
 LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 # The session's terminal, which deploy installs too: the checkout beside this
@@ -101,6 +102,8 @@ stage:
 	install -d $(DESTDIR)$(ICONDIR)/scalable/apps $(DESTDIR)$(APPSDIR) $(DESTDIR)$(SESSIONDIR) $(DESTDIR)$(PAMDIR)
 	install -m 644 settings/packaging/settings.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg
 	sed 's|^Exec=patina-settings|Exec=$(PREFIX)/bin/patina-settings|' settings/packaging/$(SETTINGS_ID).desktop > $(DESTDIR)$(APPSDIR)/$(SETTINGS_ID).desktop
+	install -m 644 processes/packaging/processes.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(PROCESSES_ID).svg
+	sed 's|^Exec=patina-processes|Exec=$(PREFIX)/bin/patina-processes|' processes/packaging/$(PROCESSES_ID).desktop > $(DESTDIR)$(APPSDIR)/$(PROCESSES_ID).desktop
 	install -m 644 packaging/patina-mimeapps.list $(DESTDIR)$(APPSDIR)/
 	sed 's|@BINDIR@|$(PREFIX)/bin|' packaging/linux/patina.desktop > $(DESTDIR)$(SESSIONDIR)/patina.desktop
 	install -m 644 packaging/linux/patina-lock.pam $(DESTDIR)$(PAMDIR)/patina-lock
@@ -139,7 +142,8 @@ uninstall:
 	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES) patina-launcher)
 	rm -f $(addprefix $(MANDIR)/man1/,$(notdir $(wildcard man/*.1)))
 	rm -f $(addprefix $(MANDIR)/man7/,$(notdir $(wildcard man/*.7)))
-	rm -f $(APPSDIR)/$(SETTINGS_ID).desktop $(APPSDIR)/patina-mimeapps.list $(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg
+	rm -f $(APPSDIR)/$(SETTINGS_ID).desktop $(APPSDIR)/patina-mimeapps.list $(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg \
+		$(APPSDIR)/$(PROCESSES_ID).desktop $(ICONDIR)/scalable/apps/$(PROCESSES_ID).svg
 	rm -f $(SESSIONDIR)/patina.desktop $(PAMDIR)/patina-lock
 	-update-desktop-database -q $(APPSDIR)
 endif

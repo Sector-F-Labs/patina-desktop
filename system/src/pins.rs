@@ -57,7 +57,7 @@ pub fn set(path: &Path, pins: &[String]) -> Result<(), String> {
 
 /// The compositor's tab order on the bus (`com.sectorflabs.Patina.Tabs`).
 pub const NAME: &str = "com.sectorflabs.Patina.Tabs";
-const PATH: &str = "/com/sectorflabs/Patina/Tabs";
+pub const PATH: &str = "/com/sectorflabs/Patina/Tabs";
 
 /// Asks the compositor to move the window at `from` in its list of open
 /// windows (the order wlr-foreign-toplevel announced them in) to `to`, as

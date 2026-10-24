@@ -129,6 +129,7 @@ mechanics of adding one.
 | [0085](0085-wayland-windows-get-frames-through-xdg-decoration.md) | Wayland windows that ask for a frame get Patina's, through xdg-decoration | Accepted |
 | [0086](0086-caps-lock-held-is-a-layer.md) | Caps Lock held is a layer of keys, tapped Escape | Accepted |
 | [0087](0087-settings-sets-light-or-dark.md) | Settings sets light or dark, through GNOME's color-scheme | Accepted |
+| [0088](0088-a-process-manager-on-ctrl-shift-escape.md) | A process manager, patina-processes, on Ctrl+Shift+Escape, a key no config can take | Proposed |
 
 ## Decision Relationship
 
@@ -200,6 +201,8 @@ flowchart TD
     P --> SYSTEM[0078: installed for every user in /usr/local]
     AA --> PINS[0080: pinned apps, tabs dragged into order]
     X --> BHIST[0081: battery history graphed, from UPower]
+    KTOML --> TASKS[0088: a process manager on Ctrl+Shift+Escape]
+    BHIST --> TASKS
     U --> CLOCK[0082: the clock opens a month with Calendar's events]
 ```
 
