@@ -169,15 +169,22 @@ impl State {
         if self.fullscreen.as_ref() == Some(window) {
             return;
         }
-        let Some(location) = self.space.element_location(window) else {
+        let Some(mut location) = self.space.element_location(window) else {
             return;
         };
+        // Its frame, if it took one (ADR-0085), goes where it was put, the
+        // window below.
+        if placement(window).is_none() && self.framed(window) {
+            location.y += crate::frames::TITLE;
+            self.place(window, location);
+        }
         let (_, app_id) = crate::toplevels::describe(toplevel.wl_surface());
+        let outer = crate::frames::outer(window, Rectangle::new(location, window.geometry().size));
         self.tiling.emit(Event::Opened(
             id(window),
             app_id,
             placement_name(placement(window)).to_string(),
-            rect(Rectangle::new(location, window.geometry().size)),
+            rect(outer),
         ));
     }
 
@@ -200,6 +207,7 @@ impl State {
         let Some(floated) = floated else {
             return;
         };
+        let floated = crate::frames::outer(window, floated);
         let (_, app_id) = crate::toplevels::describe(toplevel.wl_surface());
         self.tiling
             .emit(Event::Closed(id(window), app_id, rect(floated)));
@@ -214,7 +222,7 @@ impl State {
             .elements()
             .filter(|w| w.toplevel().is_some())
             .filter_map(|w| {
-                let location = self.space.element_location(w)?;
+                let outer = self.outer_rect(w)?;
                 let toplevel = w.toplevel()?;
                 let (title, app_id) = crate::toplevels::describe(toplevel.wl_surface());
                 Some((
@@ -222,7 +230,7 @@ impl State {
                     app_id,
                     title,
                     placement_name(placement(w)).to_string(),
-                    rect(Rectangle::new(location, w.geometry().size)),
+                    rect(outer),
                 ))
             })
             .collect()
@@ -286,7 +294,9 @@ impl State {
                         Err(format!("window {id} is placed; restore it first"))
                     }
                     Some(window) => {
-                        self.place(&window, at.into());
+                        // `at` is where its frame goes, if it has one.
+                        let at = Point::from(at) + Point::from((0, crate::frames::top(&window)));
+                        self.place(&window, at);
                         Ok(())
                     }
                 };

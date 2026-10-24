@@ -86,6 +86,8 @@ pub struct State {
 
     compositor_state: CompositorState,
     xdg_shell_state: XdgShellState,
+    /// Server-side frames for Wayland windows that ask (ADR-0085).
+    _xdg_decoration_state: smithay::wayland::shell::xdg::decoration::XdgDecorationState,
     layer_shell_state: WlrLayerShellState,
     shm_state: ShmState,
     _output_manager_state: OutputManagerState,
@@ -246,6 +248,8 @@ impl State {
                     xdg_toplevel::WmCapabilities::Minimize,
                 ],
             ),
+            _xdg_decoration_state:
+                smithay::wayland::shell::xdg::decoration::XdgDecorationState::new::<Self>(&dh),
             layer_shell_state: WlrLayerShellState::new::<Self>(&dh),
             shm_state: ShmState::new::<Self>(&dh, vec![]),
             _output_manager_state: OutputManagerState::new_with_xdg_output::<Self>(&dh),
@@ -1108,6 +1112,7 @@ impl OutputHandler for State {}
 delegate_compositor!(State);
 delegate_shm!(State);
 delegate_xdg_shell!(State);
+smithay::delegate_xdg_decoration!(State);
 delegate_layer_shell!(State);
 delegate_seat!(State);
 delegate_data_device!(State);

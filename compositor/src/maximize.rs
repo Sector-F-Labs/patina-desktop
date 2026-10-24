@@ -315,11 +315,13 @@ impl State {
             self.work_area(),
         );
         crate::split::set_resizing(window, resizing);
-        toplevel.with_pending_state(|s| s.size = Some(rect.size));
+        // `rect` is with its frame, if it has one (ADR-0085).
+        let own = crate::frames::inner(window, rect);
+        toplevel.with_pending_state(|s| s.size = Some(own.size));
         if toplevel.is_initial_configure_sent() {
             toplevel.send_pending_configure();
         }
-        self.place(window, rect.loc);
+        self.place(window, own.loc);
         self.needs_redraw = true;
     }
 

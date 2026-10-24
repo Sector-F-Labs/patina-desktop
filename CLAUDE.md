@@ -115,7 +115,9 @@ puts them in `$(PREFIX)/share/man`.
   their app's was (ADR-0065): the compositor signals `WindowOpened` on the first buffer
   (`window_shown`) and `WindowClosed` with where it floated, and serves `Move`; the tiler's
   `positions.rs` keeps them by app id and `policy::opening` moves it, or fills if too big.
-- `compositor/src/frames.rs`: frames for X11 windows that draw none (ADR-0077): `wants_frame`
+- `compositor/src/frames.rs`: frames for X11 windows that draw none (ADR-0077) and Wayland windows
+  in xdg-decoration's server side (ADR-0085, the `XdgDecorationHandler`, which gives the mode
+  asked for, server side by default): `wants_frame`
   (not override-redirect, no `_MOTIF_WM_HINTS` without decorations, a normal window or dialog),
   `TITLE` above the window's own place in the space, so `frames::inner`/`outer` convert for
   placement (`maximize.rs`'s `configure_placed`). The bar is patina-ui's `TitleBar` run in an

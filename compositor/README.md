@@ -40,7 +40,9 @@ this workspace is a Wayland client of it.
   compositor; their windows float, focus, tab and move like any other. One that draws no frame
   of its own, as the Minecraft launcher, gets one here (`frames.rs`, ADR-0077): Patina's title
   bar, painted with egui in the bar's skin, to move, minimise, maximise and close it, with edges that
-  resize. Fullscreen windows, menus and apps that draw their own never get one.
+  resize. A Wayland window that asks for the server's frame through xdg-decoration gets the
+  same (ADR-0085); Patina apps ask for their own. Fullscreen windows, menus and apps that draw
+  their own never get one.
 - **Fullscreen** for games and videos that ask (ADR-0041): the whole screen, over the bar.
   Smithay comes from a fork whose X11 window manager names the focused window as the active one,
   so Wine's fullscreen games don't minimise themselves (ADR-0044); one that does on Alt+Tab is

@@ -1,6 +1,8 @@
-//! Frames for X11 windows that draw none (ADR-0077), as the Minecraft
-//! launcher: a managed window that isn't fullscreen and hasn't set
-//! `_MOTIF_WM_HINTS` without decorations gets a title bar above it. The bar
+//! Frames for windows that draw none: X11 windows (ADR-0077), as the
+//! Minecraft launcher, a managed window that isn't fullscreen and hasn't set
+//! `_MOTIF_WM_HINTS` without decorations; and Wayland windows that take
+//! xdg-decoration's server side (ADR-0085), as foot and SDL's games. Each
+//! gets a title bar above it. The bar
 //! is patina-ui's own `TitleBar`, the one Patina apps draw, run in an egui
 //! context of its own per window and painted on the CPU with patina-shell's
 //! painter, in the bar's skin; its buttons and drags come back as viewport
@@ -33,15 +35,19 @@ use smithay::{
         },
     },
     desktop::{Space, Window, layer_map_for_output},
-    input::pointer::{CursorIcon, GrabStartData},
+    input::pointer::{CursorIcon, Focus, GrabStartData},
     output::Output,
+    reexports::wayland_protocols::xdg::decoration::zv1::server::zxdg_toplevel_decoration_v1::Mode,
     render_elements,
     utils::{Logical, Point, Rectangle, SERIAL_COUNTER, Scale, Size, Transform},
-    wayland::shell::wlr_layer::Layer,
+    wayland::shell::{
+        wlr_layer::Layer,
+        xdg::{ToplevelSurface, decoration::XdgDecorationHandler},
+    },
     xwayland::xwm::WmWindowType,
 };
 
-use crate::grabs::{BTN_LEFT, Edges};
+use crate::grabs::{BTN_LEFT, Edges, ResizeGrab};
 use crate::state::State;
 
 /// The space above and below the title bar's row. Patina apps' headers have
@@ -59,10 +65,14 @@ const EDGE: i32 = 5;
 /// Along an edge, how near a corner resizes both ways.
 const CORNER: i32 = 12;
 
-/// Whether `window` gets a frame drawn, as long as it isn't fullscreen: an
-/// X11 window the window manager handles that hasn't said it draws its own,
-/// and is a window rather than a splash, menu or toolbar.
+/// Whether `window` gets a frame drawn, as long as it isn't fullscreen: a
+/// Wayland window in xdg-decoration's server side, or an X11 window the
+/// window manager handles that hasn't said it draws its own, and is a
+/// window rather than a splash, menu or toolbar.
 pub fn wants_frame(window: &Window) -> bool {
+    if let Some(toplevel) = window.toplevel() {
+        return toplevel.current_state().decoration_mode == Some(Mode::ServerSide);
+    }
     let Some(x11) = window.x11_surface() else {
         return false;
     };
@@ -512,7 +522,7 @@ impl State {
         Some(Look {
             width: window.geometry().size.w.max(1),
             scale: self.output.current_scale().fractional_scale(),
-            title: window.x11_surface()?.title(),
+            title: title(window),
             maximized: crate::maximize::is_maximized(window),
             skin: self.frames.skin.name.clone(),
         })
@@ -670,10 +680,38 @@ impl State {
                     button,
                     location: pos,
                 };
-                self.start_x11_resize(&window, edges, start);
+                self.start_frame_resize(&window, edges, start);
             }
         }
         true
+    }
+
+    /// Resizes `window` from `edges` of its frame as the pointer moves, as
+    /// its app would ask.
+    fn start_frame_resize(&mut self, window: &Window, edges: Edges, start: GrabStartData<State>) {
+        if window.x11_surface().is_some() {
+            self.start_x11_resize(window, edges, start);
+            return;
+        }
+        let (Some(location), Some(pointer)) =
+            (self.space.element_location(window), self.seat.get_pointer())
+        else {
+            return;
+        };
+        let initial = Rectangle::new(location, window.geometry().size);
+        if let Some(grab) = ResizeGrab::start(start, window.clone(), edges, initial) {
+            self.grab_cursor = Some(edges.cursor());
+            pointer.set_grab(self, grab, SERIAL_COUNTER.next_serial(), Focus::Clear);
+        }
+    }
+
+    /// Gives `toplevel` the frame `mode` says: drawn here on the server
+    /// side, or its own.
+    fn decorate(&mut self, toplevel: &ToplevelSurface, mode: Mode) {
+        toplevel.with_pending_state(|s| s.decoration_mode = Some(mode));
+        if toplevel.is_initial_configure_sent() {
+            toplevel.send_pending_configure();
+        }
     }
 
     /// `pos` in the coordinates of `window`'s title bar.
@@ -724,13 +762,41 @@ impl State {
                 ViewportCommand::Maximized(true) => self.maximize(window),
                 ViewportCommand::Maximized(false) => self.unmaximize(window, None),
                 ViewportCommand::Close => {
-                    if let Some(x11) = window.x11_surface() {
+                    if let Some(toplevel) = window.toplevel() {
+                        toplevel.send_close();
+                    } else if let Some(x11) = window.x11_surface() {
                         let _ = x11.close();
                     }
                 }
                 _ => {}
             }
         }
+    }
+}
+
+/// Wayland windows get the frame they ask for, and Patina's when they don't
+/// mind: Patina apps and GTK draw their own, foot, Qt and SDL's games ask
+/// for the server's.
+impl XdgDecorationHandler for State {
+    fn new_decoration(&mut self, toplevel: ToplevelSurface) {
+        self.decorate(&toplevel, Mode::ServerSide);
+    }
+
+    fn request_mode(&mut self, toplevel: ToplevelSurface, mode: Mode) {
+        self.decorate(&toplevel, mode);
+    }
+
+    fn unset_mode(&mut self, toplevel: ToplevelSurface) {
+        self.decorate(&toplevel, Mode::ServerSide);
+    }
+}
+
+/// `window`'s title, for its title bar.
+fn title(window: &Window) -> String {
+    match (window.toplevel(), window.x11_surface()) {
+        (Some(toplevel), _) => crate::toplevels::describe(toplevel.wl_surface()).0,
+        (None, Some(x11)) => x11.title(),
+        (None, None) => String::new(),
     }
 }
 

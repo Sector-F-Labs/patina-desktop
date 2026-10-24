@@ -126,6 +126,7 @@ mechanics of adding one.
 | [0082](0082-the-clock-opens-a-month-with-calendars-events.md) | The clock opens a month with the day's events, which the Calendar app supplies | Accepted |
 | [0083](0083-the-session-reads-the-login-profile.md) | The session takes the environment a login shell sets up | Accepted |
 | [0084](0084-minimise-to-the-bars-tabs.md) | Minimised windows leave the space and keep their tabs | Accepted |
+| [0085](0085-wayland-windows-get-frames-through-xdg-decoration.md) | Wayland windows that ask for a frame get Patina's, through xdg-decoration | Accepted |
 
 ## Decision Relationship
 
@@ -192,6 +193,7 @@ flowchart TD
     CMD --> REMAP
     XW[0040: X11 apps] --> FRAMES[0077: frames for X11 windows without one]
     K --> FRAMES
+    FRAMES --> WFRAMES[0085: Wayland windows framed through xdg-decoration]
     P --> SYSTEM[0078: installed for every user in /usr/local]
     AA --> PINS[0080: pinned apps, tabs dragged into order]
     X --> BHIST[0081: battery history graphed, from UPower]
