@@ -47,6 +47,8 @@ pub enum Do {
     Switch(u32),
     Signal(Pick, Signal),
     Copy(String),
+    /// Open this man page ("journalctl(1)") in Reader.
+    Man(&'static str),
     Sort(Column),
 }
 

@@ -11,6 +11,7 @@ use egui::{Align2, Rect, RichText, Sense, Ui, pos2, vec2};
 use crate::graph::{self, Line, Scale};
 use crate::groups::Totals;
 use crate::icons::Icons;
+use crate::kernel_log::Part;
 use crate::performance::{
     History, Resource, SPAN, cpu_colour, duration, gpu_colour, line, second_colour,
 };
@@ -137,19 +138,16 @@ fn show_problems(ui: &mut Ui, problems: &[Problem], asked: &mut Vec<Do>) {
     let (recent, older): (Vec<&Problem>, Vec<&Problem>) =
         problems.iter().partition(|p| p.recent(now));
     ui.label(RichText::new("Problems").strong());
-    ui.scope(|ui| {
-        ui.set_max_width(crate::log_view::EXPLAINED);
-        ui.label(
-            RichText::new(
-                "Found in the kernel's log since the machine started (the Log tab), in how much \
-             programs waited for the CPU, memory and disks over the last minute (Pressure, \
-             in Performance), and in the list of processes. Hover over one for what it means; \
-             a click shows where it came from.",
-            )
-            .small()
-            .weak(),
-        );
-    });
+    crate::log_view::explained(
+        ui,
+        &[Part::Text(
+            "Found in the kernel's log since the machine started (the Log tab), in how much \
+             programs waited for the CPU, memory and disks over the last minute (Pressure, in \
+             Performance), and in the list of processes. Hover over one for what it means; a \
+             click shows where it came from.",
+        )],
+        &mut Vec::new(),
+    );
     ui.add_space(4.0);
     if recent.is_empty() {
         ui.label(

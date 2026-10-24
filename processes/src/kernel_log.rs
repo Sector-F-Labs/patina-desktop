@@ -131,19 +131,50 @@ impl Source {
         }
     }
 
-    /// Where the lines come from, in a sentence.
-    pub fn explain(self) -> &'static str {
+    /// Where the lines come from, in a sentence, with the man pages to
+    /// read more in.
+    pub fn explain(self) -> Vec<Part> {
         match self {
-            Source::Journal => {
-                "Read from the system journal (journalctl -k), which keeps the kernel's lines; \
-                 you can read it as a member of the adm or systemd-journal group."
-            }
-            Source::Kmsg => "Read straight from the kernel, through /dev/kmsg.",
-            Source::Dmesg => {
-                "Read with dmesg every few seconds, which gives no times or levels: errors are \
-                 recognised by their words."
-            }
+            Source::Journal => vec![
+                Part::Text("Read from the system journal, which keeps the kernel's lines, with "),
+                Part::Man("journalctl(1)"),
+                Part::Text(" -k; you can read it as a member of the adm or systemd-journal group."),
+            ],
+            Source::Kmsg => vec![Part::Text(
+                "Read straight from the kernel, through /dev/kmsg.",
+            )],
+            Source::Dmesg => vec![
+                Part::Text("Read with "),
+                Part::Man(DMESG),
+                Part::Text(
+                    " every few seconds, which gives no times or levels: errors are \
+                     recognised by their words.",
+                ),
+            ],
         }
+    }
+}
+
+/// dmesg's man page: a command on Linux, an administrator's on the BSDs.
+const DMESG: &str = if cfg!(target_os = "linux") {
+    "dmesg(1)"
+} else {
+    "dmesg(8)"
+};
+
+/// A piece of an explanation: words, or a man page to open in Reader.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Part {
+    Text(&'static str),
+    Man(&'static str),
+}
+
+/// The man page that says more about a kind of event, where there's one.
+pub fn meaning_page(label: &str) -> Option<&'static str> {
+    match label {
+        // SIGSEGV and the other signals a crash ends with.
+        "Crash" => Some("signal(7)"),
+        _ => None,
     }
 }
 

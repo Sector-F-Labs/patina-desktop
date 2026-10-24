@@ -242,6 +242,7 @@ impl App {
                     self.note(format!("Copied {text}"));
                 }
                 Do::Switch(pid) => self.switch_to(pid),
+                Do::Man(page) => self.open_man(page),
                 Do::Open(pick) => self.open_window(ctx, pick),
                 Do::Signal(pick, signal) => self.signal(ctx, pick, signal, false),
             }
@@ -309,6 +310,23 @@ impl App {
             return Vec::new();
         };
         self.windows[i].ui(ui, model, &mut self.icons, &style, self.custom_frame, now)
+    }
+
+    /// Opens man page `page` ("journalctl(1)") in Reader, alone, without
+    /// its tree of every page (`--single`): started by the compositor, as
+    /// the bar's menus start what they open, so it's one of the desktop's
+    /// processes; else directly.
+    fn open_man(&mut self, page: &'static str) {
+        let command = format!("reader --single --man '{page}'");
+        if patina_system::processes::spawn(&command, &[]).is_ok() {
+            return;
+        }
+        if let Err(e) = std::process::Command::new("reader")
+            .args(["--single", "--man", page])
+            .spawn()
+        {
+            self.error(format!("Couldn't open {page} in Reader: {e}"));
+        }
     }
 
     /// Brings forward `pid`'s window, through the compositor.
@@ -701,11 +719,15 @@ mod tests {
             (View::Performance, Some(Resource::Gpu(0)), "gpu.png"),
             (View::Performance, Some(Resource::Pressure), "pressure.png"),
             (View::Log, None, "log.png"),
+            (View::Log, None, "log-crashes.png"),
         ] {
             let ctx = egui::Context::default();
             let mut app = App::new(&ctx, view);
             if let Some(r) = resource {
                 app.performance.resource = r;
+            }
+            if name == "log-crashes.png" {
+                app.log.show(Some("Crash"), "");
             }
             app.set_speed(Speed::Fast);
             // Long enough for a few readings, and the icons.

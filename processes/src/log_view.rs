@@ -9,7 +9,7 @@ use std::sync::mpsc;
 use chrono::{Local, TimeZone};
 use egui::{Align2, RichText, Sense, Ui, pos2, vec2};
 
-use crate::kernel_log::{self, Entry, Source, Update};
+use crate::kernel_log::{self, Entry, Part, Source, Update};
 use crate::processes::{Do, Model, Pick};
 
 const ROW: f32 = 22.0;
@@ -18,8 +18,6 @@ const KEPT: usize = 20_000;
 const TIME_WIDTH: f32 = 128.0;
 const LEVEL_WIDTH: f32 = 64.0;
 const EVENT_WIDTH: f32 = 96.0;
-/// The explanation's widest.
-pub const EXPLAINED: f32 = 760.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {
@@ -100,7 +98,7 @@ impl LogView {
 
     pub fn ui(&mut self, ui: &mut Ui, model: &Model) -> Vec<Do> {
         let mut asked = Vec::new();
-        self.explain(ui);
+        self.explain(ui, &mut asked);
         ui.add_space(6.0);
         self.toolbar(ui);
         ui.add_space(6.0);
@@ -140,28 +138,35 @@ impl LogView {
         asked
     }
 
-    /// What the log is, where it's from, and what the chosen kind means.
-    fn explain(&self, ui: &mut Ui) {
-        let mut text = String::from(
-            "The kernel's own log since the machine started: what the kernel, its drivers and \
-             the hardware reported, and the programs it saw crash or had to end. Not what apps \
-             print; that's in their own logs. Error and warning are the kernel's own rating; \
-             the kinds beside them (Crash, GPU, Disk…) are the process manager's reading of \
-             the lines most worth knowing about, which the Overview's problems count.",
-        );
+    /// What the log is, where it's from, and what the chosen kind means,
+    /// with links to the man pages that say more.
+    fn explain(&self, ui: &mut Ui, asked: &mut Vec<Do>) {
+        let mut parts = vec![
+            Part::Text(
+                "The kernel's own log since the machine started: what the kernel, its drivers \
+                 and the hardware reported, and the programs it saw crash or had to end. Not \
+                 what apps print; that's in their own logs. Error and warning are the kernel's \
+                 own rating (its log levels, in ",
+            ),
+            Part::Man("syslog(2)"),
+            Part::Text(
+                "); the kinds beside them (Crash, GPU, Disk…) are the process manager's reading \
+                 of the lines most worth knowing about, which the Overview's problems count. ",
+            ),
+        ];
         if let Some(s) = self.source {
-            text.push(' ');
-            text.push_str(s.explain());
+            parts.extend(s.explain());
         }
-        // Lines a reader can follow, not the window's width.
-        ui.scope(|ui| {
-            ui.set_max_width(EXPLAINED);
-            ui.label(RichText::new(text).small().weak());
-            if let Some(kind) = self.event {
-                ui.add_space(4.0);
-                ui.label(RichText::new(format!("{kind}: {}", kernel_log::meaning(kind))).small());
+        explained(ui, &parts, asked);
+        if let Some(kind) = self.event {
+            ui.add_space(6.0);
+            let mut parts = vec![Part::Text(kernel_log::meaning(kind))];
+            if let Some(page) = kernel_log::meaning_page(kind) {
+                parts.extend([Part::Text(" More in "), Part::Man(page), Part::Text(".")]);
             }
-        });
+            ui.label(RichText::new(kind).strong());
+            explained(ui, &parts, asked);
+        }
     }
 
     fn toolbar(&mut self, ui: &mut Ui) {
@@ -312,6 +317,32 @@ fn row(ui: &mut Ui, e: &Entry, model: &Model, asked: &mut Vec<Do>) {
     {
         asked.push(Do::Open(Pick::Proc(pid)));
     }
+}
+
+/// An explanation at the size of the text around it, as wide as the
+/// window; each man page a link that opens it in Reader.
+pub fn explained(ui: &mut Ui, parts: &[Part], asked: &mut Vec<Do>) {
+    ui.scope(|ui| {
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing.x = 0.0;
+            for part in parts {
+                match part {
+                    Part::Text(text) => {
+                        ui.label(*text);
+                    }
+                    Part::Man(page) => {
+                        if ui
+                            .link(*page)
+                            .on_hover_text(format!("Open the {page} man page in Reader"))
+                            .clicked()
+                        {
+                            asked.push(Do::Man(page));
+                        }
+                    }
+                }
+            }
+        });
+    });
 }
 
 /// "Oct 24 14:03:09", in local time; nothing where the source gave none.
