@@ -1307,7 +1307,7 @@ impl eframe::App for App {
 
         let (mut actions, mut output) = (Vec::new(), Vec::new());
         egui::Panel::top("header").frame(frame::header_frame(ui.style(), &style, radius)).show(ui, |ui| {
-            TitleBar::new("Mail", &style).custom(custom).menu_bar(true).show(
+            TitleBar::new("Mail", &style).custom(custom).menu_bar(true).span(frame::header_span(ui)).show(
                 ui,
                 |ui| self.menus(ui, &mut actions),
                 |ui| self.output_actions(ui, &mut output),
