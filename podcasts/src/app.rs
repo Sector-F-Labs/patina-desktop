@@ -515,7 +515,7 @@ impl App {
         let custom = !self.config.system_title_bar;
         let mut actions = Vec::new();
         // A player makes nothing, so the right of the bar stays empty (Patina's ADR-0006).
-        TitleBar::new(&title, style).custom(custom).menu_bar(true).show(ui, |ui| self.menus(ui, &mut actions), |_| {});
+        TitleBar::new(&title, style).custom(custom).menu_bar(true).span(frame::header_span(ui)).show(ui, |ui| self.menus(ui, &mut actions), |_| {});
         for a in actions {
             self.act(ui.ctx(), a);
         }
