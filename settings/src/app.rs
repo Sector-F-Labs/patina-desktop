@@ -121,6 +121,7 @@ pub struct App {
     flask: Option<TextureHandle>,
     bar: crate::bar::BarPage,
     defaults: crate::defaults::DefaultsPage,
+    color_scheme: crate::color_scheme::ColorSchemeSection,
     gaps: crate::gaps::GapsSection,
     icons: crate::icons::IconsSection,
     keyboard: crate::keyboard::KeyboardPage,
@@ -150,6 +151,7 @@ impl App {
             flask: None,
             bar: crate::bar::BarPage::new(),
             defaults: crate::defaults::DefaultsPage::new(),
+            color_scheme: crate::color_scheme::ColorSchemeSection::new(),
             gaps: crate::gaps::GapsSection::new(),
             icons: crate::icons::IconsSection::new(),
             keyboard: crate::keyboard::KeyboardPage::new(ctx),
@@ -282,7 +284,7 @@ impl App {
     }
 
     /// The shell's skin, and its skins folder, as the desktop's menu
-    /// offers them; the gaps; and the icon theme.
+    /// offers them; light or dark; the gaps; and the icon theme.
     fn appearance(&mut self, ui: &mut Ui) {
         ui.heading("Appearance");
         ui.label("The skin the bar, the menus, the lock screen and the wallpaper wear.");
@@ -310,6 +312,8 @@ impl App {
         if let Some(dir) = skin::app_dir(SHELL) {
             self.skins_folder(ui, dir);
         }
+        ui.add_space(16.0);
+        self.color_scheme.ui(ui, &mut self.message);
         ui.add_space(16.0);
         self.gaps.ui(ui, &mut self.message);
         ui.add_space(16.0);

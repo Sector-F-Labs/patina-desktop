@@ -8,7 +8,8 @@ desktop's menu. Also builds `patina-night-light`, Night Light from the command l
 A sidebar of pages, the page beside it, and a status bar for what an action did:
 
 - **Appearance**: the shell's skin, as the desktop's menu offers it, with the skins folder
-  buttons; and gaps (ADR-0051), on or off, their size and the floating bar's corner radius,
+  buttons; the style (`color_scheme.rs`, ADR-0087), Default, Light or Dark, for apps through
+  GNOME's `color-scheme` setting; and gaps (ADR-0051), on or off, their size and the floating bar's corner radius,
   written to `[gaps]` in the compositor's config; and the icon theme (`icons.rs`), the installed
   ones offered, for Files and GTK apps through GNOME's `icon-theme` setting for now.
 - **Bar** (ADR-0050): what the window tabs show (icons and titles, icons, titles), which edge the

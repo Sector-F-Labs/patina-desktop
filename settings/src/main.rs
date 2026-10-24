@@ -6,6 +6,7 @@
 mod app;
 mod bar;
 mod battery;
+mod color_scheme;
 mod compositor_config;
 mod defaults;
 mod dictation;

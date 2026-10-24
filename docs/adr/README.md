@@ -128,6 +128,7 @@ mechanics of adding one.
 | [0084](0084-minimise-to-the-bars-tabs.md) | Minimised windows leave the space and keep their tabs | Accepted |
 | [0085](0085-wayland-windows-get-frames-through-xdg-decoration.md) | Wayland windows that ask for a frame get Patina's, through xdg-decoration | Accepted |
 | [0086](0086-caps-lock-held-is-a-layer.md) | Caps Lock held is a layer of keys, tapped Escape | Accepted |
+| [0087](0087-settings-sets-light-or-dark.md) | Settings sets light or dark, through GNOME's color-scheme | Accepted |
 
 ## Decision Relationship
 
