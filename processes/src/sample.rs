@@ -112,6 +112,8 @@ pub struct Snapshot {
     pub kernel: String,
     /// The details of the processes whose windows are open.
     pub details: HashMap<u32, crate::details::Details>,
+    /// How much programs waited for the CPU, memory and disks (Linux).
+    pub pressure: Option<crate::pressure::Pressure>,
 }
 
 /// What the window asks of the reader.
@@ -376,6 +378,7 @@ impl Reader {
             os: self.host.1.clone(),
             kernel: self.host.2.clone(),
             details: self.details.read(&self.watched, seconds),
+            pressure: crate::pressure::read(),
         }
     }
 }

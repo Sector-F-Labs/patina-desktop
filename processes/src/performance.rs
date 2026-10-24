@@ -10,6 +10,7 @@ use egui::{Color32, RichText, Sense, Ui, pos2, vec2};
 use crate::graph::{self, Line, Scale, Series};
 use crate::groups::Totals;
 use crate::icons::Icons;
+use crate::pressure::Kind;
 use crate::processes::{Model, Pick, app_name};
 
 /// What a graph shows: the last minute.
@@ -28,6 +29,8 @@ pub enum Resource {
     Network(String),
     /// A GPU, by its place in the list.
     Gpu(usize),
+    /// Programs waiting for the CPU, memory and disks.
+    Pressure,
 }
 
 /// Everything read so far, as series.
@@ -44,6 +47,9 @@ pub struct History {
     pub gpus: Vec<GpuHistory>,
     /// All the interfaces' receiving and sending together.
     pub network_total: (Series, Series),
+    /// The share of the last ten seconds some programs waited for the
+    /// CPU, memory and disks.
+    pub pressure: [Series; 3],
 }
 
 /// A GPU's series: busy, its memory in use, and video encoding and
@@ -82,6 +88,11 @@ impl History {
             }
             if let Some(d) = gpu.decoder {
                 h.decoder.push(at, f64::from(d));
+            }
+        }
+        if let Some(p) = &s.pressure {
+            for (series, kind) in self.pressure.iter_mut().zip(Kind::ALL) {
+                series.push(at, p.of(kind).some[0]);
             }
         }
         let received: f64 = s.interfaces.iter().map(|i| i.received).sum();
@@ -179,6 +190,23 @@ impl PerformanceView {
                 Scale::Percent,
             ));
         }
+        if let Some(p) = &s.pressure {
+            let colours = pressure_colours(ui.visuals());
+            rows.push((
+                Resource::Pressure,
+                "Pressure".into(),
+                Kind::ALL
+                    .map(|k| format!("{} {:.0}%", k.name(), p.of(k).some[1]))
+                    .join(" · "),
+                Kind::ALL
+                    .into_iter()
+                    .zip(&history.pressure)
+                    .zip(colours)
+                    .map(|((_, series), colour)| line(series, colour, ""))
+                    .collect(),
+                Scale::Share,
+            ));
+        }
         for i in &s.interfaces {
             if let Some((received, sent)) = history.network.get(&i.name) {
                 rows.push((
@@ -258,6 +286,7 @@ impl PerformanceView {
             Resource::Memory => memory(ui, model, history, icons, now, &mut asked),
             Resource::Disk => disk(ui, model, history, icons, now, &mut asked),
             Resource::Network(name) => network(ui, model, history, &name, now),
+            Resource::Pressure => pressure(ui, model, history, now),
             Resource::Gpu(index) => gpu(
                 ui,
                 model,
@@ -705,6 +734,86 @@ fn gpu(
         graph::bytes,
         asked,
     );
+}
+
+/// The pressure graph's colours, for the CPU, memory and disks.
+pub fn pressure_colours(v: &egui::Visuals) -> [Color32; 3] {
+    [v.selection.bg_fill, second_colour(v), v.warn_fg_color]
+}
+
+/// How much programs waited for the CPU, memory and disks.
+fn pressure(ui: &mut Ui, model: &Model, history: &History, now: f64) {
+    let Some(p) = &model.snapshot.pressure else {
+        ui.label(RichText::new("The kernel keeps no pressure figures here.").weak());
+        return;
+    };
+    let v = ui.visuals().clone();
+    let colours = pressure_colours(&v);
+    heading(
+        ui,
+        "Pressure",
+        "Programs waiting, the last ten seconds each",
+    );
+    let lines: Vec<Line> = Kind::ALL
+        .into_iter()
+        .zip(&history.pressure)
+        .zip(colours)
+        .map(|((kind, series), colour)| line(series, colour, kind.name()))
+        .collect();
+    big_graph(ui, &lines, Scale::Share, now);
+    let legend_items: Vec<(&str, Color32)> = Kind::ALL
+        .into_iter()
+        .zip(colours)
+        .map(|(k, c)| (k.name(), c))
+        .collect();
+    legend(ui, &legend_items);
+    ui.add_space(8.0);
+    ui.label(
+        "The share of the time programs couldn't run for want of the CPU, memory or the \
+         disks. A busy CPU is fine; programs waiting on it, or on memory or the disks, is \
+         what makes a machine feel stuck.",
+    );
+    ui.add_space(8.0);
+    let weak = v.weak_text_color();
+    egui::Grid::new("pressure table")
+        .num_columns(5)
+        .spacing(vec2(24.0, 4.0))
+        .show(ui, |ui| {
+            ui.label("");
+            for heading in ["10 seconds", "1 minute", "5 minutes"] {
+                ui.label(RichText::new(heading).small().color(weak));
+            }
+            ui.end_row();
+            for kind in Kind::ALL {
+                let stall = p.of(kind);
+                let rows = [
+                    ("some waiting", Some(stall.some)),
+                    ("all waiting", stall.full),
+                ];
+                for (what, values) in rows {
+                    // The CPU's "all" is for cgroups, always 0 here.
+                    let (Some(values), false) =
+                        (values, kind == Kind::Cpu && what == "all waiting")
+                    else {
+                        continue;
+                    };
+                    ui.label(RichText::new(format!("{} · {what}", kind.name())).weak());
+                    for (i, value) in values.iter().enumerate() {
+                        let text = RichText::new(format!("{value:.1}%"));
+                        // The minute is what's warned of (the Overview's
+                        // problems); shown in the warning colour too.
+                        let text = if i == 1 && what == "some waiting" && *value >= kind.worrying()
+                        {
+                            text.color(v.warn_fg_color).strong()
+                        } else {
+                            text
+                        };
+                        ui.label(text);
+                    }
+                    ui.end_row();
+                }
+            }
+        });
 }
 
 fn network(ui: &mut Ui, model: &Model, history: &History, name: &str, now: f64) {

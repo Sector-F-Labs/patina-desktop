@@ -3193,6 +3193,7 @@ dependencies = [
 name = "patina-processes"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "eframe",
  "egui",
  "freedesktop-icons",
@@ -3203,6 +3204,7 @@ dependencies = [
  "patina-shell",
  "patina-system",
  "patina-ui",
+ "serde_json",
  "sysinfo",
 ]
 

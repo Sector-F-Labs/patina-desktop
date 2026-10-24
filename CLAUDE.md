@@ -230,6 +230,10 @@ puts them in `$(PREFIX)/share/man`.
   A process's own window (ADR-0089) is `window.rs`, an immediate viewport per process
   (`App::process_windows`), with `details.rs` reading `/proc/<pid>` on the reader thread for
   the open ones (`Ask::Watch`).
+  The kernel's log and pressure (ADR-0090): `kernel_log.rs` (journal, `/dev/kmsg`, `dmesg`;
+  `classify` finds the events; `cargo test -p patina-processes kernel_log_here -- --ignored
+  --nocapture` reads this machine's), `pressure.rs`, `log_view.rs` (the Log tab), and
+  `problems.rs` for the Overview's Problems.
   `PATINA_PROCESSES_PREVIEW=dir cargo test -p patina-processes preview -- --ignored` draws each
   view and a process window.
 - `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,

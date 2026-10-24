@@ -1,7 +1,10 @@
 //! The Overview, where the process manager opens: the machine in a line, a
 //! tile for each of its resources with the last minute's graph (a click
-//! opens it in Performance), then the busiest on the CPU, the GPU and
+//! opens it in Performance), what looks wrong (the last day's, then the
+//! older issues folded), then the busiest on the CPU, the GPU and
 //! memory, each a click from its own window.
+
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use egui::{Align2, Rect, RichText, Sense, Ui, pos2, vec2};
 
@@ -11,6 +14,7 @@ use crate::icons::Icons;
 use crate::performance::{
     History, Resource, SPAN, cpu_colour, duration, gpu_colour, line, second_colour,
 };
+use crate::problems::{Go, Problem, Severity};
 use crate::processes::{Do as ProcessDo, Model, Pick, app_name};
 use crate::ranking::Ranking;
 
@@ -28,6 +32,8 @@ pub enum Do {
     Show(Resource),
     /// What its right click asked, as in Processes.
     Process(ProcessDo),
+    /// Where a problem leads.
+    Go(Go),
 }
 
 /// A tile: a resource, how much of it is used, and its graph.
@@ -91,6 +97,7 @@ pub fn ui(
     model: &Model,
     history: &History,
     busiest: &Busiest,
+    problems: &[Problem],
     icons: &mut Icons,
     now: f64,
 ) -> Vec<Do> {
@@ -99,10 +106,126 @@ pub fn ui(
         machine(ui, model);
         ui.add_space(12.0);
         tiles(ui, model, history, now, &mut asked);
+        ui.add_space(16.0);
+        show_problems(ui, problems, &mut asked);
         ui.add_space(20.0);
         lists(ui, model, busiest, icons, &mut asked);
     });
     asked
+}
+
+/// How many problems are listed; the rest are in the log.
+const PROBLEMS: usize = 6;
+
+/// What looks wrong, worst and newest first, each a click from where it
+/// can be looked into: what's going on or happened in the last day, then,
+/// folded, the older issues.
+fn show_problems(ui: &mut Ui, problems: &[Problem], asked: &mut Vec<Do>) {
+    if problems.is_empty() {
+        ui.label(
+            RichText::new(
+                "Nothing looks wrong: nothing waiting, and no crashes or kernel errors since \
+                 the machine started.",
+            )
+            .weak(),
+        );
+        return;
+    }
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0.0, |d| d.as_secs_f64());
+    let (recent, older): (Vec<&Problem>, Vec<&Problem>) =
+        problems.iter().partition(|p| p.recent(now));
+    ui.label(RichText::new("Problems").strong());
+    ui.scope(|ui| {
+        ui.set_max_width(crate::log_view::EXPLAINED);
+        ui.label(
+            RichText::new(
+                "Found in the kernel's log since the machine started (the Log tab), in how much \
+             programs waited for the CPU, memory and disks over the last minute (Pressure, \
+             in Performance), and in the list of processes. Hover over one for what it means; \
+             a click shows where it came from.",
+            )
+            .small()
+            .weak(),
+        );
+    });
+    ui.add_space(4.0);
+    if recent.is_empty() {
+        ui.label(
+            RichText::new(
+                "Nothing in the last day: nothing waiting, and no crashes or kernel errors.",
+            )
+            .weak(),
+        );
+    }
+    for p in recent.iter().take(PROBLEMS) {
+        problem(ui, p, asked);
+    }
+    if recent.len() > PROBLEMS {
+        ui.label(
+            RichText::new(format!(
+                "and {} more in the Log tab",
+                recent.len() - PROBLEMS
+            ))
+            .small()
+            .weak(),
+        );
+    }
+    if !older.is_empty() {
+        egui::CollapsingHeader::new(format!("Older issues ({})", older.len()))
+            .id_salt("older issues")
+            .default_open(false)
+            .show(ui, |ui| {
+                for p in older {
+                    problem(ui, p, asked);
+                }
+            });
+    }
+}
+
+/// A problem: what, and when or how much; a click leads to it.
+fn problem(ui: &mut Ui, p: &Problem, asked: &mut Vec<Do>) {
+    let v = ui.visuals().clone();
+    let body = egui::TextStyle::Body.resolve(ui.style());
+    let small = egui::TextStyle::Small.resolve(ui.style());
+    let (rect, response) = ui.allocate_exact_size(vec2(ui.available_width(), 40.0), Sense::click());
+    let clickable = p.go != Go::Nowhere;
+    if clickable && response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 4.0, v.widgets.hovered.weak_bg_fill);
+    }
+    let colour = match p.severity {
+        Severity::Error => v.error_fg_color,
+        Severity::Warning => v.warn_fg_color,
+    };
+    let painter = ui.painter_at(rect);
+    painter.circle_filled(pos2(rect.left() + 10.0, rect.top() + 12.0), 4.0, colour);
+    painter.text(
+        pos2(rect.left() + 22.0, rect.top() + 3.0),
+        Align2::LEFT_TOP,
+        &p.title,
+        body,
+        v.strong_text_color(),
+    );
+    painter.text(
+        pos2(rect.left() + 22.0, rect.top() + 22.0),
+        Align2::LEFT_TOP,
+        &p.detail,
+        small,
+        v.weak_text_color(),
+    );
+    let response = response.on_hover_ui(|ui| {
+        ui.set_max_width(420.0);
+        ui.label(p.meaning);
+    });
+    if clickable
+        && response
+            .on_hover_cursor(egui::CursorIcon::PointingHand)
+            .clicked()
+    {
+        asked.push(Do::Go(p.go.clone()));
+    }
 }
 
 /// The machine's name, system, kernel and uptime.

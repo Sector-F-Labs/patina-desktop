@@ -6,7 +6,7 @@
 .Nd the Patina desktop's process manager
 .Sh SYNOPSIS
 .Nm
-.Op Fl -processes | -performance
+.Op Fl -processes | -performance | -log
 .Nm
 .Fl h | V
 .Sh DESCRIPTION
@@ -18,12 +18,19 @@ The desktop opens it on
 a key no config can take, which works over a fullscreen game too; pressed
 again, it brings the open one forward.
 .Pp
-It has three views, as tabs in the title bar, and opens at the first:
+It has four views, as tabs in the title bar, and opens at the first:
 .Bl -tag -width "Performance"
 .It Overview
 The machine's name, system, kernel and uptime; a tile for the CPU, memory,
 each GPU, the disks and the network, with the last minute's graph, which a
-click opens in Performance; and the ten busiest on the CPU, on the GPU and
+click opens in Performance; what looks wrong: programs waiting for the CPU,
+memory or disks much of the last minute, and since the machine started,
+programs that crashed (with the library they crashed in), were killed for
+memory or hung, disk, GPU, heat and other kernel errors, and processes
+exited but not cleaned up, a click leading to the Log or Pressure.
+What last happened more than a day ago is under Older issues, folded.
+Hovering over a problem says what it means.
+Then the ten busiest on the CPU, on the GPU and
 on memory, apps counted whole.
 Those lists hold still to be read: values are averaged over a few
 readings, a row keeps its place until something clearly beats it, and the
@@ -41,7 +48,8 @@ GPU memory it holds.
 A click on a column's name sorts by it, and again the other way.
 The filter keeps what matches by name, command line, user or PID.
 .It Performance
-The CPU, memory, disks, each GPU and each network interface down the side,
+The CPU, memory, disks, each GPU, the pressure and each network interface
+down the side,
 each with a graph of the last minute; the CPU's and GPU's in their maker's
 colour, NVIDIA green, AMD red and Intel blue.
 The one chosen is drawn large, with each CPU's graph, the speed, load and
@@ -49,6 +57,20 @@ uptime, memory and swap, the space on each disk, the GPU's memory,
 temperature, power, clocks, fan and video encoding and decoding, or the
 interface's addresses, and the five things using it most; a click on one shows it in
 Processes.
+Pressure is the share of time programs could not run for want of the CPU,
+memory or the disks: some of them, and all of them at once.
+.It Log
+The kernel's log since the machine started, followed as it grows: from the
+journal
+.Pq Ql journalctl -k ,
+open to the adm and systemd-journal groups; else
+.Pa /dev/kmsg ;
+else
+.Xr dmesg 8 .
+Errors, Warnings or Everything, a kind of event and words filter it; lines
+with an event always show.
+A line naming a running process opens its window from a right or double
+click.
 .El
 .Pp
 A right click on a row, in Processes or the Overview, or the Process menu,
@@ -113,8 +135,8 @@ End it.
 Kill it.
 .It Ctrl+F
 Filter; Escape clears it.
-.It Alt+1 , Alt+2 , Alt+3
-Overview, Processes and Performance; Ctrl+PageUp and Ctrl+PageDown step
+.It Alt+1 , Alt+2 , Alt+3 , Alt+4
+Overview, Processes, Performance and Log; Ctrl+PageUp and Ctrl+PageDown step
 along the tabs.
 .It Ctrl+Q
 Quit.
@@ -125,6 +147,8 @@ Quit.
 Open at the Processes view.
 .It Fl -performance
 Open at the Performance view.
+.It Fl -log
+Open at the kernel's log.
 .It Fl h , -help
 Print a short usage message.
 .It Fl V , -version
@@ -146,7 +170,9 @@ others' through each process's
 .Pa /proc/ Ns Ar pid Ns Pa /fdinfo
 and sysfs, on Linux.
 .Sh SEE ALSO
+.Xr journalctl 1 ,
 .Xr kill 1 ,
 .Xr patina-compositor 1 ,
 .Xr patina-settings 1 ,
-.Xr patina-desktop 7
+.Xr patina-desktop 7 ,
+.Xr dmesg 8

@@ -30,6 +30,12 @@ several at once to compare. Its graphs since it opened, what it's waiting in, it
 down, an app's processes, threads, connections, files and environment, read from `/proc` by
 `details.rs` on the reader thread for the open windows only.
 
+What's wrong with the machine (ADR-0090): `pressure.rs` reads `/proc/pressure` with each
+reading, for Performance's Pressure page; `kernel_log.rs` follows the kernel's log on a thread
+(the journal, else `/dev/kmsg`, else `dmesg`) and finds crashes, out-of-memory kills, hung tasks
+and disk, GPU and heat errors in it; `log_view.rs` is the Log tab; `problems.rs` sums both up
+for the top of the Overview.
+
 ## How it fits
 
 - `sample.rs` reads the machine on a thread of its own at the update speed, through `sysinfo`

@@ -10,8 +10,12 @@ mod gpu;
 mod graph;
 mod groups;
 mod icons;
+mod kernel_log;
+mod log_view;
 mod overview;
 mod performance;
+mod pressure;
+mod problems;
 mod processes;
 mod ranking;
 mod sample;
@@ -21,10 +25,10 @@ use std::process::ExitCode;
 
 use crate::app::View;
 
-const USAGE: &str = "usage: patina-processes [--processes | --performance]
+const USAGE: &str = "usage: patina-processes [--processes | --performance | --log]
 
-Opens the process manager at its overview, or at its list of processes or
-its graphs. The desktop opens it on Ctrl+Shift+Escape.";
+Opens the process manager at its overview, or at its list of processes, its
+graphs or the kernel's log. The desktop opens it on Ctrl+Shift+Escape.";
 
 fn main() -> ExitCode {
     let mut view = View::Overview;
@@ -32,6 +36,7 @@ fn main() -> ExitCode {
         match arg.as_str() {
             "--processes" => view = View::Processes,
             "--performance" => view = View::Performance,
+            "--log" => view = View::Log,
             "-h" | "--help" => {
                 println!("{USAGE}");
                 return ExitCode::SUCCESS;

@@ -12,7 +12,9 @@ use patina::skin::{self, Skin};
 use patina::tabs::{self, TabAction, TabStrip};
 
 use crate::icons::Icons;
+use crate::log_view::LogView;
 use crate::performance::{self, History, PerformanceView};
+use crate::problems::Go;
 use crate::processes::{self, Do, Model, Pick, ProcessesView};
 use crate::sample::{self, Ask, Signal, Snapshot};
 use crate::window::ProcessWindow;
@@ -29,17 +31,24 @@ pub enum View {
     Overview,
     Processes,
     Performance,
+    Log,
 }
 
 impl View {
     /// In the tabs' order.
-    const ALL: [View; 3] = [View::Overview, View::Processes, View::Performance];
+    const ALL: [View; 4] = [
+        View::Overview,
+        View::Processes,
+        View::Performance,
+        View::Log,
+    ];
 
     fn title(self) -> &'static str {
         match self {
             View::Overview => "Overview",
             View::Processes => "Processes",
             View::Performance => "Performance",
+            View::Log => "Log",
         }
     }
 
@@ -109,6 +118,8 @@ pub struct App {
     busiest: crate::overview::Busiest,
     /// The processes' own windows open, in the order they were opened.
     windows: Vec<ProcessWindow>,
+    /// The kernel's log, followed from the start.
+    log: LogView,
     icons: Icons,
     message: Option<Message>,
     /// Errors from switching to a window, which happens on a thread.
@@ -139,6 +150,7 @@ impl App {
             performance: PerformanceView::new(),
             busiest: crate::overview::Busiest::new(),
             windows: Vec::new(),
+            log: LogView::new(ctx),
             icons: Icons::new(ctx),
             message: None,
             switched: mpsc::channel(),
@@ -182,6 +194,7 @@ impl App {
     }
 
     fn take_snapshots(&mut self) {
+        self.log.take();
         let mut latest = None;
         while let Ok(s) = self.snapshots.try_recv() {
             let model = Model::new(s);
@@ -556,6 +569,7 @@ impl App {
                 });
             }
             (View::Overview, Some(model)) => {
+                let problems = crate::problems::find(model, &self.log.entries);
                 let mut asked_here = Vec::new();
                 egui::CentralPanel::default()
                     .frame(egui::Frame::central_panel(ui.style()).inner_margin(20))
@@ -565,6 +579,7 @@ impl App {
                             model,
                             &self.history,
                             &self.busiest,
+                            &problems,
                             &mut self.icons,
                             now,
                         );
@@ -584,6 +599,15 @@ impl App {
                             self.view = View::Processes;
                         }
                         crate::overview::Do::Process(d) => asked.push(d),
+                        crate::overview::Do::Go(Go::Log(event, words)) => {
+                            self.log.show(event, &words);
+                            self.view = View::Log;
+                        }
+                        crate::overview::Do::Go(Go::Pressure) => {
+                            self.performance.resource = performance::Resource::Pressure;
+                            self.view = View::Performance;
+                        }
+                        crate::overview::Do::Go(Go::Nowhere) => {}
                     }
                 }
             }
@@ -613,6 +637,13 @@ impl App {
                 for performance::Do::Open(pick) in reveal {
                     asked.push(Do::Open(pick));
                 }
+            }
+            (View::Log, Some(model)) => {
+                egui::CentralPanel::default()
+                    .frame(egui::Frame::central_panel(ui.style()).inner_margin(12))
+                    .show(ui, |ui| {
+                        asked.extend(self.log.ui(ui, model));
+                    });
             }
         }
         self.act(&ctx, asked);
@@ -660,27 +691,24 @@ mod tests {
     #[test]
     #[ignore = "writes files"]
     fn preview_the_views() {
+        use crate::performance::Resource;
         let dir = PathBuf::from(std::env::var("PATINA_PROCESSES_PREVIEW").unwrap());
-        // The Performance view at the CPU, and at the first GPU.
-        for (view, gpu) in [
-            (View::Overview, false),
-            (View::Processes, false),
-            (View::Performance, false),
-            (View::Performance, true),
+        // Performance at the CPU, the first GPU and the pressure.
+        for (view, resource, name) in [
+            (View::Overview, None, "overview.png"),
+            (View::Processes, None, "processes.png"),
+            (View::Performance, None, "performance.png"),
+            (View::Performance, Some(Resource::Gpu(0)), "gpu.png"),
+            (View::Performance, Some(Resource::Pressure), "pressure.png"),
+            (View::Log, None, "log.png"),
         ] {
             let ctx = egui::Context::default();
             let mut app = App::new(&ctx, view);
-            if gpu {
-                app.performance.resource = crate::performance::Resource::Gpu(0);
+            if let Some(r) = resource {
+                app.performance.resource = r;
             }
             app.set_speed(Speed::Fast);
             // Long enough for a few readings, and the icons.
-            let name = match (view, gpu) {
-                (View::Overview, _) => "overview.png",
-                (View::Processes, _) => "processes.png",
-                (View::Performance, false) => "performance.png",
-                (View::Performance, true) => "gpu.png",
-            };
             render(&ctx, [1240, 840], 40, &dir.join(name), |ui| app.draw(ui));
         }
     }

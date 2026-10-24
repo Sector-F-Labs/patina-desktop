@@ -131,6 +131,7 @@ mechanics of adding one.
 | [0087](0087-settings-sets-light-or-dark.md) | Settings sets light or dark, through GNOME's color-scheme | Accepted |
 | [0088](0088-a-process-manager-on-ctrl-shift-escape.md) | A process manager, patina-processes, on Ctrl+Shift+Escape, a key no config can take | Proposed |
 | [0089](0089-each-process-opens-a-window-of-its-own.md) | Each process opens a window of its own, with its graphs and details | Proposed |
+| [0090](0090-the-kernels-log-and-pressure-say-whats-wrong.md) | The kernel's log and pressure say what's wrong, on the Overview and a Log tab | Proposed |
 
 ## Decision Relationship
 
@@ -205,6 +206,7 @@ flowchart TD
     KTOML --> TASKS[0088: a process manager on Ctrl+Shift+Escape]
     BHIST --> TASKS
     TASKS --> PWIN[0089: a window per process]
+    TASKS --> KLOG[0090: the kernel's log and pressure]
     U --> CLOCK[0082: the clock opens a month with Calendar's events]
 ```
 

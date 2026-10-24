@@ -790,7 +790,7 @@ pub fn summary(model: &Model) -> String {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use std::time::Instant;
 
     use patina_system::windows::Window;
@@ -856,6 +856,7 @@ mod tests {
             os: String::new(),
             kernel: String::new(),
             details: Default::default(),
+            pressure: None,
         }
     }
 
