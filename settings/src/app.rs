@@ -537,6 +537,7 @@ impl App {
                 TitleBar::new("Settings", &style)
                     .custom(self.custom_frame)
                     .menu_bar(true)
+                    .span(frame::header_span(ui))
                     .show(ui, |ui| self.menus(ui), |_| {});
             });
         // Across the bottom, before the sidebar, holding both corners.
