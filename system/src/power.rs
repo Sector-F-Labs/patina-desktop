@@ -151,7 +151,10 @@ pub fn health() -> Option<Health> {
     batteries().iter().find_map(|dir| {
         let (full, design) = match number(dir, "energy_full") {
             Some(full) => (full, number(dir, "energy_full_design")?),
-            None => (number(dir, "charge_full")?, number(dir, "charge_full_design")?),
+            None => (
+                number(dir, "charge_full")?,
+                number(dir, "charge_full_design")?,
+            ),
         };
         (design > 0.0).then(|| Health {
             capacity: (full / design * 100.0).min(100.0),

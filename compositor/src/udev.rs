@@ -34,10 +34,7 @@ use smithay::{
         session::{Event as SessionEvent, Session, libseat::LibSeatSession},
         udev::{all_gpus, primary_gpu},
     },
-    desktop::{
-        layer_map_for_output,
-        utils::send_frames_surface_tree,
-    },
+    desktop::{layer_map_for_output, utils::send_frames_surface_tree},
     input::pointer::{CursorImageAttributes, CursorImageStatus},
     output::{Mode, Output, PhysicalProperties, Scale, Subpixel},
     reexports::{

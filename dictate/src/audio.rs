@@ -124,7 +124,10 @@ mod tests {
 
     #[test]
     fn up_interpolates() {
-        assert_eq!(resample(&[0.0, 1.0], 8_000, 16_000), vec![0.0, 0.5, 1.0, 1.0]);
+        assert_eq!(
+            resample(&[0.0, 1.0], 8_000, 16_000),
+            vec![0.0, 0.5, 1.0, 1.0]
+        );
     }
 
     #[test]

@@ -199,7 +199,11 @@ mod tests {
         assert_eq!(parse(&args("-x")), None);
         assert_eq!(parse(&args("-m")), None);
         assert_eq!(parse(&args("a.wav b.wav")), None);
-        assert_eq!(parse(&args("--daemon a.wav")), None, "it records from the mic");
+        assert_eq!(
+            parse(&args("--daemon a.wav")),
+            None,
+            "it records from the mic"
+        );
         assert_eq!(
             parse(&args("--overlay top")),
             Some(Asked::Overlay(config::Edge::Top))

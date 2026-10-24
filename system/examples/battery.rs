@@ -4,7 +4,10 @@
 
 fn main() {
     println!("battery: {:?}", patina_system::power::read());
-    println!("health: {:?}", patina_system::power::health().map(|h| h.describe()));
+    println!(
+        "health: {:?}",
+        patina_system::power::health().map(|h| h.describe())
+    );
     match patina_system::battery_history::read(24 * 60 * 60, 240) {
         Ok(Some(history)) => {
             for (name, samples) in [("charge", &history.charge), ("rate", &history.rate)] {

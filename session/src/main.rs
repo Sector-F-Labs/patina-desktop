@@ -136,7 +136,10 @@ fn supervise(
 /// The environment a login shell sets up (`sh -l`: `/etc/profile`, then
 /// `~/.profile`), as `login` prints it with `env -0`; within `wait`, or an
 /// error. The profile's own output and questions go nowhere.
-fn login_environment(login: &mut Command, wait: Duration) -> Result<Vec<(OsString, OsString)>, String> {
+fn login_environment(
+    login: &mut Command,
+    wait: Duration,
+) -> Result<Vec<(OsString, OsString)>, String> {
     let mut child = login
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -168,7 +171,10 @@ fn login_environment(login: &mut Command, wait: Duration) -> Result<Vec<(OsStrin
         return Err(format!("the login shell failed ({status})"));
     }
     let out = read
-        .recv_timeout(wait.saturating_sub(started.elapsed()).max(Duration::from_millis(500)))
+        .recv_timeout(
+            wait.saturating_sub(started.elapsed())
+                .max(Duration::from_millis(500)),
+        )
         .map_err(|_| "a program the profile started kept its output open")?;
     Ok(parse_environment(&out))
 }
@@ -184,7 +190,10 @@ fn parse_environment(out: &[u8]) -> Vec<(OsString, OsString)> {
             if name.is_empty() || SHELL_OWN.iter().any(|own| name == *own) {
                 return None;
             }
-            Some((name.to_owned(), std::ffi::OsStr::from_bytes(value).to_owned()))
+            Some((
+                name.to_owned(),
+                std::ffi::OsStr::from_bytes(value).to_owned(),
+            ))
         })
         .collect()
 }
@@ -261,10 +270,7 @@ mod tests {
         let code = supervise(
             Path::new("sh"),
             &[compositor.to_string_lossy().into_owned()],
-            &[(
-                OsString::from("PATINA_FROM_PROFILE"),
-                OsString::from("yes"),
-            )],
+            &[(OsString::from("PATINA_FROM_PROFILE"), OsString::from("yes"))],
             &AtomicBool::new(false),
             &AtomicU32::new(0),
         );

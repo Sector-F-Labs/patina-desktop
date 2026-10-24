@@ -439,8 +439,14 @@ mod tests {
             xkb::Keymap::new_from_names(&context, "", "", layout, variant, None, 0).unwrap()
         };
         // evdev 47 on QWERTY; on Dvorak, V is where QWERTY has the full stop.
-        assert_eq!(key_for(&keymap("us", ""), 0, Keysym::v), Some(Keycode::new(55)));
-        assert_eq!(key_for(&keymap("us", "dvorak"), 0, Keysym::v), Some(Keycode::new(60)));
+        assert_eq!(
+            key_for(&keymap("us", ""), 0, Keysym::v),
+            Some(Keycode::new(55))
+        );
+        assert_eq!(
+            key_for(&keymap("us", "dvorak"), 0, Keysym::v),
+            Some(Keycode::new(60))
+        );
     }
 
     #[test]

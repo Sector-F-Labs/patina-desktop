@@ -104,4 +104,3 @@ impl State {
         self.minimized.remove(window);
     }
 }
-

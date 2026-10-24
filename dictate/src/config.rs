@@ -42,7 +42,9 @@ pub fn path() -> PathBuf {
     std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .filter(|dir| dir.is_absolute())
-        .unwrap_or_else(|| PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config"))
+        .unwrap_or_else(|| {
+            PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config")
+        })
         .join("patina-dictate/config.toml")
 }
 
@@ -53,7 +55,10 @@ pub fn load() -> Config {
         return Config::default();
     };
     parse(&text).unwrap_or_else(|e| {
-        eprintln!("patina-dictate: {}: {e}; using the defaults", path.display());
+        eprintln!(
+            "patina-dictate: {}: {e}; using the defaults",
+            path.display()
+        );
         Config::default()
     })
 }

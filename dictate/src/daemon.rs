@@ -157,7 +157,9 @@ fn end_with_the_compositor(bus: &zbus::blocking::Connection) -> Result<(), Strin
         .receive_name_owner_changed_with_args(&[(0, NAME)])
         .map_err(|e| e.to_string())?;
     if !dbus.name_has_owner(name).map_err(|e| e.to_string())? {
-        return Err(format!("{NAME} isn't on the bus: the Patina compositor serves it"));
+        return Err(format!(
+            "{NAME} isn't on the bus: the Patina compositor serves it"
+        ));
     }
     std::thread::Builder::new()
         .name("compositor".into())

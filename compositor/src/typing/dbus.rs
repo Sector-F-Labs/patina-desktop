@@ -140,7 +140,8 @@ mod tests {
             .interface(NAME)
             .unwrap()
             .build();
-        let mut signals = zbus::blocking::MessageIterator::for_match_rule(rule, &bus, None).unwrap();
+        let mut signals =
+            zbus::blocking::MessageIterator::for_match_rule(rule, &bus, None).unwrap();
 
         bus.call_method(Some(NAME), PATH, Some(NAME), "Commit", &("hej då",))
             .unwrap();

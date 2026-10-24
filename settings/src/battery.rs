@@ -268,9 +268,7 @@ fn graph(ui: &mut Ui, samples: &[Sample], span: Span, now: u64, unit: Unit) {
         Unit::Percent => 100.0,
         Unit::Watts => watts_top(samples),
     };
-    let x = |t: u64| {
-        plot.left() + (t as f32 - from as f32) / span.seconds() as f32 * plot.width()
-    };
+    let x = |t: u64| plot.left() + (t as f32 - from as f32) / span.seconds() as f32 * plot.width();
     let y = |value: f64| plot.bottom() - (value / top).clamp(0.0, 1.0) as f32 * plot.height();
     let painter = ui.painter_at(rect);
     let inside = ui.painter_at(plot);
@@ -355,7 +353,9 @@ fn graph(ui: &mut Ui, samples: &[Sample], span: Span, now: u64, unit: Unit) {
     painter.rect_stroke(plot, 0.0, faint, egui::StrokeKind::Inside);
 
     // The sample nearest the pointer, and what it was.
-    let hovered = response.hover_pos().filter(|p| plot.x_range().contains(p.x));
+    let hovered = response
+        .hover_pos()
+        .filter(|p| plot.x_range().contains(p.x));
     if let Some(pointer) = hovered {
         let at = from as f32 + (pointer.x - plot.left()) / plot.width() * span.seconds() as f32;
         let nearest = samples

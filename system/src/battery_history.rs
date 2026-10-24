@@ -70,13 +70,12 @@ pub fn samples(points: &[(u32, f64, u32)]) -> Vec<Sample> {
 fn battery(bus: &Connection) -> Result<Option<Proxy<'static>>, String> {
     let err = |e: zbus::Error| e.to_string();
     let upower = Proxy::new(bus, UPOWER, "/org/freedesktop/UPower", UPOWER).map_err(err)?;
-    let devices: Vec<zbus::zvariant::OwnedObjectPath> =
-        match upower.call("EnumerateDevices", &()) {
-            Ok(d) => d,
-            // Not installed.
-            Err(zbus::Error::MethodError(..)) => return Ok(None),
-            Err(e) => return Err(e.to_string()),
-        };
+    let devices: Vec<zbus::zvariant::OwnedObjectPath> = match upower.call("EnumerateDevices", &()) {
+        Ok(d) => d,
+        // Not installed.
+        Err(zbus::Error::MethodError(..)) => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
     for path in devices {
         let device = Proxy::new(bus, UPOWER, path, DEVICE).map_err(err)?;
         if device.get_property::<u32>("Type").ok() == Some(BATTERY)

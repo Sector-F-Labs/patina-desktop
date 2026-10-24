@@ -174,7 +174,10 @@ struct FrameSlot(RefCell<Frame>);
 
 fn slot(window: &Window) -> &FrameSlot {
     window.user_data().insert_if_missing(FrameSlot::default);
-    window.user_data().get::<FrameSlot>().expect("inserted above")
+    window
+        .user_data()
+        .get::<FrameSlot>()
+        .expect("inserted above")
 }
 
 impl Frame {
@@ -282,10 +285,15 @@ where
     let pixels = buffer_size(look);
     MemoryRenderBufferRenderElement::from_buffer(
         renderer,
-        at.to_f64().to_physical(scale).to_i32_round::<i32>().to_f64(),
+        at.to_f64()
+            .to_physical(scale)
+            .to_i32_round::<i32>()
+            .to_f64(),
         buffer,
         None,
-        Some(Rectangle::from_size((pixels.w as f64, pixels.h as f64).into())),
+        Some(Rectangle::from_size(
+            (pixels.w as f64, pixels.h as f64).into(),
+        )),
         Some((look.width, TITLE).into()),
         Kind::Unspecified,
     )
@@ -835,15 +843,26 @@ mod tests {
                     .iter()
                     .flat_map(|p| {
                         let [b, g, r, a] = p.to_le_bytes();
-                        let un = |c: u8| if a == 0 { 0 } else { (c as u32 * 255 / a as u32) as u8 };
+                        let un = |c: u8| {
+                            if a == 0 {
+                                0
+                            } else {
+                                (c as u32 * 255 / a as u32) as u8
+                            }
+                        };
                         [un(r), un(g), un(b), a]
                     })
                     .collect();
-                let file = std::fs::File::create(dir.join(format!("{}{name}.png", skin.name))).unwrap();
+                let file =
+                    std::fs::File::create(dir.join(format!("{}{name}.png", skin.name))).unwrap();
                 let mut encoder = png::Encoder::new(file, size.w as u32, size.h as u32);
                 encoder.set_color(png::ColorType::Rgba);
                 encoder.set_depth(png::BitDepth::Eight);
-                encoder.write_header().unwrap().write_image_data(&rgba).unwrap();
+                encoder
+                    .write_header()
+                    .unwrap()
+                    .write_image_data(&rgba)
+                    .unwrap();
             }
         }
     }

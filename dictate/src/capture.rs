@@ -25,7 +25,9 @@ impl Meter {
         let Ok(samples) = self.samples.lock() else {
             return 0.0;
         };
-        let last = &samples[samples.len().saturating_sub((self.rate as usize / 30).max(1))..];
+        let last = &samples[samples
+            .len()
+            .saturating_sub((self.rate as usize / 30).max(1))..];
         if last.is_empty() {
             return 0.0;
         }

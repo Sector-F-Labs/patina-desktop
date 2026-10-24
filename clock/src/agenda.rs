@@ -77,7 +77,13 @@ pub fn busy_days(items: &[Item]) -> BTreeSet<NaiveDate> {
 /// why there are none to show, such as Calendar not being installed.
 pub fn read(from: NaiveDate, days: u32) -> Result<Vec<Item>, String> {
     let out = std::process::Command::new(CALENDAR)
-        .args(["--agenda", "--from", &from.to_string(), "--days", &days.to_string()])
+        .args([
+            "--agenda",
+            "--from",
+            &from.to_string(),
+            "--days",
+            &days.to_string(),
+        ])
         .stdin(std::process::Stdio::null())
         .output()
         .map_err(|e| match e.kind() {
@@ -171,7 +177,10 @@ mod tests {
 
     #[test]
     fn opening_an_event_quotes_its_uid() {
-        assert_eq!(open_command(day(10, 24), None), "calendar --open 2026-10-24");
+        assert_eq!(
+            open_command(day(10, 24), None),
+            "calendar --open 2026-10-24"
+        );
         assert_eq!(
             open_command(day(10, 24), Some("it's@x")),
             r"calendar --open 2026-10-24 --event 'it'\''s@x'"
@@ -180,8 +189,14 @@ mod tests {
 
     #[test]
     fn caldav_colours() {
-        assert_eq!(colour("#FF8C00"), Some(egui::Color32::from_rgb(255, 140, 0)));
-        assert_eq!(colour("#FF8C00FF"), Some(egui::Color32::from_rgb(255, 140, 0)));
+        assert_eq!(
+            colour("#FF8C00"),
+            Some(egui::Color32::from_rgb(255, 140, 0))
+        );
+        assert_eq!(
+            colour("#FF8C00FF"),
+            Some(egui::Color32::from_rgb(255, 140, 0))
+        );
         assert_eq!(colour("orange"), None);
     }
 }

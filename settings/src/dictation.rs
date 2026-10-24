@@ -10,7 +10,10 @@ use toml_edit::{DocumentMut, value};
 use crate::app::Message;
 
 /// The overlay's edges: the config's value and what Settings calls it.
-const EDGES: [(&str, &str); 2] = [("bottom", "Bottom of the screen"), ("top", "Top of the screen")];
+const EDGES: [(&str, &str); 2] = [
+    ("bottom", "Bottom of the screen"),
+    ("top", "Top of the screen"),
+];
 
 /// The compositor's default for `dictate` (`compositor/src/keys.rs`).
 const DEFAULT_KEY: &str = "Ctrl+Super+Alt";
@@ -23,7 +26,9 @@ fn path() -> Option<PathBuf> {
 /// The overlay's edge as `text` says it, or the default.
 fn parse_edge(text: &str) -> &'static str {
     let doc: Option<DocumentMut> = text.parse().ok();
-    let set = doc.as_ref().and_then(|d| d.get("overlay")?.as_str().map(String::from));
+    let set = doc
+        .as_ref()
+        .and_then(|d| d.get("overlay")?.as_str().map(String::from));
     EDGES
         .iter()
         .map(|(v, _)| *v)
@@ -41,11 +46,16 @@ fn with_edge(text: &str, edge: &str) -> Result<String, String> {
 /// The keys `dictate` has in the compositor's config `text`, as words.
 fn dictate_key(text: &str) -> String {
     let doc: Option<DocumentMut> = text.parse().ok();
-    let set = doc.as_ref().and_then(|d| d.get("keys")?.get("dictate").cloned());
+    let set = doc
+        .as_ref()
+        .and_then(|d| d.get("keys")?.get("dictate").cloned());
     let keys: Vec<String> = match &set {
         None => return DEFAULT_KEY.to_string(),
         Some(item) => match item.as_array() {
-            Some(list) => list.iter().filter_map(|k| k.as_str().map(String::from)).collect(),
+            Some(list) => list
+                .iter()
+                .filter_map(|k| k.as_str().map(String::from))
+                .collect(),
             None => item.as_str().map(String::from).into_iter().collect(),
         },
     };
@@ -141,15 +151,24 @@ mod tests {
     fn setting_the_edge_keeps_the_rest() {
         let text = "# mine\nmodel = \"small\"\n";
         let written = with_edge(text, "top").unwrap();
-        assert!(written.starts_with("# mine\nmodel = \"small\"\n"), "{written}");
+        assert!(
+            written.starts_with("# mine\nmodel = \"small\"\n"),
+            "{written}"
+        );
         assert_eq!(parse_edge(&written), "top");
-        assert_eq!(parse_edge(&with_edge(&written, "bottom").unwrap()), "bottom");
+        assert_eq!(
+            parse_edge(&with_edge(&written, "bottom").unwrap()),
+            "bottom"
+        );
     }
 
     #[test]
     fn the_key_is_the_compositors() {
         assert_eq!(dictate_key(""), DEFAULT_KEY);
-        assert_eq!(dictate_key("[keys]\nlauncher = \"Alt+Space\"\n"), DEFAULT_KEY);
+        assert_eq!(
+            dictate_key("[keys]\nlauncher = \"Alt+Space\"\n"),
+            DEFAULT_KEY
+        );
         assert_eq!(dictate_key("[keys]\ndictate = \"Super+D\"\n"), "Super+D");
         assert_eq!(
             dictate_key("[keys]\ndictate = [\"Super+D\", \"F9\"]\n"),

@@ -89,7 +89,10 @@ impl ClockMenu {
         if Some(from) != self.asked {
             return;
         }
-        self.busy = items.as_ref().map(|i| agenda::busy_days(i)).unwrap_or_default();
+        self.busy = items
+            .as_ref()
+            .map(|i| agenda::busy_days(i))
+            .unwrap_or_default();
         self.agenda = Some((from, items));
     }
 
@@ -195,7 +198,10 @@ impl ClockMenu {
         let painter = ui.painter();
         for (i, name) in ["M", "T", "W", "T", "F", "S", "S"].iter().enumerate() {
             painter.text(
-                pos2(left + WEEK_COLUMN + (i as f32 + 0.5) * CELL, rect.top() + 8.0),
+                pos2(
+                    left + WEEK_COLUMN + (i as f32 + 0.5) * CELL,
+                    rect.top() + 8.0,
+                ),
                 Align2::CENTER_CENTER,
                 *name,
                 small.clone(),
@@ -312,16 +318,14 @@ impl ClockMenu {
             return;
         }
         let mut opened = None;
-        ScrollArea::vertical()
-            .auto_shrink(false)
-            .show(ui, |ui| {
-                ui.spacing_mut().item_spacing.y = 2.0;
-                for item in &items {
-                    if event_row(ui, item, day).clicked() {
-                        opened = Some(item.uid.clone());
-                    }
+        ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+            ui.spacing_mut().item_spacing.y = 2.0;
+            for item in &items {
+                if event_row(ui, item, day).clicked() {
+                    opened = Some(item.uid.clone());
                 }
-            });
+            }
+        });
         if let Some(uid) = opened {
             self.open(day, Some(&uid));
         }
@@ -436,7 +440,10 @@ mod tests {
 
     fn menu() -> (ClockMenu, mpsc::Receiver<Request>) {
         let (send, receive) = mpsc::channel();
-        (ClockMenu::new(day(10, 23), Skin::default_skin(), send), receive)
+        (
+            ClockMenu::new(day(10, 23), Skin::default_skin(), send),
+            receive,
+        )
     }
 
     #[test]
@@ -451,11 +458,17 @@ mod tests {
     fn each_months_events_are_asked_for_once() {
         let (mut m, requests) = menu();
         m.ask();
-        assert_eq!(requests.try_recv(), Ok(Request::Agenda(day(9, 28), GRID_DAYS)));
+        assert_eq!(
+            requests.try_recv(),
+            Ok(Request::Agenda(day(9, 28), GRID_DAYS))
+        );
         m.choose(day(10, 5));
         assert!(requests.try_recv().is_err());
         m.choose(day(11, 2));
-        assert_eq!(requests.try_recv(), Ok(Request::Agenda(day(10, 26), GRID_DAYS)));
+        assert_eq!(
+            requests.try_recv(),
+            Ok(Request::Agenda(day(10, 26), GRID_DAYS))
+        );
     }
 
     #[test]
@@ -478,7 +491,13 @@ mod tests {
         let dir = std::path::PathBuf::from(std::env::var("PATINA_CLOCK_PREVIEW").unwrap());
         let (w, h) = (crate::SIZE.0 as usize, crate::SIZE.1 as usize);
         let at = |d: u32, time: &str| format!("2026-10-{d:02}T{time}+02:00");
-        let item = |uid: &str, title: &str, location: &str, color: Option<&str>, start: String, end: String, all_day: bool| {
+        let item = |uid: &str,
+                    title: &str,
+                    location: &str,
+                    color: Option<&str>,
+                    start: String,
+                    end: String,
+                    all_day: bool| {
             Item {
                 uid: uid.into(),
                 title: title.into(),
@@ -491,8 +510,24 @@ mod tests {
             }
         };
         let items = vec![
-            item("trip", "Trip to Gothenburg", "", Some("#FF2968"), at(22, "00:00:00"), at(25, "00:00:00"), true),
-            item("sun", "Sunrise", "", Some("#FF8C00"), at(23, "07:44:36"), at(23, "07:49:36"), false),
+            item(
+                "trip",
+                "Trip to Gothenburg",
+                "",
+                Some("#FF2968"),
+                at(22, "00:00:00"),
+                at(25, "00:00:00"),
+                true,
+            ),
+            item(
+                "sun",
+                "Sunrise",
+                "",
+                Some("#FF8C00"),
+                at(23, "07:44:36"),
+                at(23, "07:49:36"),
+                false,
+            ),
             item(
                 "standup",
                 "Standup",
@@ -511,7 +546,15 @@ mod tests {
                 at(23, "22:00:00"),
                 false,
             ),
-            item("gym", "Gym", "", Some("#34C759"), at(27, "07:00:00"), at(27, "08:00:00"), false),
+            item(
+                "gym",
+                "Gym",
+                "",
+                Some("#34C759"),
+                at(27, "07:00:00"),
+                at(27, "08:00:00"),
+                false,
+            ),
         ];
         let (skins, _) = patina::skin::load_all(patina::skin::BUILT_IN, &[]);
         for skin in skins {
@@ -536,7 +579,14 @@ mod tests {
                 };
                 let out = ctx.run_ui(input, |ui| m.ui(ui, ""));
                 let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
-                painter.paint(&mut pixels, w, h, out.pixels_per_point, &primitives, &out.textures_delta);
+                painter.paint(
+                    &mut pixels,
+                    w,
+                    h,
+                    out.pixels_per_point,
+                    &primitives,
+                    &out.textures_delta,
+                );
             }
             let rgba: Vec<u8> = pixels
                 .iter()
@@ -556,7 +606,9 @@ mod tests {
         m.open(day(10, 24), Some("gym"));
         assert_eq!(
             requests.try_recv(),
-            Ok(Request::Run("calendar --open 2026-10-24 --event 'gym'".into()))
+            Ok(Request::Run(
+                "calendar --open 2026-10-24 --event 'gym'".into()
+            ))
         );
         assert!(m.finished());
     }
