@@ -50,8 +50,8 @@ pub fn closing(ui: &Ui, had_focus: &mut bool) -> bool {
 }
 
 /// Draws the menu's items in a menu frame at `place`, kept on screen, as
-/// egui draws an app's context menus: buttons flat across the menu, lit
-/// under the pointer.
+/// a Patina app draws its context menus (`patina::menu`): buttons flat
+/// across the menu, lit under the pointer, 24 px an item.
 pub fn show(ui: &Ui, id: &str, place: Place, items: impl FnOnce(&mut Ui)) {
     let ctx = ui.ctx().clone();
     let screen = ctx.content_rect();
@@ -72,7 +72,7 @@ pub fn show(ui: &Ui, id: &str, place: Place, items: impl FnOnce(&mut Ui)) {
         .fixed_pos(pos)
         .constrain(true)
         .show(&ctx, |ui| {
-            egui::containers::menu::menu_style(ui.style_mut());
+            patina::menu::style(ui.style_mut());
             Frame::menu(ui.style()).show(ui, |ui| {
                 ui.with_layout(Layout::top_down_justified(Align::Min), items)
             })
