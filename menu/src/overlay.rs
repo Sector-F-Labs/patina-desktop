@@ -3,7 +3,7 @@
 //! edges, and a click anywhere else, Escape, or losing the keyboard closes
 //! it.
 
-use egui::{Align2, Area, Frame, Id, Order, Pos2, Ui};
+use egui::{Align, Align2, Area, Frame, Id, Layout, Order, Pos2, Ui};
 
 /// Which screen edge `at` counts from, and so which way the menu opens:
 /// down from a point (the top, or no edge), up from it (the bottom, as from
@@ -49,7 +49,9 @@ pub fn closing(ui: &Ui, had_focus: &mut bool) -> bool {
     ui.input(|i| i.key_pressed(egui::Key::Escape))
 }
 
-/// Draws the menu's items in a menu frame at `place`, kept on screen.
+/// Draws the menu's items in a menu frame at `place`, kept on screen, as
+/// egui draws an app's context menus: buttons flat across the menu, lit
+/// under the pointer.
 pub fn show(ui: &Ui, id: &str, place: Place, items: impl FnOnce(&mut Ui)) {
     let ctx = ui.ctx().clone();
     let screen = ctx.content_rect();
@@ -69,7 +71,12 @@ pub fn show(ui: &Ui, id: &str, place: Place, items: impl FnOnce(&mut Ui)) {
         .pivot(pivot)
         .fixed_pos(pos)
         .constrain(true)
-        .show(&ctx, |ui| Frame::menu(ui.style()).show(ui, items));
+        .show(&ctx, |ui| {
+            egui::containers::menu::menu_style(ui.style_mut());
+            Frame::menu(ui.style()).show(ui, |ui| {
+                ui.with_layout(Layout::top_down_justified(Align::Min), items)
+            })
+        });
 }
 
 /// Whether the pointer was pressed outside the menu and its submenus: on
