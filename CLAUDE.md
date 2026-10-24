@@ -94,6 +94,8 @@ puts them in `$(PREFIX)/share/man`.
   Only Alt+Tab, quit, restart, consoles and media keys stay fixed in `input::key_action`.
   `[remap]` (`Keys::remap`, ADR-0076) sends a key to the focused window as another;
   `compositor/src/remap.rs` puts the sent key through the seat and fakes its modifiers.
+  `compositor/src/caps.rs` (ADR-0086): with `caps_hold = "layer"`, Caps Lock never reaches the
+  seat; keys pressed with it are `[caps_layer]` remaps, and a tap sends `caps_tap` on release.
 - `compositor/src/xwayland.rs`: X11 apps (ADR-0040): Xwayland spawned at start-up, `DISPLAY` for
   clients, and the `XwmHandler` that maps, places, moves and resizes X windows as `Window`s in
   the space. `focus.rs`: the keyboard focus is a `FocusTarget` (Wayland surface or X11 window, so

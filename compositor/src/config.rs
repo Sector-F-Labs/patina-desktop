@@ -36,6 +36,9 @@ pub struct Config {
     /// Keys sent to the focused window as others, "Alt+T" = "Ctrl+T"
     /// (ADR-0076), added to `keys.toml`'s.
     pub remap: std::collections::BTreeMap<String, String>,
+    /// Keys sent as others while Caps Lock is held, "H" = "Left", with
+    /// `[keyboard] caps_hold = "layer"` (ADR-0086).
+    pub caps_layer: std::collections::BTreeMap<String, String>,
 }
 
 /// A key combination from [bindings], ready to match.
@@ -95,6 +98,22 @@ impl Config {
             .iter()
             .filter_map(|(k, v)| combo(k).ok().map(|c| (c, v.clone())))
             .collect()
+    }
+
+    /// What `[caps_layer]` sends for the key `base` (its base keysym), if
+    /// anything. A key there is one key, without modifiers.
+    pub fn caps_layer(&self, base: u32) -> Option<Combo> {
+        self.caps_layer.iter().find_map(|(from, to)| {
+            let from = combo(from).ok().filter(Combo::plain)?;
+            (from.sym == base).then(|| combo(to).ok()).flatten()
+        })
+    }
+}
+
+impl Combo {
+    /// Whether it's a key alone, without modifiers.
+    pub fn plain(&self) -> bool {
+        !(self.logo || self.alt || self.ctrl || self.shift)
     }
 }
 
@@ -255,6 +274,35 @@ pub struct Keyboard {
     pub repeat_rate: i32,
     /// What Caps Lock does, added to the xkb options in effect.
     pub caps_lock: CapsLock,
+    /// What Caps Lock does held with another key (ADR-0086); a layer
+    /// leaves `caps_lock` out.
+    pub caps_hold: CapsHold,
+    /// What Caps Lock does tapped alone, with `caps_hold` set.
+    pub caps_tap: CapsTap,
+}
+
+/// What Caps Lock does held with another key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CapsHold {
+    /// Nothing of the compositor's: Caps Lock is `caps_lock`'s.
+    #[default]
+    None,
+    /// The keys of `[caps_layer]`: "H" sent as "Left".
+    Layer,
+}
+
+/// What Caps Lock does tapped alone, when held is a layer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CapsTap {
+    /// Caps Lock, as the key says.
+    #[default]
+    CapsLock,
+    /// Escape, as vim users like.
+    Escape,
+    /// Nothing.
+    None,
 }
 
 /// What the Caps Lock key does.
@@ -317,6 +365,7 @@ impl Default for Config {
             bindings: default_bindings(),
             keys: Default::default(),
             remap: Default::default(),
+            caps_layer: Default::default(),
         }
     }
 }
@@ -342,6 +391,8 @@ impl Default for Keyboard {
             repeat_delay: 200,
             repeat_rate: 25,
             caps_lock: CapsLock::default(),
+            caps_hold: CapsHold::default(),
+            caps_tap: CapsTap::default(),
         }
     }
 }
@@ -443,6 +494,22 @@ pub fn parse(text: &str) -> Result<(Config, Vec<String>), String> {
             && bound.iter().any(|(b, _)| *b == c)
         {
             warnings.push(format!("[remap] {from} is also a binding; the remap wins"));
+        }
+    }
+    if config.keyboard.caps_hold == CapsHold::Layer && config.keyboard.caps_lock != CapsLock::Lock {
+        warnings.push("caps_lock is ignored while caps_hold is \"layer\"; use caps_tap".into());
+    }
+    for (from, to) in &config.caps_layer {
+        match combo(from) {
+            Ok(c) if !c.plain() => {
+                warnings.push(format!("[caps_layer] {from:?} has modifiers; ignored"))
+            }
+            Err(e) => warnings.push(format!("[caps_layer] {e}; ignored")),
+            Ok(_) => {
+                if let Err(e) = combo(to) {
+                    warnings.push(format!("[caps_layer] {from}: {e}; ignored"));
+                }
+            }
         }
     }
     if !(1..=50).contains(&config.media.brightness_step) {
@@ -640,6 +707,31 @@ impl crate::state::State {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn caps_as_a_layer_reads_its_keys_and_warns_of_mistakes() {
+        use smithay::input::keyboard::keysyms;
+        let (c, w) = parse(
+            "[keyboard]\ncaps_hold = \"layer\"\ncaps_tap = \"escape\"\n[caps_layer]\nH = \"Left\"\nL = \"Shift+End\"\n",
+        )
+        .unwrap();
+        assert!(w.is_empty(), "{w:?}");
+        assert_eq!(c.keyboard.caps_hold, CapsHold::Layer);
+        assert_eq!(c.keyboard.caps_tap, CapsTap::Escape);
+        assert_eq!(c.caps_layer(keysyms::KEY_h).unwrap().sym, keysyms::KEY_Left);
+        let end = c.caps_layer(keysyms::KEY_l).unwrap();
+        assert!(end.shift && end.sym == keysyms::KEY_End);
+        assert_eq!(c.caps_layer(keysyms::KEY_j), None);
+
+        let (c, w) = parse(
+            "[keyboard]\ncaps_hold = \"layer\"\ncaps_lock = \"escape\"\n[caps_layer]\n\"Alt+H\" = \"Left\"\nJ = \"Nowhere\"\n",
+        )
+        .unwrap();
+        assert_eq!(w.len(), 3, "{w:?}");
+        assert_eq!(c.caps_layer(keysyms::KEY_h), None, "a key with modifiers isn't one");
+        assert_eq!(Config::default().keyboard.caps_hold, CapsHold::None);
+        assert!(parse("[keyboard]\ncaps_tap = \"hyper\"\n").is_err());
+    }
 
     #[test]
     fn empty_is_the_defaults() {

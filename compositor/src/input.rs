@@ -145,6 +145,11 @@ impl State {
     /// `code` is an evdev keycode. Returns the compositor's own action if
     /// the key was one of its keys, and doesn't pass it on.
     pub fn key(&mut self, code: u32, pressed: bool, time: u32) -> Option<KeyAction> {
+        // Caps Lock held as a layer (ADR-0086) is the compositor's alone.
+        if code == crate::caps::KEY && self.caps_is_layer(pressed) {
+            self.caps_key(pressed, time);
+            return None;
+        }
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
         let state = if pressed {
             KeyState::Pressed
@@ -164,6 +169,14 @@ impl State {
                 let base = handle
                     .raw_latin_sym_or_raw_current_sym()
                     .map_or(sym, |s| s.raw());
+                // With Caps Lock held as a layer, its keys come first.
+                if pressed && state.caps.held() {
+                    state.caps.used();
+                    if let Some(to) = state.config.caps_layer(base) {
+                        let to = crate::caps::held_with(to, modifiers);
+                        return FilterResult::Intercept(KeyAction::Remap(to));
+                    }
+                }
                 let action = key_action(modifiers, sym)
                     .or_else(|| state.keys.lookup(modifiers, base))
                     .or_else(|| state.keys.remap(modifiers, base).map(KeyAction::Remap))

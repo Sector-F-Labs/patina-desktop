@@ -127,6 +127,7 @@ mechanics of adding one.
 | [0083](0083-the-session-reads-the-login-profile.md) | The session takes the environment a login shell sets up | Accepted |
 | [0084](0084-minimise-to-the-bars-tabs.md) | Minimised windows leave the space and keep their tabs | Accepted |
 | [0085](0085-wayland-windows-get-frames-through-xdg-decoration.md) | Wayland windows that ask for a frame get Patina's, through xdg-decoration | Accepted |
+| [0086](0086-caps-lock-held-is-a-layer.md) | Caps Lock held is a layer of keys, tapped Escape | Accepted |
 
 ## Decision Relationship
 
@@ -191,6 +192,7 @@ flowchart TD
     KEYS --> KTOML[0075: default keys in keys.toml, Alt+Tab fixed]
     KTOML --> REMAP[0076: any key remaps to any other]
     CMD --> REMAP
+    REMAP --> CAPS[0086: Caps Lock held is a layer]
     XW[0040: X11 apps] --> FRAMES[0077: frames for X11 windows without one]
     K --> FRAMES
     FRAMES --> WFRAMES[0085: Wayland windows framed through xdg-decoration]

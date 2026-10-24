@@ -219,7 +219,22 @@ four at most: XKB leaves out any after the fourth, which the log names;
 .Dq escape ,
 .Dq ctrl
 or
-.Dq swap_escape .
+.Dq swap_escape ;
+.Ic caps_hold :
+.Dq none ,
+or
+.Dq layer ,
+Caps Lock held sending the keys of
+.Ic [caps_layer] ,
+which leaves
+.Ic caps_lock
+out; and
+.Ic caps_tap ,
+what Caps Lock tapped alone does when it's a layer:
+.Dq caps_lock ,
+.Dq escape
+or
+.Dq none .
 Modifiers are swapped with
 .Ic options ,
 so the desktop's own keys see them swapped too:
@@ -349,6 +364,17 @@ A key that is fixed or in
 can't be remapped; a remap wins over
 .Ic [bindings]
 and over Super as Ctrl.
+.It Ic [caps_layer]
+Keys sent as others while Caps Lock is held, with
+.Ic caps_hold
+.Dq layer :
+one key alone, then what it sends, as
+.Dl \(dqH\(dq = \(dqLeft\(dq
+The modifiers held go with it, so Shift, Caps Lock and L is Shift+Right.
+Caps Lock tapped alone, under 200 ms with no other key, does
+.Ic caps_tap
+when it comes up.
+Off while locked and under a fullscreen game, where Caps Lock is itself.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds

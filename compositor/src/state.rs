@@ -128,6 +128,8 @@ pub struct State {
     pub cmd: crate::cmd::Cmd,
     /// Keys sent on as others, still down (ADR-0076).
     pub remapped: crate::remap::Remapped,
+    /// Caps Lock held as a layer (ADR-0086).
+    pub caps: crate::caps::Caps,
     /// Frames drawn for X11 windows without their own (ADR-0077).
     pub frames: crate::frames::Frames,
     /// Text typed into the focused window for dictation (ADR-0071).
@@ -286,6 +288,7 @@ impl State {
             super_tap: false,
             cmd: Default::default(),
             remapped: Default::default(),
+            caps: Default::default(),
             frames: Default::default(),
             typing: Default::default(),
             drag: Default::default(),

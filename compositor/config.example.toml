@@ -40,6 +40,13 @@
 # (Escape, and Escape becomes Caps Lock). Added to the options above.
 # caps_lock = "caps_lock"
 
+# Caps Lock held with another key: "layer" sends the keys of [caps_layer]
+# ("H" as "Left"), with any modifiers held too, and caps_lock is then left out.
+# Tapped alone (under 200 ms, nothing else pressed), it does caps_tap:
+# "caps_lock", "escape" or "none", sent when it comes up.
+# caps_hold = "none"
+# caps_tap = "caps_lock"
+
 [touchpad]
 # Tap to click.
 # tap = true
@@ -140,6 +147,14 @@
 # and a remap overrides [bindings] and Super as Ctrl.
 # "Alt+T" = "Ctrl+T"
 # {the [remap] defaults from compositor/keys.toml}
+
+# [caps_layer]
+# Keys sent as others while Caps Lock is held, with [keyboard] caps_hold =
+# "layer": one key alone, then what it sends, written as for [bindings].
+# "H" = "Left"
+# "J" = "Down"
+# "K" = "Up"
+# "L" = "Right"
 
 # Keys that run commands: modifiers (Super, Alt, Ctrl, Shift) and a key, by
 # its name ("T", "Return", "F5"). Writing a [bindings] section replaces these

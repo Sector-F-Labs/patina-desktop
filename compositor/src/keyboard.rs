@@ -47,7 +47,10 @@ impl KeyboardSettings {
         if let Some(v) = env("XKB_DEFAULT_OPTIONS") {
             settings.options = Some(v);
         }
-        if let Some(caps) = config.caps_lock.xkb_option() {
+        // Held as a layer, Caps Lock is the compositor's (`caps.rs`).
+        if let Some(caps) = config.caps_lock.xkb_option()
+            && config.caps_hold == crate::config::CapsHold::None
+        {
             settings.options = Some(with_option(settings.options.take(), caps));
         }
         settings
