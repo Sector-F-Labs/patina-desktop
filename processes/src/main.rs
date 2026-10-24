@@ -5,6 +5,7 @@
 //! memory, disks and network.
 
 mod app;
+mod details;
 mod gpu;
 mod graph;
 mod groups;
@@ -14,6 +15,7 @@ mod performance;
 mod processes;
 mod ranking;
 mod sample;
+mod window;
 
 use std::process::ExitCode;
 

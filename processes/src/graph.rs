@@ -55,26 +55,37 @@ pub enum Scale {
     Percent,
     /// Bytes per second, the top found from the most there was.
     Rate,
+    /// Bytes, the same way.
+    Bytes,
+    /// A percentage that's often small, as one process's share of the
+    /// machine: the top is 1, 2 or 5 of a power of ten above the most
+    /// there was, up to 100.
+    Share,
 }
 
 impl Scale {
     fn top(self, lines: &[Line], now: f64, span: f64) -> f64 {
+        let most = || {
+            lines
+                .iter()
+                .map(|l| l.series.most(now, span))
+                .fold(0.0, f64::max)
+        };
         match self {
             Scale::Percent => 100.0,
-            Scale::Rate => {
-                let most = lines
-                    .iter()
-                    .map(|l| l.series.most(now, span))
-                    .fold(0.0, f64::max);
-                rate_top(most)
-            }
+            Scale::Rate => rate_top(most()),
+            Scale::Bytes => bytes_top(most()),
+            Scale::Share => share_top(most()),
         }
     }
 
     pub fn format(self, value: f64) -> String {
         match self {
             Scale::Percent => format!("{value:.0}%"),
+            Scale::Share if value < 10.0 && value.fract() != 0.0 => format!("{value:.1}%"),
+            Scale::Share => format!("{value:.0}%"),
             Scale::Rate => rate(value),
+            Scale::Bytes => bytes(value),
         }
     }
 }
@@ -102,6 +113,19 @@ pub fn rate_top(most: f64) -> f64 {
         }
         unit *= 1024.0;
     }
+}
+
+/// The scale's top for bytes: as for a rate, from 1 MiB.
+pub fn bytes_top(most: f64) -> f64 {
+    rate_top(most).max(1024.0 * 1024.0)
+}
+
+/// The scale's top for a small percentage: 1, 2, 5, 10, 20, 50 or 100.
+pub fn share_top(most: f64) -> f64 {
+    [1.0, 2.0, 5.0, 10.0, 20.0, 50.0]
+        .into_iter()
+        .find(|top| *top >= most * 1.1)
+        .unwrap_or(100.0)
 }
 
 /// `bytes` with a binary unit: "512 B", "3.4 MiB", "12 GiB".
@@ -309,6 +333,14 @@ mod tests {
         assert_eq!(rate_top(150.0 * 1024.0), 200.0 * 1024.0);
         assert_eq!(rate_top(3.0 * 1024.0 * 1024.0), 5.0 * 1024.0 * 1024.0);
         assert_eq!(rate_top(600.0 * 1024.0 * 1024.0), 1024.0 * 1024.0 * 1024.0);
+    }
+
+    #[test]
+    fn a_small_share_is_drawn_tall() {
+        assert_eq!(share_top(0.0), 1.0);
+        assert_eq!(share_top(3.0), 5.0);
+        assert_eq!(share_top(48.0), 100.0);
+        assert_eq!(Scale::Share.format(0.5), "0.5%");
     }
 
     #[test]

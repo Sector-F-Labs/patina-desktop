@@ -1,7 +1,7 @@
 //! The Performance view (ADR-0088): the CPU, memory, disks and each
 //! network interface down the side, each with a sparkline of the last
 //! minute; the one chosen drawn large, with what it is and what's using it
-//! most, each a click from its row in the Processes view.
+//! most, each a click from its own window.
 
 use std::collections::BTreeMap;
 
@@ -10,7 +10,7 @@ use egui::{Color32, RichText, Sense, Ui, pos2, vec2};
 use crate::graph::{self, Line, Scale, Series};
 use crate::groups::Totals;
 use crate::icons::Icons;
-use crate::processes::{Model, app_name};
+use crate::processes::{Model, Pick, app_name};
 
 /// What a graph shows: the last minute.
 pub const SPAN: f64 = 60.0;
@@ -98,8 +98,8 @@ impl History {
 
 /// What a click in the view asks for.
 pub enum Do {
-    /// Show this process in the Processes view.
-    Reveal(u32),
+    /// Open this one's own window.
+    Open(Pick),
 }
 
 pub struct PerformanceView {
@@ -362,14 +362,14 @@ fn busiest(
     asked: &mut Vec<Do>,
 ) {
     let ctx = ui.ctx().clone();
-    let mut all: Vec<(String, u32, f64)> = model
+    let mut all: Vec<(String, Pick, f64)> = model
         .apps
         .iter()
-        .map(|a| (app_name(a, icons, &ctx), a.pid, key(a.totals)))
+        .map(|a| (app_name(a, icons, &ctx), Pick::App(a.pid), key(a.totals)))
         .chain(
             model
                 .background()
-                .map(|p| (p.name.clone(), p.pid, key(Totals::of(p)))),
+                .map(|p| (p.name.clone(), Pick::Proc(p.pid), key(Totals::of(p)))),
         )
         .filter(|(.., value)| *value > 0.0)
         .collect();
@@ -384,13 +384,14 @@ fn busiest(
         .num_columns(2)
         .spacing(vec2(24.0, 2.0))
         .show(ui, |ui| {
-            for (name, pid, value) in all.into_iter().take(TOP) {
+            for (name, pick, value) in all.into_iter().take(TOP) {
+                let (Pick::App(pid) | Pick::Proc(pid)) = pick;
                 if ui
                     .link(&name)
-                    .on_hover_text(format!("PID {pid}: show in Processes"))
+                    .on_hover_text(format!("PID {pid}: open its window"))
                     .clicked()
                 {
-                    asked.push(Do::Reveal(pid));
+                    asked.push(Do::Open(pick));
                 }
                 ui.label(format(value));
                 ui.end_row();

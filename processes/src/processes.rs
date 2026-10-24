@@ -41,6 +41,8 @@ pub enum Pick {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Do {
     Pick(Pick),
+    /// Open its own window (`window.rs`).
+    Open(Pick),
     Toggle(u32),
     Switch(u32),
     Signal(Pick, Signal),
@@ -406,8 +408,10 @@ impl ProcessesView {
         match picked {
             Pick::App(pid) if right && !self.expanded.contains(&pid) => asked.push(Do::Toggle(pid)),
             Pick::App(pid) if left && self.expanded.contains(&pid) => asked.push(Do::Toggle(pid)),
-            Pick::App(pid) if enter => asked.push(Do::Switch(pid)),
             _ => {}
+        }
+        if enter {
+            asked.push(Do::Open(picked));
         }
         if delete {
             let signal = if shift { Signal::Kill } else { Signal::End };
@@ -580,10 +584,7 @@ impl ProcessesView {
             asked.push(Do::Pick(pick));
         }
         if response.double_clicked() {
-            asked.push(match pick {
-                Pick::App(pid) => Do::Switch(pid),
-                Pick::Proc(pid) => Do::Copy(pid.to_string()),
-            });
+            asked.push(Do::Open(pick));
         }
         response.context_menu(|ui| {
             for d in menu(ui, model, pick, self.expanded.contains(&proc.pid)) {
@@ -685,8 +686,9 @@ pub fn menu(ui: &mut Ui, model: &Model, pick: Pick, expanded: bool) -> Vec<Do> {
         Pick::App(p) | Pick::Proc(p) => p,
     };
     let kernel = model.process(pid).is_some_and(|p| p.kernel);
+    item(ui, "Details…", "Enter", true, Do::Open(pick));
     if let Pick::App(pid) = pick {
-        item(ui, "Switch To", "Enter", true, Do::Switch(pid));
+        item(ui, "Switch To", "", true, Do::Switch(pid));
         item(
             ui,
             if expanded {
@@ -701,7 +703,7 @@ pub fn menu(ui: &mut Ui, model: &Model, pick: Pick, expanded: bool) -> Vec<Do> {
         ui.separator();
     }
     let end = match pick {
-        Pick::App(_) => "End Task",
+        Pick::App(_) => "End App",
         Pick::Proc(_) => "End Process",
     };
     item(ui, end, "Delete", !kernel, Do::Signal(pick, Signal::End));
@@ -853,6 +855,7 @@ mod tests {
             host: String::new(),
             os: String::new(),
             kernel: String::new(),
+            details: Default::default(),
         }
     }
 

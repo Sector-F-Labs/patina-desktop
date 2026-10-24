@@ -24,6 +24,12 @@ status bar with the totals and what an action did:
   down the side with sparklines, the chosen one drawn large over the last minute
   (`graph.rs`), its details, and the five things using it most, a click from their rows.
 
+A process's own window (`window.rs`, ADR-0089): a click in the Overview or Performance, or a
+double click, Enter or Details… in Processes, opens one as an egui viewport in Patina's frame,
+several at once to compare. Its graphs since it opened, what it's waiting in, its memory broken
+down, an app's processes, threads, connections, files and environment, read from `/proc` by
+`details.rs` on the reader thread for the open windows only.
+
 ## How it fits
 
 - `sample.rs` reads the machine on a thread of its own at the update speed, through `sysinfo`

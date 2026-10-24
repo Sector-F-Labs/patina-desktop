@@ -227,7 +227,11 @@ puts them in `$(PREFIX)/share/man`.
   `overview.rs` (where it opens), `processes.rs` and `performance.rs` are the three views, as
   Patina's fixed tabs; the Overview's busiest lists hold still through `ranking.rs`; `graph.rs`
   draws the graphs (CPU and GPU in their maker's colour, the one exception to skin colours).
-  `PATINA_PROCESSES_PREVIEW=dir cargo test -p patina-processes preview -- --ignored` draws each.
+  A process's own window (ADR-0089) is `window.rs`, an immediate viewport per process
+  (`App::process_windows`), with `details.rs` reading `/proc/<pid>` on the reader thread for
+  the open ones (`Ask::Watch`).
+  `PATINA_PROCESSES_PREVIEW=dir cargo test -p patina-processes preview -- --ignored` draws each
+  view and a process window.
 - `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,
   or the default flask (`system/src/logo.rs`, with Ubuntu Mono) in the skin's colours. `cargo test
   -p patina-wallpaper -- --ignored` with PATINA_WALLPAPER_PREVIEW=dir renders the default per skin.

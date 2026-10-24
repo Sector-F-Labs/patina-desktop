@@ -1,7 +1,7 @@
 //! The Overview, where the process manager opens: the machine in a line, a
 //! tile for each of its resources with the last minute's graph (a click
-//! opens it in Performance), then the open apps and the busiest processes,
-//! each a click from its row in Processes.
+//! opens it in Performance), then the busiest on the CPU, the GPU and
+//! memory, each a click from its own window.
 
 use egui::{Align2, Rect, RichText, Sense, Ui, pos2, vec2};
 
@@ -26,8 +26,6 @@ const ROW: f32 = 26.0;
 pub enum Do {
     /// Open this in Performance.
     Show(Resource),
-    /// Show this process in Processes.
-    Reveal(u32),
     /// What its right click asked, as in Processes.
     Process(ProcessDo),
 }
@@ -362,9 +360,9 @@ fn lists(ui: &mut Ui, model: &Model, busiest: &Busiest, icons: &mut Icons, asked
     }
 }
 
-/// The `BUSIEST` heaviest by `measure`, in `order`'s steady rows. A click shows one in Processes,
-/// a double click switches to an app, and a right click has Processes'
-/// menu: ending, killing and pausing it from here.
+/// The `BUSIEST` heaviest by `measure`, in `order`'s steady rows. A click
+/// opens its own window, and a right click has Processes' menu: ending,
+/// killing and pausing it from here.
 fn list(
     ui: &mut Ui,
     model: &Model,
@@ -418,11 +416,9 @@ fn list(
             name,
             v.strong_text_color(),
         );
-        let response = response.on_hover_text(format!("PID {}: show in Processes", pid(e.pick)));
-        if response.double_clicked() && matches!(e.pick, Pick::App(_)) {
-            asked.push(Do::Process(ProcessDo::Switch(pid(e.pick))));
-        } else if response.clicked() {
-            asked.push(Do::Reveal(pid(e.pick)));
+        let response = response.on_hover_text(format!("PID {}: open its window", pid(e.pick)));
+        if response.clicked() {
+            asked.push(Do::Process(ProcessDo::Open(e.pick)));
         }
         response.context_menu(|ui| {
             for d in crate::processes::menu(ui, model, e.pick, false) {

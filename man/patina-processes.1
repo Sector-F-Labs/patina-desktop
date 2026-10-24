@@ -28,8 +28,7 @@ on memory, apps counted whole.
 Those lists hold still to be read: values are averaged over a few
 readings, a row keeps its place until something clearly beats it, and the
 list is sorted again only when a new one clearly leads.
-A click shows one in Processes, a double click switches to an app, and a
-right click has the menu below.
+A click opens its window, and a right click has the menu below.
 .It Processes
 The apps first: each is the process whose windows are open, with every
 process it started, such as a browser's content processes, counted
@@ -55,6 +54,8 @@ Processes.
 A right click on a row, in Processes or the Overview, or the Process menu,
 offers:
 .Bl -tag -width "Switch To"
+.It Details…
+Open its window.
 .It Switch To
 Bring the app's window forward.
 .It End Task , End Process
@@ -81,6 +82,23 @@ Processes of other users can be listed but not ended.
 View chooses how often the machine is read (twice a second to every four
 seconds, or paused), whether to list only your processes, and the kernel's
 threads, hidden by default.
+.Ss Process windows
+A click on a process in the Overview or Performance, or a double click,
+Enter or Details… in Processes, opens a window of its own; several can be
+open, to compare.
+End and Kill (and Switch To, for an app) are on its title bar.
+It shows the process's state and the kernel function it is waiting in, a
+warning when that is a disk or device no signal interrupts; its command,
+program, folder, control group, CPU time, context switches, priority,
+out-of-memory score and open files against the limit; graphs of its CPU,
+memory, disk and GPU since the window opened; its memory, its own, files',
+shared and swapped out; an app's processes, each opening its own window;
+and its threads with each one's CPU, network connections, open files and
+environment.
+These come from
+.Pa /proc ,
+on Linux; another user's process shows less, and elsewhere only the graphs
+and command line.
 .Sh KEYS
 .Bl -tag -width "Shift+Delete"
 .It Up , Down , Home , End
@@ -88,7 +106,7 @@ Choose a row.
 .It Right , Left
 Open or close an app's processes.
 .It Enter
-Switch to the app's window.
+Open its window.
 .It Delete
 End it.
 .It Shift+Delete

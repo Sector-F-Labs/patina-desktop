@@ -15,10 +15,14 @@ use crate::icons::Icons;
 use crate::performance::{self, History, PerformanceView};
 use crate::processes::{self, Do, Model, Pick, ProcessesView};
 use crate::sample::{self, Ask, Signal, Snapshot};
+use crate::window::ProcessWindow;
 
 /// The shell's skins folder, the bar's.
 const SHELL: &str = "patina-bar";
 const SKIN_POLL: Duration = Duration::from_secs(1);
+/// The processes' own windows' app id, apart from the main window's, so
+/// Ctrl+Shift+Escape brings that one forward.
+const WINDOW_ID: &str = "com.sectorflabs.ProcessManager.Process";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum View {
@@ -103,6 +107,8 @@ pub struct App {
     processes: ProcessesView,
     pub performance: PerformanceView,
     busiest: crate::overview::Busiest,
+    /// The processes' own windows open, in the order they were opened.
+    windows: Vec<ProcessWindow>,
     icons: Icons,
     message: Option<Message>,
     /// Errors from switching to a window, which happens on a thread.
@@ -132,6 +138,7 @@ impl App {
             processes: ProcessesView::new(),
             performance: PerformanceView::new(),
             busiest: crate::overview::Busiest::new(),
+            windows: Vec::new(),
             icons: Icons::new(ctx),
             message: None,
             switched: mpsc::channel(),
@@ -181,6 +188,9 @@ impl App {
             let at = model.snapshot.at.duration_since(self.started).as_secs_f64();
             self.history.push(at, &model);
             self.busiest.update(&model);
+            for w in &mut self.windows {
+                w.push(at, &model);
+            }
             latest = Some(model);
         }
         if let Some(model) = latest {
@@ -219,9 +229,73 @@ impl App {
                     self.note(format!("Copied {text}"));
                 }
                 Do::Switch(pid) => self.switch_to(pid),
+                Do::Open(pick) => self.open_window(ctx, pick),
                 Do::Signal(pick, signal) => self.signal(ctx, pick, signal, false),
             }
         }
+    }
+
+    /// Opens `pick`'s own window, or brings it forward if it's open.
+    fn open_window(&mut self, ctx: &egui::Context, pick: Pick) {
+        if let Some(w) = self.windows.iter().find(|w| w.pick == pick) {
+            ctx.send_viewport_cmd_to(w.id(), egui::ViewportCommand::Focus);
+            return;
+        }
+        let Some(model) = &self.model else {
+            return;
+        };
+        self.windows
+            .push(ProcessWindow::new(pick, model, &mut self.icons, ctx));
+        self.watch();
+    }
+
+    /// Tells the reader whose details to read: the open windows'.
+    fn watch(&self) {
+        let mut pids: Vec<u32> = self.windows.iter().map(ProcessWindow::pid).collect();
+        pids.dedup();
+        let _ = self.ask.send(Ask::Watch(pids));
+    }
+
+    /// Each open process window, as a viewport of its own.
+    fn process_windows(&mut self, ctx: &egui::Context) {
+        let mut asked = Vec::new();
+        let mut closed = Vec::new();
+        for i in 0..self.windows.len() {
+            let w = &self.windows[i];
+            let builder = frame::viewport(
+                egui::ViewportBuilder::default()
+                    .with_title(w.title())
+                    .with_app_id(WINDOW_ID)
+                    .with_inner_size(crate::window::SIZE)
+                    .with_min_inner_size([480.0, 400.0]),
+                self.custom_frame,
+            );
+            ctx.show_viewport_immediate(w.id(), builder, |ui, _| {
+                if ui.ctx().input(|i| i.viewport().close_requested()) {
+                    closed.push(i);
+                }
+                asked.extend(self.window_ui(ui, i));
+            });
+        }
+        if !closed.is_empty() {
+            let mut i = 0;
+            self.windows.retain(|_| {
+                i += 1;
+                !closed.contains(&(i - 1))
+            });
+            self.watch();
+        }
+        self.act(ctx, asked);
+    }
+
+    /// The `i`th process window's contents.
+    fn window_ui(&mut self, ui: &mut Ui, i: usize) -> Vec<Do> {
+        let now = self.now();
+        let style = self.skins[self.skin].frame_style(ui.visuals());
+        let Some(model) = &self.model else {
+            return Vec::new();
+        };
+        self.windows[i].ui(ui, model, &mut self.icons, &style, self.custom_frame, now)
     }
 
     /// Brings forward `pid`'s window, through the compositor.
@@ -501,10 +575,6 @@ impl App {
                             self.performance.resource = resource;
                             self.view = View::Performance;
                         }
-                        crate::overview::Do::Reveal(pid) => {
-                            self.processes.reveal(model, pid);
-                            self.view = View::Processes;
-                        }
                         // Show Processes for an app: its processes, open.
                         crate::overview::Do::Process(Do::Toggle(pid)) => {
                             self.processes.reveal(model, pid);
@@ -540,13 +610,13 @@ impl App {
                             self.performance
                                 .ui(ui, model, &self.history, &mut self.icons, now);
                     });
-                for performance::Do::Reveal(pid) in reveal {
-                    self.processes.reveal(model, pid);
-                    self.view = View::Processes;
+                for performance::Do::Open(pick) in reveal {
+                    asked.push(Do::Open(pick));
                 }
             }
         }
         self.act(&ctx, asked);
+        self.process_windows(&ctx);
         self.confirm(&ctx);
 
         if self.custom_frame {
@@ -591,7 +661,6 @@ mod tests {
     #[ignore = "writes files"]
     fn preview_the_views() {
         let dir = PathBuf::from(std::env::var("PATINA_PROCESSES_PREVIEW").unwrap());
-        let (w, h) = (1240usize, 840usize);
         // The Performance view at the CPU, and at the first GPU.
         for (view, gpu) in [
             (View::Overview, false),
@@ -605,51 +674,80 @@ mod tests {
                 app.performance.resource = crate::performance::Resource::Gpu(0);
             }
             app.set_speed(Speed::Fast);
-            let mut painter = patina_shell::raster::Painter::default();
-            let mut pixels = vec![0u32; w * h];
             // Long enough for a few readings, and the icons.
-            for _ in 0..40 {
-                let input = egui::RawInput {
-                    screen_rect: Some(Rect::from_min_size(
-                        egui::pos2(0.0, 0.0),
-                        vec2(w as f32, h as f32),
-                    )),
-                    max_texture_side: Some(8192),
-                    ..Default::default()
-                };
-                let out = ctx.run_ui(input, |ui| app.draw(ui));
-                let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
-                painter.paint(
-                    &mut pixels,
-                    w,
-                    h,
-                    out.pixels_per_point,
-                    &primitives,
-                    &out.textures_delta,
-                );
-                std::thread::sleep(Duration::from_millis(100));
-            }
-            let rgba: Vec<u8> = pixels
-                .iter()
-                .flat_map(|p| {
-                    let [b, g, r, a] = p.to_le_bytes();
-                    [r, g, b, a]
-                })
-                .collect();
             let name = match (view, gpu) {
                 (View::Overview, _) => "overview.png",
                 (View::Processes, _) => "processes.png",
                 (View::Performance, false) => "performance.png",
                 (View::Performance, true) => "gpu.png",
             };
-            image::save_buffer(
-                dir.join(name),
-                &rgba,
-                w as u32,
-                h as u32,
-                image::ColorType::Rgba8,
-            )
-            .unwrap();
+            render(&ctx, [1240, 840], 40, &dir.join(name), |ui| app.draw(ui));
         }
+    }
+
+    /// Draws this test's own process window as process.png in
+    /// PATINA_PROCESSES_PREVIEW, after a few readings: `cargo test -p
+    /// patina-processes preview -- --ignored`.
+    #[test]
+    #[ignore = "writes a file"]
+    fn preview_a_process_window() {
+        let dir = PathBuf::from(std::env::var("PATINA_PROCESSES_PREVIEW").unwrap());
+        let ctx = egui::Context::default();
+        let mut app = App::new(&ctx, View::Overview);
+        app.set_speed(Speed::Fast);
+        // A first reading, to open it from.
+        while app.model.is_none() {
+            app.take_snapshots();
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        app.open_window(&ctx, Pick::Proc(std::process::id()));
+        let size = crate::window::SIZE.map(|s| s as usize);
+        render(&ctx, size, 40, &dir.join("process.png"), |ui| {
+            app.take_snapshots();
+            app.window_ui(ui, 0);
+        });
+    }
+
+    /// Runs `draw` `frames` times, a tenth of a second apart, in a window
+    /// `size` big, and saves the last as `file`.
+    fn render(
+        ctx: &egui::Context,
+        size: [usize; 2],
+        frames: usize,
+        file: &std::path::Path,
+        mut draw: impl FnMut(&mut Ui),
+    ) {
+        let [w, h] = size;
+        let mut painter = patina_shell::raster::Painter::default();
+        let mut pixels = vec![0u32; w * h];
+        for _ in 0..frames {
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(
+                    egui::pos2(0.0, 0.0),
+                    vec2(w as f32, h as f32),
+                )),
+                max_texture_side: Some(8192),
+                ..Default::default()
+            };
+            let out = ctx.run_ui(input, &mut draw);
+            let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+            painter.paint(
+                &mut pixels,
+                w,
+                h,
+                out.pixels_per_point,
+                &primitives,
+                &out.textures_delta,
+            );
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let rgba: Vec<u8> = pixels
+            .iter()
+            .flat_map(|p| {
+                let [b, g, r, a] = p.to_le_bytes();
+                [r, g, b, a]
+            })
+            .collect();
+        image::save_buffer(file, &rgba, w as u32, h as u32, image::ColorType::Rgba8).unwrap();
     }
 }

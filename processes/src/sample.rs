@@ -110,6 +110,8 @@ pub struct Snapshot {
     pub host: String,
     pub os: String,
     pub kernel: String,
+    /// The details of the processes whose windows are open.
+    pub details: HashMap<u32, crate::details::Details>,
 }
 
 /// What the window asks of the reader.
@@ -118,6 +120,8 @@ pub enum Ask {
     Every(Option<Duration>),
     /// Read now, after ending or pausing something.
     Now,
+    /// Read the details of these processes too, now and each time.
+    Watch(Vec<u32>),
 }
 
 /// Starts the reader, reading `every` so often; each snapshot comes back
@@ -148,13 +152,16 @@ pub fn start(
                 match next {
                     Ok(Ask::Every(d)) => every = d,
                     Ok(Ask::Now) => {}
+                    Ok(Ask::Watch(pids)) => reader.watched = pids,
                     Err(false) => {}
                     Err(true) => return,
                 }
                 // Asks queued meanwhile, the last speed winning.
                 while let Ok(a) = asked.try_recv() {
-                    if let Ask::Every(d) = a {
-                        every = d;
+                    match a {
+                        Ask::Every(d) => every = d,
+                        Ask::Watch(pids) => reader.watched = pids,
+                        Ask::Now => {}
                     }
                 }
             }
@@ -171,6 +178,9 @@ struct Reader {
     gpus: crate::gpu::Reader,
     /// The host's name, system and kernel, read once.
     host: (String, String, String),
+    /// The processes whose details are read, and their reader.
+    watched: Vec<u32>,
+    details: crate::details::Reader,
     last: Instant,
 }
 
@@ -188,6 +198,8 @@ impl Reader {
             users: Users::new_with_refreshed_list(),
             windows: None,
             gpus: crate::gpu::Reader::new(),
+            watched: Vec::new(),
+            details: crate::details::Reader::default(),
             host: (
                 System::host_name().unwrap_or_default(),
                 System::long_os_version().unwrap_or_default(),
@@ -363,6 +375,7 @@ impl Reader {
             host: self.host.0.clone(),
             os: self.host.1.clone(),
             kernel: self.host.2.clone(),
+            details: self.details.read(&self.watched, seconds),
         }
     }
 }
