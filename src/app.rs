@@ -624,7 +624,7 @@ impl Reader {
         let (custom, shown) = (!self.config.system_title_bar, self.tab);
         // The bar's two sides each need the window: one at a time.
         let this = std::cell::RefCell::new(&mut *self);
-        TitleBar::new(&title, style).custom(custom).menu_bar(true).show(
+        TitleBar::new(&title, style).custom(custom).menu_bar(true).span(span).show(
             ui,
             |ui| {
                 ui.menu_button("File", |ui| this.borrow_mut().file_menu(ui));
