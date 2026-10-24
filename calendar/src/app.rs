@@ -536,7 +536,7 @@ impl App {
         let mut left = Vec::new();
         let mut right = Vec::new();
         let view = self.config.view;
-        TitleBar::new(&title, style).custom(custom).menu_bar(true).show(
+        TitleBar::new(&title, style).custom(custom).menu_bar(true).span(frame::header_span(ui)).show(
             ui,
             |ui| self.menus(ui, &mut left),
             |ui| {
