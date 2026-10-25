@@ -19,6 +19,8 @@ serde = { version = "1", features = ["derive"] }
 # The syntect egui_extras highlights Patina's code blocks with, same features.
 syntect = { version = "5.3", default-features = false, features = ["default-fancy"] }
 toml = "1"
+# bat's syntaxes, precompiled: syntect's and TOML, TypeScript, Dockerfile... (ADR-0009).
+two-face = { version = "0.4", default-features = false, features = ["syntect-fancy"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

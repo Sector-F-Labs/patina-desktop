@@ -19,10 +19,11 @@ pub const MOST_BYTES: usize = 4 << 20;
 /// passes over them as it found them.
 const LONGEST_LINE: usize = 20_000;
 
-/// syntect's syntaxes, loaded once.
+/// The syntaxes, loaded once: bat's set, which is syntect's own and more
+/// (TOML, TypeScript, Dockerfile...) (ADR-0009).
 pub fn syntaxes() -> &'static SyntaxSet {
     static SET: OnceLock<SyntaxSet> = OnceLock::new();
-    SET.get_or_init(SyntaxSet::load_defaults_newlines)
+    SET.get_or_init(two_face::syntax::extra_newlines)
 }
 
 /// The themes Patina's code blocks use (egui_extras' defaults), so code
@@ -377,6 +378,7 @@ mod tests {
     fn finds_languages_by_name_and_first_line() {
         assert_eq!(detect(Some("main.rs"), "").as_deref(), Some("Rust"));
         assert_eq!(detect(Some("Makefile"), "").as_deref(), Some("Makefile"));
+        assert_eq!(detect(Some("Cargo.toml"), "").as_deref(), Some("TOML"));
         assert_eq!(detect(None, "#!/bin/sh\necho hi\n").as_deref(), Some("Bourne Again Shell (bash)"));
         assert_eq!(detect(Some("notes.txt"), "hello"), None);
         assert!(languages().contains(&"Rust"));
@@ -441,6 +443,15 @@ mod tests {
         }
         assert!(rounds > 1);
         assert_eq!(sections(&h), sections(&fresh(&edited)));
+    }
+
+    #[test]
+    fn toml_is_coloured() {
+        let mut h = Highlighter::new(Some("TOML".into()), true);
+        h.update("[package]\nname = \"text-editor\"\n");
+        done(&mut h);
+        let colours: std::collections::HashSet<Color32> = sections(&h).into_iter().map(|(_, c)| c).collect();
+        assert!(colours.len() >= 3, "{colours:?}");
     }
 
     #[test]

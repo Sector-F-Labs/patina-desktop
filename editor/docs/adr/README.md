@@ -49,6 +49,7 @@ mechanics of adding one.
 | [0006](0006-files-changed-on-disk.md) | A file changed on disk is read again, unless the tab has changes of its own | Accepted |
 | [0007](0007-saving.md) | Saving replaces the file whole, keeping its line ends, encoding mark and permissions | Proposed |
 | [0008](0008-the-name.md) | It's called Text Editor, `text-editor`, `com.sectorflabs.TextEditor` | Proposed |
+| [0009](0009-languages-from-bats-syntax-set.md) | The languages are bat's syntax set, through two-face | Accepted |
 
 ## Decision Relationship
 
@@ -61,6 +62,7 @@ flowchart TD
     D --> F[0006: files changed on disk]
     A --> G[0007: saving]
     A --> H[0008: the name]
+    C --> I[0009: bat's syntax set]
 ```
 
 ## Revisit Triggers

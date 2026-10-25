@@ -15,8 +15,8 @@ across restarts, in Patina's frame and skins.
   untitled ones never saved. Closing a tab with changes asks first.
 - **Find and replace** (Ctrl+F, Ctrl+H) with match case, whole words and regular expressions
   (`$1` in the replacement), every match marked.
-- **Highlighting** for the languages syntect knows, by file name or `#!` line, or chosen in the
-  status bar; recoloured a line at a time as you type.
+- **Highlighting** for bat's 199 languages (TOML, Rust, TypeScript, Dockerfile...), by file name
+  or `#!` line, or chosen in the status bar; recoloured a line at a time as you type.
 - **Indenting:** Tab and Shift+Tab indent and outdent the selected lines, Enter keeps the line's
   indent; spaces or tabs, guessed from the file.
 - **Files as they were:** Windows line ends, a byte-order mark and the file's permissions are kept;
