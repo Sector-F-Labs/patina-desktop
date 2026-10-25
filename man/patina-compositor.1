@@ -69,7 +69,9 @@ gaps, the few pixels either side of where they touch) shows a left-right
 arrow: dragging it grows the windows on one side as it shrinks those on the
 other, keeping the gap, and the tiler keeps the new split.
 Only the app's own maximise button (or a double click on its title bar)
-maximises a window, edge to edge even with gaps.
+maximises a window, edge to edge.
+With gaps on, it fills the screen inside the gaps instead, as Super+Up does,
+and keeps its rounded corners; the app's maximise again restores it.
 The bar's tabs are the list of windows: Alt+Tab steps along them, and
 closing a window gives the keyboard back to the window it came from, or,
 if that's gone, focuses its neighbouring tab.
@@ -324,8 +326,8 @@ logical pixels (8 by default, up to 64) around and between them, and
 .Xr patina-bar 1
 floats that far off the screen's edges with corners rounded by
 .Ic radius .
-Maximised windows still fill the screen edge to edge, and tiled ones keep
-their rounded corners.
+Tiled windows keep their rounded corners, and an app's maximise fills
+inside the gaps like Super+Up rather than edge to edge.
 Off by default.
 .It Ic [bindings]
 Keys that run commands, such as

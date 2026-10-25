@@ -134,6 +134,7 @@ mechanics of adding one.
 | [0090](0090-the-kernels-log-and-pressure-say-whats-wrong.md) | The kernel's log and pressure say what's wrong, on the Overview and a Log tab | Proposed |
 | [0091](0091-print-offers-the-screen-a-window-or-a-selection.md) | The Print key offers the screen, a window or a selection | Accepted |
 | [0092](0092-screen-capture-for-apps-and-recording.md) | Screen capture for apps, through the portal, and the desktop's own recording | Accepted |
+| [0093](0093-with-gaps-maximising-fills.md) | With gaps on, an app's maximise fills inside the gaps, unannounced | Accepted |
 
 ## Decision Relationship
 

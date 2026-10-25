@@ -336,9 +336,17 @@ impl State {
     }
 
     /// Asks `window` to fill the work area, maximised: only for the app's
-    /// own request.
+    /// own request. With gaps on (ADR-0093) it fills inside them instead,
+    /// never told it's maximised, so it keeps its corners; since its button
+    /// then never shows restore, asking again while it fills restores it.
     pub fn maximize(&mut self, window: &Window) {
-        self.place_as(window, Placement::Maximized);
+        if self.config.gap() == 0 {
+            self.place_as(window, Placement::Maximized);
+        } else if placement(window) == Some(Placement::Fill) {
+            self.unmaximize(window, None);
+        } else {
+            self.place_as(window, Placement::Fill);
+        }
     }
 
     /// Puts `window` back where it was before it was placed; `at` overrides

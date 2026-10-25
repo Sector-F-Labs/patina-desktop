@@ -6,7 +6,8 @@ Date: 2026-10-17
 
 Proposed. The user asked that only the maximise button maximise an app. Tiling a window upward
 should fill the screen, but not as an explicit maximise, so that it looks right with gaps
-(ADR-0051).
+(ADR-0051). With gaps on, the app's maximise fills too: amended by
+[ADR-0093](0093-with-gaps-maximising-fills.md).
 
 ## Context
 
