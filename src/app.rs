@@ -968,9 +968,9 @@ impl Reader {
                 });
             }
             Some(Shown::Rust(text)) => {
-                // Source sits on the skin's code background, as code blocks do.
+                // Source sits on the text-field background, as code blocks do (ADR-0010).
                 egui::Frame::new()
-                    .fill(ui.visuals().code_bg_color)
+                    .fill(ui.visuals().extreme_bg_color)
                     .corner_radius(6)
                     .inner_margin(egui::Margin::symmetric(14, 10))
                     .show(ui, |ui| {

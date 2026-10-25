@@ -4,7 +4,7 @@ Date: 2026-10-16
 
 ## Status
 
-Accepted
+Superseded by [ADR-0010](0010-source-on-the-text-field-background.md)
 
 ## Context
 
