@@ -1,0 +1,15 @@
+[package]
+name = "patina-screenshot"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's screenshot chooser, on the Print key: the screen, a window, or a part of it"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+egui = "0.35"
+patina-shell = { workspace = true }
+patina-ui = { workspace = true }
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }

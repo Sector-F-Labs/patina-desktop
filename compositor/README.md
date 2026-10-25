@@ -32,8 +32,9 @@ this workspace is a Wayland client of it.
   second of a save. The defaults are `keys.toml`, built in (ADR-0075); Alt+Tab is fixed with
   the escape hatches. `[remap]` sends the focused window any combination as another
   (`remap.rs`, ADR-0076). These are the defaults. Super alone or Super+Space opens the launcher; Ctrl+Super+Q and Super+Escape lock
-  (ADR-0026); Super+Shift+3 or Print screenshots the desktop and Super+Shift+4 the focused window
-  (ADR-0034); the brightness and volume keys change them and flash the volume menu (ADR-0020,
+  (ADR-0026); Super+Shift+3 screenshots the desktop and Super+Shift+4 the focused window
+  (ADR-0034), and Print or Super+Shift+5 offers those or a selection through patina-screenshot
+  (ADR-0091); the brightness and volume keys change them and flash the volume menu (ADR-0020,
   ADR-0033); Ctrl+Space switches keyboard layout; Super+Shift+R reloads the config.
 - **A right click on the empty desktop** opens patina-menu at the pointer (ADR-0029).
 - **X11 apps** (Steam, Discord, Wine) run through Xwayland (ADR-0040), started with the

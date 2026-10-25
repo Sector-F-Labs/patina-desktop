@@ -68,9 +68,14 @@ puts them in `$(PREFIX)/share/man`.
   it again on exit status 75 (`session::RESTART`, Ctrl+Alt+Shift+Backspace or `RestartDesktop`) or a
   crash. `compositor/src/session.rs` is the compositor's side, with the marker that keeps the screen
   locked across a restart.
-- `compositor/src/screenshot.rs`: Super+Shift+3/4 and Print (ADR-0034): the desktop or the focused
+- `compositor/src/screenshot.rs`: Super+Shift+3/4 (ADR-0034): the desktop or the focused
   window drawn offscreen with the backend's renderer, saved as a PNG on a thread; then a `Flash`
   each backend draws on top (`flash_element`, `overlay`).
+  Print and Super+Shift+5 (ADR-0091) start `screenshot/` (patina-screenshot), a patina-shell
+  pill offering screen, window or selection, which prints the choice and exits;
+  `screenshot/menu.rs` reads it, and `screenshot/select.rs` is the drag-out selection, drawn
+  as solid-colour elements beside the flash, with the pointer kept from the windows.
+  `PATINA_SCREENSHOT_PREVIEW=dir cargo test -p patina-screenshot preview -- --ignored` draws it.
 - `compositor/src/cmd.rs`: Super is Cmd (ADR-0067): a Super key the compositor doesn't keep is sent
   to the focused client as Ctrl+key (Ctrl+Shift to a terminal, by its desktop entry's category, and
   Super+Shift+key there as Ctrl+Alt+Shift+key),

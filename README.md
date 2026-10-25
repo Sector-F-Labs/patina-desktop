@@ -20,6 +20,9 @@ A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
 - **[patina-volume](volume/README.md)** (`volume/`): the volume menu, opened by the bar's speaker: mute, a slider
   and the level. It also fades in briefly when the volume or brightness keys are used, showing
   the volume or the brightness, and stays up while they're pressed.
+- **[patina-screenshot](screenshot/README.md)** (`screenshot/`): what the Print key opens, a pill
+  at the bottom of the screen like dictation's: the screen, the focused window, or a selection
+  dragged out with the pointer, which the compositor then takes.
 - **[patina-wifi](wifi/README.md)** (`wifi/`): the Wi-Fi menu, opened by the bar's Wi-Fi icon: networks in range,
   joining (with a password box for new ones), disconnecting and Wi-Fi on and off, through
   NetworkManager.
@@ -77,8 +80,9 @@ second, ADR-0069): **Super** or **Super+Space** opens launcher, **Super+1–9** 
 half-screen tile (**Ctrl+Super+K/J/H/L** too), **Super+Shift+arrows** grow/shrink by 1/10 screen,
 **Ctrl+Super+Shift+K/J/L/H** resize around centre, drag a maximised/tiled window to restore under pointer, **Super+W** close
 window, **Super+Q** quit app, **Super+M** minimise to its tab, **Ctrl+Space** switch keyboard layout, **Super+Shift+R** reload
-config, **Super+Shift+3** or **Print** screenshots the desktop and **Super+Shift+4** the focused
-window (to ~/Pictures/Screenshots), brightness/volume keys work with on-screen flash.
+config, **Super+Shift+3** screenshots the desktop and **Super+Shift+4** the focused window (to
+~/Pictures/Screenshots), **Print** or **Super+Shift+5** offers the screen, the window or a
+selection, brightness/volume keys work with on-screen flash.
 
 ## The bar's config
 

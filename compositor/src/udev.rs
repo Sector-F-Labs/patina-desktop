@@ -509,6 +509,7 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             | KeyAction::Minimize
             | KeyAction::Lock
             | KeyAction::Screenshot(_)
+            | KeyAction::ScreenshotMenu
             | KeyAction::Dictate,
         )
         | None => {}
@@ -576,11 +577,13 @@ fn render(state: &mut State) {
     let locked = state.locked();
     let lock_surface = state.lock_surface().cloned();
     state.needs_redraw = false;
-    // A screenshot's flash, then where a drop would tile (ADR-0049).
+    // A screenshot's flash, where a drop would tile (ADR-0049), and a
+    // selection being made (ADR-0091).
     let flash: Vec<_> = state
         .flash_element()
         .into_iter()
         .chain(state.preview_element())
+        .chain(state.selection_elements())
         .collect();
     let dnd_icon = state.dnd_icon_at();
     let fullscreen = state.fullscreen_drawn();
@@ -632,6 +635,7 @@ fn render(state: &mut State) {
                 &state.space,
                 &state.output,
                 state.fullscreen.as_ref(),
+                false,
             )
             .into_iter()
             .map(OutputElement::Desktop),

@@ -137,11 +137,15 @@ Grow and shrink the focused window around its centre.
 Widen and narrow it.
 .It Super+Escape , Ctrl+Super+Q
 Lock the screen.
-.It Super+Shift+3 , Print
+.It Super+Shift+3
 Save a screenshot of the desktop in
 .Pa ~/Pictures/Screenshots .
 .It Super+Shift+4
 Save a screenshot of the focused window.
+.It Print , Super+Shift+5
+Offer the desktop, the focused window or a selection dragged out with the
+pointer, with
+.Xr patina-screenshot 1 .
 .It Ctrl+Space
 Switch to the next keyboard layout, as on a Mac.
 .It Ctrl+Super+Alt
@@ -339,7 +343,7 @@ or [] takes its keys away, and a Super key no action has goes to the app as
 Ctrl.
 The actions are
 .Ic launcher , next_layout , quit_app , minimise , lock ,
-.Ic reload , screenshot , screenshot_window , dictate
+.Ic reload , screenshot , screenshot_window , screenshot_menu , dictate
 (which may be modifiers alone, held, as
 .Dq Ctrl+Super+Alt ) ,
 .Ic snap_ Ns Ar side

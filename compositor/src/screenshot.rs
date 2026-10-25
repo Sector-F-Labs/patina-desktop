@@ -1,8 +1,12 @@
-//! Screenshots, with the Mac's keys (ADR-0034): Super+Shift+3 (or the
-//! Print key) takes the whole desktop, Super+Shift+4 the focused window.
-//! The compositor draws what it would show into an image of its own, with
-//! whichever renderer it's using, and a thread saves it as a PNG in
-//! ~/Pictures/Screenshots, named as macOS names them.
+//! Screenshots, with the Mac's keys (ADR-0034): Super+Shift+3 takes the
+//! whole desktop, Super+Shift+4 the focused window. The Print key (and
+//! Super+Shift+5) offers the choice, a selection too (ADR-0091, `menu.rs`,
+//! `select.rs`). The compositor draws what it would show into an image of
+//! its own, with whichever renderer it's using, and a thread saves it as a
+//! PNG in ~/Pictures/Screenshots, named as macOS names them.
+
+pub mod menu;
+pub mod select;
 
 use std::path::{Path, PathBuf};
 
@@ -31,11 +35,23 @@ use crate::state::State;
 /// What a screenshot takes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Shot {
-    /// Everything on screen but the pointer (Super+Shift+3, Print).
+    /// Everything on screen but the pointer (Super+Shift+3).
     Desktop,
     /// The focused window, to its edges, without the desktop behind it
     /// (Super+Shift+4).
     Window,
+}
+
+/// The Print key's choices and a selection being made (ADR-0091).
+#[derive(Default)]
+pub struct Shots {
+    /// patina-screenshot is showing the choices.
+    pub menu_open: bool,
+    /// The window focused when they were opened, to take if it's chosen.
+    pub window: Option<Window>,
+    /// Where the choice reaches the event loop, once it's been set up.
+    pub chosen: Option<smithay::reexports::calloop::channel::Sender<Option<menu::Choice>>>,
+    pub selecting: Option<select::Selecting>,
 }
 
 /// Pixels as a PNG wants them: rows from the top, RGBA, not premultiplied.
@@ -59,6 +75,16 @@ impl State {
                 }
             },
         };
+        self.take_screenshot(window, None);
+    }
+
+    /// Takes `window`, or else the desktop, or `area` of it, and saves it
+    /// on a thread.
+    pub fn take_screenshot(
+        &mut self,
+        window: Option<Window>,
+        area: Option<Rectangle<i32, Logical>>,
+    ) {
         let framed = window.as_ref().is_some_and(|w| self.framed(w));
         let (space, output) = (&self.space, &self.output);
         let fullscreen = self.fullscreen.as_ref();
@@ -93,11 +119,26 @@ impl State {
         } else {
             return;
         };
+        let screen = self.space.output_geometry(&self.output);
+        let picture = match (picture, area, screen) {
+            (Ok(picture), Some(area), Some(screen)) => {
+                let scale = self.output.current_scale().fractional_scale();
+                crop(
+                    &picture,
+                    Rectangle::new(
+                        (area.loc - screen.loc).to_physical_precise_round(scale),
+                        area.size.to_physical_precise_round(scale),
+                    ),
+                )
+            }
+            (picture, ..) => picture,
+        };
         match picture {
             Ok(picture) => {
-                let area = match window {
-                    Some(window) => self.outer_rect(window),
-                    None => self.space.output_geometry(&self.output),
+                let area = match (window, area) {
+                    (Some(window), _) => self.outer_rect(window),
+                    (None, Some(area)) => area.intersection(screen.unwrap_or(area)),
+                    (None, None) => screen,
                 };
                 if let Some(area) = area {
                     self.flash = Some(Flash::new(area));
@@ -194,7 +235,13 @@ where
         .chain(
             desktop
                 .map(|space| {
-                    crate::frames::desktop_elements(renderer, space, output, fullscreen_window)
+                    crate::frames::desktop_elements(
+                        renderer,
+                        space,
+                        output,
+                        fullscreen_window,
+                        false,
+                    )
                 })
                 .unwrap_or_default()
                 .into_iter()
@@ -247,7 +294,8 @@ where
     match window {
         None => {
             let size = output.current_mode().ok_or("the output has no mode")?.size;
-            let elements = crate::frames::desktop_elements(renderer, space, output, fullscreen);
+            let elements =
+                crate::frames::desktop_elements(renderer, space, output, fullscreen, true);
             draw::<R, T, _>(renderer, &elements, size, scale, crate::nested::BACKGROUND)
         }
         Some(window) => {
@@ -314,6 +362,29 @@ where
     Ok(Picture {
         width: size.w as u32,
         height: size.h as u32,
+        rgba,
+    })
+}
+
+/// `area` of `picture`, as much of it as is in the picture.
+fn crop(picture: &Picture, area: Rectangle<i32, Physical>) -> Result<Picture, String> {
+    let whole = Rectangle::from_size((picture.width as i32, picture.height as i32).into());
+    let area = area
+        .intersection(whole)
+        .filter(|a| a.size.w > 0 && a.size.h > 0)
+        .ok_or("the selection is off the screen")?;
+    let stride = picture.width as usize * 4;
+    let (x, w) = (area.loc.x as usize * 4, area.size.w as usize * 4);
+    let rgba = (area.loc.y..area.loc.y + area.size.h)
+        .flat_map(|y| {
+            let row = y as usize * stride + x;
+            &picture.rgba[row..row + w]
+        })
+        .copied()
+        .collect();
+    Ok(Picture {
+        width: area.size.w as u32,
+        height: area.size.h as u32,
         rgba,
     })
 }
@@ -404,6 +475,23 @@ mod tests {
         let half = Flash::opacity(FLASH / 2);
         assert!(half > 0.0 && half < FLASH_START / 2.0, "eases out");
         assert_eq!(Flash::opacity(FLASH), 0.0);
+    }
+
+    #[test]
+    fn a_selection_is_cut_out_and_kept_on_the_picture() {
+        // 3x2, each pixel's red its index.
+        let picture = Picture {
+            width: 3,
+            height: 2,
+            rgba: (0..6).flat_map(|i| [i, 0, 0, 255]).collect(),
+        };
+        let cut = crop(&picture, Rectangle::new((1, 0).into(), (2, 2).into())).unwrap();
+        assert_eq!((cut.width, cut.height), (2, 2));
+        let reds: Vec<u8> = cut.rgba.chunks(4).map(|p| p[0]).collect();
+        assert_eq!(reds, [1, 2, 4, 5]);
+        let past = crop(&picture, Rectangle::new((2, 1).into(), (5, 5).into())).unwrap();
+        assert_eq!((past.width, past.height), (1, 1));
+        assert!(crop(&picture, Rectangle::new((5, 5).into(), (2, 2).into())).is_err());
     }
 
     #[test]

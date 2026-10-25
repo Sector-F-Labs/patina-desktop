@@ -150,6 +150,8 @@ pub struct State {
     pub split_hover: bool,
     /// A screenshot's flash, fading out over what was taken.
     pub flash: Option<crate::screenshot::Flash>,
+    /// The Print key's choices, and a selection being made (ADR-0091).
+    pub shots: crate::screenshot::Shots,
     /// What a client is dragging, drawn at the pointer.
     pub dnd_icon: Option<crate::dnd::Icon>,
     /// The window covering the screen, if one is (ADR-0041).
@@ -301,6 +303,7 @@ impl State {
             grab_cursor: None,
             split_hover: false,
             flash: None,
+            shots: Default::default(),
             dnd_icon: None,
             fullscreen: None,
             minimized: Default::default(),
@@ -360,6 +363,20 @@ impl State {
         // On the hardware the compositor draws the pointer itself.
         self.needs_redraw = true;
         let pointer = self.seat.get_pointer().expect("seat has a pointer");
+        // Selecting a part of the screen to take, no window has the pointer.
+        if self.select_moved(pos) {
+            pointer.motion(
+                self,
+                None,
+                &MotionEvent {
+                    location: pos,
+                    serial: SERIAL_COUNTER.next_serial(),
+                    time,
+                },
+            );
+            pointer.frame(self);
+            return;
+        }
         // On the line between tiled windows, neither window has the
         // pointer.
         // Nor on a window's frame (ADR-0077).
@@ -404,6 +421,10 @@ impl State {
                 },
             );
             pointer.frame(self);
+            return;
+        }
+        // Selecting a part of the screen to take, clicks are the selection's.
+        if self.select_button(button, pressed, pointer.current_location()) {
             return;
         }
         // A click on the line between tiled windows drags it (ADR-0054).

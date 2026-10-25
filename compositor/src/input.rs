@@ -17,6 +17,9 @@ use smithay::{
 
 use crate::state::State;
 
+/// Escape's evdev code.
+const KEY_ESC: u32 = 1;
+
 /// patina-processes' app id.
 const PROCESS_MANAGER_ID: &str = "com.sectorflabs.ProcessManager";
 
@@ -66,8 +69,11 @@ pub enum KeyAction {
     Minimize,
     /// Lock the screen (Super+Escape).
     Lock,
-    /// Take a screenshot (Super+Shift+3 or 4, Print).
+    /// Take a screenshot (Super+Shift+3 or 4).
     Screenshot(crate::screenshot::Shot),
+    /// Offer the screen, the window or a selection to take (Print,
+    /// Super+Shift+5, ADR-0091).
+    ScreenshotMenu,
     /// Dictate while the key is held (Ctrl+Super+Alt, ADR-0072): the bus
     /// is told when it goes down and up, and patina-dictate listens.
     Dictate,
@@ -165,6 +171,11 @@ impl State {
         // Caps Lock held as a layer (ADR-0086) is the compositor's alone.
         if code == crate::caps::KEY && self.caps_is_layer(pressed) {
             self.caps_key(pressed, time);
+            return None;
+        }
+        // Escape ends a selection being made (ADR-0091).
+        if pressed && code == KEY_ESC && self.shots.selecting.is_some() {
+            self.cancel_selecting();
             return None;
         }
         let keyboard = self.seat.get_keyboard().expect("seat has a keyboard");
@@ -343,6 +354,10 @@ impl State {
             }
             Some(KeyAction::Screenshot(shot)) => {
                 self.screenshot(shot);
+                None
+            }
+            Some(KeyAction::ScreenshotMenu) => {
+                self.open_screenshot_menu();
                 None
             }
             Some(KeyAction::Dictate) => {

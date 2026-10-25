@@ -1,0 +1,46 @@
+.Dd October 25, 2026
+.Dt PATINA-SCREENSHOT 1
+.Os
+.Sh NAME
+.Nm patina-screenshot
+.Nd the Patina desktop's screenshot choices
+.Sh SYNOPSIS
+.Nm
+.Op Fl -no-window
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is what the Print key opens: a pill at the bottom of the screen offering
+the whole screen, the window that was focused, or a selection, a part of
+the screen dragged out with the pointer.
+A click or Enter takes the one under the pointer or the keyboard;
+the arrows and Tab move between them, and 1, 2 and 3 choose one outright.
+Escape, the close button, or the keyboard going elsewhere closes it
+without taking anything.
+.Pp
+It prints the choice,
+.Dq screen ,
+.Dq window
+or
+.Dq selection ,
+and exits; closed, it prints nothing.
+.Xr patina-compositor 1 ,
+which runs it, then takes the screenshot itself, once it's gone, and saves
+it in
+.Pa ~/Pictures/Screenshots .
+For a selection, the compositor dims the screen under a crosshair: drag
+out the part to take and let go.
+Escape, another button, or a click without a drag takes nothing.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl -no-window
+Offer no window, for when none is focused.
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-desktop 7

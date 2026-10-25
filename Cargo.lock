@@ -3218,6 +3218,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-screenshot"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "image",
+ "patina-shell",
+ "patina-ui",
+]
+
+[[package]]
 name = "patina-session"
 version = "0.1.0"
 dependencies = [

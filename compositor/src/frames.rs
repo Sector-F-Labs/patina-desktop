@@ -368,12 +368,14 @@ render_elements! {
 /// The desktop on `output`, top first, as Smithay's `space_render_elements`
 /// draws it (the top and overlay layers, the windows, then the bottom and
 /// background layers), with each framed window's frame beside it in the
-/// stacking order; `fullscreen` is drawn without one.
+/// stacking order; `fullscreen` is drawn without one. For a `shot`, the
+/// screenshot chooser is left out (ADR-0091), in case it's still mapped.
 pub fn desktop_elements<R>(
     renderer: &mut R,
     space: &Space<Window>,
     output: &Output,
     fullscreen: Option<&Window>,
+    shot: bool,
 ) -> Vec<DesktopElement<R>>
 where
     R: Renderer + ImportAll + ImportMem,
@@ -385,6 +387,7 @@ where
     let (lower, upper): (Vec<_>, Vec<_>) = layer_map
         .layers()
         .rev()
+        .filter(|s| !(shot && s.namespace() == crate::screenshot::menu::NAMESPACE))
         .partition(|s| matches!(s.layer(), Layer::Background | Layer::Bottom));
     let layers = |renderer: &mut R, surfaces: Vec<_>, elements: &mut Vec<DesktopElement<R>>| {
         for surface in surfaces {

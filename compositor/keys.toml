@@ -30,8 +30,10 @@ quit_app = "Super+Q"
 minimise = "Super+M"
 lock = ["Super+Escape", "Ctrl+Super+Q"]
 reload = "Super+Shift+R"
-screenshot = ["Super+Shift+3", "Print"]
+screenshot = "Super+Shift+3"
 screenshot_window = "Super+Shift+4"
+# The screen, the window or a selection, as Cmd+Shift+5 offers them.
+screenshot_menu = ["Print", "Super+Shift+5"]
 # Held while speaking.
 dictate = "Ctrl+Super+Alt"
 

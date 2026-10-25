@@ -67,6 +67,7 @@ fn action(name: &str) -> Option<KeyAction> {
         "reload" => KeyAction::Reload,
         "screenshot" => KeyAction::Screenshot(Shot::Desktop),
         "screenshot_window" => KeyAction::Screenshot(Shot::Window),
+        "screenshot_menu" => KeyAction::ScreenshotMenu,
         "dictate" => KeyAction::Dictate,
         "snap_up" => KeyAction::Snap(Snap::Up),
         "snap_down" => KeyAction::Snap(Snap::Down),
@@ -385,9 +386,10 @@ mod tests {
             at("Super+Shift", keysyms::KEY_3),
             Some(KeyAction::Screenshot(Shot::Desktop))
         );
+        assert_eq!(at("", keysyms::KEY_Print), Some(KeyAction::ScreenshotMenu));
         assert_eq!(
-            at("", keysyms::KEY_Print),
-            Some(KeyAction::Screenshot(Shot::Desktop))
+            at("Super+Shift", keysyms::KEY_5),
+            Some(KeyAction::ScreenshotMenu)
         );
         assert_eq!(
             at("Super+Shift", keysyms::KEY_4),
