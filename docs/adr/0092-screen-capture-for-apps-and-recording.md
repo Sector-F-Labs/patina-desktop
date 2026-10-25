@@ -4,7 +4,7 @@ Date: 2026-10-25
 
 ## Status
 
-Proposed. The user found OBS couldn't see the screen, and asked for capture to work for other
+Accepted, tested on nifl. The user found OBS couldn't see the screen, and asked for capture to work for other
 programs and for recording to be a choice in the Print key's menu (ADR-0091).
 
 ## Context

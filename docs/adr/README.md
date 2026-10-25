@@ -132,8 +132,8 @@ mechanics of adding one.
 | [0088](0088-a-process-manager-on-ctrl-shift-escape.md) | A process manager, patina-processes, on Ctrl+Shift+Escape, a key no config can take | Proposed |
 | [0089](0089-each-process-opens-a-window-of-its-own.md) | Each process opens a window of its own, with its graphs and details | Proposed |
 | [0090](0090-the-kernels-log-and-pressure-say-whats-wrong.md) | The kernel's log and pressure say what's wrong, on the Overview and a Log tab | Proposed |
-| [0091](0091-print-offers-the-screen-a-window-or-a-selection.md) | The Print key offers the screen, a window or a selection | Proposed |
-| [0092](0092-screen-capture-for-apps-and-recording.md) | Screen capture for apps, through the portal, and the desktop's own recording | Proposed |
+| [0091](0091-print-offers-the-screen-a-window-or-a-selection.md) | The Print key offers the screen, a window or a selection | Accepted |
+| [0092](0092-screen-capture-for-apps-and-recording.md) | Screen capture for apps, through the portal, and the desktop's own recording | Accepted |
 
 ## Decision Relationship
 

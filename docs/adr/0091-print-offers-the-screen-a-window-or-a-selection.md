@@ -4,7 +4,7 @@ Date: 2026-10-25
 
 ## Status
 
-Proposed. The user asked for the Print key, not the Mac's shortcuts, to open a HUD like
+Accepted, tested on nifl. The user asked for the Print key, not the Mac's shortcuts, to open a HUD like
 dictation's with the choice of the full screen, a window, or a part of the desktop.
 
 ## Context
