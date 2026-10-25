@@ -12,15 +12,12 @@ eframe = { version = "0.35", features = ["persistence"] }
 egui = "0.35"
 image = { version = "0.25", default-features = false, features = ["png"] }
 notify = "8"
-patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+# Patina's develop branch, with its highlighter (Patina's ADR-0027, ADR-0010 here).
+patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop", features = ["highlight"] }
 regex = "1"
 rfd = "0.17"
 serde = { version = "1", features = ["derive"] }
-# The syntect egui_extras highlights Patina's code blocks with, same features.
-syntect = { version = "5.3", default-features = false, features = ["default-fancy"] }
 toml = "1"
-# bat's syntaxes, precompiled: syntect's and TOML, TypeScript, Dockerfile... (ADR-0009).
-two-face = { version = "0.4", default-features = false, features = ["syntect-fancy"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

@@ -16,7 +16,7 @@ use crate::config::{APP, Config};
 use crate::document::{Document, OnDisk};
 use crate::files::{self, Ending, Loaded};
 use crate::find::{self, Query};
-use crate::highlight;
+use patina::highlight;
 use crate::indent;
 use crate::session::{self, SavedTab, Session};
 use crate::view::{self, Look};

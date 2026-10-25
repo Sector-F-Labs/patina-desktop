@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use crate::files::{self, Ending, Loaded};
-use crate::highlight::{self, Highlighter};
+use patina::highlight::{self, Highlighter};
 use crate::indent::{self, Indent};
 
 /// The file changed on disk while the tab had changes of its own.

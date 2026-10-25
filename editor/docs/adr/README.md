@@ -43,13 +43,14 @@ mechanics of adding one.
 |---|-------|--------|
 | [0001](0001-a-text-editor-on-patina.md) | Build a text editor as a native egui app on Patina | Accepted |
 | [0002](0002-egui-textedit-as-the-editing-surface.md) | egui's TextEdit is the editing surface | Proposed |
-| [0003](0003-highlighting-a-line-at-a-time.md) | Syntax highlighting with syntect, a line at a time and kept between edits | Proposed |
+| [0003](0003-highlighting-a-line-at-a-time.md) | Syntax highlighting with syntect, a line at a time and kept between edits | Superseded by [0010](0010-the-highlighter-lives-in-patina.md) |
 | [0004](0004-sessions-and-drafts.md) | The tabs and their unsaved text are kept across restarts; quitting never asks | Accepted |
 | [0005](0005-one-window.md) | One window: a second start hands its files to the first | Proposed |
 | [0006](0006-files-changed-on-disk.md) | A file changed on disk is read again, unless the tab has changes of its own | Accepted |
 | [0007](0007-saving.md) | Saving replaces the file whole, keeping its line ends, encoding mark and permissions | Proposed |
 | [0008](0008-the-name.md) | It's called Text Editor, `text-editor`, `com.sectorflabs.TextEditor` | Proposed |
-| [0009](0009-languages-from-bats-syntax-set.md) | The languages are bat's syntax set, through two-face | Accepted |
+| [0009](0009-languages-from-bats-syntax-set.md) | The languages are bat's syntax set, through two-face | Superseded by [0010](0010-the-highlighter-lives-in-patina.md) |
+| [0010](0010-the-highlighter-lives-in-patina.md) | The highlighter lives in Patina | Accepted |
 
 ## Decision Relationship
 
@@ -63,11 +64,13 @@ flowchart TD
     A --> G[0007: saving]
     A --> H[0008: the name]
     C --> I[0009: bat's syntax set]
+    C --> J[0010: the highlighter lives in Patina]
+    I --> J
 ```
 
 ## Revisit Triggers
 
 - Editing files of several megabytes matters: a widget of our own over a rope ([ADR-0002](0002-egui-textedit-as-the-editing-surface.md)).
-- Skins should colour code: scopes mapped to colours in `[app.text-editor]` ([ADR-0003](0003-highlighting-a-line-at-a-time.md)).
+- Skins should colour code: scopes mapped to colours in `[app.text-editor]` (Patina's ADR-0027).
 - Someone wants quitting to ask instead: a Restore Session setting ([ADR-0004](0004-sessions-and-drafts.md)).
 - Files in other encodings need editing ([ADR-0007](0007-saving.md)).

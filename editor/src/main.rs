@@ -7,7 +7,6 @@ mod config;
 mod document;
 mod files;
 mod find;
-mod highlight;
 mod indent;
 mod instance;
 mod session;

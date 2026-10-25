@@ -23,8 +23,8 @@ saves or keeps the session; use the `adr` skill to add one.
   results, drafts and session.
 - `src/view.rs`: the editing area, egui's `TextEdit` (ADR-0002) with line numbers, the cursor's
   line, indent keys, undo, the context menu; tested with real pointer and key events.
-- `src/highlight.rs`: syntect a line at a time, kept between edits (ADR-0003), over bat's
-  syntaxes from two-face (ADR-0009).
+- Highlighting is Patina's `patina::highlight` (ADR-0010, Patina's ADR-0027): syntect a line at a
+  time, kept between edits, over bat's syntaxes. Change it in Patina.
 - `src/find.rs`: searches as regexes, replacing, marking matches in a layout job.
 - `src/indent.rs`: Tab, Shift+Tab and Enter; guessing a file's indentation. Positions in chars.
 - `src/document.rs`: a tab's text, file, saved fingerprint and state.
@@ -39,6 +39,6 @@ saves or keeps the session; use the `adr` skill to add one.
 ## Rules
 
 - Paint colours only from `ui.visuals()`, so skins reach them (syntax colours are syntect's,
-  ADR-0003).
+  Patina's ADR-0027).
 - Files change on disk only when the user saves. I/O stays off the window's thread.
 - In egui, `consume_key` with no modifiers also matches the key with Shift: take Shift's first.
