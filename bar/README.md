@@ -46,8 +46,8 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   anywhere else, or without a session bus, it starts them itself.
 - **Owns the shared config**, `~/.config/patina-bar/config.toml` (`config.rs`): `position`,
   `height`, `skin`, the modules of each side, `clock` (a strftime format), the commands,
-  `tags`, `pinned` (the pinned apps, which the compositor reads too), and `wallpaper`, which
-  patina-wallpaper draws. patina-menu writes `skin` and
+  `tags`, `pinned` (the pinned apps, which the compositor reads too), and `wallpaper` and
+  `wallpaper_fit` (fill, fit or centre), which patina-wallpaper draws. patina-menu writes `skin` and
   `wallpaper`; the bar checks the file's time each second and restyles itself, and the other
   pieces read it when they open.
 - **Floats with gaps** (ADR-0051): `gaps.rs` reads `[gaps]` from the compositor's config, which

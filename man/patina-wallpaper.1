@@ -13,9 +13,12 @@
 draws the wallpaper behind every window, on every screen: the image named
 by
 .Ic wallpaper
-in the bar's config, scaled to fill the screen, or without one the Sector
-F Labs flask and name in the colours of the bar's skin.
-It watches the config, and redraws when the wallpaper or the skin change.
+in the bar's config, laid on the screen as
+.Ic wallpaper_fit
+says, or without one the Sector F Labs flask and name in the colours of the
+bar's skin.
+It watches the config, and redraws when the wallpaper, its fit or the skin
+change.
 .Pp
 Clicks pass through it to the compositor, which opens
 .Xr patina-menu 1
@@ -39,8 +42,18 @@ Print the version.
 .Bl -tag -width Ds
 .It Pa ~/.config/patina-bar/config.toml
 .Ic wallpaper ,
-an image file or empty for the default, and
+an image file or empty for the default;
+.Ic wallpaper_fit ,
+how it meets the screen:
+.Cm fill
+(the default) covers it, cropping the image's edges,
+.Cm fit
+shows all of the image with the skin's colour either side, and
+.Cm centre
+puts it at its own size in the middle, cropped if it's bigger;
+and
 .Ic skin .
+There's no stretching.
 .El
 .Sh SEE ALSO
 .Xr patina-bar 1 ,

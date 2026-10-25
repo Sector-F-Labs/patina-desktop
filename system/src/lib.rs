@@ -8,8 +8,9 @@
 //! through power-profiles-daemon (`power_profiles`), the processes the
 //! compositor starts (`processes`), locking, logging out, restarting and
 //! shutting down (`session`), the compositor's tiling (`tiling`), and the
-//! apps pinned to the bar and its tabs' order (`pins`), and the open windows'
-//! processes (`windows`).
+//! apps pinned to the bar and its tabs' order (`pins`), the open windows'
+//! processes (`windows`), and how the wallpaper fits the screen
+//! (`wallpaper`).
 
 pub mod apps;
 pub mod audio;
@@ -28,4 +29,5 @@ pub mod processes;
 pub mod session;
 pub mod sni;
 pub mod tiling;
+pub mod wallpaper;
 pub mod windows;

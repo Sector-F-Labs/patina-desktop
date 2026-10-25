@@ -203,6 +203,9 @@ pub struct Config {
     /// The desktop's wallpaper, an image file, drawn by patina-wallpaper
     /// (not the bar); "" for the skin's colour.
     pub wallpaper: String,
+    /// How the wallpaper meets the screen: `fill`, `fit` or `centre`
+    /// (`patina_system::wallpaper::Fit`).
+    pub wallpaper_fit: String,
     /// Apps pinned to the window tabs, by app id, first and in this order
     /// (ADR-0080); read by `patina_system::pins`, as the compositor reads
     /// it too.
@@ -240,6 +243,7 @@ impl Default for Config {
             battery: "patina-settings --page power".into(),
             power: "patina-power".into(),
             wallpaper: String::new(),
+            wallpaper_fit: "fill".into(),
             pinned: Vec::new(),
         }
     }

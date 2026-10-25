@@ -10,6 +10,7 @@ use std::time::{Duration, SystemTime};
 use egui::{Color32, Rect, RichText, Sense, Stroke, TextureHandle, Ui, vec2};
 use patina::frame::{self, TitleBar};
 use patina::skin::{self, Skin};
+use patina_system::wallpaper::Fit;
 
 use crate::night_light::NightLightPage;
 use crate::wallpapers::{self, Wallpaper};
@@ -114,6 +115,8 @@ pub struct App {
     wallpapers: Vec<Wallpaper>,
     /// The wallpaper in use; `None` for the default.
     wallpaper: Option<PathBuf>,
+    /// How it meets the screen.
+    wallpaper_fit: Fit,
     /// Each wallpaper's thumbnail, once decoded; `None` if it won't.
     thumbnails: HashMap<PathBuf, Option<TextureHandle>>,
     decoded: Option<mpsc::Receiver<(PathBuf, Option<egui::ColorImage>)>>,
@@ -146,6 +149,7 @@ impl App {
             bar_mtime: None,
             wallpapers: Vec::new(),
             wallpaper: patina_shell::bar::wallpaper(),
+            wallpaper_fit: wallpapers::configured_fit(),
             thumbnails: HashMap::new(),
             decoded: None,
             flask: None,
@@ -179,6 +183,7 @@ impl App {
         self.skin = self.skins.iter().position(|s| s.name == name).unwrap_or(0);
         self.skins[self.skin].apply(ctx);
         self.wallpaper = patina_shell::bar::wallpaper();
+        self.wallpaper_fit = wallpapers::configured_fit();
         self.bar.reload();
     }
 
@@ -202,6 +207,13 @@ impl App {
             Err(e) => {
                 self.message = Some(Message::error(format!("Couldn't save the wallpaper: {e}")))
             }
+        }
+    }
+
+    fn choose_fit(&mut self, fit: Fit) {
+        match patina_shell::bar::set("wallpaper_fit", fit.name()) {
+            Ok(()) => self.wallpaper_fit = fit,
+            Err(e) => self.message = Some(Message::error(format!("Couldn't save the fit: {e}"))),
         }
     }
 
@@ -379,39 +391,64 @@ impl App {
         });
         ui.label("Your own go in Pictures/Wallpapers.");
         ui.add_space(8.0);
+        let mut fit = None;
+        // The default is drawn to the screen's shape; only images fit.
+        ui.add_enabled_ui(self.wallpaper.is_some(), |ui| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("Scale").strong());
+                for choice in Fit::ALL {
+                    if ui
+                        .selectable_label(self.wallpaper_fit == choice, choice.label())
+                        .on_hover_text(choice.description())
+                        .clicked()
+                    {
+                        fit = Some(choice);
+                    }
+                }
+            });
+        });
+        if let Some(fit) = fit {
+            self.choose_fit(fit);
+        }
+        ui.add_space(8.0);
 
         let mut chosen = None;
         egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
-                let flask = self.flask(ui.ctx());
-                let response = tile(ui, self.wallpaper.is_none(), "Sector F Labs", |ui, rect| {
-                    default_wallpaper(ui, rect, flask.as_ref())
-                })
-                .on_hover_text("The default, in the skin's colours");
-                if response.clicked() {
-                    chosen = Some(None);
-                }
-                for w in &self.wallpapers {
-                    let on = self.wallpaper.as_deref() == Some(w.path.as_path());
-                    let thumbnail = self.thumbnails.get(&w.path);
-                    let response = tile(ui, on, &w.name, |ui, rect| match thumbnail {
-                        Some(Some(texture)) => fill(ui, rect, texture),
-                        Some(None) => {
-                            ui.painter()
-                                .rect_filled(rect, 4.0, ui.visuals().faint_bg_color);
-                        }
-                        None => {
-                            ui.painter()
-                                .rect_filled(rect, 4.0, ui.visuals().faint_bg_color);
-                            ui.put(rect, egui::Spinner::new());
-                        }
-                    })
-                    .on_hover_text(w.path.display().to_string());
+            // Room for the outline, which the scroll area would clip off
+            // the first row.
+            egui::Frame::NONE.inner_margin(4.0).show(ui, |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
+                    let flask = self.flask(ui.ctx());
+                    let response =
+                        tile(ui, self.wallpaper.is_none(), "Sector F Labs", |ui, rect| {
+                            default_wallpaper(ui, rect, flask.as_ref())
+                        })
+                        .on_hover_text("The default, in the skin's colours");
                     if response.clicked() {
-                        chosen = Some(Some(w.path.clone()));
+                        chosen = Some(None);
                     }
-                }
+                    for w in &self.wallpapers {
+                        let on = self.wallpaper.as_deref() == Some(w.path.as_path());
+                        let thumbnail = self.thumbnails.get(&w.path);
+                        let response = tile(ui, on, &w.name, |ui, rect| match thumbnail {
+                            Some(Some(texture)) => fill(ui, rect, texture),
+                            Some(None) => {
+                                ui.painter()
+                                    .rect_filled(rect, 4.0, ui.visuals().faint_bg_color);
+                            }
+                            None => {
+                                ui.painter()
+                                    .rect_filled(rect, 4.0, ui.visuals().faint_bg_color);
+                                ui.put(rect, egui::Spinner::new());
+                            }
+                        })
+                        .on_hover_text(w.path.display().to_string());
+                        if response.clicked() {
+                            chosen = Some(Some(w.path.clone()));
+                        }
+                    }
+                });
             });
         });
         if let Some(path) = chosen {

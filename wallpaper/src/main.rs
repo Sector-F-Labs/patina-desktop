@@ -1,6 +1,6 @@
 //! patina-wallpaper: the desktop's wallpaper (ADR-0030). An image from the
-//! bar's config (`wallpaper = "…"`), scaled to fill each output, on the
-//! background layer; without one, the default: the Sector F flask over
+//! bar's config (`wallpaper = "…"`), laid on each output as `wallpaper_fit`
+//! says (filling it, fitting in it, or centred), on the background layer; without one, the default: the Sector F flask over
 //! "Sector F Labs" in Ubuntu Mono, in the skin's colours. The
 //! compositor starts it with the bar, and it follows the config file as
 //! the desktop's menu changes it.
@@ -20,11 +20,13 @@ use image::imageops::FilterType;
 use patina::skin::Skin;
 use patina_shell::calloop::timer::{TimeoutAction, Timer};
 use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options, Shell, piece};
+use patina_system::wallpaper::Fit;
 
 const USAGE: &str = "usage: patina-wallpaper
 
 Draws the desktop's wallpaper: patina-bar's `wallpaper` setting, an image
-file, scaled to fill each screen, or without one the Sector F Labs logo in
+file, filling each screen, fitting in it or centred as `wallpaper_fit`
+says, or without one the Sector F Labs logo in
 the colours of the bar's skin. Changes to the settings are followed.";
 
 /// The default's lettering, as an egui font family.
@@ -101,8 +103,9 @@ struct Wallpaper {
     skin: Skin,
     path: Option<PathBuf>,
     image: Option<DynamicImage>,
-    /// The image scaled to each output, by output name: its size in pixels
-    /// and its texture, in that output's egui context.
+    fit: Fit,
+    /// The image laid on each output, by output name: the output's size in
+    /// pixels, and the texture, in that output's egui context.
     scaled: HashMap<String, ([usize; 2], TextureHandle)>,
     /// The default's logo, the same way: its side in pixels.
     logos: HashMap<String, (u32, TextureHandle)>,
@@ -114,6 +117,7 @@ impl Wallpaper {
             skin: Skin::default_skin(),
             path: None,
             image: None,
+            fit: Fit::Fill,
             scaled: HashMap::new(),
             logos: HashMap::new(),
         };
@@ -121,23 +125,28 @@ impl Wallpaper {
         wallpaper
     }
 
-    /// Reads the wallpaper and skin from the bar's config again; true if
-    /// either changed.
+    /// Reads the wallpaper, its fit and the skin from the bar's config
+    /// again; true if any changed.
     fn reload(&mut self) -> bool {
         let path = patina_shell::bar::wallpaper();
+        let fit = configured_fit();
         let skin = piece::skin("patina-wallpaper");
-        let changed = path != self.path || skin.name != self.skin.name;
+        let changed = path != self.path || fit != self.fit || skin.name != self.skin.name;
         if path != self.path {
             self.image = path.as_deref().and_then(load);
-            self.scaled.clear();
             self.path = path;
+            self.scaled.clear();
+        }
+        if fit != self.fit {
+            self.fit = fit;
+            self.scaled.clear();
         }
         self.skin = skin;
         changed
     }
 
-    /// The image scaled to fill `size` pixels, made once per output and
-    /// size.
+    /// The image laid on an output of `size` pixels as the fit says, made
+    /// once per output and size; it's drawn centred.
     fn texture(
         &mut self,
         ctx: &egui::Context,
@@ -146,12 +155,16 @@ impl Wallpaper {
     ) -> Option<&TextureHandle> {
         let image = self.image.as_ref()?;
         if self.scaled.get(output).is_none_or(|(s, _)| *s != size) {
-            let filled = image
-                .resize_to_fill(size[0] as u32, size[1] as u32, FilterType::Triangle)
-                .to_rgba8();
+            let screen = [size[0] as u32, size[1] as u32];
+            let ([x, y, w, h], [dw, dh]) = self.fit.layout([image.width(), image.height()], screen);
+            let mut laid = image.crop_imm(x, y, w, h);
+            if [w, h] != [dw, dh] {
+                laid = laid.resize_exact(dw, dh, FilterType::Triangle);
+            }
+            let laid = laid.to_rgba8();
             let pixels = ColorImage::from_rgba_unmultiplied(
-                [filled.width() as usize, filled.height() as usize],
-                filled.as_raw(),
+                [laid.width() as usize, laid.height() as usize],
+                laid.as_raw(),
             );
             let texture = ctx.load_texture(
                 format!("wallpaper-{output}"),
@@ -213,6 +226,13 @@ fn accent(colour: Color32, background: Color32) -> Option<Color32> {
     ((luma(colour) - luma(background)).abs() > 40.0).then_some(colour)
 }
 
+/// `wallpaper_fit` in the bar's config.
+fn configured_fit() -> Fit {
+    let text = patina_shell::bar::config_path().and_then(|p| std::fs::read_to_string(p).ok());
+    let name = text.and_then(|t| patina_shell::bar::top_level(&t, "wallpaper_fit"));
+    Fit::from_name(name.as_deref())
+}
+
 /// Decodes the image at `path`, saying why not if it can't.
 fn load(path: &Path) -> Option<DynamicImage> {
     image::open(path)
@@ -248,8 +268,12 @@ impl Shell for Wallpaper {
         let ctx = ui.ctx().clone();
         match self.texture(&ctx, output, size) {
             Some(texture) => {
+                // Fitted or centred, the skin's colour shows around it.
+                ui.painter().rect_filled(rect, 0.0, ui.visuals().panel_fill);
+                let [w, h] = texture.size().map(|v| v as f32 / ppp);
+                let at = Rect::from_center_size(rect.center(), egui::vec2(w, h));
                 let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
-                ui.painter().image(texture.id(), rect, uv, Color32::WHITE);
+                ui.painter().image(texture.id(), at, uv, Color32::WHITE);
             }
             None => self.default(ui, output),
         }
@@ -273,6 +297,7 @@ mod tests {
                 skin: skin.clone(),
                 path: None,
                 image: None,
+                fit: Fit::Fill,
                 scaled: HashMap::new(),
                 logos: HashMap::new(),
             };
