@@ -35,7 +35,9 @@ pointer, which a D-Bus client can't do.
   - **Dragging:** pressing the left button there grabs the line. Every tiled window whose edge
     is on it moves too, so two stacked windows on one side both follow. The windows on the left
     grow as those on the right shrink, live, with the xdg `resizing` state. No window goes below
-    120 px or the app's own minimum width.
+    120 px or the app's own minimum width, unless tiling already made it narrower than that
+    minimum: then the app evidently takes less, and only the 120 px holds it (otherwise an app
+    asking for more than half the screen pins the line).
 - **The tiler hears the result.** On release, a new `Resized(id, x, y, w, h)` signal goes out for
   each window that moved. patina-tiler keeps a `split` (where the columns meet, as a share of the
   room beside the gap). The split is kept while any half stays tiled:

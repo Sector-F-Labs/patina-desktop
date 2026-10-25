@@ -216,6 +216,9 @@ impl ResizeGrab {
         initial: Rectangle<i32, Logical>,
     ) -> Option<Self> {
         let toplevel = window.toplevel()?;
+        // A tiled window resized by hand floats at its new size, rather
+        // than going back to its place.
+        crate::maximize::float(&window);
         ResizeState::with(toplevel.wl_surface(), |s| {
             *s = ResizeState::Resizing { edges, initial }
         });

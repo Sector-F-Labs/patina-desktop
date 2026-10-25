@@ -85,20 +85,29 @@ pub fn line_under(
     None
 }
 
-/// How far the line may move by `dx`: no window on either side narrower
-/// than its `min` width (or `NARROWEST`).
+/// How far the line may move by `dx`, given each window's width and `min`
+/// width: no window on either side narrower than its `min` (or
+/// `NARROWEST`). A window tiling already made narrower than its `min`
+/// shows its app takes less, so only `NARROWEST` holds it; otherwise an
+/// app asking for more than half the screen would pin the line.
 pub fn allowed(dx: i32, left: &[(i32, i32)], right: &[(i32, i32)]) -> i32 {
-    let narrowest = |min: i32| min.max(NARROWEST);
+    let narrowest = |w: i32, min: i32| {
+        if min <= w {
+            min.max(NARROWEST)
+        } else {
+            NARROWEST
+        }
+    };
     // The left windows shrink as the line goes left; the right ones as it
     // goes right.
     let lowest = left
         .iter()
-        .map(|&(w, min)| (narrowest(min) - w).min(0))
+        .map(|&(w, min)| (narrowest(w, min) - w).min(0))
         .max()
         .unwrap_or(i32::MIN);
     let highest = right
         .iter()
-        .map(|&(w, min)| (w - narrowest(min)).max(0))
+        .map(|&(w, min)| (w - narrowest(w, min)).max(0))
         .min()
         .unwrap_or(i32::MAX);
     dx.clamp(lowest, highest)
@@ -342,5 +351,15 @@ mod tests {
         assert_eq!(allowed(-1000, &left, &right), -(600 - NARROWEST));
         assert_eq!(allowed(1000, &left, &right), 300, "the app's own minimum");
         assert_eq!(allowed(0, &left, &right), 0);
+    }
+
+    #[test]
+    fn a_window_already_under_its_minimum_doesnt_pin_the_line() {
+        // Process Manager asks for 760, but took a 628 wide half.
+        let left = [(628, 560)];
+        let right = [(628, 760)];
+        assert_eq!(allowed(200, &left, &right), 200);
+        assert_eq!(allowed(1000, &left, &right), 628 - NARROWEST);
+        assert_eq!(allowed(-1000, &left, &right), 560 - 628);
     }
 }

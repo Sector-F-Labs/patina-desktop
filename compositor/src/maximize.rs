@@ -70,6 +70,16 @@ pub fn before(window: &Window) -> Option<Rectangle<i32, Logical>> {
     placed(window).0.borrow().map(|(_, before)| before)
 }
 
+/// Makes placed `window` float where it is, at its size, so nothing puts
+/// it back in its place: for resizing it by hand.
+pub fn float(window: &Window) {
+    if placed(window).0.borrow_mut().take().is_some()
+        && let Some(toplevel) = window.toplevel()
+    {
+        set_states(toplevel, None, Rectangle::default());
+    }
+}
+
 pub fn is_maximized(window: &Window) -> bool {
     placement(window) == Some(Placement::Maximized)
 }
@@ -366,14 +376,10 @@ impl State {
         let Some(toplevel) = window.toplevel().cloned() else {
             return;
         };
-        match placement(&window) {
-            Some(Placement::Maximized) => return,
-            Some(_) => {
-                *placed(&window).0.borrow_mut() = None;
-                set_states(&toplevel, None, Rectangle::default());
-            }
-            None => {}
+        if is_maximized(&window) {
+            return;
         }
+        float(&window);
         let area = self.work_area();
         let Some(location) = self.space.element_location(&window) else {
             return;
@@ -415,14 +421,10 @@ impl State {
         let Some(toplevel) = window.toplevel().cloned() else {
             return;
         };
-        match placement(&window) {
-            Some(Placement::Maximized) => return,
-            Some(_) => {
-                *placed(&window).0.borrow_mut() = None;
-                set_states(&toplevel, None, Rectangle::default());
-            }
-            None => {}
+        if is_maximized(&window) {
+            return;
         }
+        float(&window);
         let area = self.work_area();
         let Some(location) = self.space.element_location(&window) else {
             return;

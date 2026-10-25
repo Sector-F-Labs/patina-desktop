@@ -188,13 +188,15 @@ impl Tiler<'_> {
                 if !tiling::deciding(self.bus) {
                     return Ok(());
                 }
+                let placement = self.placement(id)?.unwrap_or_default();
+                // Floated since it was tiled: resized by hand.
+                if placement.is_empty() {
+                    self.tiled.remove(&id);
+                }
                 let now = match self.tiled.get(&id) {
                     Some(tile) => Some(*tile),
                     // Maximised by the app, or filled by another tiler.
-                    None => self
-                        .placement(id)?
-                        .filter(|p| !p.is_empty())
-                        .map(|_| Tile::Fill),
+                    None => (!placement.is_empty()).then_some(Tile::Fill),
                 };
                 match policy::after_snap(now, snap) {
                     Some(tile) => self.place(id, tile)?,
