@@ -22,7 +22,9 @@ A desktop in the style of [Patina](https://github.com/Sector-F-Labs/patina):
   the volume or the brightness, and stays up while they're pressed.
 - **[patina-screenshot](screenshot/README.md)** (`screenshot/`): what the Print key opens, a pill
   at the bottom of the screen like dictation's: the screen, the focused window, or a selection
-  dragged out with the pointer, which the compositor then takes.
+  dragged out with the pointer, which the compositor then takes; or recording the screen or a
+  selection to `~/Videos/Screen Recordings`. Also what an app asking to share the screen (OBS,
+  a browser) may see, through xdg-desktop-portal-wlr.
 - **[patina-wifi](wifi/README.md)** (`wifi/`): the Wi-Fi menu, opened by the bar's Wi-Fi icon: networks in range,
   joining (with a password box for new ones), disconnecting and Wi-Fi on and off, through
   NetworkManager.
@@ -82,7 +84,7 @@ half-screen tile (**Ctrl+Super+K/J/H/L** too), **Super+Shift+arrows** grow/shrin
 window, **Super+Q** quit app, **Super+M** minimise to its tab, **Ctrl+Space** switch keyboard layout, **Super+Shift+R** reload
 config, **Super+Shift+3** screenshots the desktop and **Super+Shift+4** the focused window (to
 ~/Pictures/Screenshots), **Print** or **Super+Shift+5** offers the screen, the window or a
-selection, brightness/volume keys work with on-screen flash.
+selection, or recording the screen or a selection, brightness/volume keys work with on-screen flash.
 
 ## The bar's config
 
@@ -148,7 +150,8 @@ commands above (for PipeWire).
 - **Multiple monitors**, hotplug, lid close/open.
 - **Virtual desktops / workspaces** (the bar's tags are placeholders until the compositor has them).
 - **Minimise** and **fullscreen**.
-- **Portals** (xdg-desktop-portal): file pickers, screen sharing, Flatpak integration.
+- **Portals** (xdg-desktop-portal): Flatpak integration; screenshots through the portal. (Screen
+  sharing goes through xdg-desktop-portal-wlr, ADR-0092; files through Files' chooser.)
 - **Polkit agent** for auth prompts (Software, Disks, etc.).
 - **Notification daemon**.
 - **GNOME keyring** integration (PAM unlock at login).

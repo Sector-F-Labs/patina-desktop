@@ -14,10 +14,11 @@ To change patina-shell along with the desktop, clone it beside this repo and add
 to a local, uncommitted `.cargo/config.toml`; push it, then `cargo update -p patina-shell` here.
 
 Smithay comes from the `patina-0.7` branch of Sector-F-Labs/smithay, a fork (ADR-0044): 0.7.0 with upstream's
-`_NET_ACTIVE_WINDOW` fix backported (Wine minimised fullscreen games without it), and its
-`set_suspended` writing `WM_STATE` (so a game minimised on Alt+Tab is restored). Fixes go there
-as commits on 0.7.0, then `cargo update -p smithay`; drop the `[patch.crates-io]` once a release
-has them.
+`_NET_ACTIVE_WINDOW` fix backported (Wine minimised fullscreen games without it), its
+`set_suspended` writing `WM_STATE` (so a game minimised on Alt+Tab is restored), and upstream's
+ext-image-capture-source and ext-image-copy-capture modules (ADR-0092), without their
+`duplicate_frame` error, which xdg-desktop-portal-wlr trips. Fixes go there as commits on 0.7.0 (the clone beside this repo, `../smithay`),
+then `cargo update -p smithay`; drop the `[patch.crates-io]` once a release has them.
 
 Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there, push
 `develop`, then `cargo update -p patina-ui` here. Never publish Patina without asking.
@@ -76,6 +77,15 @@ puts them in `$(PREFIX)/share/man`.
   `screenshot/menu.rs` reads it, and `screenshot/select.rs` is the drag-out selection, drawn
   as solid-colour elements beside the flash, with the pointer kept from the windows.
   `PATINA_SCREENSHOT_PREVIEW=dir cargo test -p patina-screenshot preview -- --ignored` draws it.
+- `compositor/src/capture.rs`: screen capture for other programs (ADR-0092): ext-image-copy-capture
+  of the screen or one window (`Target`), ext-foreign-toplevel-list (`toplevels::refresh`) to
+  pick one. A frame waits on its session's damage tracker, then the `Scene` is drawn offscreen
+  (`screenshot::read_back`) and copied into the client's shm buffer; `State::capture_frames`
+  runs after each pass of the loop. xdg-desktop-portal-wlr is the client that matters (OBS,
+  browsers): `packaging/portal/` configures it, with `patina-screenshot --share` as its chooser.
+  `capture/record.rs` is the desktop's own recording (Record Screen/Selection in the Print
+  pill): frames piped to `ffmpeg`, `patina-screenshot --recording` showing it. `cargo run -p
+  patina-compositor --example capture -- out.png [--window APP] [--frames N]` checks capture.
 - `compositor/src/cmd.rs`: Super is Cmd (ADR-0067): a Super key the compositor doesn't keep is sent
   to the focused client as Ctrl+key (Ctrl+Shift to a terminal, by its desktop entry's category, and
   Super+Shift+key there as Ctrl+Alt+Shift+key),

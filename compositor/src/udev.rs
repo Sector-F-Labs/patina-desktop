@@ -24,10 +24,8 @@ use smithay::{
         renderer::{
             ImportDma, ImportMemWl,
             element::{
-                Kind,
-                memory::MemoryRenderBufferRenderElement,
-                render_elements,
-                surface::{WaylandSurfaceRenderElement, render_elements_from_surface_tree},
+                memory::MemoryRenderBufferRenderElement, render_elements,
+                surface::WaylandSurfaceRenderElement,
             },
             gles::GlesRenderer,
         },
@@ -35,7 +33,7 @@ use smithay::{
         udev::{all_gpus, primary_gpu},
     },
     desktop::{layer_map_for_output, utils::send_frames_surface_tree},
-    input::pointer::{CursorImageAttributes, CursorImageStatus},
+    input::pointer::CursorImageStatus,
     output::{Mode, Output, PhysicalProperties, Scale, Subpixel},
     reexports::{
         calloop::{
@@ -47,9 +45,8 @@ use smithay::{
         rustix::fs::OFlags,
         wayland_server::DisplayHandle,
     },
-    utils::{DeviceFd, Point, Transform},
+    utils::{DeviceFd, Transform},
     wayland::{
-        compositor::with_states,
         dmabuf::{DmabufFeedbackBuilder, DmabufGlobal, DmabufState},
         drm_syncobj::{DrmSyncobjState, supports_syncobj_eventfd},
     },
@@ -88,7 +85,7 @@ pub struct UdevData {
     /// linux-drm-syncobj, where the device supports it (`sync.rs`).
     pub(crate) syncobj_state: Option<DrmSyncobjState>,
     _dmabuf_global: DmabufGlobal,
-    cursors: crate::cursor::Cursors,
+    pub cursors: crate::cursor::Cursors,
     /// Touchpads, to apply `[touchpad]` to again on a reload.
     touchpads: Vec<smithay::reexports::input::Device>,
     loop_handle: LoopHandle<'static, State>,
@@ -602,7 +599,7 @@ fn render(state: &mut State) {
         Some(icon) => CursorImageStatus::Named(icon),
         None => state.cursor.clone(),
     };
-    elements.extend(cursor_elements(
+    elements.extend(crate::cursor::elements(
         &mut u.renderer,
         &mut u.cursors,
         &shown,
@@ -695,53 +692,6 @@ fn render(state: &mut State) {
     state.lock_drawn();
     state.space.refresh();
     state.popups.cleanup();
-}
-
-/// The pointer: the client's own cursor surface when it sets one, otherwise
-/// the shape it named, from Patina's cursors or `[cursor] theme` (ADR-0032).
-fn cursor_elements(
-    renderer: &mut GlesRenderer,
-    cursors: &mut crate::cursor::Cursors,
-    status: &CursorImageStatus,
-    pointer: Point<f64, smithay::utils::Logical>,
-    scale: f64,
-) -> Vec<OutputElement> {
-    let at = pointer.to_physical(scale);
-    match status {
-        CursorImageStatus::Hidden => Vec::new(),
-        CursorImageStatus::Surface(surface) => {
-            let hotspot = with_states(surface, |states| {
-                states
-                    .data_map
-                    .get::<std::sync::Mutex<CursorImageAttributes>>()
-                    .and_then(|a| a.lock().ok().map(|a| a.hotspot))
-                    .unwrap_or_default()
-            });
-            let at = (at - hotspot.to_f64().to_physical(scale)).to_i32_round();
-            render_elements_from_surface_tree(renderer, surface, at, scale, 1.0, Kind::Cursor)
-        }
-        CursorImageStatus::Named(icon) => {
-            let image = cursors.get(*icon);
-            // On whole pixels, the whole image, at the logical size the
-            // scale maps back to its pixels: drawn 1:1, so it's as sharp as
-            // it was rendered.
-            let at = (at - image.hotspot.to_f64()).to_i32_round::<i32>().to_f64();
-            let src = smithay::utils::Rectangle::from_size(
-                (image.pixels.w as f64, image.pixels.h as f64).into(),
-            );
-            MemoryRenderBufferRenderElement::from_buffer(
-                renderer,
-                at,
-                &image.buffer,
-                None,
-                Some(src),
-                Some(image.logical),
-                Kind::Cursor,
-            )
-            .map(|e| vec![OutputElement::Cursor(e)])
-            .unwrap_or_default()
-        }
-    }
 }
 
 /// The shm formats the GL renderer reads, for clients drawing in software.

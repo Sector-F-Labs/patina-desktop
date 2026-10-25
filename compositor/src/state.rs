@@ -152,6 +152,9 @@ pub struct State {
     pub flash: Option<crate::screenshot::Flash>,
     /// The Print key's choices, and a selection being made (ADR-0091).
     pub shots: crate::screenshot::Shots,
+    /// Screen capture for other programs and the desktop's recording
+    /// (ADR-0092).
+    pub capture: crate::capture::Capture,
     /// What a client is dragging, drawn at the pointer.
     pub dnd_icon: Option<crate::dnd::Icon>,
     /// The window covering the screen, if one is (ADR-0041).
@@ -304,6 +307,7 @@ impl State {
             split_hover: false,
             flash: None,
             shots: Default::default(),
+            capture: crate::capture::Capture::new(&dh),
             dnd_icon: None,
             fullscreen: None,
             minimized: Default::default(),

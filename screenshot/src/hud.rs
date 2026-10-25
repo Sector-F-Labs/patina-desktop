@@ -1,6 +1,7 @@
-//! The pill (ADR-0091): a close button, then the screen, the window and a
-//! selection side by side, each an icon over its name. A click or Enter on
-//! one chooses it; arrows, Tab and 1 to 3 move between them; Escape, or the
+//! The pill (ADR-0091, ADR-0092): a close button, then the screen, the
+//! window and a selection side by side, then recording the screen or a
+//! selection, each an icon over its name. A click or Enter on one chooses
+//! it; arrows and Tab move between them, 1 to 5 choose one; Escape, or the
 //! keyboard going elsewhere, closes it with nothing chosen.
 
 use std::cell::Cell;
@@ -14,7 +15,7 @@ use patina::skin::Skin;
 use patina_shell::Shell;
 
 /// The pill, in logical pixels.
-pub const SIZE: (u32, u32) = (340, 76);
+pub const SIZE: (u32, u32) = (640, 76);
 /// The space around the tiles, and the close button's width; the tiles
 /// share the rest.
 const PAD: f32 = 8.0;
@@ -27,10 +28,20 @@ pub enum Choice {
     Screen,
     Window,
     Selection,
+    RecordScreen,
+    RecordSelection,
 }
 
 impl Choice {
-    pub const ALL: [Choice; 3] = [Choice::Screen, Choice::Window, Choice::Selection];
+    pub const ALL: [Choice; 5] = [
+        Choice::Screen,
+        Choice::Window,
+        Choice::Selection,
+        Choice::RecordScreen,
+        Choice::RecordSelection,
+    ];
+    /// The recordings, after a line.
+    const FIRST_RECORDING: usize = 3;
 
     /// What's printed for the compositor.
     pub fn word(self) -> &'static str {
@@ -38,6 +49,8 @@ impl Choice {
             Choice::Screen => "screen",
             Choice::Window => "window",
             Choice::Selection => "selection",
+            Choice::RecordScreen => "record-screen",
+            Choice::RecordSelection => "record-selection",
         }
     }
 
@@ -46,6 +59,8 @@ impl Choice {
             Choice::Screen => "Screen",
             Choice::Window => "Window",
             Choice::Selection => "Selection",
+            Choice::RecordScreen => "Record Screen",
+            Choice::RecordSelection => "Record Selection",
         }
     }
 }
@@ -100,7 +115,7 @@ impl Hud {
 
     fn keys(&mut self, ui: &Ui) {
         let (escape, back, forward, enter, digit) = ui.input(|i| {
-            let digit = [Key::Num1, Key::Num2, Key::Num3]
+            let digit = [Key::Num1, Key::Num2, Key::Num3, Key::Num4, Key::Num5]
                 .iter()
                 .position(|k| i.key_pressed(*k));
             (
@@ -162,8 +177,16 @@ impl Hud {
         );
 
         let mut left = divider + PAD / 2.0;
-        let width = (inner.right() - left) / Choice::ALL.len() as f32;
+        let width = (inner.right() - left - PAD) / Choice::ALL.len() as f32;
         for (i, choice) in Choice::ALL.into_iter().enumerate() {
+            if i == Choice::FIRST_RECORDING {
+                ui.painter().vline(
+                    left + PAD / 2.0,
+                    inner.y_range().shrink(10.0),
+                    v.widgets.noninteractive.bg_stroke,
+                );
+                left += PAD;
+            }
             let tile = Rect::from_min_size(pos2(left, inner.top()), vec2(width, inner.height()));
             left += width;
             let offered = self.offered(choice);
@@ -190,7 +213,8 @@ impl Hud {
             };
             let icon =
                 Rect::from_center_size(pos2(tile.center().x, tile.top() + 22.0), vec2(26.0, 18.0));
-            draw_icon(ui, choice, icon, colour, v.panel_fill);
+            let red = if offered { v.error_fg_color } else { colour };
+            draw_icon(ui, choice, icon, colour, v.panel_fill, red);
             ui.painter().text(
                 pos2(tile.center().x, tile.bottom() - 13.0),
                 Align2::CENTER_CENTER,
@@ -206,11 +230,19 @@ impl Hud {
 }
 
 /// `choice`'s icon in `r`: a monitor, a window with its title bar, or a
-/// dashed rectangle.
-fn draw_icon(ui: &Ui, choice: Choice, r: Rect, colour: Color32, fill: Color32) {
+/// dashed rectangle; a recording's with a `red` dot in it.
+fn draw_icon(ui: &Ui, choice: Choice, r: Rect, colour: Color32, fill: Color32, red: Color32) {
     let painter = ui.painter();
     let stroke = Stroke::new(1.5, colour);
     match choice {
+        Choice::RecordScreen => {
+            draw_icon(ui, Choice::Screen, r, colour, fill, red);
+            painter.circle_filled(pos2(r.center().x, r.top() + 7.0), 3.5, red);
+        }
+        Choice::RecordSelection => {
+            draw_icon(ui, Choice::Selection, r, colour, fill, red);
+            painter.circle_filled(r.center(), 3.5, red);
+        }
         Choice::Screen => {
             let screen = Rect::from_min_max(r.min, pos2(r.max.x, r.max.y - 4.0));
             painter.rect_stroke(screen, CornerRadius::same(2), stroke, StrokeKind::Inside);
@@ -299,7 +331,10 @@ mod tests {
         let mut h = hud(false);
         assert_eq!(h.step(1), 2);
         h.current = 2;
+        assert_eq!(h.step(1), 3);
+        h.current = 4;
         assert_eq!(h.step(1), 0);
+        h.current = 2;
         assert_eq!(h.step(-1), 0);
         assert_eq!(hud(true).step(1), 1);
     }

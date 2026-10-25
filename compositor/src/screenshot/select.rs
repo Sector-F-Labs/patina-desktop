@@ -1,6 +1,7 @@
-//! Dragging out a part of the screen to take (ADR-0091), after Selection
-//! in the Print key's choices: the screen dims under a crosshair, the part
-//! dragged out shows through with a white edge, and letting go takes it.
+//! Dragging out a part of the screen to take (ADR-0091) or record
+//! (ADR-0092), after Selection or Record Selection in the Print key's
+//! choices: the screen dims under a crosshair, the part dragged out shows
+//! through with a white edge, and letting go takes it or starts recording.
 //! Escape, another button, or a click without a drag takes nothing. The
 //! compositor draws it all, with the clicks and the pointer kept from the
 //! windows meanwhile.
@@ -20,8 +21,16 @@ use crate::state::State;
 const DIM: [f32; 4] = [0.0, 0.0, 0.0, 0.35];
 const EDGE: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 
+/// What a selection is for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Purpose {
+    Screenshot,
+    Recording,
+}
+
 /// A selection being made.
 pub struct Selecting {
+    purpose: Purpose,
     /// Where the left button went down, once it has.
     from: Option<Point<f64, Logical>>,
     /// Where the pointer is.
@@ -67,7 +76,7 @@ fn pieces(
 
 impl State {
     /// Starts a selection, at the pointer.
-    pub fn start_selecting(&mut self) {
+    pub fn start_selecting(&mut self, purpose: Purpose) {
         if self.locked() {
             return;
         }
@@ -77,6 +86,7 @@ impl State {
             .map(|p| p.current_location())
             .unwrap_or_default();
         self.shots.selecting = Some(Selecting {
+            purpose,
             from: None,
             to,
             buffers: Vec::new(),
@@ -124,10 +134,13 @@ impl State {
         match (pressed, selecting.from) {
             (true, _) => selecting.from = Some(at),
             (false, Some(from)) => {
-                let area = between(from, at);
+                let (area, purpose) = (between(from, at), selecting.purpose);
                 self.cancel_selecting();
                 if area.size.w >= 2 && area.size.h >= 2 {
-                    self.take_screenshot(None, Some(area));
+                    match purpose {
+                        Purpose::Screenshot => self.take_screenshot(None, Some(area)),
+                        Purpose::Recording => self.start_recording(Some(area)),
+                    }
                 }
             }
             (false, None) => {}

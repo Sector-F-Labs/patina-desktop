@@ -16,10 +16,16 @@ PROCESSES_ID := com.sectorflabs.ProcessManager
 ifeq ($(shell uname -s),FreeBSD)
 SESSIONDIR ?= $(PREFIX)/share/wayland-sessions
 PAMDIR ?= $(PREFIX)/etc/pam.d
+XDGCONFDIR ?= $(PREFIX)/etc/xdg
 else
 SESSIONDIR ?= /usr/share/wayland-sessions
 PAMDIR ?= /etc/pam.d
+XDGCONFDIR ?= /etc/xdg
 endif
+# Screen sharing through xdg-desktop-portal-wlr (ADR-0092): which portal
+# backends the session uses, and the portal's chooser.
+PORTALCONF := $(XDGCONFDIR)/xdg-desktop-portal/patina-portals.conf
+WLRCONF := $(XDGCONFDIR)/xdg-desktop-portal-wlr/Patina
 # How install becomes root when run as yourself: doas, else sudo.
 AS_ROOT := $(shell command -v doas >/dev/null && echo doas || echo sudo)
 ROOT := $(filter 0,$(shell id -u))
@@ -48,6 +54,8 @@ deps: ## Show the system packages the build needs
 	@echo "FreeBSD:       pkg install pkgconf libxkbcommon pixman libudev-devd libinput seatd mesa-libs libdrm wayland cmake llvm \\"
 	@echo "                   shaderc vulkan-headers vulkan-loader"
 	@echo "To run X11 apps (Steam), Xwayland too: apt install xwayland, or pkg install xwayland."
+	@echo "To record the screen, and for apps to share it: apt install ffmpeg xdg-desktop-portal-wlr,"
+	@echo "or pkg install ffmpeg xdg-desktop-portal-wlr."
 
 run: ## Run the compositor in a window on this desktop, with the bar, on a bus of its own
 	cargo build --workspace
@@ -78,7 +86,7 @@ TELEPRINTER_REPO := https://github.com/Sector-F-Labs/teleprinter
 
 ifeq ($(ROOT),)
 install: build ## Build, then install for every user into /usr/local (PREFIX), with the login session (asks doas or sudo)
-	$(AS_ROOT) $(MAKE) --no-print-directory install PREFIX=$(PREFIX) MANDIR=$(MANDIR) SESSIONDIR=$(SESSIONDIR) PAMDIR=$(PAMDIR)
+	$(AS_ROOT) $(MAKE) --no-print-directory install PREFIX=$(PREFIX) MANDIR=$(MANDIR) SESSIONDIR=$(SESSIONDIR) PAMDIR=$(PAMDIR) XDGCONFDIR=$(XDGCONFDIR)
 else
 # As root it never builds, so nothing in target/ ends up root's.
 install:
@@ -107,6 +115,9 @@ stage:
 	install -m 644 packaging/patina-mimeapps.list $(DESTDIR)$(APPSDIR)/
 	sed 's|@BINDIR@|$(PREFIX)/bin|' packaging/linux/patina.desktop > $(DESTDIR)$(SESSIONDIR)/patina.desktop
 	install -m 644 packaging/linux/patina-lock.pam $(DESTDIR)$(PAMDIR)/patina-lock
+	install -d $(dir $(DESTDIR)$(PORTALCONF)) $(dir $(DESTDIR)$(WLRCONF))
+	install -m 644 packaging/portal/patina-portals.conf $(DESTDIR)$(PORTALCONF)
+	sed 's|@BINDIR@|$(PREFIX)/bin|' packaging/portal/xdg-desktop-portal-wlr.ini > $(DESTDIR)$(WLRCONF)
 
 # `make deploy nifl` (or HOST=nifl): the host is the goal after deploy.
 ifeq (deploy,$(firstword $(MAKECMDGOALS)))
@@ -136,7 +147,7 @@ deploy: build ## Build here and install on another machine over ssh, Teleprinter
 
 ifeq ($(ROOT),)
 uninstall: ## Remove what install put in place (asks doas or sudo)
-	$(AS_ROOT) $(MAKE) --no-print-directory uninstall PREFIX=$(PREFIX) MANDIR=$(MANDIR) SESSIONDIR=$(SESSIONDIR) PAMDIR=$(PAMDIR)
+	$(AS_ROOT) $(MAKE) --no-print-directory uninstall PREFIX=$(PREFIX) MANDIR=$(MANDIR) SESSIONDIR=$(SESSIONDIR) PAMDIR=$(PAMDIR) XDGCONFDIR=$(XDGCONFDIR)
 else
 uninstall:
 	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES) patina-launcher)
@@ -144,7 +155,7 @@ uninstall:
 	rm -f $(addprefix $(MANDIR)/man7/,$(notdir $(wildcard man/*.7)))
 	rm -f $(APPSDIR)/$(SETTINGS_ID).desktop $(APPSDIR)/patina-mimeapps.list $(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg \
 		$(APPSDIR)/$(PROCESSES_ID).desktop $(ICONDIR)/scalable/apps/$(PROCESSES_ID).svg
-	rm -f $(SESSIONDIR)/patina.desktop $(PAMDIR)/patina-lock
+	rm -f $(SESSIONDIR)/patina.desktop $(PAMDIR)/patina-lock $(PORTALCONF) $(WLRCONF)
 	-update-desktop-database -q $(APPSDIR)
 endif
 

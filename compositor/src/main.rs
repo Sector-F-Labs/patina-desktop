@@ -3,6 +3,7 @@
 //! starts patina-bar and a terminal inside it.
 
 mod clients;
+mod capture;
 mod caps;
 mod cmd;
 mod config;
@@ -187,6 +188,7 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
             udev::schedule(state);
             winit::schedule(state);
             nested::render(state);
+            state.capture_frames();
             if let Err(e) = state.display_handle.flush_clients() {
                 eprintln!("patina-compositor: {e}");
             }

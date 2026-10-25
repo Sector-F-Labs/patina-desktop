@@ -9,9 +9,19 @@
 use std::collections::HashMap;
 
 use smithay::backend::allocator::Fourcc;
-use smithay::backend::renderer::element::memory::MemoryRenderBuffer;
+use smithay::backend::renderer::element::Kind;
+use smithay::backend::renderer::element::memory::{
+    MemoryRenderBuffer, MemoryRenderBufferRenderElement,
+};
+use smithay::backend::renderer::element::surface::{
+    WaylandSurfaceRenderElement, render_elements_from_surface_tree,
+};
+use smithay::backend::renderer::{ImportAll, ImportMem, Renderer};
 use smithay::input::pointer::CursorIcon;
+use smithay::input::pointer::{CursorImageAttributes, CursorImageStatus};
+use smithay::utils::Rectangle;
 use smithay::utils::{Logical, Physical, Point, Size, Transform};
+use smithay::wayland::compositor::with_states;
 
 /// The body's colour, and the edge around it.
 const INK: &str = "#15171b";
@@ -300,6 +310,56 @@ fn themed(theme: &str, icon: CursorIcon, pixels: u32, scale: f64) -> Option<Imag
         )
             .into(),
     })
+}
+
+/// The pointer: the client's own cursor surface when it sets one, otherwise
+/// the shape it named, from Patina's cursors or `[cursor] theme` (ADR-0032).
+pub fn elements<R, E>(
+    renderer: &mut R,
+    cursors: &mut Cursors,
+    status: &CursorImageStatus,
+    pointer: Point<f64, Logical>,
+    scale: f64,
+) -> Vec<E>
+where
+    R: Renderer + ImportAll + ImportMem,
+    R::TextureId: Send + Clone + 'static,
+    E: From<WaylandSurfaceRenderElement<R>> + From<MemoryRenderBufferRenderElement<R>>,
+{
+    let at = pointer.to_physical(scale);
+    match status {
+        CursorImageStatus::Hidden => Vec::new(),
+        CursorImageStatus::Surface(surface) => {
+            let hotspot = with_states(surface, |states| {
+                states
+                    .data_map
+                    .get::<std::sync::Mutex<CursorImageAttributes>>()
+                    .and_then(|a| a.lock().ok().map(|a| a.hotspot))
+                    .unwrap_or_default()
+            });
+            let at = (at - hotspot.to_f64().to_physical(scale)).to_i32_round();
+            render_elements_from_surface_tree(renderer, surface, at, scale, 1.0, Kind::Cursor)
+        }
+        CursorImageStatus::Named(icon) => {
+            let image = cursors.get(*icon);
+            // On whole pixels, the whole image, at the logical size the
+            // scale maps back to its pixels: drawn 1:1, so it's as sharp as
+            // it was rendered.
+            let at = (at - image.hotspot.to_f64()).to_i32_round::<i32>().to_f64();
+            let src = Rectangle::from_size((image.pixels.w as f64, image.pixels.h as f64).into());
+            MemoryRenderBufferRenderElement::from_buffer(
+                renderer,
+                at,
+                &image.buffer,
+                None,
+                Some(src),
+                Some(image.logical),
+                Kind::Cursor,
+            )
+            .map(|e| vec![E::from(e)])
+            .unwrap_or_default()
+        }
+    }
 }
 
 #[cfg(test)]

@@ -144,8 +144,9 @@ Save a screenshot of the desktop in
 Save a screenshot of the focused window.
 .It Print , Super+Shift+5
 Offer the desktop, the focused window or a selection dragged out with the
-pointer, with
+pointer, or recording the desktop or a selection, with
 .Xr patina-screenshot 1 .
+While recording, the key stops it.
 .It Ctrl+Space
 Switch to the next keyboard layout, as on a Mac.
 .It Ctrl+Super+Alt
@@ -470,6 +471,21 @@ or a program that takes the name from it until it leaves the bus.
 The compositor only reports them and places windows where it's told; with
 no tiler, windows don't tile.
 .El
+.Sh SCREEN CAPTURE
+Other programs may capture the screen, or one window, through the
+ext-image-copy-capture-v1 protocol, with the windows named by
+ext-foreign-toplevel-list-v1.
+.Xr xdg-desktop-portal-wlr 5
+is the client that matters: OBS and browsers sharing the screen ask the
+portal, which asks the compositor, with
+.Nm patina-screenshot Fl -share
+choosing what's shared.
+A frame is sent once something on screen has changed.
+Screen recordings from the Print key are drawn by the compositor and
+encoded by
+.Xr ffmpeg 1 ,
+into
+.Pa ~/Videos/Screen Recordings .
 .Sh FILES
 .Bl -tag -width Ds
 .It Pa ~/.config/patina-compositor/config.toml

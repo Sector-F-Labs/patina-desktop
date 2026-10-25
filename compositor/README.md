@@ -33,8 +33,8 @@ this workspace is a Wayland client of it.
   the escape hatches. `[remap]` sends the focused window any combination as another
   (`remap.rs`, ADR-0076). These are the defaults. Super alone or Super+Space opens the launcher; Ctrl+Super+Q and Super+Escape lock
   (ADR-0026); Super+Shift+3 screenshots the desktop and Super+Shift+4 the focused window
-  (ADR-0034), and Print or Super+Shift+5 offers those or a selection through patina-screenshot
-  (ADR-0091); the brightness and volume keys change them and flash the volume menu (ADR-0020,
+  (ADR-0034), and Print or Super+Shift+5 offers those, a selection, or recording the screen or a
+  selection, through patina-screenshot (ADR-0091, ADR-0092); the brightness and volume keys change them and flash the volume menu (ADR-0020,
   ADR-0033); Ctrl+Space switches keyboard layout; Super+Shift+R reloads the config.
 - **A right click on the empty desktop** opens patina-menu at the pointer (ADR-0029).
 - **X11 apps** (Steam, Discord, Wine) run through Xwayland (ADR-0040), started with the
@@ -111,11 +111,22 @@ this workspace is a Wayland client of it.
 - **Shares code with the shell pieces** through patina-system: the backlight (`backlight.rs`) for
   the brightness keys.
 
+## Screen capture
+
+Other programs capture the screen, or one window, through ext-image-copy-capture-v1, with the
+windows named by ext-foreign-toplevel-list-v1 (ADR-0092). xdg-desktop-portal-wlr is the client
+that matters: OBS and browsers sharing the screen ask the portal, which asks the compositor, and
+`patina-screenshot --share` is the portal's chooser. A frame is sent once something on screen
+has changed, drawn offscreen and copied into the client's buffer. The desktop's own recording
+(Record Screen and Record Selection on the Print key) draws the same way and pipes the frames to
+`ffmpeg`. `cargo run -p patina-compositor --example capture -- out.png [--window APP] [--frames
+N]` captures through the protocol, to check it.
+
 ## Code
 
 `main.rs` (start-up, choosing the backend), `state.rs` (the protocols, placement, focus),
 `input.rs`, `keys.rs` (the compositor's own keys) and `keyboard.rs` with `keyboard/dbus.rs` (input and the layouts), `grabs.rs`, `maximize.rs`,
-`tiling.rs` with `tiling/dbus.rs`, `tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`,
+`tiling.rs` with `tiling/dbus.rs`, `tabs.rs` (moving and placing windows), `toplevels.rs`, `lock.rs`, `media.rs`, `screenshot.rs`, `capture.rs` with `capture/record.rs` (capture for other programs, and recording),
 `night_light.rs` with `night_light/dbus.rs`, `idle.rs` with `idle/dbus.rs`, `xwayland.rs` and `focus.rs` (X11 windows and
 what has the keyboard), `fullscreen.rs`, `constraints.rs` (pointer locks for games), `dnd.rs` (the icon a drag shows),
 `cursor.rs`, `drag.rs`, `scale.rs`, `config.rs`, `clients.rs`, and the backends `winit.rs`,

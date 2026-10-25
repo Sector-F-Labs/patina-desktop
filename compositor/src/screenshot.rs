@@ -49,8 +49,9 @@ pub struct Shots {
     pub menu_open: bool,
     /// The window focused when they were opened, to take if it's chosen.
     pub window: Option<Window>,
-    /// Where the choice reaches the event loop, once it's been set up.
-    pub chosen: Option<smithay::reexports::calloop::channel::Sender<Option<menu::Choice>>>,
+    /// Where patina-screenshot's choices and Stop reach the event loop,
+    /// once it's been set up.
+    pub events: Option<smithay::reexports::calloop::channel::Sender<menu::Event>>,
     pub selecting: Option<select::Selecting>,
 }
 
@@ -337,6 +338,30 @@ where
     R::TextureId: Texture,
     E: RenderElement<R>,
 {
+    let mut rgba = read_back::<R, T, E>(renderer, elements, size, scale, clear)?;
+    unpremultiply(&mut rgba);
+    Ok(Picture {
+        width: size.w as u32,
+        height: size.h as u32,
+        rgba,
+    })
+}
+
+/// Draws `elements` over `clear` into a new `size` image and reads it
+/// back: rows from the top, RGBA, premultiplied as renderers blend. Also
+/// what screen capture copies into its clients' buffers (ADR-0092).
+pub fn read_back<R, T, E>(
+    renderer: &mut R,
+    elements: &[E],
+    size: Size<i32, Physical>,
+    scale: f64,
+    clear: [f32; 4],
+) -> Result<Vec<u8>, String>
+where
+    R: Renderer + Offscreen<T> + Bind<T> + ExportMem,
+    R::TextureId: Texture,
+    E: RenderElement<R>,
+{
     if size.w <= 0 || size.h <= 0 {
         return Err(format!("nothing to take at {}x{}", size.w, size.h));
     }
@@ -354,16 +379,10 @@ where
             .copy_framebuffer(&framebuffer, Rectangle::from_size(buffer), Fourcc::Abgr8888)
             .map_err(|e| format!("reading back: {e:?}"))?
     };
-    let mut rgba = renderer
+    Ok(renderer
         .map_texture(&mapping)
         .map_err(|e| format!("reading back: {e:?}"))?
-        .to_vec();
-    unpremultiply(&mut rgba);
-    Ok(Picture {
-        width: size.w as u32,
-        height: size.h as u32,
-        rgba,
-    })
+        .to_vec())
 }
 
 /// `area` of `picture`, as much of it as is in the picture.

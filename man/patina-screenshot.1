@@ -3,44 +3,89 @@
 .Os
 .Sh NAME
 .Nm patina-screenshot
-.Nd the Patina desktop's screenshot choices
+.Nd the Patina desktop's screenshot, recording and screen sharing choices
 .Sh SYNOPSIS
 .Nm
 .Op Fl -no-window
+.Nm
+.Fl -recording
+.Nm
+.Fl -share
 .Nm
 .Fl h | V
 .Sh DESCRIPTION
 .Nm
 is what the Print key opens: a pill at the bottom of the screen offering
 the whole screen, the window that was focused, or a selection, a part of
-the screen dragged out with the pointer.
+the screen dragged out with the pointer; then recording the screen, or a
+selection.
 A click or Enter takes the one under the pointer or the keyboard;
-the arrows and Tab move between them, and 1, 2 and 3 choose one outright.
+the arrows and Tab move between them, and 1 to 5 choose one outright.
 Escape, the close button, or the keyboard going elsewhere closes it
 without taking anything.
 .Pp
 It prints the choice,
 .Dq screen ,
-.Dq window
-or
+.Dq window ,
 .Dq selection ,
+.Dq record-screen
+or
+.Dq record-selection ,
 and exits; closed, it prints nothing.
 .Xr patina-compositor 1 ,
 which runs it, then takes the screenshot itself, once it's gone, and saves
 it in
-.Pa ~/Pictures/Screenshots .
+.Pa ~/Pictures/Screenshots ,
+or starts recording into
+.Pa ~/Videos/Screen Recordings
+with
+.Xr ffmpeg 1 .
 For a selection, the compositor dims the screen under a crosshair: drag
-out the part to take and let go.
+out the part to take or record and let go.
 Escape, another button, or a click without a drag takes nothing.
+.Pp
+While the screen is recorded,
+.Nm
+.Fl -recording
+shows it at the bottom of the screen, with the time and a Stop button;
+Stop, or the Print key again, ends the recording.
+.Pp
+With
+.Fl -share ,
+it is the chooser
+.Xr xdg-desktop-portal-wlr 5
+runs when an app asks to share the screen: it lists the screen and the
+windows the portal gives it, and the app sees only the one chosen.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl -no-window
 Offer no window, for when none is focused.
+.It Fl -recording
+Show that the screen is being recorded, until standard input closes;
+Stop prints
+.Dq stop .
+The pill is left out of the recording.
+.It Fl -share
+Read the portal's sources on standard input, a line each,
+.Ql Monitor: Ar name ...
+or
+.Ql Window: Ar title Pq Ar identifier ,
+and print the line chosen; nothing if it's closed with Escape.
 .It Fl h , -help
 Print a short usage message.
 .It Fl V , -version
 Print the version.
 .El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa /etc/xdg/xdg-desktop-portal-wlr/Patina
+Makes
+.Nm
+.Fl -share
+the portal's chooser; installed by the desktop.
+.El
 .Sh SEE ALSO
+.Xr ffmpeg 1 ,
 .Xr patina-compositor 1 ,
+.Xr xdg-desktop-portal-wlr 5 ,
 .Xr patina-desktop 7

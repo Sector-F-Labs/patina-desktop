@@ -5,7 +5,8 @@
 //!
 //! It works as a diff: after each pass of the event loop, [`refresh`]
 //! compares the windows with what clients were last told and sends only
-//! what changed.
+//! what changed. The same windows go out over ext-foreign-toplevel-list,
+//! which only names them, for screen capture to pick one (ADR-0092).
 
 use smithay::{
     reexports::{
@@ -18,7 +19,10 @@ use smithay::{
             protocol::wl_surface::WlSurface,
         },
     },
-    wayland::{compositor::with_states, shell::xdg::XdgToplevelSurfaceData},
+    wayland::{
+        compositor::with_states, foreign_toplevel_list::ForeignToplevelHandle,
+        shell::xdg::XdgToplevelSurfaceData,
+    },
 };
 
 use patina_system::pins::{self, Tab};
@@ -43,6 +47,8 @@ pub struct ForeignToplevels {
 struct Entry {
     surface: WlSurface,
     handles: Vec<ZwlrForeignToplevelHandleV1>,
+    /// Its ext-foreign-toplevel-list handle.
+    listed: ForeignToplevelHandle,
     title: String,
     app_id: String,
     activated: bool,
@@ -64,6 +70,14 @@ pub enum Nth {
 }
 
 impl ForeignToplevels {
+    /// The window an ext-foreign-toplevel-list handle names.
+    pub fn surface_of(&self, handle: &ForeignToplevelHandle) -> Option<WlSurface> {
+        self.entries
+            .iter()
+            .find(|e| e.listed.matches(handle))
+            .map(|e| e.surface.clone())
+    }
+
     /// The bar's tabs, as it works them out (ADR-0080).
     fn tabs(&self) -> Vec<Tab> {
         let app_ids: Vec<&str> = self.entries.iter().map(|e| e.app_id.as_str()).collect();
@@ -274,6 +288,7 @@ pub fn refresh(state: &mut State) {
         .collect();
     let dh = state.display_handle.clone();
     let this = &mut state.toplevels;
+    let list = &mut state.capture.toplevel_list;
 
     this.entries.retain(|entry| {
         let open = windows.iter().any(|(s, ..)| s == &entry.surface);
@@ -281,6 +296,7 @@ pub fn refresh(state: &mut State) {
             for handle in &entry.handles {
                 handle.closed();
             }
+            list.remove_toplevel(&entry.listed);
         }
         open
     });
@@ -290,9 +306,11 @@ pub fn refresh(state: &mut State) {
         let activated = focused.as_ref().is_some_and(|f| f.is(&surface));
         match this.entries.iter_mut().find(|e| e.surface == surface) {
             None => {
+                let listed = list.new_toplevel::<State>(title.clone(), app_id.clone());
                 let mut entry = Entry {
                     surface,
                     handles: Vec::new(),
+                    listed,
                     title,
                     app_id,
                     activated,
@@ -318,6 +336,15 @@ pub fn refresh(state: &mut State) {
                 entry.activated = activated;
                 entry.maximized = maximized;
                 entry.minimized = minimized;
+                if title_changed || app_id_changed {
+                    if title_changed {
+                        entry.listed.send_title(&entry.title);
+                    }
+                    if app_id_changed {
+                        entry.listed.send_app_id(&entry.app_id);
+                    }
+                    entry.listed.send_done();
+                }
                 for handle in &entry.handles {
                     if title_changed {
                         handle.title(entry.title.clone());

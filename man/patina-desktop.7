@@ -33,8 +33,9 @@ The desktop's menu, on a right click on the empty desktop.
 .It Xr patina-volume 1
 The volume menu, which also flashes up after a volume or brightness key.
 .It Xr patina-screenshot 1
-The screenshot choices on the Print key: the screen, a window or a
-selection.
+The screenshot and recording choices on the Print key: the screen, a
+window or a selection; and what an app asking to share the screen may
+see.
 .It Xr patina-wifi 1
 The Wi-Fi menu.
 .It Xr patina-clock 1
@@ -107,6 +108,11 @@ See
 Skins of your own, beside Patina's built-in ones.
 .It Pa ~/Pictures/Screenshots/
 Screenshots, from Super+Shift+3, Super+Shift+4, and Print's choices.
+.It Pa ~/Videos/Screen Recordings/
+Screen recordings, from Print's choices.
+.It Pa /etc/xdg/xdg-desktop-portal/patina-portals.conf
+Which portal backends the session uses: xdg-desktop-portal-wlr for apps
+sharing the screen, Files for choosing files, GTK's for the rest.
 .It Pa ~/Pictures/Wallpapers/
 Images offered as wallpapers, with the system's backgrounds.
 .It Pa ~/.config/patina/defaults.toml
