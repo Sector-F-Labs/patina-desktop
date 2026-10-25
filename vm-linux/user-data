@@ -1,0 +1,62 @@
+#cloud-config
+# The Linux test VM's first boot (ADR-0017); vm.sh fills in @KEY@.
+hostname: patina-vm
+
+users:
+  - name: patina
+    gecos: Patina
+    groups: [adm, systemd-journal, video, render, input, audio]
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: false
+    # "patina", for the VNC console.
+    passwd: "$6$patinavm$WvHJT/JRJkGKyARl.3KNFn6kv7lkVW5psgsDHFSwEtSo.R3mJflYJpJCeDGIjJBrejKVLJg5s.Vh4lWFMqWe3."
+    ssh_authorized_keys:
+      - "@KEY@"
+
+package_update: true
+# What the binaries built on the host load at run time: Mesa (drawn in
+# software on QEMU's virtio GPU), Wayland, libinput, libseat and ALSA; and
+# for the session, a session bus, Xwayland, a cursor theme and a font.
+packages:
+  - libinput10
+  - libseat1
+  - libgbm1
+  - libegl1
+  - libegl-mesa0
+  - libgles2
+  - libgl1-mesa-dri
+  - libvulkan1
+  - mesa-vulkan-drivers
+  - libwayland-client0
+  - libwayland-cursor0
+  - libwayland-egl1
+  - libxkbcommon0
+  - libpixman-1-0
+  - libasound2t64
+  - libgudev-1.0-0
+  - libwacom9
+  - libatomic1
+  - dbus-user-session
+  - xwayland
+  - adwaita-icon-theme
+  - fonts-dejavu-core
+  - foot
+
+mounts:
+  - [patina, /patina, 9p, "trans=virtio,version=9p2000.L,msize=262144,ro,nofail", "0", "0"]
+  - [teleprinter, /teleprinter, 9p, "trans=virtio,version=9p2000.L,msize=262144,ro,nofail", "0", "0"]
+
+write_files:
+  # tty1 logs the session's user in, and their ~/.profile starts Patina there.
+  - path: /etc/systemd/system/getty@tty1.service.d/autologin.conf
+    content: |
+      [Service]
+      ExecStart=
+      ExecStart=-/sbin/agetty --autologin patina --noclear %I $TERM
+
+# cloud-init mounts the shares itself; mounting them again logs "no channels
+# available" in the kernel's log.
+runcmd:
+  - [systemctl, daemon-reload]
+  - [systemctl, restart, getty@tty1.service]

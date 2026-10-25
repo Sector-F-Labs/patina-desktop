@@ -41,6 +41,11 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 - The user often uses the VM live over VNC. Don't `bsdt type`/`bsdt key` into it without asking;
   grim screenshots are fine.
 - Logs in the guest: /tmp/bsdt-gui.log (compositor, bar and the apps they start), /tmp/bsdt-session.log (dwl).
+- The Linux test VM (ADR-0017, `vm-linux/`): Ubuntu of the host's release in QEMU, booting into a
+  Patina session on tty1 (the hardware backend, on a virtio GPU drawn in software), on this
+  checkout's `target/release` shared in read-only. `make vm-linux`, `make vm-linux-restart` after
+  changes, `make vm-linux-shot` (→ target/vm-linux/screen.png) and read the PNG back;
+  `vm-linux/vm.sh ssh` for a shell. Session log in the guest: /tmp/patina-session.log.
 
 ## Layout
 

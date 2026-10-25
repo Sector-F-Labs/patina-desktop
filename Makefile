@@ -34,12 +34,12 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps run run-bar build test check install stage deploy uninstall vm vm-restart vm-gui screenshot clean
+.PHONY: help deps run run-bar build test check install stage deploy uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui vm-linux-stop clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
 	@echo
-	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  \033[1m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  \033[1m%-17s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 deps: ## Show the system packages the build needs
 	@echo "Ubuntu/Debian: sudo apt install pkg-config libxkbcommon-dev libpixman-1-dev libudev-dev \\"
@@ -162,6 +162,21 @@ screenshot: ## Save the VM's desktop to docs/screenshot.png
 	@mkdir -p docs
 	bsdt exec -- sh -c '$(VM_WAYLAND) grim /tmp/patina-desktop.png'
 	bsdt exec -- cat /tmp/patina-desktop.png > docs/screenshot.png
+
+vm-linux: build ## Boot the Linux test VM: a Patina session on tty1, on the binaries built here (ADR-0017)
+	vm-linux/vm.sh start
+
+vm-linux-restart: build ## Rebuild here and restart the Linux VM's session
+	vm-linux/vm.sh restart
+
+vm-linux-shot: ## Save the Linux VM's screen to target/vm-linux/screen.png
+	vm-linux/vm.sh shot
+
+vm-linux-gui: ## Open the Linux VM's screen in a VNC viewer
+	vm-linux/vm.sh view
+
+vm-linux-stop: ## Power the Linux VM off (vm-linux/vm.sh reset deletes its disk)
+	vm-linux/vm.sh stop
 
 clean: ## Remove build output
 	cargo clean
