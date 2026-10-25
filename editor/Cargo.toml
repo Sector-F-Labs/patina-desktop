@@ -1,0 +1,27 @@
+[package]
+name = "text-editor"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "A Patina text editor: tabs, find and replace, syntax highlighting, and drafts kept across restarts"
+repository = "https://github.com/Sector-F-Labs/editor"
+
+[dependencies]
+dirs = "7"
+eframe = { version = "0.35", features = ["persistence"] }
+egui = "0.35"
+image = { version = "0.25", default-features = false, features = ["png"] }
+notify = "8"
+patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+regex = "1"
+rfd = "0.17"
+serde = { version = "1", features = ["derive"] }
+# The syntect egui_extras highlights Patina's code blocks with, same features.
+syntect = { version = "5.3", default-features = false, features = ["default-fancy"] }
+toml = "1"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+resvg = "0.48.1"

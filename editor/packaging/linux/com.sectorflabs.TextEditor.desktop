@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Text Editor
+GenericName=Text Editor
+Comment=Edit text files, with tabs, find and replace, and highlighting
+Exec=text-editor %F
+Icon=com.sectorflabs.TextEditor
+Terminal=false
+Categories=Utility;TextEditor;
+Keywords=text;editor;plain;code;notes;
+MimeType=text/plain;text/x-log;text/markdown;text/x-markdown;text/csv;text/x-csrc;text/x-chdr;text/x-c++src;text/x-c++hdr;text/x-rust;text/x-python;text/x-python3;text/x-go;text/x-java;text/javascript;application/javascript;text/x-typescript;application/json;application/toml;application/xml;text/xml;text/html;text/css;application/x-yaml;text/x-yaml;application/x-shellscript;text/x-script.python;text/x-makefile;text/x-cmake;text/x-patch;text/x-diff;application/x-desktop;text/x-ini;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.TextEditor

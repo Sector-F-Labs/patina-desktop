@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- A sheet of paper with a folded corner, lines of text in a few
+       highlighted colours, a cursor, and a pencil across the corner. -->
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdfcf8"/>
+      <stop offset="1" stop-color="#ece8dc"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d8d2c0"/>
+      <stop offset="1" stop-color="#b9b19a"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6b44a"/>
+      <stop offset="1" stop-color="#e08a1c"/>
+    </linearGradient>
+  </defs>
+  <!-- shadow -->
+  <path d="M26 14h56l22 22v78a6 6 0 0 1-6 6H26a6 6 0 0 1-6-6V20a6 6 0 0 1 6-6z" fill="#000" opacity="0.18" transform="translate(2 3)"/>
+  <!-- page -->
+  <path d="M26 12h56l22 22v78a6 6 0 0 1-6 6H26a6 6 0 0 1-6-6V18a6 6 0 0 1 6-6z" fill="url(#paper)" stroke="#a89f86" stroke-width="1.5"/>
+  <path d="M82 12v16a6 6 0 0 0 6 6h16z" fill="url(#fold)" stroke="#a89f86" stroke-width="1.5" stroke-linejoin="round"/>
+  <!-- lines of text -->
+  <g stroke-linecap="round" stroke-width="5">
+    <path d="M32 30h14" stroke="#c7431a"/>
+    <path d="M50 30h20" stroke="#5a6b7a"/>
+    <path d="M40 42h18" stroke="#3a7d44"/>
+    <path d="M62 42h22" stroke="#5a6b7a"/>
+    <path d="M40 54h10" stroke="#2f6db5"/>
+    <path d="M54 54h30" stroke="#8a5bb0"/>
+    <path d="M32 66h8" stroke="#5a6b7a"/>
+    <path d="M32 80h22" stroke="#c7431a"/>
+    <path d="M58 80h12" stroke="#5a6b7a"/>
+    <path d="M40 92h26" stroke="#3a7d44"/>
+  </g>
+  <!-- the cursor -->
+  <path d="M74 86v12" stroke="#222" stroke-width="3" stroke-linecap="round"/>
+  <!-- pencil -->
+  <g transform="rotate(-45 92 92)">
+    <rect x="60" y="85" width="44" height="14" rx="2" fill="url(#wood)" stroke="#9c5d10" stroke-width="1.5"/>
+    <rect x="104" y="85" width="10" height="14" rx="2" fill="#e57f9a" stroke="#a84a63" stroke-width="1.5"/>
+    <rect x="100" y="85" width="5" height="14" fill="#b8b8b8" stroke="#7a7a7a" stroke-width="1"/>
+    <path d="M60 85l-14 7 14 7z" fill="#f3d9a8" stroke="#9c5d10" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M51 89.5l-5 2.5 5 2.5z" fill="#333"/>
+  </g>
+</svg>
