@@ -1270,7 +1270,7 @@ impl eframe::App for App {
         let mut export = false;
         let title = format!("{}{}", self.name(), if self.dirty { " •" } else { "" });
         egui::Panel::top("header").frame(frame::header_frame(ui.style(), &style, radius)).show(ui, |ui| {
-            TitleBar::new(&title, &style).custom(custom).menu_bar(true).show(
+            TitleBar::new(&title, &style).custom(custom).menu_bar(true).span(frame::header_span(ui)).show(
                 ui,
                 |ui| self.menus(ui, &mut actions),
                 |ui| {
