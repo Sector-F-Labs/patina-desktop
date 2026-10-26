@@ -6,7 +6,7 @@ use smithay::{
     backend::input::{
         AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, GestureBeginEvent,
         GestureSwipeUpdateEvent, InputBackend, InputEvent, KeyState, KeyboardKeyEvent,
-        PointerAxisEvent, PointerButtonEvent, PointerMotionEvent,
+        PointerAxisEvent, PointerButtonEvent, PointerMotionEvent, TouchEvent,
     },
     input::{
         keyboard::{FilterResult, ModifiersState, keysyms},
@@ -479,6 +479,21 @@ pub fn handle<B: InputBackend>(state: &mut State, event: InputEvent<B>) -> Optio
             }
             state.pointer_axis(frame);
         }
+        // The touchscreen (ADR-0094), over the whole screen: there's one
+        // output.
+        InputEvent::TouchDown { event } => {
+            let screen = state.screen();
+            let pos = event.position_transformed(screen.size) + screen.loc.to_f64();
+            state.touch_down(event.slot(), pos, event.time_msec());
+        }
+        InputEvent::TouchMotion { event } => {
+            let screen = state.screen();
+            let pos = event.position_transformed(screen.size) + screen.loc.to_f64();
+            state.touch_motion(event.slot(), pos, event.time_msec());
+        }
+        InputEvent::TouchUp { event } => state.touch_up(event.slot(), event.time_msec()),
+        InputEvent::TouchFrame { .. } => state.touch_frame(),
+        InputEvent::TouchCancel { .. } => state.touch_cancel(),
         InputEvent::Keyboard { event } => {
             // xkb keycodes are evdev's plus 8.
             let code = event.key_code().raw().saturating_sub(8);

@@ -135,6 +135,7 @@ mechanics of adding one.
 | [0091](0091-print-offers-the-screen-a-window-or-a-selection.md) | The Print key offers the screen, a window or a selection | Accepted |
 | [0092](0092-screen-capture-for-apps-and-recording.md) | Screen capture for apps, through the portal, and the desktop's own recording | Accepted |
 | [0093](0093-with-gaps-maximising-fills.md) | With gaps on, an app's maximise fills inside the gaps, unannounced | Accepted |
+| [0094](0094-touches-go-to-apps.md) | The touchscreen's touches go to apps as wl_touch, without pointer emulation | Accepted |
 
 ## Decision Relationship
 
@@ -175,6 +176,7 @@ flowchart TD
     S --> AC
     AC --> AD[0030: wallpaper]
     P --> AE[0031: three-finger drag]
+    P --> TOUCH[0094: touches go to apps]
     P --> AF[0032: Patina cursors]
     U --> AG[0033: flash holds, shows brightness]
     P --> AH[0034: screenshots]

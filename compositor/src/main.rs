@@ -37,6 +37,7 @@ mod sync;
 mod tabs;
 mod tiling;
 mod toplevels;
+mod touch;
 mod typing;
 mod udev;
 mod winit;

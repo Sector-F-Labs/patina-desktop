@@ -200,6 +200,9 @@ impl State {
                 .map_err(|e| format!("keyboard: {e}"))?;
         }
         seat.add_pointer();
+        // Whether or not there's a touchscreen: apps only look for touch
+        // where the seat has it (ADR-0094).
+        seat.add_touch();
         output.create_global::<State>(&dh);
         let mut space = Space::default();
         space.map_output(&output, (0, 0));
@@ -518,7 +521,7 @@ impl State {
     }
 
     /// Gives `window` the keyboard and raises it; `None` clears focus.
-    fn layer_for(&self, surface: &WlSurface) -> Option<LayerSurface> {
+    pub(crate) fn layer_for(&self, surface: &WlSurface) -> Option<LayerSurface> {
         layer_map_for_output(&self.output)
             .layer_for_surface(surface, WindowSurfaceType::ALL)
             .cloned()
@@ -615,7 +618,7 @@ impl State {
 
     /// Gives the keyboard to a layer surface (a launcher), leaving every
     /// window looking inactive while it has it.
-    fn focus_layer(&mut self, layer: &LayerSurface, serial: Serial) {
+    pub(crate) fn focus_layer(&mut self, layer: &LayerSurface, serial: Serial) {
         // Locked, only the locker has the keyboard.
         if self.locked() {
             return;
@@ -636,7 +639,7 @@ impl State {
         }
     }
 
-    fn focus(&mut self, window: Option<Window>, serial: Serial) {
+    pub(crate) fn focus(&mut self, window: Option<Window>, serial: Serial) {
         // Locked, only the locker has the keyboard; a window opening or
         // closing behind it changes nothing.
         if self.locked() {

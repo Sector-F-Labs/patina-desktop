@@ -56,6 +56,9 @@ this workspace is a Wayland client of it.
 - **Night Light** on the hardware (ADR-0039): the CRTC's gamma ramp warmed in the evening, by
   `[night_light]`'s mode and schedule, fading in and out. Apps and scripts can hold it off over
   D-Bus; nested, the parent desktop's own night light applies.
+- **The touchscreen** (ADR-0094): touches go to the app under them as wl_touch, as on GNOME;
+  a touch focuses and raises the window it lands on. Not turned into pointer clicks, so apps
+  without touch, the frames and the patina-shell pieces don't answer to it yet.
 - **Three-finger drag** on a touchpad, on by default (ADR-0031); Patina's own cursors at every
   scale (ADR-0032); fractional scaling (ADR-0018).
 

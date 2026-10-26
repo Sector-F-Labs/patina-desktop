@@ -59,6 +59,9 @@ puts them in `$(PREFIX)/share/man`.
 - `compositor/src/state.rs`: server side: protocols, placement, focus, input into the seat.
 - `compositor/src/drag.rs`: three-finger drag (ADR-0031): libinput swipes hold BTN_LEFT, with a
   grace timer on `State::loop_handle` between strokes.
+- `compositor/src/touch.rs`: the touchscreen (ADR-0094): libinput touches into the seat's
+  wl_touch over the whole screen, focusing like a click on the way down; Smithay's touch grab keeps
+  each finger on its surface. No pointer emulation yet.
 - `compositor/src/processes.rs`: what the compositor starts (ADR-0045): a global list, each child in
   a process group of its own with its output read and kept; the wallpaper and bar restarted when
   they exit. `processes/dbus.rs` serves `com.sectorflabs.Patina.Processes`, nested too; Settings'
