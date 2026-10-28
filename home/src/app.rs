@@ -6,10 +6,13 @@ use std::collections::BTreeMap;
 use patina::frame::{self, TitleBar};
 use patina::skin::{self, Skin};
 
+use crate::chart::{self, SensorDialog};
 use crate::config::{self, Config};
 use crate::dashboard::{self, Scene};
 use crate::ha::{self, Account, Client, Command, Dashboard, Entity, Update};
+use crate::history::{self, Store};
 use crate::light::LightDialog;
+use crate::palette::{self, Palette};
 use crate::widgets::{Event, ServiceCall, entity_row};
 
 /// The skin used until the user picks one: stock egui, following the desktop.
@@ -45,8 +48,13 @@ pub struct App {
     connection: Connection,
     entities: Vec<Entity>,
     dashboards: Vec<Dashboard>,
-    /// The light whose settings are open.
+    /// The light whose settings are open, and the sensor whose graph is.
     light: Option<LightDialog>,
+    sensor: Option<SensorDialog>,
+    history: Store,
+    palette: Palette,
+    /// The skin `palette` was made for.
+    palette_skin: String,
     /// The view tab showing in the chosen dashboard.
     view: usize,
     search: String,
@@ -74,6 +82,10 @@ impl App {
             entities: Vec::new(),
             dashboards: Vec::new(),
             light: None,
+            sensor: None,
+            history: Store::default(),
+            palette: Palette::new(),
+            palette_skin: String::new(),
             view: 0,
             search: String::new(),
             skins,
@@ -91,7 +103,7 @@ impl App {
             app.connect(&cc.egui_ctx);
         }
         if let Ok(id) = std::env::var("HOME_OPEN") {
-            app.light = Some(LightDialog::new(id)); // for screenshots
+            app.apply_events(vec![Event::Open(id)]); // for screenshots
         }
         app.apply_skin(&cc.egui_ctx);
         app
@@ -144,7 +156,15 @@ impl App {
                     self.dashboards = dashboards;
                     self.select_default_dashboard();
                 }
-                Update::Error(e) => self.connection = Connection::Failed(e),
+                Update::History { hours, series } => {
+                    for (id, points) in series {
+                        self.history.insert(&id, hours, points);
+                    }
+                }
+                Update::Error(e) => {
+                    self.history.clear_pending();
+                    self.connection = Connection::Failed(e);
+                }
             }
         }
     }
@@ -247,6 +267,7 @@ impl App {
     /// The chosen dashboard: tabs for its views, then the view.
     fn dashboard_view(&mut self, ui: &mut egui::Ui) {
         let mut events = Vec::new();
+        let mut wanted = Vec::new();
         if let Some(d) = self.dashboard() {
             match &d.config {
                 Ok(config) => {
@@ -263,6 +284,9 @@ impl App {
                     let mut scene = Scene {
                         states: self.entities.iter().map(|e| (e.id.as_str(), e)).collect(),
                         events: &mut events,
+                        history: &self.history,
+                        palette: &self.palette,
+                        wanted: &mut wanted,
                     };
                     dashboard::show_view(ui, config, view, &mut scene);
                     self.view = view;
@@ -273,6 +297,7 @@ impl App {
             }
         }
         self.apply_events(events);
+        self.request_history(wanted);
     }
 
     /// Sends the service calls from clicks, shows their result until the next poll confirms it, and
@@ -280,7 +305,11 @@ impl App {
     fn apply_events(&mut self, events: Vec<Event>) {
         for event in events {
             match event {
-                Event::Open(id) => self.light = Some(LightDialog::new(id)),
+                Event::Open(id) => match self.entities.iter().find(|e| e.id == id) {
+                    Some(e) if e.domain() == "light" => self.light = Some(LightDialog::new(id)),
+                    Some(e) if chart::is_graphable(e) => self.sensor = Some(SensorDialog::new(id)),
+                    _ => {}
+                },
                 Event::Call(call) => {
                     self.call(&call);
                     if let Some(e) = self.entities.iter_mut().find(|e| e.id == call.entity_id) {
@@ -292,6 +321,57 @@ impl App {
                 }
             }
         }
+    }
+
+    /// Fetches the history the cards and windows drew a graph for, unless it's fresh or on its way.
+    fn request_history(&mut self, wanted: Vec<(String, u32)>) {
+        let mut by_hours: std::collections::BTreeMap<u32, Vec<String>> = Default::default();
+        for (id, hours) in wanted {
+            let ids = by_hours.entry(hours).or_default();
+            if self.history.wants(&id, hours) && !ids.contains(&id) {
+                ids.push(id);
+            }
+        }
+        for (hours, ids) in by_hours.into_iter().filter(|(_, ids)| !ids.is_empty()) {
+            if matches!(self.connection, Connection::Demo) {
+                let now = chrono::Utc::now().timestamp() as f64;
+                for id in ids {
+                    let current = self.entities.iter().find(|e| e.id == id).and_then(|e| e.state.parse().ok());
+                    self.history.insert(&id, hours, history::demo(&id, hours, now, current.unwrap_or(0.0)));
+                }
+            } else if let Some(client) = &self.client {
+                for id in &ids {
+                    self.history.mark_pending(id, hours);
+                }
+                client.request_history(ids, hours);
+            }
+        }
+    }
+
+    fn sensor_dialog(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.sensor else { return };
+        let mut wanted = Vec::new();
+        let keep = match self.entities.iter().find(|e| e.id == dialog.id) {
+            Some(e) => dialog.show(ctx, e, &self.history, &self.palette, &mut wanted),
+            None => false,
+        };
+        if !keep {
+            self.sensor = None;
+        }
+        self.request_history(wanted);
+    }
+
+    /// The graphs' colours: the defaults, with the skin's `[app.home]` over them.
+    fn update_palette(&mut self) {
+        let name = self.skin().name.clone();
+        if name == self.palette_skin {
+            return;
+        }
+        self.palette = match self.skin().app_section::<palette::Section>("home") {
+            Ok((section, _warnings)) => Palette::new().with(section),
+            Err(_) => Palette::new(),
+        };
+        self.palette_skin = name;
     }
 
     fn light_dialog(&mut self, ctx: &egui::Context) {
@@ -446,6 +526,7 @@ impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.poll();
+        self.update_palette();
         // Every frame: Default's colours follow the desktop's light/dark setting.
         let style = self.skin().frame_style(ui.visuals());
         let custom = !self.config.system_title_bar;
@@ -513,6 +594,7 @@ impl eframe::App for App {
         }
 
         self.light_dialog(&ctx);
+        self.sensor_dialog(&ctx);
         self.account_dialog(&ctx);
         if custom {
             frame::edges(&ctx, radius, style.border);

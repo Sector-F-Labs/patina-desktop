@@ -1,10 +1,13 @@
 //! Home: a Patina interface for Home Assistant. Built on egui.
 
 mod app;
+mod chart;
 mod config;
 mod dashboard;
 mod ha;
+mod history;
 mod light;
+mod palette;
 mod widgets;
 
 fn main() -> eframe::Result {

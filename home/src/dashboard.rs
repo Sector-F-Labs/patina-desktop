@@ -5,13 +5,20 @@ use std::collections::HashMap;
 
 use serde_json::Value;
 
+use crate::chart::{self, Chart};
 use crate::ha::Entity;
+use crate::history::Store;
+use crate::palette::Palette;
 use crate::widgets::{Event, entity_row};
 
 /// Entities by id, and where what's clicked is collected.
 pub struct Scene<'a> {
     pub states: HashMap<&'a str, &'a Entity>,
     pub events: &'a mut Vec<Event>,
+    pub history: &'a Store,
+    pub palette: &'a Palette,
+    /// The (entity, hours) of history the cards drew, for the app to fetch.
+    pub wanted: &'a mut Vec<(String, u32)>,
 }
 
 /// The widest a column of cards gets before another column is started.
@@ -112,7 +119,10 @@ fn card_ui(ui: &mut egui::Ui, card: &Value, scene: &mut Scene) {
         }
         "tile" | "light" | "button" | "entity" | "sensor" | "thermostat" | "gauge" => {
             let Some((id, name)) = entity_ref(card) else { return placeholder(ui, kind) };
-            framed(ui, None, |ui| entity_line(ui, id, name, scene));
+            match scene.states.get(id).copied() {
+                Some(e) if chart::is_graphable(e) => framed(ui, None, |ui| sensor_card(ui, e, name, scene)),
+                _ => framed(ui, None, |ui| entity_line(ui, id, name, scene)),
+            }
         }
         "glance" => framed(ui, card["title"].as_str(), |ui| {
             ui.horizontal_wrapped(|ui| {
@@ -157,6 +167,24 @@ fn card_ui(ui: &mut egui::Ui, card: &Value, scene: &mut Scene) {
     }
 }
 
+/// A number with its unit, and its past day under it.
+fn sensor_card(ui: &mut egui::Ui, e: &Entity, name: Option<&str>, scene: &mut Scene) {
+    ui.horizontal(|ui| {
+        let label = ui.add(egui::Label::new(name.unwrap_or_else(|| e.name())).sense(egui::Sense::click()));
+        if label.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text("History").clicked() {
+            scene.events.push(Event::Open(e.id.clone()));
+        }
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.heading(e.display_state());
+        });
+    });
+    scene.wanted.push((e.id.clone(), 24));
+    let chart = Chart { entity: e, points: scene.history.get(&e.id, 24), hours: 24, palette: scene.palette };
+    if chart.inline(ui, 64.0) {
+        scene.events.push(Event::Open(e.id.clone()));
+    }
+}
+
 fn placeholder(ui: &mut egui::Ui, kind: &str) {
     framed(ui, None, |ui| {
         ui.weak(format!("Card type “{kind}” isn't supported yet"));
@@ -197,11 +225,18 @@ mod tests {
         let dashboards = crate::ha::demo_dashboards();
         let config = dashboards[0].config.as_ref().unwrap();
         let ctx = egui::Context::default();
+        let (history, palette) = (Store::default(), Palette::new());
         for index in 0..view_titles(config).len() {
             let mut events = Vec::new();
+            let mut wanted = Vec::new();
             let _ = ctx.run_ui(Default::default(), |ui| {
-                let mut scene =
-                    Scene { states: entities.iter().map(|e| (e.id.as_str(), e)).collect(), events: &mut events };
+                let mut scene = Scene {
+                    states: entities.iter().map(|e| (e.id.as_str(), e)).collect(),
+                    events: &mut events,
+                    history: &history,
+                    palette: &palette,
+                    wanted: &mut wanted,
+                };
                 show_view(ui, config, index, &mut scene);
             });
         }

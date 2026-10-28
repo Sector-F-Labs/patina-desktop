@@ -1,11 +1,14 @@
 //! The Home Assistant REST API: entity states and service calls, on a worker
 //! thread so the UI never waits on the network (ADR-0003).
 
+use std::collections::HashMap;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+
+use crate::history::{self, Points};
 
 /// How often the states are fetched again.
 const POLL: Duration = Duration::from_secs(5);
@@ -121,6 +124,11 @@ pub enum Command {
 pub enum Update {
     States(Vec<Entity>),
     Dashboards(Vec<Dashboard>),
+    /// The past values of the sensors asked for, over `hours`.
+    History {
+        hours: u32,
+        series: HashMap<String, Points>,
+    },
     Error(String),
 }
 
@@ -152,6 +160,25 @@ impl Client {
         std::thread::spawn(move || worker(account, commands, updates, ctx));
         client.reload_dashboards();
         client
+    }
+
+    /// Fetches the past `hours` of some sensors, on a thread of their own (ADR-0006).
+    pub fn request_history(&self, ids: Vec<String>, hours: u32) {
+        let (account, updates, ctx) = (self.account.clone(), self.updates.clone(), self.ctx.clone());
+        std::thread::spawn(move || {
+            let update = match fetch_history(&agent(), &account, &ids, hours) {
+                Ok(mut series) => {
+                    // A sensor with no history is answered too, so it isn't asked for again at once.
+                    for id in ids {
+                        series.entry(id).or_default();
+                    }
+                    Update::History { hours, series }
+                }
+                Err(e) => Update::Error(format!("History: {e}")),
+            };
+            let _ = updates.send(update);
+            ctx.request_repaint();
+        });
     }
 
     /// Fetches the dashboards again, on a thread of their own (ADR-0004).
@@ -189,6 +216,27 @@ fn fetch(agent: &ureq::Agent, account: &Account) -> Result<Vec<Entity>, String> 
         body.as_array().ok_or("unexpected reply")?.iter().filter_map(Entity::from_json).collect();
     entities.sort_by_key(|e| e.name().to_lowercase());
     Ok(entities)
+}
+
+fn fetch_history(
+    agent: &ureq::Agent,
+    account: &Account,
+    ids: &[String],
+    hours: u32,
+) -> Result<HashMap<String, Points>, String> {
+    let start = chrono::Utc::now() - chrono::Duration::hours(hours as i64);
+    let body: Value = agent
+        .get(&account.endpoint(&format!("/api/history/period/{}", start.format("%Y-%m-%dT%H:%M:%SZ"))))
+        .query("filter_entity_id", ids.join(","))
+        .query("minimal_response", "")
+        .query("no_attributes", "")
+        .header("Authorization", &format!("Bearer {}", account.token.trim()))
+        .call()
+        .map_err(|e| e.to_string())?
+        .body_mut()
+        .read_json()
+        .map_err(|e| e.to_string())?;
+    Ok(history::parse(&body))
 }
 
 /// `http://host:8123/` → `ws://host:8123/api/websocket`, and https → wss.
@@ -386,6 +434,8 @@ pub fn demo_dashboards() -> Vec<Dashboard> {
                     { "entity": "sensor.outside_temperature", "name": "Outside" },
                     "sensor.power",
                 ]},
+                { "type": "sensor", "entity": "sensor.living_room_temperature", "name": "Living Room" },
+                { "type": "sensor", "entity": "sensor.power" },
                 { "type": "entities", "title": "Switches", "entities": [
                     "switch.coffee_machine", "switch.office_fan",
                 ]},

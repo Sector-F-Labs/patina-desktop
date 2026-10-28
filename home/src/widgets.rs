@@ -52,7 +52,7 @@ impl ServiceCall {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
     Call(ServiceCall),
-    /// Open an entity's settings (a light's colour and brightness).
+    /// Open an entity's own window: a light's settings, a sensor's graph.
     Open(String),
 }
 
@@ -61,10 +61,15 @@ pub fn entity_row(ui: &mut egui::Ui, e: &Entity, name: Option<&str>, events: &mu
     ui.horizontal(|ui| {
         let name = egui::RichText::new(name.unwrap_or_else(|| e.name()));
         let name = if e.is_unavailable() { name.weak() } else { name };
-        if e.domain() == "light" && !e.is_unavailable() {
-            // A light's name opens its settings.
+        let opens = if e.domain() == "light" && !e.is_unavailable() {
+            Some("Light settings")
+        } else {
+            crate::chart::is_graphable(e).then_some("History")
+        };
+        if let Some(hint) = opens {
+            // A light's name opens its settings, and a sensor's its graph.
             let label = ui.add(egui::Label::new(name).sense(egui::Sense::click()));
-            if label.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text("Light settings").clicked() {
+            if label.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(hint).clicked() {
                 events.push(Event::Open(e.id.clone()));
             }
         } else {

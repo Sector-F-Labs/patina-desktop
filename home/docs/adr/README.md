@@ -47,6 +47,7 @@ mechanics of adding one.
 | [0003](0003-poll-rest-on-a-worker-thread.md) | Poll the REST API from a worker thread | Proposed |
 | [0004](0004-render-lovelace-dashboards-natively.md) | Render the user's Lovelace dashboards natively | Accepted |
 | [0005](0005-light-settings-dialog.md) | A settings dialog for lights | Accepted |
+| [0006](0006-sensor-history-graphs.md) | Graph numeric sensors with history from the REST API | Accepted |
 
 ## Decision Relationship
 
@@ -56,6 +57,7 @@ flowchart TD
     A --> C[0003: REST polling on a worker]
     C --> D[0004: Lovelace dashboards over a WebSocket]
     D --> E[0005: light settings dialog]
+    C --> F[0006: sensor history graphs]
 ```
 
 ## Revisit Triggers
