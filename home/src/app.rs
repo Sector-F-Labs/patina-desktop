@@ -1,0 +1,444 @@
+//! The window: Patina's frame and header bar, a sidebar of entity domains,
+//! and the entities of the chosen domain.
+
+use std::collections::BTreeMap;
+
+use patina::frame::{self, TitleBar};
+use patina::skin::{self, Skin};
+
+use crate::config::{self, Config};
+use crate::ha::{self, Account, Client, Command, Control, Entity, Update};
+
+/// The skin used until the user picks one: stock egui, following the desktop.
+const HOME_SKIN: &str = "Default";
+
+/// What the header asks for, handled after it's drawn.
+enum Action {
+    Quit,
+    Refresh,
+    Account,
+    SetSkin(String),
+    SystemTitleBar(bool),
+}
+
+/// The account dialog's fields, while it's open.
+struct AccountDialog {
+    draft: Account,
+    error: Option<String>,
+}
+
+enum Connection {
+    NotSetUp,
+    Connecting,
+    Connected,
+    Failed(String),
+    Demo,
+}
+
+pub struct App {
+    config: Config,
+    account: Account,
+    client: Option<Client>,
+    connection: Connection,
+    entities: Vec<Entity>,
+    search: String,
+    skins: Vec<Skin>,
+    skin_errors: Vec<String>,
+    /// `HOME_SKIN` env var: this run's skin, not saved.
+    forced_skin: Option<String>,
+    dialog: Option<AccountDialog>,
+    /// Screenshot mode: where to save, and whether it's been asked for.
+    screenshot: Option<(std::path::PathBuf, bool)>,
+}
+
+impl App {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        patina::appearance::watch(&cc.egui_ctx);
+        let dirs: Vec<_> = skin::app_dir("home").into_iter().collect();
+        let (skins, skin_errors) = skin::load_all(skin::BUILT_IN, &dirs);
+        let account = config::load_account();
+        let demo = std::env::var_os("HOME_DEMO").is_some();
+        let mut app = Self {
+            config: Config::load(),
+            account,
+            client: None,
+            connection: Connection::NotSetUp,
+            entities: Vec::new(),
+            search: String::new(),
+            skins,
+            skin_errors,
+            forced_skin: std::env::var("HOME_SKIN").ok(),
+            dialog: None,
+            screenshot: std::env::var_os("HOME_SCREENSHOT").map(|p| (p.into(), false)),
+        };
+        if demo {
+            app.entities = ha::demo();
+            app.connection = Connection::Demo;
+        } else {
+            app.connect(&cc.egui_ctx);
+        }
+        app.apply_skin(&cc.egui_ctx);
+        app
+    }
+
+    /// (Re)starts the worker for the current account; dropping the old client stops its thread.
+    fn connect(&mut self, ctx: &egui::Context) {
+        self.client = None;
+        if self.account.is_set() {
+            self.client = Some(Client::start(ctx, self.account.clone()));
+            self.connection = Connection::Connecting;
+        } else {
+            self.connection = Connection::NotSetUp;
+            self.entities.clear();
+        }
+    }
+
+    fn skin(&self) -> &Skin {
+        let find = |name: &str| self.skins.iter().find(|s| s.name == name);
+        let wanted = self.forced_skin.as_deref().or(self.config.skin.as_deref()).unwrap_or(HOME_SKIN);
+        find(wanted).or_else(|| find(HOME_SKIN)).unwrap_or(&self.skins[0])
+    }
+
+    fn apply_skin(&self, ctx: &egui::Context) {
+        // Replaces the whole egui style: re-apply any spacing of the app's own after it.
+        self.skin().apply(ctx);
+    }
+
+    fn poll(&mut self) {
+        let Some(client) = &self.client else { return };
+        while let Ok(update) = client.rx.try_recv() {
+            match update {
+                Update::States(entities) => {
+                    self.entities = entities;
+                    self.connection = Connection::Connected;
+                }
+                Update::Error(e) => self.connection = Connection::Failed(e),
+            }
+        }
+    }
+
+    /// Entities per domain, for the sidebar.
+    fn domains(&self) -> BTreeMap<&str, usize> {
+        let mut domains = BTreeMap::new();
+        for e in &self.entities {
+            *domains.entry(e.domain()).or_insert(0) += 1;
+        }
+        domains
+    }
+
+    fn call(&mut self, domain: &str, service: &str, entity_id: &str) {
+        if let Some(client) = &self.client {
+            client.send(Command::Call { domain: domain.into(), service: service.into(), entity_id: entity_id.into() });
+        }
+    }
+
+    /// Left side of the title bar: word menus, never a hamburger (Patina's ADR-0006).
+    fn menus(&self, ui: &mut egui::Ui, actions: &mut Vec<Action>) {
+        ui.menu_button("File", |ui| {
+            if ui.button("Account…").clicked() {
+                actions.push(Action::Account);
+                ui.close();
+            }
+            ui.separator();
+            if ui.add(egui::Button::new("Quit").shortcut_text("Ctrl+Q")).clicked() {
+                actions.push(Action::Quit);
+                ui.close();
+            }
+        });
+        ui.menu_button("View", |ui| {
+            if ui.add(egui::Button::new("Refresh").shortcut_text("F5")).clicked() {
+                actions.push(Action::Refresh);
+                ui.close();
+            }
+            ui.separator();
+            let mut system = self.config.system_title_bar;
+            if ui.checkbox(&mut system, "System Title Bar").changed() {
+                actions.push(Action::SystemTitleBar(system));
+            }
+        });
+        ui.menu_button("Skins", |ui| {
+            let current = self.skin().name.clone();
+            for skin in &self.skins {
+                if ui.radio(skin.name == current, &skin.name).clicked() {
+                    actions.push(Action::SetSkin(skin.name.clone()));
+                }
+            }
+            for error in &self.skin_errors {
+                ui.colored_label(ui.visuals().error_fg_color, error);
+            }
+        });
+    }
+
+    fn sidebar(&mut self, ui: &mut egui::Ui) {
+        let domains: Vec<(String, usize)> = self.domains().into_iter().map(|(d, n)| (d.to_string(), n)).collect();
+        let total = self.entities.len();
+        let mut chosen = self.config.domain.clone();
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            if ui.selectable_label(chosen.is_none(), format!("All  ({total})")).clicked() {
+                chosen = None;
+            }
+            ui.separator();
+            for (domain, count) in &domains {
+                let selected = chosen.as_deref() == Some(domain.as_str());
+                if ui.selectable_label(selected, format!("{}  ({count})", domain_title(domain))).clicked() {
+                    chosen = Some(domain.clone());
+                }
+            }
+        });
+        if chosen != self.config.domain {
+            self.config.domain = chosen;
+            self.config.save();
+        }
+    }
+
+    fn entities_view(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.add(egui::TextEdit::singleline(&mut self.search).hint_text("Search").desired_width(f32::INFINITY));
+        });
+        ui.add_space(6.0);
+
+        if matches!(self.connection, Connection::NotSetUp) {
+            ui.vertical_centered(|ui| {
+                ui.add_space(60.0);
+                ui.heading("Connect to Home Assistant");
+                ui.label("Use File → Account… to enter its address and a long-lived access token.");
+            });
+            return;
+        }
+
+        let query = self.search.to_lowercase();
+        let domain = self.config.domain.clone();
+        let mut calls = Vec::new();
+        egui::ScrollArea::vertical().auto_shrink([false; 2]).show(ui, |ui| {
+            let mut current = "";
+            for e in self.entities.iter().filter(|e| {
+                domain.as_deref().is_none_or(|d| e.domain() == d)
+                    && (query.is_empty() || e.name().to_lowercase().contains(&query) || e.id.contains(&query))
+            }) {
+                if domain.is_none() && e.domain() != current {
+                    current = e.domain();
+                    ui.add_space(8.0);
+                    ui.strong(domain_title(current));
+                    ui.separator();
+                }
+                entity_row(ui, e, &mut calls);
+            }
+        });
+        for (domain, service, entity_id, state) in calls {
+            self.call(&domain, &service, &entity_id);
+            if let (Some(state), Some(e)) = (state, self.entities.iter_mut().find(|e| e.id == entity_id)) {
+                e.state = state; // shown until the next poll confirms it
+            }
+        }
+    }
+
+    fn status_bar(&self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| match &self.connection {
+            Connection::NotSetUp => ui.label("Not connected"),
+            Connection::Connecting => ui.label("Connecting…"),
+            Connection::Connected => ui.label(format!("Connected to {}", self.account.url.trim())),
+            Connection::Failed(e) => ui.colored_label(ui.visuals().error_fg_color, e),
+            Connection::Demo => ui.label("Demo entities"),
+        });
+    }
+
+    fn account_dialog(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.dialog else { return };
+        let (mut save, mut cancel) = (false, false);
+        egui::Window::new("Account")
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                egui::Grid::new("account").num_columns(2).spacing([8.0, 8.0]).show(ui, |ui| {
+                    ui.label("Address");
+                    ui.add(
+                        egui::TextEdit::singleline(&mut dialog.draft.url)
+                            .hint_text("http://homeassistant.local:8123")
+                            .desired_width(300.0),
+                    );
+                    ui.end_row();
+                    ui.label("Access token");
+                    ui.add(egui::TextEdit::singleline(&mut dialog.draft.token).password(true).desired_width(300.0));
+                    ui.end_row();
+                });
+                ui.small("A long-lived token from your Home Assistant profile. It's kept in a file only you can read.");
+                if let Some(e) = &dialog.error {
+                    ui.colored_label(ui.visuals().error_fg_color, e);
+                }
+                ui.horizontal(|ui| {
+                    save = ui.button("Save").clicked();
+                    cancel = ui.button("Cancel").clicked();
+                });
+            });
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            cancel = true;
+        }
+        if save {
+            match config::save_account(&dialog.draft) {
+                Ok(()) => {
+                    self.account = dialog.draft.clone();
+                    self.dialog = None;
+                    self.connect(ctx);
+                }
+                Err(e) => dialog.error = Some(e),
+            }
+        } else if cancel {
+            self.dialog = None;
+        }
+    }
+
+    fn take_screenshot(&mut self, ctx: &egui::Context) {
+        let Some((path, requested)) = &mut self.screenshot else { return };
+        ctx.request_repaint();
+        let image = ctx.input(|i| {
+            i.raw.events.iter().find_map(|e| match e {
+                egui::Event::Screenshot { image, .. } => Some(image.clone()),
+                _ => None,
+            })
+        });
+        if let Some(image) = image {
+            let [w, h] = image.size;
+            let saved = image::RgbaImage::from_raw(w as u32, h as u32, image.as_raw().to_vec())
+                .ok_or_else(|| "screenshot has the wrong size".to_string())
+                .and_then(|b| b.save(&*path).map_err(|e| e.to_string()));
+            match saved {
+                Ok(()) => eprintln!("saved {}", path.display()),
+                Err(e) => eprintln!("screenshot failed: {e}"),
+            }
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        } else if !*requested && ctx.input(|i| i.time) > 1.0 {
+            *requested = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(Default::default()));
+        }
+    }
+}
+
+/// "binary_sensor" → "Binary Sensor".
+fn domain_title(domain: &str) -> String {
+    domain
+        .split('_')
+        .map(|w| {
+            let mut c = w.chars();
+            c.next().map(|f| f.to_uppercase().chain(c).collect::<String>()).unwrap_or_default()
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+type Call = (String, String, String, Option<String>);
+
+/// One entity: its name, state and control. Service calls are pushed to `calls`.
+fn entity_row(ui: &mut egui::Ui, e: &Entity, calls: &mut Vec<Call>) {
+    ui.horizontal(|ui| {
+        let name = egui::RichText::new(e.name());
+        ui.label(if e.is_unavailable() { name.weak() } else { name });
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| match e.control() {
+            Control::Toggle(on) => {
+                let mut value = on;
+                if ui.add(egui::Checkbox::without_text(&mut value)).changed()
+                    && let Some((domain, service, state)) = e.toggle_call(value)
+                {
+                    calls.push((domain.into(), service.into(), e.id.clone(), Some(state.into())));
+                }
+                ui.weak(e.display_state());
+            }
+            Control::Press => {
+                if ui.button("Run").clicked()
+                    && let Some((domain, service)) = e.press_call()
+                {
+                    calls.push((domain.into(), service.into(), e.id.clone(), None));
+                }
+            }
+            Control::None => {
+                ui.weak(e.display_state());
+            }
+        });
+    });
+}
+
+impl eframe::App for App {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        self.poll();
+        // Every frame: Default's colours follow the desktop's light/dark setting.
+        let style = self.skin().frame_style(ui.visuals());
+        let custom = !self.config.system_title_bar;
+        let radius = if custom { frame::corner_radius(&ctx, style.radius) } else { 0 };
+
+        if ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::Q)) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+        let mut actions = Vec::new();
+        if ctx.input(|i| i.key_pressed(egui::Key::F5)) {
+            actions.push(Action::Refresh);
+        }
+
+        egui::Panel::top("header").frame(frame::header_frame(ui.style(), &style, radius)).show(ui, |ui| {
+            TitleBar::new("Home", &style).custom(custom).menu_bar(true).span(frame::header_span(ui)).show(
+                ui,
+                |ui| self.menus(ui, &mut actions),
+                |_ui| {}, // a control app: nothing it makes goes on the right
+            );
+        });
+
+        // It spans the window, so it comes before the sidebar, and holds both bottom corners.
+        egui::Panel::bottom("status")
+            .frame(
+                egui::Frame::side_top_panel(ui.style())
+                    .inner_margin(egui::Margin::symmetric(10, 4))
+                    .corner_radius(egui::CornerRadius { sw: radius, se: radius, ..Default::default() }),
+            )
+            .show(ui, |ui| self.status_bar(ui));
+
+        egui::Panel::left("sidebar")
+            .frame(egui::Frame::side_top_panel(ui.style()))
+            .default_size(200.0)
+            .resizable(true)
+            .show(ui, |ui| self.sidebar(ui));
+
+        egui::CentralPanel::default()
+            .frame(egui::Frame::central_panel(ui.style()))
+            .show(ui, |ui| self.entities_view(ui));
+
+        for action in actions {
+            match action {
+                Action::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+                Action::Refresh => {
+                    if let Some(client) = &self.client {
+                        client.send(Command::Refresh);
+                    }
+                }
+                Action::Account => {
+                    self.dialog = Some(AccountDialog { draft: self.account.clone(), error: None });
+                }
+                Action::SetSkin(name) => {
+                    self.config.skin = Some(name);
+                    self.forced_skin = None;
+                    self.config.save();
+                    self.apply_skin(&ctx);
+                }
+                Action::SystemTitleBar(on) => {
+                    self.config.system_title_bar = on;
+                    self.config.save();
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(on));
+                }
+            }
+        }
+
+        self.account_dialog(&ctx);
+        if custom {
+            frame::edges(&ctx, radius, style.border);
+        }
+        self.take_screenshot(&ctx);
+    }
+
+    fn clear_color(&self, visuals: &egui::Visuals) -> [f32; 4] {
+        frame::clear_color(visuals, !self.config.system_title_bar)
+    }
+
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        frame::release_grab(ctx, raw_input);
+    }
+}
