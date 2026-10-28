@@ -4,6 +4,7 @@ mod app;
 mod config;
 mod dashboard;
 mod ha;
+mod light;
 mod widgets;
 
 fn main() -> eframe::Result {

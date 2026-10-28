@@ -22,7 +22,8 @@ enters the token in File → Account….
 - `src/ha.rs`: `Account`, `Entity` and its controls, the REST client on a worker thread, the one-shot
   WebSocket fetch of Lovelace dashboards (ADR-0004), `demo()` and `demo_dashboards()`.
 - `src/dashboard.rs`: draws a Lovelace view and its cards; add a card type in `card_ui`.
-- `src/widgets.rs`: `entity_row`, shared by the entity list and the dashboards.
+- `src/widgets.rs`: `entity_row`, `Event` and `ServiceCall`, shared by the entity list and the dashboards.
+- `src/light.rs`: the light settings window (ADR-0005); `HOME_OPEN=light.x` opens it for screenshots.
 - `src/config.rs`: `config.toml` and the private `account.toml`.
 - `src/app.rs`: window, header and menus, sidebar (dashboards, then entity domains), account dialog, screenshot mode.
 

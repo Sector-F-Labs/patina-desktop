@@ -6,12 +6,12 @@ use std::collections::HashMap;
 use serde_json::Value;
 
 use crate::ha::Entity;
-use crate::widgets::{Call, entity_row};
+use crate::widgets::{Event, entity_row};
 
-/// Entities by id, and where clicks on them are collected.
+/// Entities by id, and where what's clicked is collected.
 pub struct Scene<'a> {
     pub states: HashMap<&'a str, &'a Entity>,
-    pub calls: &'a mut Vec<Call>,
+    pub events: &'a mut Vec<Event>,
 }
 
 /// The widest a column of cards gets before another column is started.
@@ -165,7 +165,7 @@ fn placeholder(ui: &mut egui::Ui, kind: &str) {
 
 fn entity_line(ui: &mut egui::Ui, id: &str, name: Option<&str>, scene: &mut Scene) {
     match scene.states.get(id) {
-        Some(e) => entity_row(ui, e, name, scene.calls),
+        Some(e) => entity_row(ui, e, name, scene.events),
         None => {
             ui.weak(format!("{id} isn't available"));
         }
@@ -198,10 +198,10 @@ mod tests {
         let config = dashboards[0].config.as_ref().unwrap();
         let ctx = egui::Context::default();
         for index in 0..view_titles(config).len() {
-            let mut calls = Vec::new();
+            let mut events = Vec::new();
             let _ = ctx.run_ui(Default::default(), |ui| {
                 let mut scene =
-                    Scene { states: entities.iter().map(|e| (e.id.as_str(), e)).collect(), calls: &mut calls };
+                    Scene { states: entities.iter().map(|e| (e.id.as_str(), e)).collect(), events: &mut events };
                 show_view(ui, config, index, &mut scene);
             });
         }

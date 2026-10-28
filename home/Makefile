@@ -37,6 +37,7 @@ screenshot: ## Regenerate docs/screenshot-*.png from demo entities, in a scratch
 	@rm -rf $(SCRATCH) && mkdir -p docs $(SCRATCH)/config $(SCRATCH)/data $(SCRATCH)/cache
 	$(SCRATCH_ENV) HOME_DEMO=1 HOME_SCREENSHOT=docs/screenshot-default.png cargo run
 	$(SCRATCH_ENV) HOME_DEMO=1 HOME_SKIN="Dark Orange" HOME_SCREENSHOT=docs/screenshot-dark-orange.png cargo run
+	$(SCRATCH_ENV) HOME_DEMO=1 HOME_OPEN=light.living_room HOME_SCREENSHOT=docs/screenshot-light.png cargo run
 
 icons: ## Render assets/home-icon-128.png from packaging/linux/home.svg
 	cargo run -q --example render_icon -- 128 assets/home-icon-128.png

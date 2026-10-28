@@ -115,7 +115,7 @@ impl Entity {
 
 pub enum Command {
     Refresh,
-    Call { domain: String, service: String, entity_id: String },
+    Call { domain: String, service: String, entity_id: String, data: Value },
 }
 
 pub enum Update {
@@ -276,11 +276,20 @@ fn fetch_dashboards(account: &Account) -> Result<Vec<Dashboard>, String> {
     Ok(dashboards)
 }
 
-fn call(agent: &ureq::Agent, account: &Account, domain: &str, service: &str, entity_id: &str) -> Result<(), String> {
+fn call(
+    agent: &ureq::Agent,
+    account: &Account,
+    domain: &str,
+    service: &str,
+    entity_id: &str,
+    data: Value,
+) -> Result<(), String> {
+    let mut body = if data.is_object() { data } else { serde_json::json!({}) };
+    body["entity_id"] = entity_id.into();
     agent
         .post(&account.endpoint(&format!("/api/services/{domain}/{service}")))
         .header("Authorization", &format!("Bearer {}", account.token.trim()))
-        .send_json(serde_json::json!({ "entity_id": entity_id }))
+        .send_json(body)
         .map(|_| ())
         .map_err(|e| e.to_string())
 }
@@ -302,8 +311,8 @@ fn worker(account: Account, commands: Receiver<Command>, updates: Sender<Update>
         refresh = true;
         match commands.recv_timeout(POLL) {
             Ok(Command::Refresh) | Err(RecvTimeoutError::Timeout) => {}
-            Ok(Command::Call { domain, service, entity_id }) => {
-                if let Err(e) = call(&agent, &account, &domain, &service, &entity_id) {
+            Ok(Command::Call { domain, service, entity_id, data }) => {
+                if let Err(e) = call(&agent, &account, &domain, &service, &entity_id, data) {
                     if updates.send(Update::Error(e)).is_err() {
                         return;
                     }
@@ -325,7 +334,7 @@ pub fn demo() -> Vec<Entity> {
         }
         Entity { id: id.into(), state: state.into(), attributes }
     };
-    vec![
+    let mut entities = vec![
         e("light.living_room", "on", "Living Room", None),
         e("light.kitchen", "off", "Kitchen", None),
         e("light.bedroom", "on", "Bedroom", None),
@@ -339,7 +348,25 @@ pub fn demo() -> Vec<Entity> {
         e("sensor.outside_temperature", "7.2", "Outside Temperature", Some("°C")),
         e("sensor.power", "412", "Power", Some("W")),
         e("binary_sensor.front_door_contact", "off", "Front Door Contact", None),
-    ]
+    ];
+    // The living room light is a colour light with effects; the bedroom one only dims and warms.
+    let attributes = serde_json::json!({
+        "light.living_room": {
+            "supported_color_modes": ["color_temp", "xy"], "brightness": 180, "color_mode": "xy",
+            "min_color_temp_kelvin": 2000, "max_color_temp_kelvin": 6535, "hs_color": [28.0, 74.0],
+            "effect_list": ["gradient", "candle", "fireplace"], "effect": "gradient",
+        },
+        "light.bedroom": {
+            "supported_color_modes": ["color_temp"], "brightness": 90, "color_mode": "color_temp",
+            "min_color_temp_kelvin": 2200, "max_color_temp_kelvin": 6500, "color_temp_kelvin": 2700,
+        },
+    });
+    for entity in &mut entities {
+        if let Some(extra) = attributes[entity.id.as_str()].as_object() {
+            entity.attributes.extend(extra.clone());
+        }
+    }
+    entities
 }
 
 /// A made-up dashboard to match `demo()`.

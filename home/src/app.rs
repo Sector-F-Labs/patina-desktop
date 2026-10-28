@@ -9,7 +9,8 @@ use patina::skin::{self, Skin};
 use crate::config::{self, Config};
 use crate::dashboard::{self, Scene};
 use crate::ha::{self, Account, Client, Command, Dashboard, Entity, Update};
-use crate::widgets::entity_row;
+use crate::light::LightDialog;
+use crate::widgets::{Event, ServiceCall, entity_row};
 
 /// The skin used until the user picks one: stock egui, following the desktop.
 const HOME_SKIN: &str = "Default";
@@ -44,6 +45,8 @@ pub struct App {
     connection: Connection,
     entities: Vec<Entity>,
     dashboards: Vec<Dashboard>,
+    /// The light whose settings are open.
+    light: Option<LightDialog>,
     /// The view tab showing in the chosen dashboard.
     view: usize,
     search: String,
@@ -70,6 +73,7 @@ impl App {
             connection: Connection::NotSetUp,
             entities: Vec::new(),
             dashboards: Vec::new(),
+            light: None,
             view: 0,
             search: String::new(),
             skins,
@@ -85,6 +89,9 @@ impl App {
             app.connection = Connection::Demo;
         } else {
             app.connect(&cc.egui_ctx);
+        }
+        if let Ok(id) = std::env::var("HOME_OPEN") {
+            app.light = Some(LightDialog::new(id)); // for screenshots
         }
         app.apply_skin(&cc.egui_ctx);
         app
@@ -151,9 +158,14 @@ impl App {
         domains
     }
 
-    fn call(&mut self, domain: &str, service: &str, entity_id: &str) {
+    fn call(&mut self, call: &ServiceCall) {
         if let Some(client) = &self.client {
-            client.send(Command::Call { domain: domain.into(), service: service.into(), entity_id: entity_id.into() });
+            client.send(Command::Call {
+                domain: call.domain.clone(),
+                service: call.service.clone(),
+                entity_id: call.entity_id.clone(),
+                data: call.data.clone(),
+            });
         }
     }
 
@@ -234,7 +246,7 @@ impl App {
 
     /// The chosen dashboard: tabs for its views, then the view.
     fn dashboard_view(&mut self, ui: &mut egui::Ui) {
-        let mut calls = Vec::new();
+        let mut events = Vec::new();
         if let Some(d) = self.dashboard() {
             match &d.config {
                 Ok(config) => {
@@ -248,8 +260,10 @@ impl App {
                         });
                         ui.separator();
                     }
-                    let mut scene =
-                        Scene { states: self.entities.iter().map(|e| (e.id.as_str(), e)).collect(), calls: &mut calls };
+                    let mut scene = Scene {
+                        states: self.entities.iter().map(|e| (e.id.as_str(), e)).collect(),
+                        events: &mut events,
+                    };
                     dashboard::show_view(ui, config, view, &mut scene);
                     self.view = view;
                 }
@@ -258,17 +272,39 @@ impl App {
                 }
             }
         }
-        self.apply_calls(calls);
+        self.apply_events(events);
     }
 
-    /// Sends the service calls from a click, and shows the new state until the next poll confirms it.
-    fn apply_calls(&mut self, calls: Vec<crate::widgets::Call>) {
-        for (domain, service, entity_id, state) in calls {
-            self.call(&domain, &service, &entity_id);
-            if let (Some(state), Some(e)) = (state, self.entities.iter_mut().find(|e| e.id == entity_id)) {
-                e.state = state;
+    /// Sends the service calls from clicks, shows their result until the next poll confirms it, and
+    /// opens a light's settings.
+    fn apply_events(&mut self, events: Vec<Event>) {
+        for event in events {
+            match event {
+                Event::Open(id) => self.light = Some(LightDialog::new(id)),
+                Event::Call(call) => {
+                    self.call(&call);
+                    if let Some(e) = self.entities.iter_mut().find(|e| e.id == call.entity_id) {
+                        if let Some(state) = call.state {
+                            e.state = state;
+                        }
+                        e.attributes.extend(call.attributes);
+                    }
+                }
             }
         }
+    }
+
+    fn light_dialog(&mut self, ctx: &egui::Context) {
+        let Some(dialog) = &mut self.light else { return };
+        let mut events = Vec::new();
+        let keep = match self.entities.iter().find(|e| e.id == dialog.id) {
+            Some(e) => dialog.show(ctx, e, &mut events),
+            None => false,
+        };
+        if !keep {
+            self.light = None;
+        }
+        self.apply_events(events);
     }
 
     fn entities_view(&mut self, ui: &mut egui::Ui) {
@@ -288,7 +324,7 @@ impl App {
 
         let query = self.search.to_lowercase();
         let domain = self.config.domain.clone();
-        let mut calls = Vec::new();
+        let mut events = Vec::new();
         egui::ScrollArea::vertical().auto_shrink([false; 2]).show(ui, |ui| {
             let mut current = "";
             for e in self.entities.iter().filter(|e| {
@@ -301,10 +337,10 @@ impl App {
                     ui.strong(domain_title(current));
                     ui.separator();
                 }
-                entity_row(ui, e, None, &mut calls);
+                entity_row(ui, e, None, &mut events);
             }
         });
-        self.apply_calls(calls);
+        self.apply_events(events);
     }
 
     fn status_bar(&self, ui: &mut egui::Ui) {
@@ -476,6 +512,7 @@ impl eframe::App for App {
             }
         }
 
+        self.light_dialog(&ctx);
         self.account_dialog(&ctx);
         if custom {
             frame::edges(&ctx, radius, style.border);
