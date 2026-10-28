@@ -588,7 +588,7 @@ impl ProcessesView {
         if response.double_clicked() {
             asked.push(Do::Open(pick));
         }
-        response.context_menu(|ui| {
+        patina::menu::context(&response, |ui| {
             for d in menu(ui, model, pick, self.expanded.contains(&proc.pid)) {
                 asked.push(d);
             }

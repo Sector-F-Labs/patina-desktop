@@ -541,7 +541,7 @@ fn list(
         if response.clicked() {
             asked.push(Do::Process(ProcessDo::Open(e.pick)));
         }
-        response.context_menu(|ui| {
+        patina::menu::context(&response, |ui| {
             for d in crate::processes::menu(ui, model, e.pick, false) {
                 asked.push(Do::Process(d));
             }

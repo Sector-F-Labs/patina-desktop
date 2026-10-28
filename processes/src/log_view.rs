@@ -295,7 +295,7 @@ fn row(ui: &mut Ui, e: &Entry, model: &Model, asked: &mut Vec<Do>) {
             let running = model.process(pid)?;
             running.name.starts_with(name).then_some(pid)
         });
-    response.context_menu(|ui| {
+    patina::menu::context(&response, |ui| {
         if let Some(pid) = process {
             let pick = if model.app(pid).is_some() {
                 Pick::App(pid)
