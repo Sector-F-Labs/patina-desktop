@@ -120,12 +120,26 @@ pub enum Command {
 
 pub enum Update {
     States(Vec<Entity>),
+    Dashboards(Vec<Dashboard>),
     Error(String),
+}
+
+/// One of the user's Lovelace dashboards.
+#[derive(Debug, Clone)]
+pub struct Dashboard {
+    /// The dashboard's path in its URL; `None` for the default one.
+    pub url_path: Option<String>,
+    pub title: String,
+    /// The Lovelace config (`{ views: [...] }`), or why there isn't one.
+    pub config: Result<Value, String>,
 }
 
 pub struct Client {
     tx: Sender<Command>,
     pub rx: Receiver<Update>,
+    updates: Sender<Update>,
+    account: Account,
+    ctx: egui::Context,
 }
 
 impl Client {
@@ -133,9 +147,24 @@ impl Client {
     pub fn start(ctx: &egui::Context, account: Account) -> Self {
         let (tx, commands) = mpsc::channel();
         let (updates, rx) = mpsc::channel();
+        let client = Self { tx, rx, updates: updates.clone(), account: account.clone(), ctx: ctx.clone() };
         let ctx = ctx.clone();
         std::thread::spawn(move || worker(account, commands, updates, ctx));
-        Self { tx, rx }
+        client.reload_dashboards();
+        client
+    }
+
+    /// Fetches the dashboards again, on a thread of their own (ADR-0004).
+    pub fn reload_dashboards(&self) {
+        let (account, updates, ctx) = (self.account.clone(), self.updates.clone(), self.ctx.clone());
+        std::thread::spawn(move || {
+            let update = match fetch_dashboards(&account) {
+                Ok(dashboards) => Update::Dashboards(dashboards),
+                Err(e) => Update::Error(format!("Dashboards: {e}")),
+            };
+            let _ = updates.send(update);
+            ctx.request_repaint();
+        });
     }
 
     pub fn send(&self, command: Command) {
@@ -160,6 +189,91 @@ fn fetch(agent: &ureq::Agent, account: &Account) -> Result<Vec<Entity>, String> 
         body.as_array().ok_or("unexpected reply")?.iter().filter_map(Entity::from_json).collect();
     entities.sort_by_key(|e| e.name().to_lowercase());
     Ok(entities)
+}
+
+/// `http://host:8123/` → `ws://host:8123/api/websocket`, and https → wss.
+fn websocket_url(account: &Account) -> Result<String, String> {
+    let url = account.endpoint("/api/websocket");
+    if let Some(rest) = url.strip_prefix("https://") {
+        Ok(format!("wss://{rest}"))
+    } else if let Some(rest) = url.strip_prefix("http://") {
+        Ok(format!("ws://{rest}"))
+    } else {
+        Err("The address must start with http:// or https://".into())
+    }
+}
+
+type Socket = tungstenite::WebSocket<tungstenite::stream::MaybeTlsStream<std::net::TcpStream>>;
+
+fn read_json(socket: &mut Socket) -> Result<Value, String> {
+    loop {
+        match socket.read().map_err(|e| e.to_string())? {
+            tungstenite::Message::Text(text) => return serde_json::from_str(text.as_str()).map_err(|e| e.to_string()),
+            tungstenite::Message::Close(_) => return Err("The server closed the connection".into()),
+            _ => {}
+        }
+    }
+}
+
+/// Sends one command and waits for its result; `Err` carries the server's message.
+fn request(socket: &mut Socket, id: u64, mut command: Value) -> Result<Value, String> {
+    command["id"] = id.into();
+    socket.send(tungstenite::Message::text(command.to_string())).map_err(|e| e.to_string())?;
+    loop {
+        let reply = read_json(socket)?;
+        if reply["id"].as_u64() != Some(id) {
+            continue;
+        }
+        return if reply["success"].as_bool() == Some(true) {
+            Ok(reply["result"].clone())
+        } else {
+            Err(reply["error"]["message"].as_str().unwrap_or("failed").to_string())
+        };
+    }
+}
+
+/// Connects and logs in over the WebSocket API, the only place Lovelace configs are served.
+fn fetch_dashboards(account: &Account) -> Result<Vec<Dashboard>, String> {
+    let (mut socket, _) = tungstenite::connect(websocket_url(account)?).map_err(|e| e.to_string())?;
+    if read_json(&mut socket)?["type"] != "auth_required" {
+        return Err("Not a Home Assistant WebSocket".into());
+    }
+    socket
+        .send(tungstenite::Message::text(
+            serde_json::json!({ "type": "auth", "access_token": account.token.trim() }).to_string(),
+        ))
+        .map_err(|e| e.to_string())?;
+    if read_json(&mut socket)?["type"] != "auth_ok" {
+        return Err("Home Assistant refused the access token".into());
+    }
+
+    let mut id = 0;
+    let mut next = || {
+        id += 1;
+        id
+    };
+    let mut paths: Vec<(Option<String>, String)> = vec![(None, "Overview".into())];
+    for d in request(&mut socket, next(), serde_json::json!({ "type": "lovelace/dashboards/list" }))?
+        .as_array()
+        .into_iter()
+        .flatten()
+    {
+        if let Some(path) = d["url_path"].as_str() {
+            paths.push((Some(path.into()), d["title"].as_str().unwrap_or(path).into()));
+        }
+    }
+    let mut dashboards = Vec::new();
+    for (url_path, title) in paths {
+        let command = serde_json::json!({ "type": "lovelace/config", "url_path": url_path });
+        let config = request(&mut socket, next(), command);
+        // An auto-generated dashboard has no stored config: nothing to draw.
+        if url_path.is_none() && config.as_ref().is_err_and(|e| e.contains("not found")) {
+            continue;
+        }
+        dashboards.push(Dashboard { url_path, title, config });
+    }
+    let _ = socket.close(None);
+    Ok(dashboards)
 }
 
 fn call(agent: &ureq::Agent, account: &Account, domain: &str, service: &str, entity_id: &str) -> Result<(), String> {
@@ -228,6 +342,48 @@ pub fn demo() -> Vec<Entity> {
     ]
 }
 
+/// A made-up dashboard to match `demo()`.
+pub fn demo_dashboards() -> Vec<Dashboard> {
+    let config = serde_json::json!({ "views": [
+        { "title": "Home", "type": "sections", "sections": [
+            { "cards": [
+                { "type": "heading", "heading": "Living" },
+                { "type": "tile", "entity": "light.living_room" },
+                { "type": "tile", "entity": "scene.movie_night" },
+                { "type": "tile", "entity": "light.bedroom", "name": "Bedroom Lamp" },
+            ]},
+            { "cards": [
+                { "type": "heading", "heading": "Climate" },
+                { "type": "glance", "title": "Temperatures", "entities": [
+                    { "entity": "sensor.living_room_temperature", "name": "Inside" },
+                    { "entity": "sensor.outside_temperature", "name": "Outside" },
+                    "sensor.power",
+                ]},
+                { "type": "entities", "title": "Switches", "entities": [
+                    "switch.coffee_machine", "switch.office_fan",
+                ]},
+            ]},
+            { "cards": [
+                { "type": "heading", "heading": "Security" },
+                { "type": "horizontal-stack", "cards": [
+                    { "type": "button", "entity": "lock.front_door" },
+                    { "type": "button", "entity": "cover.garage", "name": "Garage" },
+                ]},
+                { "type": "markdown", "content": "Goodnight runs the **bedtime** script." },
+                { "type": "button", "entity": "script.goodnight" },
+            ]},
+        ]},
+        { "title": "Rooms", "cards": [
+            { "type": "entities", "title": "Kitchen", "entities": ["light.kitchen", "switch.coffee_machine"] },
+            { "type": "vertical-stack", "cards": [
+                { "type": "entity", "entity": "sensor.power" },
+                { "type": "gauge", "entity": "sensor.power" },
+            ]},
+        ]},
+    ]});
+    vec![Dashboard { url_path: None, title: "Overview".into(), config: Ok(config) }]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -287,5 +443,72 @@ mod tests {
     fn endpoint_ignores_a_trailing_slash() {
         let a = Account { url: " http://ha.local:8123/ ".into(), token: "t".into() };
         assert_eq!(a.endpoint("/api/states"), "http://ha.local:8123/api/states");
+    }
+
+    #[test]
+    fn websocket_url_follows_the_scheme() {
+        let account = |url: &str| Account { url: url.into(), token: "t".into() };
+        assert_eq!(websocket_url(&account("http://ha.local:8123/")).unwrap(), "ws://ha.local:8123/api/websocket");
+        assert_eq!(websocket_url(&account("https://ha.example.com")).unwrap(), "wss://ha.example.com/api/websocket");
+        assert!(websocket_url(&account("ha.local")).is_err());
+    }
+
+    /// A stand-in Home Assistant that speaks the WebSocket protocol for one connection.
+    fn fake_server(token: &'static str) -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut ws = tungstenite::accept(stream).unwrap();
+            let send = |ws: &mut tungstenite::WebSocket<std::net::TcpStream>, v: Value| {
+                ws.send(tungstenite::Message::text(v.to_string())).unwrap();
+            };
+            let recv = |ws: &mut tungstenite::WebSocket<std::net::TcpStream>| -> Value {
+                serde_json::from_str(ws.read().unwrap().to_text().unwrap()).unwrap()
+            };
+            send(&mut ws, serde_json::json!({ "type": "auth_required" }));
+            let auth = recv(&mut ws);
+            if auth["access_token"] != token {
+                send(&mut ws, serde_json::json!({ "type": "auth_invalid" }));
+                return;
+            }
+            send(&mut ws, serde_json::json!({ "type": "auth_ok" }));
+            while let Ok(message) = ws.read() {
+                let Ok(text) = message.to_text() else { return };
+                let Ok(command) = serde_json::from_str::<Value>(text) else { return };
+                let id = command["id"].clone();
+                let reply = match (command["type"].as_str(), command["url_path"].as_str()) {
+                    (Some("lovelace/dashboards/list"), _) => serde_json::json!({
+                        "id": id, "type": "result", "success": true,
+                        "result": [{ "url_path": "energy", "title": "Energy" }]
+                    }),
+                    (Some("lovelace/config"), None) => serde_json::json!({
+                        "id": id, "type": "result", "success": false,
+                        "error": { "code": "config_not_found", "message": "Config not found." }
+                    }),
+                    (Some("lovelace/config"), Some(_)) => serde_json::json!({
+                        "id": id, "type": "result", "success": true, "result": { "views": [] }
+                    }),
+                    _ => return,
+                };
+                send(&mut ws, reply);
+            }
+        });
+        url
+    }
+
+    #[test]
+    fn fetches_dashboards_and_skips_an_auto_generated_default() {
+        let account = Account { url: fake_server("secret"), token: "secret".into() };
+        let dashboards = fetch_dashboards(&account).unwrap();
+        assert_eq!(dashboards.len(), 1);
+        assert_eq!((dashboards[0].url_path.as_deref(), dashboards[0].title.as_str()), (Some("energy"), "Energy"));
+        assert!(dashboards[0].config.is_ok());
+    }
+
+    #[test]
+    fn a_wrong_token_is_reported() {
+        let account = Account { url: fake_server("secret"), token: "nope".into() };
+        assert_eq!(fetch_dashboards(&account).unwrap_err(), "Home Assistant refused the access token");
     }
 }

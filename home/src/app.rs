@@ -7,7 +7,9 @@ use patina::frame::{self, TitleBar};
 use patina::skin::{self, Skin};
 
 use crate::config::{self, Config};
-use crate::ha::{self, Account, Client, Command, Control, Entity, Update};
+use crate::dashboard::{self, Scene};
+use crate::ha::{self, Account, Client, Command, Dashboard, Entity, Update};
+use crate::widgets::entity_row;
 
 /// The skin used until the user picks one: stock egui, following the desktop.
 const HOME_SKIN: &str = "Default";
@@ -41,6 +43,9 @@ pub struct App {
     client: Option<Client>,
     connection: Connection,
     entities: Vec<Entity>,
+    dashboards: Vec<Dashboard>,
+    /// The view tab showing in the chosen dashboard.
+    view: usize,
     search: String,
     skins: Vec<Skin>,
     skin_errors: Vec<String>,
@@ -64,6 +69,8 @@ impl App {
             client: None,
             connection: Connection::NotSetUp,
             entities: Vec::new(),
+            dashboards: Vec::new(),
+            view: 0,
             search: String::new(),
             skins,
             skin_errors,
@@ -73,6 +80,8 @@ impl App {
         };
         if demo {
             app.entities = ha::demo();
+            app.dashboards = ha::demo_dashboards();
+            app.select_default_dashboard();
             app.connection = Connection::Demo;
         } else {
             app.connect(&cc.egui_ctx);
@@ -90,7 +99,20 @@ impl App {
         } else {
             self.connection = Connection::NotSetUp;
             self.entities.clear();
+            self.dashboards.clear();
         }
+    }
+
+    /// A dashboard is what Home opens on, until the user picks the entity list.
+    fn select_default_dashboard(&mut self) {
+        if self.config.dashboard.is_none() && !self.config.entities && !self.dashboards.is_empty() {
+            self.config.dashboard = Some(key(&self.dashboards[0]));
+        }
+    }
+
+    fn dashboard(&self) -> Option<&Dashboard> {
+        let chosen = self.config.dashboard.as_deref()?;
+        self.dashboards.iter().find(|d| key(d) == chosen)
     }
 
     fn skin(&self) -> &Skin {
@@ -105,12 +127,15 @@ impl App {
     }
 
     fn poll(&mut self) {
-        let Some(client) = &self.client else { return };
-        while let Ok(update) = client.rx.try_recv() {
+        while let Some(update) = self.client.as_ref().and_then(|c| c.rx.try_recv().ok()) {
             match update {
                 Update::States(entities) => {
                     self.entities = entities;
                     self.connection = Connection::Connected;
+                }
+                Update::Dashboards(dashboards) => {
+                    self.dashboards = dashboards;
+                    self.select_default_dashboard();
                 }
                 Update::Error(e) => self.connection = Connection::Failed(e),
             }
@@ -172,23 +197,77 @@ impl App {
     fn sidebar(&mut self, ui: &mut egui::Ui) {
         let domains: Vec<(String, usize)> = self.domains().into_iter().map(|(d, n)| (d.to_string(), n)).collect();
         let total = self.entities.len();
-        let mut chosen = self.config.domain.clone();
+        let mut dashboard = self.config.dashboard.clone();
+        let mut domain = self.config.domain.clone();
+        let mut entities = self.config.entities;
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            if ui.selectable_label(chosen.is_none(), format!("All  ({total})")).clicked() {
-                chosen = None;
+            if !self.dashboards.is_empty() {
+                ui.strong("Dashboards");
+                for d in &self.dashboards {
+                    let selected = dashboard.as_deref() == Some(key(d).as_str());
+                    if ui.selectable_label(selected, &d.title).clicked() && !selected {
+                        dashboard = Some(key(d));
+                        entities = false;
+                        self.view = 0;
+                    }
+                }
+                ui.separator();
+                ui.strong("Entities");
             }
-            ui.separator();
-            for (domain, count) in &domains {
-                let selected = chosen.as_deref() == Some(domain.as_str());
-                if ui.selectable_label(selected, format!("{}  ({count})", domain_title(domain))).clicked() {
-                    chosen = Some(domain.clone());
+            let listing = dashboard.is_none();
+            if ui.selectable_label(listing && domain.is_none(), format!("All  ({total})")).clicked() {
+                (dashboard, domain, entities) = (None, None, true);
+            }
+            for (name, count) in &domains {
+                let selected = listing && domain.as_deref() == Some(name.as_str());
+                if ui.selectable_label(selected, format!("{}  ({count})", domain_title(name))).clicked() {
+                    (dashboard, domain, entities) = (None, Some(name.clone()), true);
                 }
             }
         });
-        if chosen != self.config.domain {
-            self.config.domain = chosen;
+        if (&dashboard, &domain, entities) != (&self.config.dashboard, &self.config.domain, self.config.entities) {
+            (self.config.dashboard, self.config.domain, self.config.entities) = (dashboard, domain, entities);
             self.config.save();
+        }
+    }
+
+    /// The chosen dashboard: tabs for its views, then the view.
+    fn dashboard_view(&mut self, ui: &mut egui::Ui) {
+        let mut calls = Vec::new();
+        if let Some(d) = self.dashboard() {
+            match &d.config {
+                Ok(config) => {
+                    let titles = dashboard::view_titles(config);
+                    let mut view = self.view.min(titles.len().saturating_sub(1));
+                    if titles.len() > 1 {
+                        ui.horizontal_wrapped(|ui| {
+                            for (i, title) in titles.iter().enumerate() {
+                                ui.selectable_value(&mut view, i, title);
+                            }
+                        });
+                        ui.separator();
+                    }
+                    let mut scene =
+                        Scene { states: self.entities.iter().map(|e| (e.id.as_str(), e)).collect(), calls: &mut calls };
+                    dashboard::show_view(ui, config, view, &mut scene);
+                    self.view = view;
+                }
+                Err(e) => {
+                    ui.colored_label(ui.visuals().error_fg_color, format!("{}: {e}", d.title));
+                }
+            }
+        }
+        self.apply_calls(calls);
+    }
+
+    /// Sends the service calls from a click, and shows the new state until the next poll confirms it.
+    fn apply_calls(&mut self, calls: Vec<crate::widgets::Call>) {
+        for (domain, service, entity_id, state) in calls {
+            self.call(&domain, &service, &entity_id);
+            if let (Some(state), Some(e)) = (state, self.entities.iter_mut().find(|e| e.id == entity_id)) {
+                e.state = state;
+            }
         }
     }
 
@@ -222,15 +301,10 @@ impl App {
                     ui.strong(domain_title(current));
                     ui.separator();
                 }
-                entity_row(ui, e, &mut calls);
+                entity_row(ui, e, None, &mut calls);
             }
         });
-        for (domain, service, entity_id, state) in calls {
-            self.call(&domain, &service, &entity_id);
-            if let (Some(state), Some(e)) = (state, self.entities.iter_mut().find(|e| e.id == entity_id)) {
-                e.state = state; // shown until the next poll confirms it
-            }
-        }
+        self.apply_calls(calls);
     }
 
     fn status_bar(&self, ui: &mut egui::Ui) {
@@ -315,6 +389,11 @@ impl App {
     }
 }
 
+/// A dashboard's identity in the config: its URL path, empty for the default one.
+fn key(d: &Dashboard) -> String {
+    d.url_path.clone().unwrap_or_default()
+}
+
 /// "binary_sensor" → "Binary Sensor".
 fn domain_title(domain: &str) -> String {
     domain
@@ -325,37 +404,6 @@ fn domain_title(domain: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-type Call = (String, String, String, Option<String>);
-
-/// One entity: its name, state and control. Service calls are pushed to `calls`.
-fn entity_row(ui: &mut egui::Ui, e: &Entity, calls: &mut Vec<Call>) {
-    ui.horizontal(|ui| {
-        let name = egui::RichText::new(e.name());
-        ui.label(if e.is_unavailable() { name.weak() } else { name });
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| match e.control() {
-            Control::Toggle(on) => {
-                let mut value = on;
-                if ui.add(egui::Checkbox::without_text(&mut value)).changed()
-                    && let Some((domain, service, state)) = e.toggle_call(value)
-                {
-                    calls.push((domain.into(), service.into(), e.id.clone(), Some(state.into())));
-                }
-                ui.weak(e.display_state());
-            }
-            Control::Press => {
-                if ui.button("Run").clicked()
-                    && let Some((domain, service)) = e.press_call()
-                {
-                    calls.push((domain.into(), service.into(), e.id.clone(), None));
-                }
-            }
-            Control::None => {
-                ui.weak(e.display_state());
-            }
-        });
-    });
 }
 
 impl eframe::App for App {
@@ -400,7 +448,7 @@ impl eframe::App for App {
 
         egui::CentralPanel::default()
             .frame(egui::Frame::central_panel(ui.style()))
-            .show(ui, |ui| self.entities_view(ui));
+            .show(ui, |ui| if self.dashboard().is_some() { self.dashboard_view(ui) } else { self.entities_view(ui) });
 
         for action in actions {
             match action {
@@ -408,6 +456,7 @@ impl eframe::App for App {
                 Action::Refresh => {
                     if let Some(client) = &self.client {
                         client.send(Command::Refresh);
+                        client.reload_dashboards();
                     }
                 }
                 Action::Account => {

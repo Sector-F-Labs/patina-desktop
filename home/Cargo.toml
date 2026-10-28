@@ -15,6 +15,7 @@ patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1"
+tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots"] }
 ureq = { version = "3", features = ["json"] }
 
 [dev-dependencies]

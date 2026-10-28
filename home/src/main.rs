@@ -2,7 +2,9 @@
 
 mod app;
 mod config;
+mod dashboard;
 mod ha;
+mod widgets;
 
 fn main() -> eframe::Result {
     let custom_frame = !config::Config::load().system_title_bar;

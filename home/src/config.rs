@@ -15,6 +15,10 @@ pub struct Config {
     pub system_title_bar: bool,
     /// The domain chosen in the sidebar ("light"); `None` shows everything.
     pub domain: Option<String>,
+    /// The dashboard chosen in the sidebar, by URL path (empty for the default one).
+    pub dashboard: Option<String>,
+    /// The user chose the entity list, so a dashboard isn't opened for them.
+    pub entities: bool,
 }
 
 fn dir() -> Option<PathBuf> {

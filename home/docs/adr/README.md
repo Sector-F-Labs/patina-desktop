@@ -45,6 +45,7 @@ mechanics of adding one.
 | [0001](0001-build-on-patina.md) | Build Home as a native egui app on Patina | Accepted |
 | [0002](0002-token-in-a-private-file.md) | Keep the Home Assistant token in a private file | Proposed |
 | [0003](0003-poll-rest-on-a-worker-thread.md) | Poll the REST API from a worker thread | Proposed |
+| [0004](0004-render-lovelace-dashboards-natively.md) | Render the user's Lovelace dashboards natively | Accepted |
 
 ## Decision Relationship
 
@@ -52,8 +53,9 @@ mechanics of adding one.
 flowchart TD
     A[0001: egui app on Patina] --> B[0002: token in a private file]
     A --> C[0003: REST polling on a worker]
+    C --> D[0004: Lovelace dashboards over a WebSocket]
 ```
 
 ## Revisit Triggers
 
-- Updates arriving late, or the poll costing too much: move to the WebSocket API ([0003](0003-poll-rest-on-a-worker-thread.md)).
+- Updates arriving late, or the poll costing too much: move to the WebSocket API ([0003](0003-poll-rest-on-a-worker-thread.md), [0004](0004-render-lovelace-dashboards-natively.md)).

@@ -19,9 +19,12 @@ enters the token in File → Account….
 
 ## Layout
 
-- `src/ha.rs`: `Account`, `Entity` and its controls, the REST client on a worker thread, `demo()`.
+- `src/ha.rs`: `Account`, `Entity` and its controls, the REST client on a worker thread, the one-shot
+  WebSocket fetch of Lovelace dashboards (ADR-0004), `demo()` and `demo_dashboards()`.
+- `src/dashboard.rs`: draws a Lovelace view and its cards; add a card type in `card_ui`.
+- `src/widgets.rs`: `entity_row`, shared by the entity list and the dashboards.
 - `src/config.rs`: `config.toml` and the private `account.toml`.
-- `src/app.rs`: window, header and menus, domain sidebar, entity rows, account dialog, screenshot mode.
+- `src/app.rs`: window, header and menus, sidebar (dashboards, then entity domains), account dialog, screenshot mode.
 
 On Wayland the window icon comes from the installed launcher (`com.sectorflabs.Home.desktop`), so
 `cargo run` shows it only after `make install`.
