@@ -625,7 +625,7 @@ impl App {
                 if resp.clicked() {
                     actions.push(Do::Select(i));
                 }
-                resp.context_menu(|ui| {
+                patina::menu::context(&resp, |ui| {
                     if ui.add_enabled(i > 0, egui::Button::new("Move up")).clicked() {
                         actions.push(Do::Move(i, -1));
                         ui.close();
