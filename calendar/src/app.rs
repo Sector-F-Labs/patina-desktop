@@ -684,7 +684,8 @@ impl App {
                     if resp.clicked() {
                         toggled = Some(cal.href.clone());
                     }
-                    resp.on_hover_text("Click to show or hide; right-click for its colour").context_menu(|ui| {
+                    let resp = resp.on_hover_text("Click to show or hide; right-click for its colour");
+                    patina::menu::context(&resp, |ui| {
                         ui.label(RichText::new(&cal.name).strong());
                         ui.separator();
                         for (name, hex) in PALETTE {
