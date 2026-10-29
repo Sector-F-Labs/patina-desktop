@@ -46,7 +46,8 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   Patina session on tty1 (the hardware backend, on a virtio GPU drawn in software), on this
   checkout's `target/release` shared in read-only. `make vm-linux`, `make vm-linux-restart` after
   changes, `make vm-linux-shot` (→ target/vm-linux/screen.png) and read the PNG back;
-  `vm-linux/vm.sh ssh` for a shell. Session log in the guest: /tmp/patina-session.log.
+  `vm-linux/vm.sh ssh` for a shell. Session log in the guest: /tmp/patina-session.log. The guest has
+  a fake battery and Wi-Fi (ADR-0096): `vm-linux/vm.sh fake battery 15 discharging`, `fake ac off`.
 
 ## Layout
 

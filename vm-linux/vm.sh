@@ -9,6 +9,8 @@
 #   vm-linux/vm.sh restart     set the guest up again and restart its session, after a build
 #   vm-linux/vm.sh shot [png]  its screen, saved (default target/vm-linux/screen.png)
 #   vm-linux/vm.sh ssh [cmd]   a shell (or a command) as the session's user
+#   vm-linux/vm.sh fake ...    the guest's fake battery and Wi-Fi (fake-hardware.sh):
+#                              fake battery 15 discharging, fake ac off
 #   vm-linux/vm.sh view        its screen in a VNC viewer (localhost:5903)
 #   vm-linux/vm.sh log         follow the serial console
 #   vm-linux/vm.sh stop        power it off
@@ -96,6 +98,8 @@ setup() {
   # Setting up waits for cloud-init's first run, then lays out what the
   # session needs from the shared checkout.
   guest 'cloud-init status --wait >/dev/null; sh /patina/vm-linux/guest-setup.sh'
+  # A battery and Wi-Fi for the bar to read, as root.
+  guest 'sudo sh /patina/vm-linux/fake-hardware.sh >/dev/null'
 }
 
 case "${1:-}" in
@@ -130,6 +134,11 @@ case "${1:-}" in
   ssh)
     shift
     guest "$@"
+    ;;
+  fake)
+    running || die "not running"
+    shift
+    guest "sudo sh /patina/vm-linux/fake-hardware.sh $*"
     ;;
   view)
     running || die "not running"

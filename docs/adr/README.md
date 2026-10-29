@@ -137,6 +137,7 @@ mechanics of adding one.
 | [0093](0093-with-gaps-maximising-fills.md) | With gaps on, an app's maximise fills inside the gaps, unannounced | Accepted |
 | [0094](0094-touches-go-to-apps.md) | The touchscreen's touches go to apps as wl_touch, without pointer emulation | Accepted |
 | [0095](0095-battery-and-wi-fi-on-freebsd.md) | The battery and Wi-Fi on FreeBSD, behind a trait each | Accepted |
+| [0096](0096-the-linux-vm-has-fake-hardware.md) | The Linux test VM has a fake battery and Wi-Fi, made by the kernel | Accepted |
 
 ## Decision Relationship
 
