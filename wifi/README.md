@@ -18,6 +18,10 @@ Disconnect. Escape, a click elsewhere or the icon again closes it.
   devices, access points and saved connections, scanning, activating and adding connections, and
   the radio switch. On Ubuntu, NetworkManager's polkit rules let the active session do this
   without a password prompt. The calls run off the UI thread.
+- **Captive portals** (ADR-0098): NetworkManager's `Connectivity` says `PORTAL` when the network
+  holds us at a sign-in page; `Wifi::sign_in` then carries its `ConnectivityCheckUri`, the menu
+  shows a Sign in button (`xdg-open`), and the worker calls `CheckConnectivity` every few seconds
+  so the line goes after signing in. Linux only for now.
 - **The bar's icon** reads the same module for the signal it shows.
 - NetworkManager on Linux, wpa_supplicant on FreeBSD (ADR-0095); without a Wi-Fi device the menu says "No Wi-Fi
   device".

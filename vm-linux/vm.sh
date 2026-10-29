@@ -10,7 +10,8 @@
 #   vm-linux/vm.sh shot [png]  its screen, saved (default target/vm-linux/screen.png)
 #   vm-linux/vm.sh ssh [cmd]   a shell (or a command) as the session's user
 #   vm-linux/vm.sh fake ...    the guest's fake battery and Wi-Fi (fake-hardware.sh):
-#                              fake battery 15 discharging, fake ac off
+#                              fake battery 15 discharging, fake ac off,
+#                              fake portal on (a captive portal on the fake Wi-Fi)
 #   vm-linux/vm.sh view        its screen in a VNC viewer (localhost:5903)
 #   vm-linux/vm.sh log         follow the serial console
 #   vm-linux/vm.sh stop        power it off

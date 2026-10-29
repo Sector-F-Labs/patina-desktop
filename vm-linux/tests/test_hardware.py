@@ -80,3 +80,23 @@ def test_the_bar_shows_joining_a_network(vm, forgotten):
     )
     icons_change_from(vm, not_joined, what="the bar's Wi-Fi icon to change once joined")
     assert "connected" in vm.ssh("nmcli -t -f DEVICE,STATE device status | grep wlan0")
+
+
+def test_a_captive_portal_is_noticed_and_signing_in_clears_it(vm, forgotten):
+    # `wifi` is patina-system's example: what the Wi-Fi menu reads.
+    read = "/patina/target/release/examples/wifi | head -1"
+    vm.ssh(
+        "sudo nmcli device wifi rescan; sleep 3; "
+        "sudo nmcli device wifi connect patina-test password patina-test-pass",
+        timeout=90,
+    )
+    vm.fake("portal", "on")
+    try:
+        vm.ssh("sudo nmcli networking connectivity check")
+        assert 'sign-in Some("http://10.42.0.1/")' in vm.ssh(read)
+        # The portal's Accept button.
+        vm.ssh("curl -s -m 5 -X POST http://10.42.0.1/accept")
+        vm.ssh("sudo nmcli networking connectivity check")
+        assert "sign-in None" in vm.ssh(read)
+    finally:
+        vm.fake("portal", "off")

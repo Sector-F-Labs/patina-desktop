@@ -11,9 +11,14 @@
 #   the password patina-test-pass, and a DHCP server (dnsmasq), so the menu has a
 #   network to list and join.
 #
+# - A captive portal on that network, off until asked for (fake-portal.py): NetworkManager's
+#   connectivity check goes to it, so with `portal on` joining patina-test leaves you at a
+#   sign-in page, as at a café; its Accept button, or `portal off`, lets you through.
+#
 #   fake-hardware.sh                       set it up (idempotent)
 #   fake-hardware.sh battery PERCENT [discharging|charging|full|not-charging]
 #   fake-hardware.sh ac on|off
+#   fake-hardware.sh portal on|off
 set -eu
 
 PARAMS=/sys/module/test_power/parameters
@@ -22,7 +27,7 @@ AP_DIR=/etc/patina-vm
 install_all() {
     # NetworkManager isn't in the server image, and hostapd is the access point.
     missing=
-    for p in network-manager wpasupplicant hostapd dnsmasq-base; do
+    for p in network-manager wpasupplicant hostapd dnsmasq-base iw; do
         dpkg -s "$p" >/dev/null 2>&1 || missing="$missing $p"
     done
     if [ -n "$missing" ]; then
@@ -39,6 +44,12 @@ install_all() {
     cat > /etc/NetworkManager/conf.d/patina-vm.conf <<EOF
 [keyfile]
 unmanaged-devices=interface-name:wlan1
+
+[connectivity]
+enabled=true
+uri=http://10.42.0.1/
+response=NetworkManager is online
+interval=10
 EOF
 
     mkdir -p "$AP_DIR"
@@ -53,15 +64,20 @@ wpa_key_mgmt=WPA-PSK
 rsn_pairwise=CCMP
 wpa_passphrase=patina-test-pass
 EOF
+    # The access point lives in a network namespace of its own: in the same one as
+    # wlan0, its address 10.42.0.1 would be the host's own, and NetworkManager's
+    # traffic to it (bound to wlan0) would never reach it, as it can't to a real
+    # router. `patina-ap` is the router.
     cat > /etc/systemd/system/patina-fake-ap.service <<EOF
 [Unit]
-Description=A fake Wi-Fi access point on wlan1 (mac80211_hwsim), for the test VM
-After=sys-subsystem-net-devices-wlan1.device
-BindsTo=sys-subsystem-net-devices-wlan1.device
+Description=A fake Wi-Fi access point on wlan1 (mac80211_hwsim), in its own namespace, for the test VM
+After=systemd-modules-load.service
 
 [Service]
-ExecStart=/usr/sbin/hostapd $AP_DIR/hostapd.conf
-ExecStartPost=/usr/sbin/ip addr replace 10.42.0.1/24 dev wlan1
+ExecStartPre=/bin/sh -c 'ip netns add patina-ap 2>/dev/null; for i in 1 2 3 4 5 6 7 8 9 10; do [ -e /sys/class/net/wlan1 ] || ip netns exec patina-ap ip link show wlan1 >/dev/null 2>&1 && break; sleep 1; done; [ ! -e /sys/class/net/wlan1 ] || iw phy "\$\$(cat /sys/class/net/wlan1/phy80211/name)" set netns name patina-ap'
+ExecStartPre=/usr/sbin/ip netns exec patina-ap ip link set lo up
+ExecStart=/usr/sbin/ip netns exec patina-ap /usr/sbin/hostapd $AP_DIR/hostapd.conf
+ExecStartPost=/usr/sbin/ip netns exec patina-ap /usr/sbin/ip addr replace 10.42.0.1/24 dev wlan1
 Restart=on-failure
 
 [Install]
@@ -75,7 +91,21 @@ After=patina-fake-ap.service
 Requires=patina-fake-ap.service
 
 [Service]
-ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --conf-file=/dev/null --interface=wlan1 --bind-interfaces --port=0 --dhcp-range=10.42.0.10,10.42.0.50,12h --dhcp-leasefile=/run/patina-fake-dhcp.leases
+ExecStart=/usr/sbin/ip netns exec patina-ap /usr/sbin/dnsmasq --keep-in-foreground --conf-file=/dev/null --interface=wlan1 --bind-interfaces --port=0 --dhcp-range=10.42.0.10,10.42.0.50,12h --dhcp-leasefile=/run/patina-fake-dhcp.leases
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    cat > /etc/systemd/system/patina-fake-portal.service <<EOF
+[Unit]
+Description=A fake captive portal on the fake access point, for the test VM
+After=patina-fake-ap.service
+Requires=patina-fake-ap.service
+RequiresMountsFor=/patina
+
+[Service]
+ExecStart=/usr/sbin/ip netns exec patina-ap /usr/bin/python3 /patina/vm-linux/fake-portal.py
 Restart=on-failure
 
 [Install]
@@ -88,7 +118,7 @@ EOF
     modprobe mac80211_hwsim radios=2 2>/dev/null || true
     systemctl enable --now NetworkManager >/dev/null 2>&1
     systemctl restart NetworkManager
-    systemctl enable --now patina-fake-ap.service patina-fake-dhcp.service >/dev/null 2>&1
+    systemctl enable --now patina-fake-ap.service patina-fake-dhcp.service patina-fake-portal.service >/dev/null 2>&1
 }
 
 case "${1:-}" in
@@ -106,8 +136,15 @@ case "${1:-}" in
             *) echo "usage: fake-hardware.sh ac on|off" >&2; exit 2 ;;
         esac
         ;;
+    portal)
+        case "${2:-}" in
+            on) touch /run/patina-fake-portal ;;
+            off) rm -f /run/patina-fake-portal ;;
+            *) echo "usage: fake-hardware.sh portal on|off" >&2; exit 2 ;;
+        esac
+        ;;
     *)
-        echo "usage: fake-hardware.sh [battery PERCENT [status] | ac on|off]" >&2
+        echo "usage: fake-hardware.sh [battery PERCENT [status] | ac on|off | portal on|off]" >&2
         exit 2
         ;;
 esac

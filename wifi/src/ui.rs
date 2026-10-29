@@ -23,6 +23,17 @@ pub enum Command {
     SetEnabled(bool),
 }
 
+/// Opens `url` in the default browser, which the captive portal redirects to its
+/// sign-in page.
+fn open_browser(url: &str) {
+    let _ = std::process::Command::new("xdg-open")
+        .arg(url)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn();
+}
+
 /// A line under the header: progress, or what went wrong.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Status {
@@ -134,7 +145,9 @@ impl WifiMenu {
             font.clone(),
             name_colour,
         );
-        let note = if network.active {
+        let note = if network.active && self.wifi.as_ref().is_some_and(|w| w.sign_in.is_some()) {
+            "Sign-in needed"
+        } else if network.active {
             "Connected"
         } else if network.saved {
             "Saved"
@@ -276,6 +289,14 @@ impl Shell for WifiMenu {
             }
             None => {}
         }
+        if let Some(url) = &wifi.sign_in {
+            ui.horizontal(|ui| {
+                ui.label("This network needs you to sign in.");
+                if ui.button("Sign in").clicked() {
+                    open_browser(url);
+                }
+            });
+        }
         ui.separator();
         if !wifi.enabled {
             ui.weak("Wi-Fi is off");
@@ -355,5 +376,16 @@ mod tests {
         m.clicked(&network("eduroam", Security::Other, false, false));
         assert!(matches!(m.status, Some(Status::Problem(_))));
         assert!(commands.try_recv().is_err());
+    }
+
+    #[test]
+    fn a_captive_portal_is_flagged_on_the_active_row() {
+        let (mut m, _commands) = menu();
+        assert!(m.wifi.is_none());
+        m.wifi = Some(Wifi {
+            sign_in: Some("http://check.example/".into()),
+            ..Wifi::default()
+        });
+        assert!(m.wifi.as_ref().is_some_and(|w| w.sign_in.is_some()));
     }
 }

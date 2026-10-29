@@ -192,6 +192,7 @@ impl WifiBackend for WpaSupplicant {
                 enabled,
                 present: true,
                 networks: Vec::new(),
+                sign_in: None,
             });
         }
         let scan = parse_scan(&self.cli(&["scan_results"])?);
@@ -200,6 +201,7 @@ impl WifiBackend for WpaSupplicant {
             enabled,
             present: true,
             networks: assemble(&scan, &saved, self.active().as_deref()),
+            sign_in: None,
         })
     }
 

@@ -20,6 +20,13 @@ The network you're on offers Disconnect.
 Escape, a click elsewhere, or the icon again closes it; running it while
 one is open closes that one.
 .Pp
+When NetworkManager finds the network holds you at a captive portal, as a
+cafe's often does until you accept its terms, the menu says so with a
+Sign in button, which opens the portal's page in the default browser
+.Pq Xr xdg-open 1 .
+The line goes once you're through.
+This needs NetworkManager's connectivity check, which Ubuntu enables.
+.Pp
 It talks to NetworkManager on the system bus, which on Ubuntu lets the
 active session change Wi-Fi without a password prompt.
 On

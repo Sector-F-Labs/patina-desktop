@@ -24,6 +24,8 @@ const SIZE: (u32, u32) = (360, 440);
 const GAP: i32 = 4;
 /// How often the networks are read again while the menu is open.
 const REFRESH: Duration = Duration::from_secs(2);
+/// How often to check again, while at a captive portal, that it still holds us.
+const RECHECK: Duration = Duration::from_secs(5);
 /// How long to wait for a network to come up before saying it didn't.
 const JOIN_TIMEOUT: Duration = Duration::from_secs(25);
 
@@ -127,6 +129,8 @@ fn worker(send: &channel::Sender<Message>, commands: &mpsc::Receiver<Command>) {
     nm.scan();
     // The network being joined, and since when.
     let mut joining: Option<(String, Instant)> = None;
+    // When we last asked whether the portal had been signed in to.
+    let mut rechecked = Instant::now();
     loop {
         match nm.wifi() {
             Ok(wifi) => {
@@ -141,6 +145,12 @@ fn worker(send: &channel::Sender<Message>, commands: &mpsc::Receiver<Command>) {
                         )))));
                         joining = None;
                     }
+                }
+                // Behind a portal, look again now and then, so the sign-in line goes
+                // soon after signing in.
+                if wifi.sign_in.is_some() && rechecked.elapsed() > RECHECK {
+                    nm.recheck();
+                    rechecked = Instant::now();
                 }
                 if send.send(Message::Wifi(wifi)).is_err() {
                     return;

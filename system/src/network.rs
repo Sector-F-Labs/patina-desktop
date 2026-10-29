@@ -26,6 +26,8 @@ const SETTINGS_PATH: &str = "/org/freedesktop/NetworkManager/Settings";
 const SETTINGS: &str = "org.freedesktop.NetworkManager.Settings";
 const CONNECTION: &str = "org.freedesktop.NetworkManager.Settings.Connection";
 
+/// NM_CONNECTIVITY_PORTAL: connected, but behind a captive portal.
+const CONNECTIVITY_PORTAL: u32 = 2;
 /// NM_DEVICE_TYPE_WIFI.
 const TYPE_WIFI: u32 = 2;
 /// NM_802_11_AP_FLAGS_PRIVACY.
@@ -89,6 +91,9 @@ pub struct Wifi {
     pub present: bool,
     /// Best first: the active network, then saved ones, then by strength.
     pub networks: Vec<Network>,
+    /// Where to sign in when the network we're on holds us at a captive portal:
+    /// NetworkManager's connectivity check address, which the portal redirects.
+    pub sign_in: Option<String>,
 }
 
 impl Wifi {
@@ -114,6 +119,9 @@ pub trait WifiBackend {
     /// Leaves the current network.
     fn disconnect(&self) -> Result<(), String>;
     fn set_enabled(&self, on: bool) -> Result<(), String>;
+    /// Checks again whether we're online, so a sign-in that's been done is noticed
+    /// sooner than the backend would; nothing where it doesn't check.
+    fn recheck(&self) {}
 }
 
 /// The machine's Wi-Fi: NetworkManager if it's running, else wpa_supplicant.
@@ -167,6 +175,18 @@ impl NetworkManager {
     }
 
     /// The names of the Wi-Fi networks NetworkManager has saved.
+    /// The address to sign in at, when NetworkManager's connectivity check found a
+    /// captive portal (it checks only where the distribution enables that).
+    fn portal(&self, nm: &Proxy) -> Option<String> {
+        let state: u32 = nm.get_property("Connectivity").ok()?;
+        if state != CONNECTIVITY_PORTAL {
+            return None;
+        }
+        nm.get_property("ConnectivityCheckUri")
+            .ok()
+            .filter(|uri: &String| uri.starts_with("http"))
+    }
+
     fn saved_ssids(&self) -> Vec<String> {
         self.saved_connections()
             .into_iter()
@@ -207,6 +227,7 @@ impl WifiBackend for NetworkManager {
                 enabled,
                 present: false,
                 networks: Vec::new(),
+                sign_in: None,
             });
         };
         let wireless = self.proxy(device.as_str(), WIRELESS)?;
@@ -253,6 +274,7 @@ impl WifiBackend for NetworkManager {
             enabled,
             present: true,
             networks,
+            sign_in: self.portal(&nm),
         })
     }
 
@@ -343,6 +365,13 @@ impl WifiBackend for NetworkManager {
         self.proxy(device.as_str(), DEVICE)?
             .call::<_, _, ()>("Disconnect", &())
             .map_err(|e| e.to_string())
+    }
+
+    /// Asks NetworkManager to run its connectivity check now.
+    fn recheck(&self) {
+        if let Ok(nm) = self.proxy(NM_PATH, NM) {
+            let _ = nm.call::<_, _, u32>("CheckConnectivity", &());
+        }
     }
 
     fn set_enabled(&self, on: bool) -> Result<(), String> {

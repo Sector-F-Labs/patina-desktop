@@ -9,10 +9,11 @@ fn main() {
     match nm.wifi() {
         Ok(wifi) => {
             println!(
-                "enabled {} present {} signal {:?}",
+                "enabled {} present {} signal {:?} sign-in {:?}",
                 wifi.enabled,
                 wifi.present,
-                wifi.signal()
+                wifi.signal(),
+                wifi.sign_in
             );
             for n in &wifi.networks {
                 println!(
