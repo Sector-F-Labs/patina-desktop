@@ -24,6 +24,16 @@ is (`PATINA_OPEN_AT`, as patina-bar sets it); otherwise at the bottom-left corne
 a bar's button (`PATINA_BAR_EDGE=top` for the top-left). On GNOME, which has no layer shell, it opens centred
 over the windows ([ADR-0004](docs/adr/0004-a-centred-window-on-gnome.md)).
 
+Two options change where it opens and where the search box sits:
+
+- `--position bar` (the default) opens at the bar's button; `--position center` opens in the
+  middle of the screen, Spotlight style.
+- `--search bottom` (the default) puts the search box below the list; `--search top` puts it
+  above.
+
+So `patina-launcher --position center --search top` is a Spotlight-style launcher, and a bar's
+button can run `patina-launcher --search top` for a top bar.
+
 ## Where the apps come from
 
 - **Installed apps**, from the `.desktop` files in every XDG data directory, the user's own first
