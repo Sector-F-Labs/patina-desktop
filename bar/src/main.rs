@@ -350,7 +350,7 @@ fn run(
         std::thread::Builder::new()
             .name("wifi".into())
             .spawn(move || {
-                let Ok(nm) = patina_system::network::NetworkManager::new() else {
+                let Ok(nm) = patina_system::network::open() else {
                     return;
                 };
                 loop {

@@ -136,6 +136,7 @@ mechanics of adding one.
 | [0092](0092-screen-capture-for-apps-and-recording.md) | Screen capture for apps, through the portal, and the desktop's own recording | Accepted |
 | [0093](0093-with-gaps-maximising-fills.md) | With gaps on, an app's maximise fills inside the gaps, unannounced | Accepted |
 | [0094](0094-touches-go-to-apps.md) | The touchscreen's touches go to apps as wl_touch, without pointer emulation | Accepted |
+| [0095](0095-battery-and-wi-fi-on-freebsd.md) | The battery and Wi-Fi on FreeBSD, behind a trait each | Accepted |
 
 ## Decision Relationship
 

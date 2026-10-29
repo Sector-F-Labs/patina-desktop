@@ -7,10 +7,12 @@ painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in it
 
 - **`audio.rs`**: the default output's volume and mute through PipeWire's `wpctl`, for the
   bar's speaker and patina-volume.
-- **`network.rs`**: Wi-Fi through NetworkManager on the system D-Bus (zbus): devices, access
+- **`network.rs`**: Wi-Fi, through a `WifiBackend` that `network::open` picks: NetworkManager on the
+  system D-Bus (zbus), or `network/wpa.rs`, wpa_supplicant through wpa_cli, on FreeBSD (ADR-0095): devices, access
   points, saved connections, scanning, joining, the radio switch (ADR-0022). For the bar's
   Wi-Fi icon and patina-wifi.
-- **`power.rs`**: the battery from `/sys/class/power_supply` (ADR-0024), for the tray.
+- **`power.rs`**: the battery for the tray (ADR-0024), from a `PowerSource`: `power/sysfs.rs`
+  (`/sys/class/power_supply`), or `power/acpi.rs` on FreeBSD (sysctl and acpiconf, ADR-0095).
 - **`backlight.rs`**: the screen's brightness, read from sysfs and set through logind's
   SetBrightness without root (ADR-0020). The compositor's brightness keys and patina-volume's
   flash use it.
@@ -50,7 +52,7 @@ The calls that wait on a program or D-Bus run off the UI thread. The Linux servi
 the item out.
 
 ```sh
-cargo run -p patina-system --example wifi      # what NetworkManager reports
+cargo run -p patina-system --example wifi      # what NetworkManager or wpa_supplicant reports
 cargo run -p patina-system --example battery
 cargo run -p patina-system --example power     # the power modes; an argument switches mode
 cargo run -p patina-system --example icons     # draws the tray's icons to a PNG

@@ -19,7 +19,7 @@ Disconnect. Escape, a click elsewhere or the icon again closes it.
   the radio switch. On Ubuntu, NetworkManager's polkit rules let the active session do this
   without a password prompt. The calls run off the UI thread.
 - **The bar's icon** reads the same module for the signal it shows.
-- Linux with NetworkManager only, for now; without a Wi-Fi device the menu says "No Wi-Fi
+- NetworkManager on Linux, wpa_supplicant on FreeBSD (ADR-0095); without a Wi-Fi device the menu says "No Wi-Fi
   device".
 
 ## Code
@@ -31,7 +31,7 @@ password box).
 
 ```sh
 cargo run -p patina-wifi
-cargo run -p patina-system --example wifi   # what NetworkManager reports, as text
+cargo run -p patina-system --example wifi   # what NetworkManager or wpa_supplicant reports, as text
 ```
 
 It opens at the bar's button that opened it, from `PATINA_OPEN_AT` (patina-shell's

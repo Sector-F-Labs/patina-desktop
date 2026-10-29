@@ -22,7 +22,12 @@ one is open closes that one.
 .Pp
 It talks to NetworkManager on the system bus, which on Ubuntu lets the
 active session change Wi-Fi without a password prompt.
-Without NetworkManager or a Wi-Fi device, it says so.
+On
+.Fx ,
+which has no NetworkManager, it drives wpa_supplicant through
+.Xr wpa_cli 8
+instead.
+Without either or a Wi-Fi device, it says so.
 .Sh OPTIONS
 .Bl -tag -width Ds
 .It Fl h , -help

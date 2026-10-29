@@ -1,10 +1,10 @@
-//! Prints what patina-shell reads from NetworkManager, for checking the
+//! Prints what the Wi-Fi menu reads (NetworkManager, or wpa_supplicant on FreeBSD), for checking the
 //! D-Bus side on a machine: `cargo run -p patina-shell --example wifi`.
 
 fn main() {
-    let nm = match patina_system::network::NetworkManager::new() {
+    let nm = match patina_system::network::open() {
         Ok(nm) => nm,
-        Err(e) => return eprintln!("no system bus: {e}"),
+        Err(e) => return eprintln!("no Wi-Fi: {e}"),
     };
     match nm.wifi() {
         Ok(wifi) => {

@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use patina_shell::calloop::channel::{self, Event};
 use patina_shell::piece::{self, Single};
 use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
-use patina_system::network::{NetworkManager, Wifi};
+use patina_system::network::{self, Wifi};
 
 use crate::ui::{Command, Status, WifiMenu};
 
@@ -112,14 +112,14 @@ fn run() -> Result<(), String> {
     host.run(event_loop)
 }
 
-/// Talks to NetworkManager: scans once, then refreshes every few seconds
+/// Talks to NetworkManager (or wpa_supplicant): scans once, then refreshes every few seconds
 /// and carries out the menu's commands, reporting progress.
 fn worker(send: &channel::Sender<Message>, commands: &mpsc::Receiver<Command>) {
-    let nm = match NetworkManager::new() {
+    let nm = match network::open() {
         Ok(nm) => nm,
         Err(e) => {
             let _ = send.send(Message::Status(Some(Status::Problem(format!(
-                "Can't reach NetworkManager: {e}"
+                "Can't reach Wi-Fi: {e}"
             )))));
             return;
         }

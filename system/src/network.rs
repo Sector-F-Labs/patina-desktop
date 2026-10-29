@@ -5,11 +5,17 @@
 //! On Ubuntu, NetworkManager's polkit rules let the active session list
 //! networks, connect and switch Wi-Fi off and on, and let members of `sudo`
 //! save new networks, all without a password prompt.
+//!
+//! What the menu and the bar ask of Wi-Fi is `WifiBackend`; `open` picks the one
+//! the machine has: NetworkManager here, or `wpa`, wpa_supplicant through
+//! wpa_cli, on FreeBSD (ADR-0095).
 
 use std::collections::HashMap;
 
 use zbus::blocking::{Connection, Proxy};
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
+
+mod wpa;
 
 const NM: &str = "org.freedesktop.NetworkManager";
 const NM_PATH: &str = "/org/freedesktop/NetworkManager";
@@ -70,7 +76,9 @@ pub struct Network {
     pub active: bool,
     /// NetworkManager has a saved connection for it.
     pub saved: bool,
-    pub access_point: OwnedObjectPath,
+    /// What names it to the backend: NetworkManager's D-Bus path, or the
+    /// BSSID.
+    pub access_point: String,
 }
 
 /// Wi-Fi as a whole.
@@ -90,15 +98,57 @@ impl Wifi {
     }
 }
 
+/// What the Wi-Fi menu and the bar's icon ask of the system. The calls wait
+/// on it, so run them off the UI thread.
+pub trait WifiBackend {
+    /// Wi-Fi's state and the networks in range.
+    fn wifi(&self) -> Result<Wifi, String>;
+    /// For the bar's icon, cheaply: `None` without a Wi-Fi device,
+    /// `Some(None)` when it's off or not connected, else the signal.
+    fn signal(&self) -> Option<Option<u8>>;
+    /// Asks for a new scan; backends limit how often, so a refusal is fine.
+    fn scan(&self);
+    /// Joins `network`: with its saved entry if there is one, otherwise a
+    /// new one, with `password` for a secured network.
+    fn connect(&self, network: &Network, password: Option<&str>) -> Result<(), String>;
+    /// Leaves the current network.
+    fn disconnect(&self) -> Result<(), String>;
+    fn set_enabled(&self, on: bool) -> Result<(), String>;
+}
+
+/// The machine's Wi-Fi: NetworkManager if it's running, else wpa_supplicant.
+pub fn open() -> Result<Box<dyn WifiBackend>, String> {
+    match NetworkManager::new() {
+        Ok(nm) => Ok(Box::new(nm)),
+        Err(nm) => match wpa::WpaSupplicant::new() {
+            Ok(wpa) => Ok(Box::new(wpa)),
+            Err(wpa) => Err(format!("{nm}; {wpa}")),
+        },
+    }
+}
+
 pub struct NetworkManager {
     bus: Connection,
 }
 
 impl NetworkManager {
+    /// Fails where NetworkManager isn't running, as on FreeBSD, where the system
+    /// bus is there all the same.
     pub fn new() -> Result<Self, String> {
-        Ok(Self {
-            bus: Connection::system().map_err(|e| e.to_string())?,
-        })
+        let bus = Connection::system().map_err(|e| e.to_string())?;
+        let running: bool = Proxy::new(
+            &bus,
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+        )
+        .and_then(|bus| bus.call("NameHasOwner", &(NM,)))
+        .map_err(|e| e.to_string())?;
+        if running {
+            Ok(Self { bus })
+        } else {
+            Err("NetworkManager isn't running".into())
+        }
     }
 
     fn proxy<'a>(&'a self, path: &'a str, interface: &'a str) -> Result<Proxy<'a>, String> {
@@ -116,8 +166,38 @@ impl NetworkManager {
         })
     }
 
+    /// The names of the Wi-Fi networks NetworkManager has saved.
+    fn saved_ssids(&self) -> Vec<String> {
+        self.saved_connections()
+            .into_iter()
+            .map(|(_, ssid)| ssid)
+            .collect()
+    }
+
+    fn saved_connections(&self) -> Vec<(OwnedObjectPath, String)> {
+        let Ok(settings) = self.proxy(SETTINGS_PATH, SETTINGS) else {
+            return Vec::new();
+        };
+        let Ok(paths) = settings.call::<_, _, Vec<OwnedObjectPath>>("ListConnections", &()) else {
+            return Vec::new();
+        };
+        paths
+            .into_iter()
+            .filter_map(|path| {
+                let connection = self.proxy(path.as_str(), CONNECTION).ok()?;
+                let all: HashMap<String, HashMap<String, OwnedValue>> =
+                    connection.call("GetSettings", &()).ok()?;
+                let ssid = all.get("802-11-wireless")?.get("ssid")?;
+                let bytes: Vec<u8> = ssid.try_clone().ok()?.try_into().ok()?;
+                Some((path.clone(), String::from_utf8_lossy(&bytes).into_owned()))
+            })
+            .collect()
+    }
+}
+
+impl WifiBackend for NetworkManager {
     /// Wi-Fi's state and the networks in range.
-    pub fn wifi(&self) -> Result<Wifi, String> {
+    fn wifi(&self) -> Result<Wifi, String> {
         let nm = self.proxy(NM_PATH, NM)?;
         let enabled: bool = nm
             .get_property("WirelessEnabled")
@@ -157,7 +237,7 @@ impl NetworkManager {
                 active: path == active,
                 security: security(flags, wpa, rsn),
                 strength,
-                access_point: path.clone(),
+                access_point: path.to_string(),
                 ssid: ssid.clone(),
             };
             match by_name.get(&ssid) {
@@ -176,37 +256,9 @@ impl NetworkManager {
         })
     }
 
-    /// The names of the Wi-Fi networks NetworkManager has saved.
-    fn saved_ssids(&self) -> Vec<String> {
-        self.saved_connections()
-            .into_iter()
-            .map(|(_, ssid)| ssid)
-            .collect()
-    }
-
-    fn saved_connections(&self) -> Vec<(OwnedObjectPath, String)> {
-        let Ok(settings) = self.proxy(SETTINGS_PATH, SETTINGS) else {
-            return Vec::new();
-        };
-        let Ok(paths) = settings.call::<_, _, Vec<OwnedObjectPath>>("ListConnections", &()) else {
-            return Vec::new();
-        };
-        paths
-            .into_iter()
-            .filter_map(|path| {
-                let connection = self.proxy(path.as_str(), CONNECTION).ok()?;
-                let all: HashMap<String, HashMap<String, OwnedValue>> =
-                    connection.call("GetSettings", &()).ok()?;
-                let ssid = all.get("802-11-wireless")?.get("ssid")?;
-                let bytes: Vec<u8> = ssid.try_clone().ok()?.try_into().ok()?;
-                Some((path.clone(), String::from_utf8_lossy(&bytes).into_owned()))
-            })
-            .collect()
-    }
-
     /// For the bar's icon, cheaply: `None` without a Wi-Fi device,
     /// `Some(None)` when it's off or not connected, else the signal.
-    pub fn signal(&self) -> Option<Option<u8>> {
+    fn signal(&self) -> Option<Option<u8>> {
         let device = self.device()?;
         let enabled: bool = self
             .proxy(NM_PATH, NM)
@@ -234,7 +286,7 @@ impl NetworkManager {
 
     /// Asks the device to look for networks; NetworkManager limits how
     /// often, so a refusal is fine.
-    pub fn scan(&self) {
+    fn scan(&self) {
         if let Some(device) = self.device()
             && let Ok(wireless) = self.proxy(device.as_str(), WIRELESS)
         {
@@ -245,8 +297,10 @@ impl NetworkManager {
 
     /// Joins `network`: with its saved connection if there is one,
     /// otherwise a new one, with `password` for a secured network.
-    pub fn connect(&self, network: &Network, password: Option<&str>) -> Result<(), String> {
+    fn connect(&self, network: &Network, password: Option<&str>) -> Result<(), String> {
         let device = self.device().ok_or("no Wi-Fi device")?;
+        let access_point =
+            OwnedObjectPath::try_from(network.access_point.as_str()).map_err(|e| e.to_string())?;
         let nm = self.proxy(NM_PATH, NM)?;
         if let Some((saved, _)) = self
             .saved_connections()
@@ -256,7 +310,7 @@ impl NetworkManager {
             return nm
                 .call::<_, _, OwnedObjectPath>(
                     "ActivateConnection",
-                    &(&saved, &device, &network.access_point),
+                    &(&saved, &device, &access_point),
                 )
                 .map(|_| ())
                 .map_err(|e| e.to_string());
@@ -277,21 +331,21 @@ impl NetworkManager {
         }
         nm.call::<_, _, (OwnedObjectPath, OwnedObjectPath)>(
             "AddAndActivateConnection",
-            &(settings, &device, &network.access_point),
+            &(settings, &device, &access_point),
         )
         .map(|_| ())
         .map_err(|e| e.to_string())
     }
 
     /// Leaves the current network.
-    pub fn disconnect(&self) -> Result<(), String> {
+    fn disconnect(&self) -> Result<(), String> {
         let device = self.device().ok_or("no Wi-Fi device")?;
         self.proxy(device.as_str(), DEVICE)?
             .call::<_, _, ()>("Disconnect", &())
             .map_err(|e| e.to_string())
     }
 
-    pub fn set_enabled(&self, on: bool) -> Result<(), String> {
+    fn set_enabled(&self, on: bool) -> Result<(), String> {
         self.proxy(NM_PATH, NM)?
             .set_property("WirelessEnabled", on)
             .map_err(|e| e.to_string())
@@ -326,7 +380,7 @@ mod tests {
             security: Security::Psk,
             active,
             saved,
-            access_point: OwnedObjectPath::try_from("/x").unwrap(),
+            access_point: "/x".into(),
         }
     }
 

@@ -313,7 +313,7 @@ mod tests {
             security,
             active,
             saved,
-            access_point: "/ap".try_into().unwrap(),
+            access_point: "/ap".into(),
         }
     }
 
