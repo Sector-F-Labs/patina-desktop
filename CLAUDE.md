@@ -48,6 +48,9 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   changes, `make vm-linux-shot` (→ target/vm-linux/screen.png) and read the PNG back;
   `vm-linux/vm.sh ssh` for a shell. Session log in the guest: /tmp/patina-session.log. The guest has
   a fake battery and Wi-Fi (ADR-0096): `vm-linux/vm.sh fake battery 15 discharging`, `fake ac off`.
+  `make test-vm` (ADR-0097) runs pytest against it, with uv: the session, the apps drawing, the
+  bar's battery and Wi-Fi; run it before pushing changes to `system/` or the bar, and when
+  adding another OS's support, so Linux doesn't regress.
 
 ## Layout
 

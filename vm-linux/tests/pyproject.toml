@@ -1,0 +1,10 @@
+[project]
+name = "patina-vm-tests"
+version = "0.0.0"
+description = "Regression tests that drive the Linux test VM (ADR-0017, ADR-0096)"
+requires-python = ">=3.10"
+dependencies = ["pytest>=8", "pillow>=10"]
+
+[tool.pytest.ini_options]
+# Slow by nature: a VM, a session, windows opening.
+addopts = "-ra"

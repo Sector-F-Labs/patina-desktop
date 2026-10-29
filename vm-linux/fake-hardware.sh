@@ -8,7 +8,8 @@
 #   `fake-hardware.sh battery` and `ac` below.
 # - Wi-Fi, from mac80211_hwsim: wlan0, the one NetworkManager manages and the
 #   Wi-Fi menu uses, and wlan1, an access point (hostapd) called patina-test with
-#   the password patina-test-pass, so the menu has a network to list and join.
+#   the password patina-test-pass, and a DHCP server (dnsmasq), so the menu has a
+#   network to list and join.
 #
 #   fake-hardware.sh                       set it up (idempotent)
 #   fake-hardware.sh battery PERCENT [discharging|charging|full|not-charging]
@@ -21,7 +22,7 @@ AP_DIR=/etc/patina-vm
 install_all() {
     # NetworkManager isn't in the server image, and hostapd is the access point.
     missing=
-    for p in network-manager wpasupplicant hostapd; do
+    for p in network-manager wpasupplicant hostapd dnsmasq-base; do
         dpkg -s "$p" >/dev/null 2>&1 || missing="$missing $p"
     done
     if [ -n "$missing" ]; then
@@ -60,6 +61,21 @@ BindsTo=sys-subsystem-net-devices-wlan1.device
 
 [Service]
 ExecStart=/usr/sbin/hostapd $AP_DIR/hostapd.conf
+ExecStartPost=/usr/sbin/ip addr replace 10.42.0.1/24 dev wlan1
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    # Addresses for whoever joins it, or NetworkManager never finishes joining.
+    cat > /etc/systemd/system/patina-fake-dhcp.service <<EOF
+[Unit]
+Description=DHCP for the fake Wi-Fi access point, for the test VM
+After=patina-fake-ap.service
+Requires=patina-fake-ap.service
+
+[Service]
+ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --conf-file=/dev/null --interface=wlan1 --bind-interfaces --port=0 --dhcp-range=10.42.0.10,10.42.0.50,12h --dhcp-leasefile=/run/patina-fake-dhcp.leases
 Restart=on-failure
 
 [Install]
@@ -72,7 +88,7 @@ EOF
     modprobe mac80211_hwsim radios=2 2>/dev/null || true
     systemctl enable --now NetworkManager >/dev/null 2>&1
     systemctl restart NetworkManager
-    systemctl enable --now patina-fake-ap.service >/dev/null 2>&1
+    systemctl enable --now patina-fake-ap.service patina-fake-dhcp.service >/dev/null 2>&1
 }
 
 case "${1:-}" in

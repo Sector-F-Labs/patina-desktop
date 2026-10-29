@@ -23,7 +23,8 @@ The VM sets up hardware with the kernel's own simulators, so the real code reads
   `vm.sh fake ac off` change it, through the module's parameters.
 - **Wi-Fi** from `mac80211_hwsim`: two radios, `wlan0` for NetworkManager (installed in the guest,
   managing only Wi-Fi), and `wlan1` as an access point under hostapd, `patina-test` with the
-  password `patina-test-pass`, which NetworkManager scans and can join.
+  password `patina-test-pass`, with a DHCP server (dnsmasq) so joining finishes, which
+  NetworkManager scans and can join.
 
 Both are loaded at every boot, so the VM has them whenever it's up.
 
@@ -37,5 +38,5 @@ Both are loaded at every boot, so the VM has them whenever it's up.
 - `test_power` reports `charge_now` out of 100 and a small `current_now`, so the time left it
   gives is not a real battery's; the charge, the status and the charger are.
 - The first start after this installs NetworkManager, wpasupplicant and hostapd in the guest.
-- Regression tests for this (ADR to follow) set the battery and join the access point, then
+- Regression tests for this (ADR-0097) set the battery and join the access point, then
   check the bar and the menu.

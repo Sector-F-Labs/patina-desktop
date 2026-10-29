@@ -35,3 +35,13 @@ if [ "\$(tty)" = /dev/tty1 ] && [ -z "\${WAYLAND_DISPLAY:-}" ]; then
     exec dbus-run-session -- $BIN/patina-session > /tmp/patina-session.log 2>&1
 fi
 EOF
+
+# The screen stays on: the compositor turns it off after five idle minutes, and
+# the tests' screenshots would be black (ADR-0047). It reloads this file live.
+conf=$HOME/.config/patina-compositor/config.toml
+mkdir -p "$(dirname "$conf")"
+if [ ! -f "$conf" ]; then
+    printf '[screen]\noff_after = 0\n' > "$conf"
+elif ! grep -q '^off_after' "$conf"; then
+    awk '{print} /^\[screen\]/{print "off_after = 0"}' "$conf" > "$conf.new" && mv "$conf.new" "$conf"
+fi
