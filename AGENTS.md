@@ -33,6 +33,11 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   `rsync --rsync-path="doas rsync"`), with Teleprinter (`../teleprinter` as it is, else a clone
   from GitHub) through its own `make install DESTDIR= PREFIX=/usr/local`. The
   compositor gives clients `TERMINAL=teleprinter` where it's installed (`clients.rs`).
+- `make deb` (ADR-0099, `packaging/deb/build.py`) builds one `patina-desktop` .deb into
+  `target/deb`: this repository's last commit, or its working tree with `WORKTREE=1` (which then
+  says `+dirty`), laid out by `make stage` under `/usr`, and the apps `packaging/bundle.toml` pins (launcher, Teleprinter, Files,
+  Reader, Notebook, Draw, Montage, UnAmp), each from a clean export of its commit. Work is kept in
+  `~/.cache/patina-desktop/deb`. Changing what ships is a commit to `bundle.toml`.
 - `make run` opens the compositor as a window on the current desktop, on a session bus of its own
   (`dbus-run-session`) so it never takes a running Patina session's names (it pops up on the user's
   GNOME session, so prefer the VM).

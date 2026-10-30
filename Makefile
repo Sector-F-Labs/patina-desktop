@@ -40,7 +40,7 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps run run-bar build test check install stage deploy uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm vm-linux-stop clean
+.PHONY: help deps run run-bar build test check install stage deploy deb uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm vm-linux-stop clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -144,6 +144,9 @@ deploy: build ## Build here and install on another machine over ssh, Teleprinter
 	-ssh $(HOST) 'doas update-desktop-database -q $(APPSDIR); \
 		test ! -f $(ICONDIR)/icon-theme.cache || doas gtk-update-icon-cache -q -t -f $(ICONDIR)'
 	@echo "Installed on $(HOST). Restart the desktop there to use it: Ctrl+Alt+Shift+Backspace."
+
+deb: ## Build the .deb: the desktop and the apps packaging/bundle.toml pins, into target/deb (WORKTREE=1 for uncommitted changes)
+	packaging/deb/build.py $(if $(WORKTREE),--worktree)
 
 ifeq ($(ROOT),)
 uninstall: ## Remove what install put in place (asks doas or sudo)

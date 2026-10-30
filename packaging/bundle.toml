@@ -1,0 +1,123 @@
+# What the patina-desktop .deb holds (ADR-0099): this repository, and the
+# apps from other repositories built at the commits pinned here. Tested
+# together in the Linux VM, and shipped as one. `make deb` builds it from
+# this file as committed.
+
+[package]
+name = "patina-desktop"
+maintainer = "Divan Visagie <me@divanv.com>"
+homepage = "https://sectorflabs.com/patina"
+# Ubuntu 26.04, as Patina OS is. make deb builds on the machine it runs on,
+# so it says so when that's another release.
+distribution = "resolute"
+architecture = "amd64"
+
+# This repository goes in as make stage lays it out: every binary in the
+# Makefile's BINARIES, the man pages, the session entry, the lock screen's
+# PAM service, the portal config, the default apps list, and the Settings
+# and Process Manager entries and icons. patina-dictate is built as it is
+# by default, on the GPU through Vulkan (ADR-0074).
+
+# Apps from other repositories. Each is built with `cargo build --release
+# --locked` at `commit`, from the checkout at `local` (default: ../<name>)
+# if it has the commit, else from `repo`. What goes in:
+#   binaries  into /usr/bin (default: [name])
+#   id        packaging/linux/<id>.desktop into /usr/share/applications,
+#             its Exec made absolute; packaging/linux/<name>.svg and
+#             assets/<name>-icon-128.png as the <id> icon
+#   files     more files, { "/where" = "from" }, with @BINDIR@ as /usr/bin
+
+[[app]]
+name = "patina-launcher"
+repo = "https://github.com/Sector-F-Labs/patina-launcher"
+commit = "8a0018a"
+why = "The launcher: Super, and the bar's left menu"
+
+[[app]]
+name = "teleprinter"
+repo = "https://github.com/Sector-F-Labs/teleprinter"
+commit = "80f03e6"
+id = "com.sectorflabs.Teleprinter"
+why = "The terminal: Alt+T"
+
+[[app]]
+name = "files"
+repo = "divan@remotes.divanv.com:~/Remotes/src/com/sectorflabs/files"
+commit = "41c20b2"
+id = "com.sectorflabs.Files"
+why = "Folders, and the session's file chooser through the portal"
+[app.files]
+"/usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.patina.service" = "packaging/portal/org.freedesktop.impl.portal.desktop.patina.service"
+"/usr/share/xdg-desktop-portal/portals/patina.portal" = "packaging/portal/patina.portal"
+
+[[app]]
+name = "reader"
+repo = "divan@remotes.divanv.com:~/Remotes/src/com/sectorflabs/reader"
+commit = "b7faf9a"
+id = "com.sectorflabs.Reader"
+why = "Process Manager opens man pages in it"
+
+[[app]]
+name = "notebook"
+repo = "divan@remotes.divanv.com:~/Remotes/src/com/sectorflabs/notebook"
+commit = "b9782f2"
+id = "com.sectorflabs.Notebook"
+why = "Notes: WYSIWYG markdown for a folder of .md files"
+
+[[app]]
+name = "draw"
+repo = "divan@remotes.divanv.com:~/Remotes/src/com/sectorflabs/draw"
+commit = "037a816"
+id = "com.sectorflabs.Draw"
+why = "Paint: a simple bitmap editor"
+
+[[app]]
+name = "montage"
+repo = "divan@remotes.divanv.com:~/Remotes/src/com/sectorflabs/montage"
+commit = "352dbe7"
+id = "com.sectorflabs.Montage"
+why = "Video: clips, a timeline, music and a voiceover"
+
+[[app]]
+name = "unamp"
+repo = "https://github.com/divanvisagie/UnAmp"  # divanvisagie's, not Sector F's
+local = "../../github/divanvisagie/UnAmp"
+commit = "b64e1d7"
+id = "unamp"
+why = "Music: local folders and network shares"
+
+# Other Patina apps, left out. Move one up to bundle it:
+#   calendar  78d0d3d  the clock menu shows its events
+#   mail      364dd0d
+#   editor    93026f5
+#   weather   05fd517
+#   podcasts  9fcf6db
+#   messenger c60a569
+#   md-chat   72c6791
+#   mpc       a60fd6b
+
+# What the package pulls in from Ubuntu. dpkg-shlibdeps adds the libraries
+# the binaries link (libinput, libseat, libgbm, PAM ...) on its own; these
+# are the programs the desktop runs, or needs running.
+[depends]
+required = [
+    "dbus-user-session",        # dbus-update-activation-environment, a session bus
+    "network-manager",          # the Wi-Fi menu
+    "wireplumber",              # wpctl, for volume
+    "xdg-desktop-portal",
+    "xdg-desktop-portal-gtk",   # the portals' default (packaging/portal)
+    "xdg-desktop-portal-wlr",   # screen sharing (ADR-0092)
+    "xwayland",                 # X11 apps, Steam (ADR-0040)
+    "libglib2.0-bin",           # gsettings: Settings sets light/dark and icons for GTK apps
+    "xdg-utils",                # xdg-open
+    "fonts-noto-color-emoji",
+    "ffmpeg",                   # Montage (ffmpeg, ffprobe), and screen recording
+]
+recommended = [
+    "firefox",                  # Alt+B; from Mozilla's apt repository on Patina OS, not the snap
+    "adwaita-icon-theme",
+    "gvfs-backends", "gvfs-fuse",  # UnAmp's network shares
+]
+# Apps that also ship .debs of their own: the bundle takes their place, so
+# apt swaps one for the other instead of refusing the overlapping files.
+replaces = ["unamp"]
