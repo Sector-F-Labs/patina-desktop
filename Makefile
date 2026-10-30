@@ -40,7 +40,7 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps run run-bar build test check install stage deploy deb uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm vm-linux-stop clean
+.PHONY: help deps run run-bar build test check install stage deploy deb uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm test-vm-rc vm-linux-stop clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -191,6 +191,9 @@ vm-linux-gui: ## Open the Linux VM's screen in a VNC viewer
 
 test-vm: build ## Regression tests against the Linux VM: the session, the bar's battery and Wi-Fi, the apps (needs uv; boots the VM)
 	uv run --project vm-linux/tests pytest vm-linux/tests
+
+test-vm-rc: ## Regression tests against the clean rc VM that runs the installed .deb (needs uv; no build)
+	PATINA_VM_INSTANCE=rc uv run --project vm-linux/tests pytest vm-linux/tests
 
 vm-linux-stop: ## Power the Linux VM off (vm-linux/vm.sh reset deletes its disk)
 	vm-linux/vm.sh stop

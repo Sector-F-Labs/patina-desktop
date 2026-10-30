@@ -8,21 +8,35 @@ import time
 
 import pytest
 
-from conftest import BAR_TOP, SCREEN, changed, wait_for
+from conftest import BAR_TOP, SCREEN, changed, wait_for, INSTANCE
 
 ABOVE_BAR = (0, 0, SCREEN[0], BAR_TOP)
 
 APPS = {
-    "settings": "/patina/target/release/patina-settings",
-    "processes": "/patina/target/release/patina-processes",
-    "teleprinter": "/teleprinter/target/release/teleprinter",
-    "foot": "/usr/bin/foot",
+    "dev": {
+        "settings": "/patina/target/release/patina-settings",
+        "processes": "/patina/target/release/patina-processes",
+        "teleprinter": "/teleprinter/target/release/teleprinter",
+        "foot": "/usr/bin/foot",
+    },
+    "rc": {
+        "settings": "/usr/bin/patina-settings",
+        "processes": "/usr/bin/patina-processes",
+        "teleprinter": "/usr/bin/teleprinter",
+        "foot": "/usr/bin/foot",
+    },
 }
+ALL_APPS = ["settings", "processes", "teleprinter", "foot"]
 
 
-@pytest.mark.parametrize("name", APPS)
+def app_command(name: str) -> str:
+    """The app `name` to open and draw: the instance's binaries (the deb, for rc)."""
+    return APPS[INSTANCE][name]
+
+
+@pytest.mark.parametrize("name", ALL_APPS)
 def test_the_app_opens_and_draws(vm, name):
-    command = APPS[name]
+    command = app_command(name)
     vm.kill(command)
     time.sleep(2)
     before = vm.shot(f"{name}-before")

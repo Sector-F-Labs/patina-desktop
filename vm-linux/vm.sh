@@ -5,22 +5,25 @@
 # broken guest is one `reset` from fresh; the base image is cached outside the
 # repo.
 #
-#   vm-linux/vm.sh start       create it on first use, boot it and wait for SSH
-#   vm-linux/vm.sh restart     set the guest up again and restart its session, after a build
-#   vm-linux/vm.sh shot [png]  its screen, saved (default target/vm-linux/screen.png)
-#   vm-linux/vm.sh ssh [cmd]   a shell (or a command) as the session's user
-#   vm-linux/vm.sh fake ...    the guest's fake battery and Wi-Fi (fake-hardware.sh):
-#                              fake battery 15 discharging, fake ac off,
-#                              fake portal on (a captive portal on the fake Wi-Fi)
-#   vm-linux/vm.sh view        its screen in a VNC viewer (localhost:5903)
-#   vm-linux/vm.sh log         follow the serial console
-#   vm-linux/vm.sh stop        power it off
-#   vm-linux/vm.sh reset       stop it and delete its disk, for a fresh guest
+#   vm-linux/vm.sh start            create it on first use, boot it and wait for SSH
+#                                 (PATINA_VM_INSTANCE=dev, the checkout and its builds, default;
+#                                   PATINA_VM_INSTANCE=rc, the clean guest that installs the .deb)
+#   vm-linux/vm.sh restart         set the guest up again and restart its session, after a build
+#   vm-linux/vm.sh shot [png]      its screen, saved (default target/vm-linux/screen.png)
+#   vm-linux/vm.sh ssh [cmd]       a shell (or a command) as the session's user
+#   vm-linux/vm.sh fake ...        the guest's fake battery and Wi-Fi (fake-hardware.sh):
+#                                 fake battery 15 discharging, fake ac off,
+#                                 fake portal on (a captive portal on the fake Wi-Fi)
+#   vm-linux/vm.sh view            its screen in a VNC viewer (localhost:5903)
+#   vm-linux/vm.sh log             follow the serial console
+#   vm-linux/vm.sh stop            power it off
+#   vm-linux/vm.sh reset           stop it and delete its disk, for a fresh guest
 set -euo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO=$(dirname "$HERE")
-OUT="$REPO/target/vm-linux"
+INSTANCE=${PATINA_VM_INSTANCE:-dev}
+OUT="$REPO/target/vm-$INSTANCE"
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/patina-desktop"
 
 # The guest is the host's release, so binaries built here run there unchanged.
@@ -66,12 +69,23 @@ create() {
   rm -rf "$SEED" && mkdir -p "$SEED"
   printf 'instance-id: patina-vm-linux-%s\nlocal-hostname: patina-vm\n' "$(date +%s)" > "$SEED/meta-data"
   sed "s|@KEY@|$(cat "$KEY.pub")|" "$HERE/user-data" > "$SEED/user-data"
+  if [[ "$INSTANCE" == rc ]]; then
+    # A clean guest installs the deb into its own disk, no shares: without a
+    # source to mount, systemd's patina.mount unit fails, and the fake portal
+    # that requires it can never start.
+    awk 'BEGIN{skip=0} /^mounts:$/{skip=1} /^write_files:$/{skip=0} !skip' \
+      "$SEED/user-data" > "$SEED/user-data.tmp" && mv "$SEED/user-data.tmp" "$SEED/user-data"
+  fi
 }
 
 boot() {
-  local shares=(-virtfs "local,path=$REPO,mount_tag=patina,security_model=none,readonly=on")
-  [[ -d "$TELEPRINTER" ]] &&
-    shares+=(-virtfs "local,path=$TELEPRINTER,mount_tag=teleprinter,security_model=none,readonly=on")
+  local shares=()
+  if [[ "$INSTANCE" == dev ]]; then
+    shares+=(-virtfs "local,path=$REPO,mount_tag=patina,security_model=none,readonly=on")
+    if [[ -d "$TELEPRINTER" ]]; then
+      shares+=(-virtfs "local,path=$TELEPRINTER,mount_tag=teleprinter,security_model=none,readonly=on")
+    fi
+  fi
   qemu-system-x86_64 \
     -enable-kvm -cpu host -m 4096 -smp 4 -machine q35 \
     -drive "file=$DISK,format=qcow2,if=virtio" \
@@ -96,11 +110,31 @@ wait_ssh() {
 }
 
 setup() {
-  # Setting up waits for cloud-init's first run, then lays out what the
-  # session needs from the shared checkout.
-  guest 'cloud-init status --wait >/dev/null; sh /patina/vm-linux/guest-setup.sh'
-  # A battery and Wi-Fi for the bar to read, as root.
-  guest 'sudo sh /patina/vm-linux/fake-hardware.sh >/dev/null'
+  if [[ "$INSTANCE" == dev ]]; then
+    # Setting up waits for cloud-init's first run, then lays out what the
+    # session needs from the shared checkout.
+    guest 'cloud-init status --wait >/dev/null; sh /patina/vm-linux/guest-setup.sh'
+    # A battery and Wi-Fi for the bar to read, as root.
+    guest 'sudo sh /patina/vm-linux/fake-hardware.sh >/dev/null'
+  else
+    # rc: a clean guest with no shares: install the .deb, then the fake
+    # hardware and the session from copies of the scripts beside it, with the
+    # binaries the deb installed at /usr/bin.
+    say "installing the deb into the clean rc guest"
+    # First boot: let cloud-init finish its own packages, its additions to
+    # /etc/apt, and the lists they bring, else the deb's dependencies read as
+    # nobody's.
+    guest 'sudo cloud-init status --wait'
+    guest 'sudo apt-get update -qq'
+    deb="$(ls -t "$REPO"/target/deb/*.deb | head -1)"
+    scp -i "$KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$deb" patina@127.0.0.1:/tmp/patina-desktop.deb
+    guest 'DEBIAN_FRONTEND=noninteractive sudo apt-get install -y /tmp/patina-desktop.deb'
+    scp -i "$KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$HERE/guest-setup.sh" patina@127.0.0.1:/tmp/patina-guest-setup.sh
+    scp -i "$KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$HERE/fake-hardware.sh" patina@127.0.0.1:/tmp/patina-fake-hardware.sh
+    scp -i "$KEY" -P "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$HERE/fake-portal.py" patina@127.0.0.1:/tmp/patina-fake-portal.py
+    guest 'BIN_DIR=/usr/bin sh /tmp/patina-guest-setup.sh'
+    guest 'sudo PORTAL=/tmp/patina-fake-portal.py sh /tmp/patina-fake-hardware.sh >/dev/null'
+  fi
 }
 
 case "${1:-}" in
@@ -139,7 +173,12 @@ case "${1:-}" in
   fake)
     running || die "not running"
     shift
-    guest "sudo sh /patina/vm-linux/fake-hardware.sh $*"
+    if [[ "$INSTANCE" == rc ]]; then
+      fake_script=/tmp/patina-fake-hardware.sh
+    else
+      fake_script=/patina/vm-linux/fake-hardware.sh
+    fi
+    guest "sudo sh $fake_script $*"
     ;;
   view)
     running || die "not running"

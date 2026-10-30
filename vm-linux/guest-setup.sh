@@ -4,7 +4,7 @@
 # lists the desktop's apps for the launcher.
 set -eu
 
-BIN=/patina/target/release
+BIN=${BIN_DIR:-/patina/target/release}
 apps=$HOME/.local/share/applications
 icons=$HOME/.local/share/icons/hicolor/scalable/apps
 mkdir -p "$apps" "$icons"
@@ -12,8 +12,10 @@ mkdir -p "$apps" "$icons"
 # Settings and the Process Manager, as make install lists them, from the share.
 for app in settings:com.sectorflabs.Settings processes:com.sectorflabs.ProcessManager; do
     dir=${app%%:*} id=${app#*:}
-    cp "/patina/$dir/packaging/$dir.svg" "$icons/$id.svg"
-    sed "s|^Exec=patina-|Exec=$BIN/patina-|" "/patina/$dir/packaging/$id.desktop" > "$apps/$id.desktop"
+    if [ -f "/patina/$dir/packaging/$dir.svg" ]; then
+        cp "/patina/$dir/packaging/$dir.svg" "$icons/$id.svg"
+        sed "s|^Exec=patina-|Exec=$BIN/patina-|" "/patina/$dir/packaging/$id.desktop" > "$apps/$id.desktop"
+    fi
 done
 
 # Teleprinter, the session's terminal, when its checkout is shared too.

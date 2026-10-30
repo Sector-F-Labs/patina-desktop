@@ -21,6 +21,8 @@
 #   fake-hardware.sh portal on|off
 set -eu
 
+PORTAL=${PORTAL:-/patina/vm-linux/fake-portal.py}
+
 PARAMS=/sys/module/test_power/parameters
 AP_DIR=/etc/patina-vm
 
@@ -68,6 +70,11 @@ EOF
     # wlan0, its address 10.42.0.1 would be the host's own, and NetworkManager's
     # traffic to it (bound to wlan0) would never reach it, as it can't to a real
     # router. `patina-ap` is the router.
+    MOUNT_REQ=
+    if [ "${PORTAL#/patina}" != "$PORTAL" ]; then
+        # The portal's script is the checkout's, on the /patina share: wait for it.
+        MOUNT_REQ="RequiresMountsFor=/patina"
+    fi
     cat > /etc/systemd/system/patina-fake-ap.service <<EOF
 [Unit]
 Description=A fake Wi-Fi access point on wlan1 (mac80211_hwsim), in its own namespace, for the test VM
@@ -102,10 +109,10 @@ EOF
 Description=A fake captive portal on the fake access point, for the test VM
 After=patina-fake-ap.service
 Requires=patina-fake-ap.service
-RequiresMountsFor=/patina
+${MOUNT_REQ}
 
 [Service]
-ExecStart=/usr/sbin/ip netns exec patina-ap /usr/bin/python3 /patina/vm-linux/fake-portal.py
+ExecStart=/usr/sbin/ip netns exec patina-ap /usr/bin/python3 $PORTAL
 Restart=on-failure
 
 [Install]

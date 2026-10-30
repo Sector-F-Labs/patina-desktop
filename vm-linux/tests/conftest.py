@@ -4,7 +4,7 @@ session is running, and gives tests its screen, its shell and its fake hardware.
 Run with `make test-vm` (from patina-desktop), or `uv run pytest` in this folder.
 """
 
-import re
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -14,6 +14,7 @@ from PIL import Image, ImageChops
 
 REPO = Path(__file__).resolve().parents[2]
 VM_SH = REPO / "vm-linux" / "vm.sh"
+INSTANCE = os.environ.get("PATINA_VM_INSTANCE", "dev")
 SCREEN = (1280, 800)
 # The bar along the bottom; windows are above it.
 BAR_TOP = 760
@@ -22,7 +23,8 @@ BAR_TOP = 760
 def pattern(path: str) -> str:
     """A pgrep/pkill -f pattern for `path` that doesn't match the shell running it:
     the first letter of the last name in brackets."""
-    return re.sub(r"([^/])([^/]*)$", r"[\1]\2", path)
+    name = path.rsplit("/", 1)[-1]
+    return f"[{name[0]}]{name[1:]}"
 
 
 def wait_for(predicate, timeout=30.0, every=1.0, what="the condition"):
@@ -53,7 +55,11 @@ def changed(a: Image.Image, b: Image.Image, box=None, threshold=24) -> float:
 class Vm:
     def run(self, *args, check=True, timeout=300) -> str:
         done = subprocess.run(
-            [str(VM_SH), *args], capture_output=True, text=True, timeout=timeout
+            [str(VM_SH), *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env={**os.environ, "PATINA_VM_INSTANCE": INSTANCE},
         )
         if check and done.returncode:
             raise RuntimeError(f"vm.sh {' '.join(args)}: {done.stderr or done.stdout}")
@@ -63,14 +69,14 @@ class Vm:
         return self.run("ssh", command, check=check, timeout=timeout)
 
     def running(self) -> bool:
-        pid = REPO / "target" / "vm-linux" / "qemu.pid"
+        pid = REPO / "target" / f"vm-{INSTANCE}" / "qemu.pid"
         try:
             return pid.exists() and Path(f"/proc/{pid.read_text().strip()}").exists()
         except OSError:
             return False
 
     def shot(self, name="screen") -> Image.Image:
-        path = REPO / "target" / "vm-linux" / f"test-{name}.png"
+        path = REPO / "target" / f"vm-{INSTANCE}" / f"test-{name}.png"
         self.run("shot", str(path))
         with Image.open(path) as image:
             return image.convert("RGB")
