@@ -140,7 +140,7 @@ mechanics of adding one.
 | [0096](0096-the-linux-vm-has-fake-hardware.md) | The Linux test VM has a fake battery and Wi-Fi, made by the kernel | Accepted |
 | [0097](0097-linux-regression-tests-drive-the-vm-from-python.md) | Regression tests drive the Linux VM from Python, with uv | Accepted |
 | [0098](0098-wifi-menu-signs-in-to-captive-portals.md) | The Wi-Fi menu signs in to captive portals, by NetworkManager's connectivity check | Accepted |
-| [0099](0099-one-deb-of-the-desktop-and-its-apps.md) | The desktop ships as one .deb, with the apps it was tested with, pinned in bundle.toml | Proposed |
+| [0099](0099-one-deb-of-the-desktop-and-its-apps.md) | The desktop ships as one .deb, with the apps it was tested with, pinned in bundle.toml | Accepted |
 
 ## Decision Relationship
 
