@@ -40,7 +40,7 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps run run-bar build test check install stage deploy deb install-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm test-vm-rc vm-linux-stop clean
+.PHONY: help deps run run-bar build test check install stage deploy deb install-full uninstall-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm test-vm-rc vm-linux-stop clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -53,6 +53,7 @@ deps: ## Show the system packages the build needs
 	@echo "                   libasound2-dev cmake clang glslc libvulkan-dev"
 	@echo "FreeBSD:       pkg install pkgconf libxkbcommon pixman libudev-devd libinput seatd mesa-libs libdrm wayland cmake llvm \\"
 	@echo "                   shaderc vulkan-headers vulkan-loader"
+	@echo "To build the .deb (make deb): dpkg-dev, and Rust from rustup.rs."
 	@echo "To run X11 apps (Steam), Xwayland too: apt install xwayland, or pkg install xwayland."
 	@echo "To record the screen, and for apps to share it: apt install ffmpeg xdg-desktop-portal-wlr,"
 	@echo "or pkg install ffmpeg xdg-desktop-portal-wlr."
@@ -85,7 +86,7 @@ TELEPRINTER ?= $(abspath ../teleprinter)
 TELEPRINTER_REPO := https://github.com/Sector-F-Labs/teleprinter
 
 ifeq ($(ROOT),)
-install: build ## Build, then install for every user into /usr/local (PREFIX), with the login session (asks doas or sudo)
+install: build ## Build, then install this repository for every user into /usr/local (PREFIX), with the login session; the apps from other repositories are install-full (asks doas or sudo)
 	$(AS_ROOT) $(MAKE) --no-print-directory install PREFIX=$(PREFIX) MANDIR=$(MANDIR) SESSIONDIR=$(SESSIONDIR) PAMDIR=$(PAMDIR) XDGCONFDIR=$(XDGCONFDIR)
 else
 # As root it never builds, so nothing in target/ ends up root's.
@@ -149,16 +150,28 @@ deb: ## Build the .deb: the desktop and the apps packaging/bundle.toml pins, int
 	packaging/deb/build.py $(if $(WORKTREE),--worktree)
 
 ifeq ($(ROOT),)
-install-full: ## Build and install the whole desktop into /usr/local (PREFIX): the apps bundle.toml pins too, not just this repository (any OS; asks doas or sudo)
+install-full: ## Install this repository and the apps from other repositories bundle.toml pins, built from GitHub, into /usr/local (PREFIX) (any OS; asks doas or sudo)
 	packaging/deb/build.py --stage target/full --prefix $(PREFIX)
 	$(AS_ROOT) $(MAKE) --no-print-directory install-full PREFIX=$(PREFIX)
 else
 install-full:
 	@test -d target/full || { echo "Nothing staged: run make install-full as yourself."; exit 1; }
-	cp -R target/full/. /
-	-update-desktop-database -q $(APPSDIR)
-	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
+	cp -R target/full/. $(DESTDIR)/
+	-update-desktop-database -q $(DESTDIR)$(APPSDIR)
+	-@test ! -f $(DESTDIR)$(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(DESTDIR)$(ICONDIR)
 	@echo "Installed the whole desktop into $(PREFIX): what $(PREFIX)/share/patina-desktop/versions lists."
+endif
+
+ifeq ($(ROOT),)
+uninstall-full: ## Remove what install-full put in place, every file it listed (asks doas or sudo)
+	$(AS_ROOT) $(MAKE) --no-print-directory uninstall-full PREFIX=$(PREFIX)
+else
+uninstall-full:
+	@test -f $(DESTDIR)$(PREFIX)/share/patina-desktop/files || { echo "Nothing to remove: install-full didn't leave $(PREFIX)/share/patina-desktop/files."; exit 1; }
+	@while IFS= read -r f; do rm -f "$(DESTDIR)$$f"; done < $(DESTDIR)$(PREFIX)/share/patina-desktop/files
+	-@find $(DESTDIR)$(PREFIX)/share/doc/patina-desktop $(DESTDIR)$(PREFIX)/share/patina-desktop -depth -type d -empty -delete 2>/dev/null
+	-update-desktop-database -q $(DESTDIR)$(APPSDIR)
+	@echo "Removed the desktop and its apps from $(PREFIX)."
 endif
 
 ifeq ($(ROOT),)

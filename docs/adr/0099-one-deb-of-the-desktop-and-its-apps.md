@@ -55,6 +55,7 @@ own repository for anyone who wants it alone.
   so anyone can build the bundle.
 - `make install-full` installs the same set without a `.deb`, for FreeBSD and other distros:
   `build.py --stage` lays the tree out under any `--prefix` and skips the dpkg steps. The portal
-  files `bundle.toml` places under `/usr/share` stay there whatever the prefix.
+  files `bundle.toml` places under `/usr/share` stay there whatever the prefix. It leaves the list
+  of what it installed in `share/patina-desktop/files`, which `make uninstall-full` removes.
 - Still to come: an apt repository on heimdallr, Patina OS and `make deploy` installing the `.deb`,
   and `make test-vm` installing it.

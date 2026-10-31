@@ -232,6 +232,11 @@ def main():
     binaries = sorted(p for p in (stage / BINDIR.lstrip("/")).iterdir() if is_elf(p))
     run("strip", "--strip-unneeded", *map(str, binaries))
     if args.stage:
+        # What make uninstall-full removes: every file laid down, this list too.
+        manifest = stage / SHARE / "patina-desktop/files"
+        files = {"/" + str(p.relative_to(stage)) for p in stage.rglob("*") if not p.is_dir()}
+        files.add("/" + str(manifest.relative_to(stage)))
+        put(manifest, "".join(f"{f}\n" for f in sorted(files)))
         say(f"staged {len(binaries)} binaries and the rest in {stage.relative_to(ROOT)}, for {PREFIX}")
         return
 
