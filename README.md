@@ -166,6 +166,7 @@ commands above (for PipeWire).
 | `make run` | The compositor in a window on this desktop |
 | `make check` | Tests and clippy |
 | `make install` | Build, then install for every user into `/usr/local`, with the login screen's session and the lock screen's PAM service; asks doas or sudo ([how](docs/running-as-a-session.md), ADR-0078) |
+| `make install-full` | Build and install the whole desktop into `/usr/local` as `make install` does, plus the apps `packaging/bundle.toml` pins (Teleprinter, Files, Reader, Notebook, Draw, Montage, UnAmp), each built at its pinned commit from its GitHub repository; asks doas or sudo. `make install` alone is the desktop without those apps, and `make deb` is the same full set as a `.deb` (ADR-0099) |
 | `make deploy <host>` | Build here, and install the same on an ssh host through `doas rsync` (needs rsync and doas there), with Teleprinter from `../teleprinter` (else GitHub) as its terminal |
 | `make uninstall` | Remove what `make install` put in place |
 | `make vm` | The FreeBSD test VM: the compositor in a window on dwl ([bsdt](https://bsdt.divanv.com)) |

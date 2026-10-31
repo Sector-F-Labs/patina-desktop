@@ -40,7 +40,7 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps run run-bar build test check install stage deploy deb uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm test-vm-rc vm-linux-stop clean
+.PHONY: help deps run run-bar build test check install stage deploy deb install-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm test-vm-rc vm-linux-stop clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -147,6 +147,19 @@ deploy: build ## Build here and install on another machine over ssh, Teleprinter
 
 deb: ## Build the .deb: the desktop and the apps packaging/bundle.toml pins, into target/deb (WORKTREE=1 for uncommitted changes)
 	packaging/deb/build.py $(if $(WORKTREE),--worktree)
+
+ifeq ($(ROOT),)
+install-full: ## Build and install the whole desktop into /usr/local (PREFIX): the apps bundle.toml pins too, not just this repository (any OS; asks doas or sudo)
+	packaging/deb/build.py --stage target/full --prefix $(PREFIX)
+	$(AS_ROOT) $(MAKE) --no-print-directory install-full PREFIX=$(PREFIX)
+else
+install-full:
+	@test -d target/full || { echo "Nothing staged: run make install-full as yourself."; exit 1; }
+	cp -R target/full/. /
+	-update-desktop-database -q $(APPSDIR)
+	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
+	@echo "Installed the whole desktop into $(PREFIX): what $(PREFIX)/share/patina-desktop/versions lists."
+endif
 
 ifeq ($(ROOT),)
 uninstall: ## Remove what install put in place (asks doas or sudo)

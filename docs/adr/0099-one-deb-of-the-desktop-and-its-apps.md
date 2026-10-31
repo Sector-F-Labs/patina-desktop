@@ -51,7 +51,10 @@ own repository for anyone who wants it alone.
   source install in `~/.local/bin` still comes first on PATH. ImageMagick's `montage` is an
   alternatives link at the same path, so the bundle and ImageMagick clash until Montage's binary is
   renamed or moved.
-- Files, Reader, Notebook, Draw and Montage are fetched from urd, so the bundle builds only where urd
-  is reachable, until they're public.
+- Every app is fetched from its public repository under Sector-F-Labs (UnAmp from divanvisagie's),
+  so anyone can build the bundle.
+- `make install-full` installs the same set without a `.deb`, for FreeBSD and other distros:
+  `build.py --stage` lays the tree out under any `--prefix` and skips the dpkg steps. The portal
+  files `bundle.toml` places under `/usr/share` stay there whatever the prefix.
 - Still to come: an apt repository on heimdallr, Patina OS and `make deploy` installing the `.deb`,
   and `make test-vm` installing it.

@@ -1,7 +1,7 @@
 # What the patina-desktop .deb holds (ADR-0099): this repository, and the
 # apps from other repositories built at the commits pinned here. Tested
 # together in the Linux VM, and shipped as one. `make deb` builds it from
-# this file as committed.
+# this file as committed, and `make install-full` installs the same set.
 
 [package]
 name = "patina-desktop"
@@ -42,7 +42,7 @@ why = "The terminal: Alt+T"
 
 [[app]]
 name = "files"
-repo = "divan@remotes.divanv.com:~/Remotes/src/com/sectorflabs/files"
+repo = "https://github.com/Sector-F-Labs/files"
 commit = "41c20b2"
 id = "com.sectorflabs.Files"
 why = "Folders, and the session's file chooser through the portal"
@@ -52,28 +52,28 @@ why = "Folders, and the session's file chooser through the portal"
 
 [[app]]
 name = "reader"
-repo = "divan@remotes.divanv.com:~/Remotes/src/com/sectorflabs/reader"
+repo = "https://github.com/Sector-F-Labs/reader"
 commit = "b7faf9a"
 id = "com.sectorflabs.Reader"
 why = "Process Manager opens man pages in it"
 
 [[app]]
 name = "notebook"
-repo = "divan@remotes.divanv.com:~/Remotes/src/com/sectorflabs/notebook"
+repo = "https://github.com/Sector-F-Labs/notebook"
 commit = "b9782f2"
 id = "com.sectorflabs.Notebook"
 why = "Notes: WYSIWYG markdown for a folder of .md files"
 
 [[app]]
 name = "draw"
-repo = "divan@remotes.divanv.com:~/Remotes/src/com/sectorflabs/draw"
+repo = "https://github.com/Sector-F-Labs/draw"
 commit = "037a816"
 id = "com.sectorflabs.Draw"
 why = "Paint: a simple bitmap editor"
 
 [[app]]
 name = "montage"
-repo = "divan@remotes.divanv.com:~/Remotes/src/com/sectorflabs/montage"
+repo = "https://github.com/Sector-F-Labs/montage"
 commit = "352dbe7"
 id = "com.sectorflabs.Montage"
 why = "Video: clips, a timeline, music and a voiceover"

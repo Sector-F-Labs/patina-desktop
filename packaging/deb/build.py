@@ -7,6 +7,10 @@ laid out under /usr, into target/deb/.
     packaging/deb/build.py --worktree   its working tree, uncommitted changes
                                         and all, to try them; the version
                                         then says "dirty"
+    packaging/deb/build.py --stage DIR --prefix /usr/local
+                                        no .deb: the same tree laid out under
+                                        DIR for that prefix, for make install-full
+                                        (any OS, no dpkg needed)
 
 Work goes in ~/.cache/patina-desktop/deb/: git caches of the apps (git/), their exports
 (src/), and a cargo target folder each (target/), kept between builds so
@@ -28,7 +32,10 @@ ROOT = Path(__file__).resolve().parents[2]
 # member of this workspace.
 WORK = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "patina-desktop/deb"
 OUT = ROOT / "target/deb"
+# Where the tree goes: /usr for the .deb, --prefix for make install-full.
+PREFIX = "/usr"
 BINDIR = "/usr/bin"
+SHARE = "usr/share"
 ICONDIR = "usr/share/icons/hicolor"
 
 
@@ -113,7 +120,7 @@ def install_app(app, src, stage):
         entry = (src / f"packaging/linux/{app_id}.desktop").read_text()
         for binary in binaries:
             entry = re.sub(rf"^Exec={re.escape(binary)}\b", f"Exec={BINDIR}/{binary}", entry, flags=re.M)
-        put(stage / f"usr/share/applications/{app_id}.desktop", entry)
+        put(stage / SHARE / f"applications/{app_id}.desktop", entry)
         icons = {src / f"packaging/linux/{name}.svg": f"scalable/apps/{app_id}.svg",
                  src / f"assets/{name}-icon-128.png": f"128x128/apps/{app_id}.png"}
         for icon, where in icons.items():
@@ -131,7 +138,7 @@ def put(path, text):
 
 def licenses(src, name, stage):
     for licence in sorted(src.glob("LICENSE*")) + sorted(src.glob("LICENCE*")):
-        where = stage / "usr/share/doc/patina-desktop/licenses" / name / licence.name
+        where = stage / SHARE / "doc/patina-desktop/licenses" / name / licence.name
         where.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(licence, where)
 
@@ -155,7 +162,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--worktree", action="store_true",
                         help="build this repository's working tree, not its last commit")
+    parser.add_argument("--stage", metavar="DIR",
+                        help="lay the tree out in DIR (under target/) instead of building a .deb")
+    parser.add_argument("--prefix", default="/usr",
+                        help="with --stage, where the tree will be installed (default /usr)")
     args = parser.parse_args()
+    if args.prefix != "/usr" and not args.stage:
+        sys.exit("error: --prefix is for --stage; the .deb installs into /usr")
+    global PREFIX, BINDIR, SHARE, ICONDIR
+    PREFIX = args.prefix.rstrip("/") or "/"
+    BINDIR = f"{PREFIX}/bin"
+    SHARE = f"{PREFIX.lstrip('/')}/share"
+    ICONDIR = f"{SHARE}/icons/hicolor"
 
     head = git(ROOT, "rev-parse", "HEAD")
     if args.worktree:
@@ -168,15 +186,19 @@ def main():
     bundle = tomllib.loads((desktop / "packaging/bundle.toml").read_text())
     package = bundle["package"]
 
-    arch = run("dpkg", "--print-architecture", capture=True)
-    if arch != package["architecture"]:
-        sys.exit(f"error: this machine builds {arch}, the bundle is {package['architecture']}")
-    release = run("sh", "-c", ". /etc/os-release && echo $VERSION_CODENAME", capture=True)
-    if release != package["distribution"]:
-        say(f"this machine is {release}, the bundle is for {package['distribution']}: "
-            "its libraries may not match")
-
-    stage = WORK / "root"
+    if args.stage:
+        stage = Path(args.stage).resolve()
+        if not stage.is_relative_to(ROOT / "target"):
+            sys.exit(f"error: --stage {stage} is emptied first, so it must be under {ROOT / 'target'}")
+    else:
+        arch = run("dpkg", "--print-architecture", capture=True)
+        if arch != package["architecture"]:
+            sys.exit(f"error: this machine builds {arch}, the bundle is {package['architecture']}")
+        release = run("sh", "-c", ". /etc/os-release && echo $VERSION_CODENAME", capture=True)
+        if release != package["distribution"]:
+            say(f"this machine is {release}, the bundle is for {package['distribution']}: "
+                "its libraries may not match")
+        stage = WORK / "root"
     shutil.rmtree(stage, ignore_errors=True)
     (stage / BINDIR.lstrip("/")).mkdir(parents=True)
 
@@ -196,17 +218,24 @@ def main():
     launcher = desktop / "target/launcher/bin"
     launcher.mkdir(parents=True, exist_ok=True)
     shutil.copy2(stage / BINDIR.lstrip("/") / "patina-launcher", launcher)
-    run("make", "--no-print-directory", "-C", str(desktop), "stage", f"DESTDIR={stage}",
-        "PREFIX=/usr", "MANDIR=/usr/share/man", "SESSIONDIR=/usr/share/wayland-sessions",
-        "PAMDIR=/etc/pam.d", "XDGCONFDIR=/etc/xdg")
+    layout = [f"PREFIX={PREFIX}"]
+    if not args.stage:
+        # The Makefile's own defaults are the host's, which is right for an install.
+        layout += ["MANDIR=/usr/share/man", "SESSIONDIR=/usr/share/wayland-sessions",
+                   "PAMDIR=/etc/pam.d", "XDGCONFDIR=/etc/xdg"]
+    run("make", "--no-print-directory", "-C", str(desktop), "stage", f"DESTDIR={stage}", *layout)
     licenses(desktop, "patina-desktop", stage)
     built.insert(0, ("patina-desktop", head + ("+dirty" if dirty else ""), "this repository"))
-    put(stage / "usr/share/patina-desktop/versions",
+    put(stage / SHARE / "patina-desktop/versions",
         "".join(f"{name} {commit} {repo}\n" for name, commit, repo in built))
 
-    say("packaging")
     binaries = sorted(p for p in (stage / BINDIR.lstrip("/")).iterdir() if is_elf(p))
     run("strip", "--strip-unneeded", *map(str, binaries))
+    if args.stage:
+        say(f"staged {len(binaries)} binaries and the rest in {stage.relative_to(ROOT)}, for {PREFIX}")
+        return
+
+    say("packaging")
     for man in (stage / "usr/share/man").rglob("*.[0-9]"):
         run("gzip", "-9n", str(man))
 
