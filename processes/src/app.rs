@@ -169,7 +169,7 @@ impl App {
             return;
         }
         self.bar_mtime = mtime;
-        let name = patina_shell::bar::skin().unwrap_or_else(|| skin::DEFAULT_SKIN.to_string());
+        let name = patina_shell::bar::skin_or_default();
         self.skin = self.skins.iter().position(|s| s.name == name).unwrap_or(0);
         self.skins[self.skin].apply(ctx);
     }

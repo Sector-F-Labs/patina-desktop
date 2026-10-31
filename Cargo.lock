@@ -3253,7 +3253,7 @@ dependencies = [
 [[package]]
 name = "patina-shell"
 version = "0.1.0"
-source = "git+https://github.com/Sector-F-Labs/patina-shell#2e2b2e386ee2da46b67e743219473700a61c3cd6"
+source = "git+https://github.com/Sector-F-Labs/patina-shell#fa42e02611e6d076cc66c9e59f276c37c0419ec9"
 dependencies = [
  "egui",
  "patina-ui",
@@ -3288,7 +3288,7 @@ dependencies = [
 [[package]]
 name = "patina-ui"
 version = "0.1.13"
-source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#ae6cea05d14509aa05350746a7a63432837f9bce"
+source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#dc4e3af780502168efa472410b1f5e5f15b7f0e3"
 dependencies = [
  "dirs 7.0.0",
  "egui",

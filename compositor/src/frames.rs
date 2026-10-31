@@ -487,9 +487,7 @@ fn bar_skin() -> Skin {
     let name = patina_shell::bar::config_path()
         .and_then(|path| std::fs::read_to_string(path).ok())
         .and_then(|text| patina_shell::bar::top_level(&text, "skin"));
-    let Some(name) = name else {
-        return Skin::default_skin();
-    };
+    let name = name.unwrap_or_else(|| patina_shell::bar::DEFAULT_SKIN.to_string());
     let dirs: Vec<_> = patina::skin::app_dir("patina-bar").into_iter().collect();
     let (skins, _) = patina::skin::load_all(patina::skin::BUILT_IN, &dirs);
     skins

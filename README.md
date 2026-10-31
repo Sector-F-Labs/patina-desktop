@@ -183,7 +183,7 @@ the defaults:
 ```toml
 position = "bottom"         # or "top"
 height = 41                 # as tall as a Patina title bar
-skin = "Default"            # a Patina skin, or one in ~/.config/patina-bar/skins
+skin = "Everforest Dark"    # a Patina skin, or one in ~/.config/patina-bar/skins
 left = ["launcher", "windows", "tags", "layout"]
 center = ["title"]
 right = ["tray", "clock", "power"]

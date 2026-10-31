@@ -219,7 +219,7 @@ impl Default for Config {
             // The height of a Patina window's header bar: its 25 px row,
             // 8 px margins and the 1 px line under it.
             height: 41,
-            skin: patina::skin::DEFAULT_SKIN.to_string(),
+            skin: patina_shell::bar::DEFAULT_SKIN.to_string(),
             tags: (1..=9).map(|n| n.to_string()).collect(),
             hide_vacant_tags: false,
             left: vec![
@@ -306,6 +306,7 @@ mod tests {
         assert_eq!(c.tags.len(), 9);
         assert_eq!(c.position, Position::Bottom);
         assert_eq!(c.window_tabs, WindowTabs::Both);
+        assert_eq!(c.skin, "Everforest Dark");
     }
 
     #[test]

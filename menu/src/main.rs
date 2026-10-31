@@ -100,7 +100,7 @@ pub fn bar_skin() -> patina::skin::Skin {
     use patina::skin;
     let dirs: Vec<_> = skin::app_dir("patina-bar").into_iter().collect();
     let (mut skins, _) = skin::load_all(skin::BUILT_IN, &dirs);
-    let name = patina_shell::bar::skin().unwrap_or_else(|| skin::DEFAULT_SKIN.to_string());
+    let name = patina_shell::bar::skin_or_default();
     skins.swap_remove(skins.iter().position(|s| s.name == name).unwrap_or(0))
 }
 
