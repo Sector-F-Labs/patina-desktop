@@ -1,40 +1,84 @@
 # Patina desktop
 
-A floating Wayland desktop for Ubuntu and FreeBSD, in the style of
+A floating Wayland desktop for Linux and FreeBSD, in the style of
 [Patina](https://github.com/Sector-F-Labs/patina) apps. A compositor, a bar, a launcher, a lock
 screen, menus, a process manager and the apps it was tested with (a terminal, files, notes, a
 reader, paint, video and music), each its own small program, so one going wrong can be restarted
 without the others. Windows float, tile when you drag them to an edge, and have tabs in the bar.
 
-![The Patina desktop: Reader showing the patina-desktop man page, tiled beside the Process Manager, with the bar along the bottom](docs/screenshot.png)
+![The Patina desktop: With gaps on, split bar on and Everforest theme selected](docs/screenshot.png)
 
-## Try it
+**Where it runs.** It is developed and tested on **Ubuntu 26.04**, and the instructions below
+assume an Ubuntu-like system. Other Linux distributions should work, since it asks only for
+Wayland-era basics (libseat, with systemd-logind or seatd; Mesa or NVIDIA; PAM, NetworkManager and PipeWire for
+the Wi-Fi and volume menus), but only Debian has been checked, and only that it builds and installs:
 
-Two ways: on a real Ubuntu installation, or in one of the virtual machines this repository can
-boot, which touch nothing on your machine. To work on the desktop, see [Development](#development).
+| | |
+|---|---|
+| Ubuntu 26.04 | Built, installed and run as a session, on hardware and in the Linux VMs below |
+| Debian 13 (trixie) | Every build and runtime package exists, and `make build` and `make install` succeed in a clean container; not yet run as a session |
+| Other Linux | Not tried. `make deps` has package names for Ubuntu/Debian and FreeBSD only; elsewhere find their equivalents |
+| FreeBSD | Runs in a [bsdt](https://bsdt.divanv.com) VM (`make vm`); battery and Wi-Fi too (ADR-0095) |
 
-### On an Ubuntu installation
+## Install
 
-The whole desktop is one `.deb`, built from this repository and the apps `packaging/bundle.toml`
-pins, each at a commit it was tested at. It is built for Ubuntu 26.04 on the machine it's built on,
-and fetches the apps from their GitHub repositories, so it needs the network.
+Everything installs with `make`, from source, into `/usr/local`. You need Rust from
+[rustup](https://rustup.rs) (the code is edition 2024), `git`, `make`, a C toolchain, and the
+libraries `make deps` lists.
 
 ```sh
 git clone https://github.com/Sector-F-Labs/patina-desktop && cd patina-desktop
-make deps                  # lists the packages to build with; install them, dpkg-dev, and Rust (rustup)
+make deps                  # lists the packages to build with; install them
+make install-full          # builds as you, then installs with sudo (or doas)
+```
+
+`make install-full` installs this repository and the apps `packaging/bundle.toml` pins (a
+terminal, Files, Reader, Notebook, Draw, Montage and UnAmp), each cloned from its GitHub repository
+and built at the commit it was tested at, so it needs the network. `make install` installs this
+repository alone, without those apps. `PREFIX=/usr` changes where they go. `make uninstall-full`
+(or `make uninstall`) removes what each put in place.
+
+The desktop runs a few programs it doesn't ship: NetworkManager (the Wi-Fi menu), WirePlumber
+(volume), `xdg-desktop-portal` with its `-gtk` and `-wlr` backends, Xwayland, ffmpeg (recording)
+and `gsettings`, `xdg-open` and an emoji font. On Ubuntu and Debian:
+
+```sh
+sudo apt install dbus-user-session network-manager wireplumber xdg-desktop-portal \
+    xdg-desktop-portal-gtk xdg-desktop-portal-wlr xwayland libglib2.0-bin xdg-utils \
+    fonts-noto-color-emoji ffmpeg
+```
+
+Then log out, and choose **Patina** from the session menu (the gear) on the login screen. Any
+login manager that reads `/usr/share/wayland-sessions` should show it (GDM is the one tried); from a
+text console, `patina-session --session` starts it. Super opens the launcher, Alt+T the terminal,
+Ctrl+Shift+Escape the process manager. Ctrl+Alt+Shift+Backspace restarts the desktop without
+logging out, and Ctrl+Alt+Backspace quits it, back to the login screen.
+[docs/running-as-a-session.md](docs/running-as-a-session.md) has how to get back if something
+goes wrong.
+
+Two things differ off Ubuntu: the keyboard layout comes from `/etc/default/keyboard` (Debian's and
+Ubuntu's), so elsewhere set `layout` under `[keyboard]` in the compositor's config; and the lock
+screen checks your password through PAM's `login` service, which most distributions have.
+
+### As a .deb (Ubuntu, Debian)
+
+The same set as one package, which apt installs and removes cleanly and which pulls in the
+programs above. It is built on the machine it's for, so its dependencies match that release
+(`distribution` in `bundle.toml` is Ubuntu 26.04, and building elsewhere says so):
+
+```sh
+make deps                  # as above, and dpkg-dev
 make deb                   # builds target/deb/patina-desktop_<version>_amd64.deb
 sudo apt install ./target/deb/patina-desktop_*.deb
 ```
 
-Log out, and choose **Patina** from the session menu (the gear) on the login screen. Super opens
-the launcher, Alt+T the terminal, Ctrl+Shift+Escape the process manager.
-Ctrl+Alt+Shift+Backspace restarts the desktop without logging out, and Ctrl+Alt+Backspace quits
-it, back to the login screen. `sudo apt remove patina-desktop` takes it all away again.
-[docs/running-as-a-session.md](docs/running-as-a-session.md) has how to get back if something
-goes wrong.
+`sudo apt remove patina-desktop` takes it all away again. Log in as above.
 
-On another distribution, or into another prefix, `make install-full` installs the same set from
-source into `/usr/local`, and `make install` the desktop alone, without the apps.
+## Try it
+
+To look first without installing anything, run the compositor in a window on your current
+desktop: see [Development](#development). To try the whole session, there are virtual machines in
+this repository that touch nothing on your machine.
 
 ### In a virtual machine
 
