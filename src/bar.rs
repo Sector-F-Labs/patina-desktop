@@ -4,11 +4,21 @@
 //! (the compositor, for the Super key or a volume key), they come from the
 //! bar's config file instead.
 
+/// The shell's skin when the bar's config sets none: Everforest Dark, one of
+/// Patina's built-ins. Patina's own default (`Default`) stays the one for
+/// Patina apps.
+pub const DEFAULT_SKIN: &str = "Everforest Dark";
+
 /// The bar's skin name, if any is set.
 pub fn skin() -> Option<String> {
     std::env::var("PATINA_SKIN")
         .ok()
         .or_else(|| config_value("skin"))
+}
+
+/// The bar's skin name, or [`DEFAULT_SKIN`] when none is set.
+pub fn skin_or_default() -> String {
+    skin().unwrap_or_else(|| DEFAULT_SKIN.to_string())
 }
 
 /// Whether the bar is at the top of the screen (the default is the bottom).
@@ -112,6 +122,13 @@ fn dirs_config() -> Option<std::path::PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_default_skin_is_built_in() {
+        let (skins, errors) = patina::skin::load_all(patina::skin::BUILT_IN, &[]);
+        assert!(errors.is_empty());
+        assert!(skins.iter().any(|s| s.name == DEFAULT_SKIN));
+    }
 
     #[test]
     fn reads_top_level_keys_only() {

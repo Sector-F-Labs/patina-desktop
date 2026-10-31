@@ -140,11 +140,10 @@ fn place(at: &str, (w, h): (u32, u32), gap: i32) -> Option<Place> {
 }
 
 /// The bar's skin, from Patina's built-ins, the bar's skins folder and the
-/// piece's own, or Default.
+/// piece's own; the bar's `skin`, else [`crate::bar::DEFAULT_SKIN`], and
+/// Default if there's none by that name.
 pub fn skin(app: &str) -> Skin {
-    let Some(name) = crate::bar::skin() else {
-        return Skin::default_skin();
-    };
+    let name = crate::bar::skin_or_default();
     let dirs: Vec<_> = skin::app_dir("patina-bar")
         .into_iter()
         .chain(skin::app_dir(app))
