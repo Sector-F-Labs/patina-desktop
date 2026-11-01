@@ -89,6 +89,9 @@ fn main() -> ExitCode {
     };
     let parts = if config.layout == Layout::Split && section_arg.is_none() {
         let mut parts = vec![Section::Launcher, Section::Tray];
+        if split::media_apart(&config).is_some() {
+            parts.push(Section::Media);
+        }
         parts.extend(split::reserved(&config).into_iter().map(Section::Reserve));
         start_parts(&parts, config_path.as_deref())
     } else {
@@ -295,6 +298,7 @@ fn run(
         }
     };
     let uses_tray = modules.iter().any(|m| m == "tray");
+    let uses_media = modules.iter().any(|m| m == "media");
     // The tray's speaker follows the volume, read once a second.
     if uses_tray {
         let (levels, volume) = channel::channel::<patina_system::audio::Volume>();
@@ -317,6 +321,40 @@ fn run(
                     && host.shell.volume != Some(v)
                 {
                     host.shell.volume = Some(v);
+                    host.redraw_all();
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
+
+    // The media controls follow the player playing (ADR-0101), asked of the
+    // session bus twice a second so a click shows at once.
+    if uses_media {
+        let (players, media) = channel::channel::<Option<patina_system::mpris::Player>>();
+        std::thread::Builder::new()
+            .name("media".into())
+            .spawn(move || {
+                let mut bus = None;
+                loop {
+                    if bus.is_none() {
+                        bus = patina_system::mpris::connect().ok();
+                    }
+                    if let Some(b) = &bus {
+                        let current = patina_system::mpris::current(b).unwrap_or(None);
+                        if players.send(current).is_err() {
+                            return;
+                        }
+                    }
+                    std::thread::sleep(Duration::from_millis(500));
+                }
+            })
+            .map_err(|e| e.to_string())?;
+        handle
+            .insert_source(media, |event, _, host| {
+                if let Event::Msg(p) = event
+                    && host.shell.media != p
+                {
+                    host.shell.media = p;
                     host.redraw_all();
                 }
             })

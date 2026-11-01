@@ -68,6 +68,68 @@ pub fn status_item(
     (rect, response)
 }
 
+/// A square button drawing `paint` in the skin's text colour, with `tip` on
+/// hover.
+fn icon_button(
+    ui: &mut Ui,
+    paint: impl FnOnce(&egui::Painter, egui::Rect, egui::Color32),
+    tip: &str,
+) -> egui::Response {
+    let side = side(ui);
+    let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
+    let v = ui.visuals();
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
+    }
+    let colour = if response.hovered() {
+        v.strong_text_color()
+    } else {
+        v.text_color()
+    };
+    // The skip buttons' glyphs are smaller than a status icon's.
+    paint(ui.painter(), rect.shrink(PADDING + 2.0), colour);
+    crate::tooltip::hover(ui, &response, tip);
+    response
+}
+
+/// The media controls (ADR-0101): previous, play or pause, and next, in a
+/// row or a column as the bar is, with the track on hover. Returns what
+/// was clicked.
+pub fn media(
+    ui: &mut Ui,
+    player: &patina_system::mpris::Player,
+) -> Option<patina_system::mpris::Command> {
+    use patina_system::icons;
+    use patina_system::mpris::{Command, Status};
+    let mut clicked = None;
+    if player.can_previous
+        && icon_button(ui, |p, r, c| icons::skip(p, r, false, c), "Previous").clicked()
+    {
+        clicked = Some(Command::Previous);
+    }
+    let playing = player.status == Status::Playing;
+    let tip = player.describe();
+    let toggle = icon_button(
+        ui,
+        |p, r, c| {
+            if playing {
+                icons::pause(p, r, c)
+            } else {
+                icons::play(p, r, c)
+            }
+        },
+        &tip,
+    );
+    if toggle.clicked() {
+        clicked = Some(Command::PlayPause);
+    }
+    if player.can_next && icon_button(ui, |p, r, c| icons::skip(p, r, true, c), "Next").clicked() {
+        clicked = Some(Command::Next);
+    }
+    clicked
+}
+
 /// The Wi-Fi icon; runs `command` when it's clicked. `signal` is `None`
 /// without a Wi-Fi device (then there's no icon), `Some(None)` when off or
 /// not connected.

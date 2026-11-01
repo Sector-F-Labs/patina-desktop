@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 /// The modules a side of the bar can hold.
 pub const MODULES: &[&str] = &[
-    "launcher", "windows", "tray", "tags", "layout", "title", "appid", "clock", "power",
+    "launcher", "windows", "tray", "media", "tags", "layout", "title", "appid", "clock", "power",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -185,6 +185,10 @@ pub struct Config {
     pub launcher_at: Spot,
     pub windows_at: Spot,
     pub tray_at: Spot,
+    /// Split, where the media controls go when they're apart from the tray
+    /// (ADR-0101); unset, they stay in the tray's part. Ignored where
+    /// `media` isn't one of the modules, and where it is the tray's spot.
+    pub media_at: Option<Spot>,
     /// A strftime format, as in date(1).
     pub clock: String,
     /// What the launcher button runs, through sh(1).
@@ -229,12 +233,18 @@ impl Default for Config {
                 "layout".into(),
             ],
             center: vec!["title".into()],
-            right: vec!["tray".into(), "clock".into(), "power".into()],
+            right: vec![
+                "media".into(),
+                "tray".into(),
+                "clock".into(),
+                "power".into(),
+            ],
             window_tabs: WindowTabs::Both,
             layout: Layout::Bar,
             launcher_at: Spot::BottomLeft,
             windows_at: Spot::BottomCenter,
             tray_at: Spot::BottomRight,
+            media_at: None,
             clock: "%a %-d %b  %H:%M".into(),
             launcher: "patina-launcher".into(),
             volume: "patina-volume".into(),
@@ -246,6 +256,17 @@ impl Default for Config {
             wallpaper_fit: "fill".into(),
             pinned: Vec::new(),
         }
+    }
+}
+
+impl Config {
+    /// Whether `module` is on the bar, in any of its three sides.
+    pub fn has_module(&self, module: &str) -> bool {
+        self.left
+            .iter()
+            .chain(&self.center)
+            .chain(&self.right)
+            .any(|m| m == module)
     }
 }
 

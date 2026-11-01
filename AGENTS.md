@@ -186,7 +186,7 @@ puts them in `$(PREFIX)/share/man`.
   copy per display over a socket; `bar.rs`, the bar's skin, edge and config; `toplevels.rs`.
 - `system/`: patina-system: `audio.rs` (wpctl), `backlight.rs` (sysfs and logind), `network.rs`
   (NetworkManager with zbus; `cargo run -p patina-system --example wifi` prints what it reads),
-  `night_light.rs` (the compositor's Night Light over D-Bus), `power_profiles.rs` (power modes), `power.rs` (battery), `icons.rs`
+  `mpris.rs` (media players, for the bar's media controls, ADR-0101), `night_light.rs` (the compositor's Night Light over D-Bus), `power_profiles.rs` (power modes), `power.rs` (battery), `icons.rs`
   (tray icons), `logo.rs` (the flask and Ubuntu Mono).
 - `compositor/src/toplevels.rs` and patina-shell's `toplevels.rs`: wlr-foreign-toplevel-management,
   server and client, for the bar's `windows` tabs (ADR-0012).

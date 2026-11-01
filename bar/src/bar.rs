@@ -102,6 +102,9 @@ pub struct Bar {
     /// The compositor's keyboard layouts, for the tray's indicator
     /// (ADR-0068); `None` when nothing serves them.
     pub keyboard: Option<patina_system::keyboard::Status>,
+    /// The media player playing, or paused, for the media controls
+    /// (ADR-0101); `None` when there's none.
+    pub media: Option<patina_system::mpris::Player>,
     /// Apps' status icons (ADR-0064), and the tray that serves them.
     pub tray_items: Vec<patina_system::sni::Item>,
     pub tray: Option<patina_system::sni::Tray>,
@@ -155,6 +158,7 @@ impl Bar {
                 wifi: None,
                 battery: None,
                 keyboard: None,
+                media: None,
                 tray_items: Vec::new(),
                 tray: None,
                 named_icons: RefCell::new(HashMap::new()),
@@ -464,6 +468,26 @@ impl Bar {
                         &opening,
                     );
                 });
+            }
+            "media" => {
+                let Some(player) = &self.media else { return };
+                let command = ui
+                    .scope(|ui| {
+                        ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                        crate::tray::media(ui, player)
+                    })
+                    .inner;
+                if let Some(command) = command {
+                    let name = player.bus_name.clone();
+                    // The player may take a moment to answer.
+                    std::thread::spawn(move || {
+                        let sent = patina_system::mpris::connect()
+                            .and_then(|bus| patina_system::mpris::send(&bus, &name, command));
+                        if let Err(e) = sent {
+                            eprintln!("patina-bar: {name}: {e}");
+                        }
+                    });
+                }
             }
             "launcher" => {
                 let ctx = ui.ctx().clone();
@@ -898,6 +922,12 @@ impl Bar {
             self.wanted.set(None);
             return;
         }
+        if section == Section::Media && self.media.is_none() {
+            // Nothing playing: a pixel, drawn in nothing, rather than an
+            // empty island.
+            self.wanted.set(Some((1, 1)));
+            return;
+        }
         let vertical = section.spot(&self.config).is_some_and(|s| s.vertical());
         let island = full;
         let radius = if self.gaps.floating() {
@@ -948,7 +978,7 @@ impl Bar {
                     + 2.0 * GAP;
                 self.wanted.set(Some((width.ceil() as u32, height)));
             }
-            Section::Launcher | Section::Tray if vertical => {
+            Section::Launcher | Section::Tray | Section::Media if vertical => {
                 let modules = crate::split::modules(section, &self.config);
                 let used = self.row(
                     ui,
@@ -962,7 +992,7 @@ impl Bar {
                 self.wanted
                     .set(Some((height, length.ceil().max(1.0) as u32)));
             }
-            Section::Launcher | Section::Tray => {
+            Section::Launcher | Section::Tray | Section::Media => {
                 let modules = crate::split::modules(section, &self.config);
                 // The launcher is its button alone.
                 let pad = if section == Section::Launcher {
@@ -1228,6 +1258,7 @@ mod tests {
             wifi: None,
             battery: None,
             keyboard: None,
+            media: None,
             tray_items: Vec::new(),
             tray: None,
             named_icons: RefCell::new(HashMap::new()),
@@ -1382,16 +1413,28 @@ mod tests {
             ("org.gnome.Nautilus", "Home"),
             ("com.sectorflabs.Teleprinter", "~"),
         ];
-        for (name, section, edge, size) in [
-            ("split-windows", Section::Windows, "bottom", (600, 41)),
-            ("split-launcher", Section::Launcher, "bottom", (41, 41)),
-            ("split-tray", Section::Tray, "bottom", (260, 41)),
-            ("split-column", Section::Windows, "center-left", (41, 200)),
-            ("split-tray-column", Section::Tray, "center-left", (41, 200)),
+        for (name, section, edge, size, media_at) in [
+            ("split-windows", Section::Windows, "bottom", (600, 41), ""),
+            ("split-launcher", Section::Launcher, "bottom", (41, 41), ""),
+            ("split-tray", Section::Tray, "bottom", (260, 41), ""),
+            ("split-column", Section::Windows, "center-left", (41, 200), ""),
+            ("split-tray-column", Section::Tray, "center-left", (41, 200), ""),
+            ("split-media", Section::Media, "bottom", (130, 41), "top-right"),
+            ("split-media-column", Section::Media, "bottom", (41, 130), "left-top"),
         ] {
             let mut b = bar(&format!(
-                "layout = \"split\"\nwindows_at = \"{edge}\"\ntray_at = \"{edge}\"\nright = [\"clock\", \"power\"]"
+                "layout = \"split\"\nwindows_at = \"{edge}\"\ntray_at = \"{edge}\"\nmedia_at = \"{}\"\nright = [\"media\", \"clock\", \"power\"]",
+                if media_at.is_empty() { "bottom-center" } else { media_at }
             ));
+            b.media = Some(patina_system::mpris::Player {
+                bus_name: "org.mpris.MediaPlayer2.unamp".into(),
+                identity: "UnAmp".into(),
+                status: patina_system::mpris::Status::Playing,
+                title: "Song".into(),
+                artist: String::new(),
+                can_previous: true,
+                can_next: true,
+            });
             b.section = Some(section);
             let (ask, asked) = mpsc::channel();
             b.ask_app = Some(ask);

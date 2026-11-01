@@ -186,7 +186,7 @@ height = 41                 # as tall as a Patina title bar
 skin = "Everforest Dark"    # a Patina skin, or one in ~/.config/patina-bar/skins
 left = ["launcher", "windows", "tags", "layout"]
 center = ["title"]
-right = ["tray", "clock", "power"]
+right = ["media", "tray", "clock", "power"]
 window_tabs = "both"        # "icons" or "titles"
 pinned = []                 # apps pinned to the tabs, by app id
 clock = "%a %-d %b  %H:%M"  # strftime, as in date(1)
@@ -202,7 +202,8 @@ wallpaper_fit = "fill"      # or "fit", "centre"
 
 The modules are `launcher`, `windows` (the open windows as Patina tabs: a click brings one
 forward, its cross closes it), `tray` (apps' status icons, the keyboard layout when there are
-several, Wi-Fi, the speaker and, on laptops, the battery), `clock`, `power` and `title`; under dwl
+several, Wi-Fi, the speaker and, on laptops, the battery), `media` (previous, play or pause and
+next for the player playing, from MPRIS; take it out of the list to turn it off), `clock`, `power` and `title`; under dwl
 `tags`, `layout` and `appid` too. `windows` needs a compositor with
 wlr-foreign-toplevel-management, such as patina-compositor or sway. Unknown keys and modules are
 reported on stderr and skipped, and a broken file falls back to the defaults. Settings' pages

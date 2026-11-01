@@ -190,3 +190,47 @@ pub fn battery(
         }));
     }
 }
+
+/// A play triangle in `rect`, filled.
+pub fn play(painter: &Painter, rect: Rect, colour: Color32) {
+    let s = rect.height().min(rect.width());
+    let c = rect.center();
+    painter.add(Shape::convex_polygon(
+        vec![
+            pos2(c.x - 0.3 * s, c.y - 0.42 * s),
+            pos2(c.x - 0.3 * s, c.y + 0.42 * s),
+            pos2(c.x + 0.42 * s, c.y),
+        ],
+        colour,
+        Stroke::NONE,
+    ));
+}
+
+/// Two bars in `rect`, filled.
+pub fn pause(painter: &Painter, rect: Rect, colour: Color32) {
+    let s = rect.height().min(rect.width());
+    let c = rect.center();
+    for dx in [-0.22, 0.22] {
+        let bar = Rect::from_center_size(pos2(c.x + dx * s, c.y), vec2(0.24 * s, 0.76 * s));
+        painter.rect_filled(bar, 0.0, colour);
+    }
+}
+
+/// A triangle against a bar in `rect`, pointing right for the next track
+/// or left for the one before.
+pub fn skip(painter: &Painter, rect: Rect, forward: bool, colour: Color32) {
+    let s = rect.height().min(rect.width());
+    let c = rect.center();
+    let d = if forward { 1.0 } else { -1.0 };
+    painter.add(Shape::convex_polygon(
+        vec![
+            pos2(c.x - d * 0.34 * s, c.y - 0.36 * s),
+            pos2(c.x - d * 0.34 * s, c.y + 0.36 * s),
+            pos2(c.x + d * 0.22 * s, c.y),
+        ],
+        colour,
+        Stroke::NONE,
+    ));
+    let bar = Rect::from_center_size(pos2(c.x + d * 0.34 * s, c.y), vec2(0.12 * s, 0.72 * s));
+    painter.rect_filled(bar, 0.0, colour);
+}

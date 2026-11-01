@@ -21,6 +21,9 @@ painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in it
   `com.sectorflabs.Patina.Keyboard` (ADR-0068): which it has and which is in use, followed as they
   change, and switching; the layouts xkb offers, from its `evdev.xml` files, and each one's label
   ("US", "ᚠ"). For the bar's tray and Settings' Keyboard page.
+- **`mpris.rs`**: the media players on the session bus (MPRIS, ADR-0101): which is playing, its
+  track, and play/pause, next and previous, for the bar's media controls. `cargo run -p
+  patina-system --example media` prints them.
 - **`night_light.rs`**: Night Light's state, override and inhibitors through the compositor's
   `com.sectorflabs.Patina.NightLight` on the session bus (ADR-0039), for Settings,
   `patina-night-light` and apps wanting true colour.

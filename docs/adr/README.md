@@ -142,6 +142,7 @@ mechanics of adding one.
 | [0098](0098-wifi-menu-signs-in-to-captive-portals.md) | The Wi-Fi menu signs in to captive portals, by NetworkManager's connectivity check | Accepted |
 | [0099](0099-one-deb-of-the-desktop-and-its-apps.md) | The desktop ships as one .deb, with the apps it was tested with, pinned in bundle.toml | Accepted |
 | [0100](0100-the-desktops-default-skin-is-everforest-dark.md) | The desktop's default skin is Everforest Dark | Accepted |
+| [0101](0101-media-controls-in-the-bar.md) | Media controls in the bar, from MPRIS | Accepted |
 
 ## Decision Relationship
 

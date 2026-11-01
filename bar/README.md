@@ -26,6 +26,9 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   activates the app, a right click opens its menu in patina-menu. Then, with more than one
   keyboard layout, the one in use ("US"; a click lists them to switch, ADR-0068), Wi-Fi (opens patina-wifi), the speaker (opens patina-volume) and the battery
   (opens Settings' Power and Battery page; ADR-0021, ADR-0022, ADR-0024).
+- `media` (ADR-0101): previous, play or pause and next for the media player playing (any MPRIS
+  player: a browser tab, UnAmp), with the track on hover; nothing while none is. It's next to `tray`
+  in the default `right`; leave it out of the lists to turn it off.
 - `clock`, the date in full on hover, which opens patina-clock: a month and the day's events from
   Calendar (ADR-0082); and under dwl `tags`, `layout`, `title` and `appid`.
 - `power`: the power button after the clock, which opens patina-power: Lock, Log Out, Restart
@@ -60,7 +63,8 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
 
 With `layout = "split"` (ADR-0063) the launcher, the window list and the tray each sit on their
 own, at `launcher_at`, `windows_at` and `tray_at`: an edge, then where along it (`bottom-left` is
-a row, `left-bottom` a column). This process draws the window list and runs the others as
+a row, `left-bottom` a column). The media controls stay in the tray's part unless `media_at` (the
+same names) gives them a part of their own (ADR-0101). This process draws the window list and runs the others as
 `patina-bar --section`, which end when its pipe to them closes; each edge with a part on it is
 kept by a pixel-thin `reserve-EDGE` section. `split.rs` places every surface and turns a point on
 it into a place on the screen, which menus, tooltips and the pieces the bar opens

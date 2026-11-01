@@ -29,6 +29,8 @@ pub enum Section {
     Launcher,
     Windows,
     Tray,
+    /// The media controls, apart from the tray (ADR-0101).
+    Media,
     Reserve(Side),
 }
 
@@ -38,6 +40,7 @@ impl Section {
             "launcher" => Section::Launcher,
             "windows" => Section::Windows,
             "tray" => Section::Tray,
+            "media" => Section::Media,
             "reserve-top" => Section::Reserve(Side::Top),
             "reserve-bottom" => Section::Reserve(Side::Bottom),
             "reserve-left" => Section::Reserve(Side::Left),
@@ -51,6 +54,7 @@ impl Section {
             Section::Launcher => "launcher".into(),
             Section::Windows => "windows".into(),
             Section::Tray => "tray".into(),
+            Section::Media => "media".into(),
             Section::Reserve(side) => format!("reserve-{}", side.name()),
         }
     }
@@ -61,15 +65,32 @@ impl Section {
             Section::Launcher => Some(config.launcher_at),
             Section::Windows => Some(config.windows_at),
             Section::Tray => Some(config.tray_at),
+            Section::Media => media_apart(config),
             Section::Reserve(_) => None,
         }
     }
 }
 
+/// Where the media controls sit on a part of their own: `media_at`, when
+/// the bar has them and it isn't the tray's spot, where they would only
+/// cover the tray. Otherwise they're in the tray's part.
+pub fn media_apart(config: &Config) -> Option<Spot> {
+    config
+        .media_at
+        .filter(|spot| *spot != config.tray_at && config.has_module("media"))
+}
+
+/// Where each part is, of those on a surface of their own.
+fn spots(config: &Config) -> Vec<Spot> {
+    let mut spots = vec![config.launcher_at, config.windows_at, config.tray_at];
+    spots.extend(media_apart(config));
+    spots
+}
+
 /// The edges the parts are along, each to be kept once.
 pub fn reserved(config: &Config) -> Vec<Side> {
     let mut sides = Vec::new();
-    for spot in [config.launcher_at, config.windows_at, config.tray_at] {
+    for spot in spots(config) {
         let side = spot.side();
         if !sides.contains(&side) {
             sides.push(side);
@@ -234,7 +255,7 @@ pub fn placement(section: Option<Section>, config: &Config, gaps: Gaps) -> Place
     let mut before = 0;
     if spot
         .corner_row()
-        .is_some_and(|row| [config.launcher_at, config.windows_at, config.tray_at].contains(&row))
+        .is_some_and(|row| spots(config).contains(&row))
     {
         before += hi + g;
     }
@@ -273,13 +294,15 @@ pub fn modules(section: Section, config: &Config) -> Vec<String> {
     match section {
         Section::Launcher => vec!["launcher".into()],
         Section::Windows => vec!["windows".into()],
-        Section::Reserve(_) => Vec::new(),
+        Section::Media if media_apart(config).is_some() => vec!["media".into()],
+        Section::Media | Section::Reserve(_) => Vec::new(),
         Section::Tray => config
             .left
             .iter()
             .chain(&config.center)
             .chain(&config.right)
             .filter(|m| !matches!(m.as_str(), "launcher" | "windows"))
+            .filter(|m| m.as_str() != "media" || media_apart(config).is_none())
             // dwl's, which say nothing under Patina's compositor.
             .filter(|m| !matches!(m.as_str(), "tags" | "layout" | "title" | "appid"))
             .cloned()
@@ -385,7 +408,35 @@ mod tests {
     #[test]
     fn the_tray_has_the_rest_of_the_modules() {
         let c = config("");
-        assert_eq!(modules(Section::Tray, &c), ["tray", "clock", "power"]);
+        assert_eq!(
+            modules(Section::Tray, &c),
+            ["media", "tray", "clock", "power"]
+        );
         assert_eq!(modules(Section::Launcher, &c), ["launcher"]);
+    }
+
+    #[test]
+    fn the_media_controls_are_in_the_tray_until_given_a_spot() {
+        let c = config("layout = \"split\"");
+        assert_eq!(media_apart(&c), None);
+        assert!(modules(Section::Media, &c).is_empty());
+        let c = config("layout = \"split\"\nmedia_at = \"top-right\"");
+        assert_eq!(media_apart(&c), Some(Spot::TopRight));
+        assert_eq!(modules(Section::Media, &c), ["media"]);
+        assert_eq!(modules(Section::Tray, &c), ["tray", "clock", "power"]);
+        assert_eq!(reserved(&c), [Side::Bottom, Side::Top]);
+        let part = placement(Some(Section::Media), &c, GAPS);
+        assert_eq!(part.anchor, Anchor::TOP | Anchor::RIGHT);
+    }
+
+    #[test]
+    fn media_controls_can_be_turned_off_or_kept_off_the_trays_spot() {
+        let off =
+            config("layout = \"split\"\nmedia_at = \"top-right\"\nright = [\"tray\", \"clock\"]");
+        assert_eq!(media_apart(&off), None);
+        assert_eq!(modules(Section::Tray, &off), ["tray", "clock"]);
+        let same = config("layout = \"split\"\nmedia_at = \"bottom-right\"");
+        assert_eq!(media_apart(&same), None, "it would cover the tray");
+        assert_eq!(modules(Section::Tray, &same)[0], "media");
     }
 }
