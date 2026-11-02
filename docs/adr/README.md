@@ -144,6 +144,7 @@ mechanics of adding one.
 | [0100](0100-the-desktops-default-skin-is-everforest-dark.md) | The desktop's default skin is Everforest Dark | Accepted |
 | [0101](0101-media-controls-in-the-bar.md) | Media controls in the bar, from MPRIS | Accepted |
 | [0102](0102-print-takes-the-screen-when-something-is-fullscreen.md) | Print takes the whole screen when something is fullscreen | Accepted |
+| [0103](0103-alt-tab-leaves-a-fullscreen-window-with-no-other-tab.md) | Alt+Tab leaves a fullscreen window that has no other tab | Accepted |
 
 ## Decision Relationship
 

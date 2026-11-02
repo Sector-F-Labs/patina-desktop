@@ -77,6 +77,12 @@ impl State {
         });
         let at = focused.and_then(|f| order.iter().position(|s| *s == f));
         if let Some(next) = step(order.len(), at, forward) {
+            // A fullscreen window with no other tab to go to: step out of it
+            // to the desktop, and the next Alt+Tab brings it back (ADR-0103).
+            if at == Some(next) && self.fullscreen_on_top().is_some() {
+                self.minimize_focused();
+                return;
+            }
             self.activate_toplevel(&order[next]);
         }
     }
