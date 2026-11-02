@@ -151,7 +151,8 @@ pub fn key_action(modifiers: &ModifiersState, sym: u32) -> Option<KeyAction> {
 /// Whether the compositor keeps `action` while a fullscreen window has the
 /// keyboard: a game's own keys (Alt+letter, Super) go to the game, and only
 /// stepping away, the process manager, quitting or restarting the desktop,
-/// switching consoles and the volume and brightness keys stay.
+/// switching consoles, the volume and brightness keys and the screenshot
+/// keys stay (ADR-0102).
 pub fn works_in_fullscreen(action: &KeyAction) -> bool {
     matches!(
         action,
@@ -161,6 +162,8 @@ pub fn works_in_fullscreen(action: &KeyAction) -> bool {
             | KeyAction::Restart
             | KeyAction::SwitchVt(_)
             | KeyAction::Media(_)
+            | KeyAction::Screenshot(_)
+            | KeyAction::ScreenshotMenu
     )
 }
 
@@ -571,6 +574,11 @@ mod tests {
         assert!(works_in_fullscreen(
             &key_action(&ctrl_alt, keysyms::KEY_BackSpace).unwrap()
         ));
+        // The screenshot keys stay, so Print works over a game.
+        let print = keys
+            .lookup(&Default::default(), keysyms::KEY_Print)
+            .unwrap();
+        assert!(works_in_fullscreen(&print));
     }
 
     #[test]

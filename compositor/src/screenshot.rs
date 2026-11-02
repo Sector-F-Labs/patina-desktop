@@ -89,6 +89,8 @@ impl State {
         let framed = window.as_ref().is_some_and(|w| self.framed(w));
         let (space, output) = (&self.space, &self.output);
         let fullscreen = self.fullscreen.as_ref();
+        let drawn = self.fullscreen_drawn();
+        let drawn = drawn.as_ref();
         let window = window.as_ref();
         let picture = if let Some(u) = self.udev.as_mut() {
             take::<_, smithay::backend::renderer::gles::GlesTexture>(
@@ -97,6 +99,7 @@ impl State {
                 output,
                 window,
                 fullscreen,
+                drawn,
                 framed,
             )
         } else if let Some(w) = self.winit.as_mut() {
@@ -106,6 +109,7 @@ impl State {
                 output,
                 window,
                 fullscreen,
+                drawn,
                 framed,
             )
         } else if let Some(n) = self.nested.as_mut() {
@@ -115,6 +119,7 @@ impl State {
                 output,
                 window,
                 fullscreen,
+                drawn,
                 framed,
             )
         } else {
@@ -278,13 +283,15 @@ impl State {
 
 /// The desktop, or `window` alone, drawn by `renderer` into a `T`.
 /// `fullscreen` is drawn without its frame, and `window` with its own if
-/// it's `framed` (ADR-0077).
+/// it's `framed` (ADR-0077). `drawn` is the fullscreen window on top, which
+/// the screen draws over the bar, so the picture does too (ADR-0102).
 fn take<R, T>(
     renderer: &mut R,
     space: &Space<Window>,
     output: &Output,
     window: Option<&Window>,
     fullscreen: Option<&Window>,
+    drawn: Option<&(Window, Point<i32, Logical>)>,
     framed: bool,
 ) -> Result<Picture, String>
 where
@@ -295,8 +302,14 @@ where
     match window {
         None => {
             let size = output.current_mode().ok_or("the output has no mode")?.size;
-            let elements =
-                crate::frames::desktop_elements(renderer, space, output, fullscreen, true);
+            let mut elements: Vec<crate::frames::DesktopElement<R>> =
+                crate::fullscreen::elements(renderer, drawn, scale)
+                    .into_iter()
+                    .map(crate::frames::DesktopElement::Surface)
+                    .collect();
+            elements.extend(crate::frames::desktop_elements(
+                renderer, space, output, fullscreen, true,
+            ));
             draw::<R, T, _>(renderer, &elements, size, scale, crate::nested::BACKGROUND)
         }
         Some(window) => {

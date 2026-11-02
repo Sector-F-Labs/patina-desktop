@@ -143,6 +143,7 @@ mechanics of adding one.
 | [0099](0099-one-deb-of-the-desktop-and-its-apps.md) | The desktop ships as one .deb, with the apps it was tested with, pinned in bundle.toml | Accepted |
 | [0100](0100-the-desktops-default-skin-is-everforest-dark.md) | The desktop's default skin is Everforest Dark | Accepted |
 | [0101](0101-media-controls-in-the-bar.md) | Media controls in the bar, from MPRIS | Accepted |
+| [0102](0102-print-takes-the-screen-when-something-is-fullscreen.md) | Print takes the whole screen when something is fullscreen | Accepted |
 
 ## Decision Relationship
 

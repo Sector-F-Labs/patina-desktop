@@ -82,6 +82,12 @@ impl State {
         if self.shots.menu_open || self.shots.selecting.is_some() {
             return;
         }
+        // Something has the whole screen, a game most likely: the chooser
+        // would take the keyboard from it, so the key takes the screen.
+        if self.fullscreen.is_some() {
+            self.screenshot(crate::screenshot::Shot::Desktop);
+            return;
+        }
         let window = self.focused_window();
         let command = if window.is_some() {
             "patina-screenshot"
