@@ -3,8 +3,10 @@
 The desktop's menu, opened by a right click on the empty desktop (ADR-0029). It's the quick way
 to style the whole shell: the skin every piece wears, and the way into Settings (ADR-0038), where
 the wallpaper is chosen (ADR-0030). It's also a menu of any items (ADR-0056), for pieces too
-small to hold their own menus: the bar's window tabs open theirs in it. And it's the bar's
-tooltips (ADR-0057).
+small to hold their own menus: the bar opens its tabs' menus, its tray items' menus (ADR-0064)
+and the keyboard layouts' (ADR-0068) in it. And it's the bar's tooltips (ADR-0057).
+
+How the jobs share one program, with diagrams, is in [HOW-IT-WORKS.md](HOW-IT-WORKS.md).
 
 ## On the desktop
 
@@ -15,7 +17,7 @@ closes it.
 
 ## How it fits in
 
-- **Started by** patina-compositor on a right click where no window is, as
+- **Started by** patina-compositor on a right click where no window is (and Super isn't held), as
   `patina-menu --at X,Y` (its `desktop_menu` command), at the pointer in logical pixels.
 - **Starts patina-settings**, found on the compositor's PATH like the menu itself: through the
   compositor's `Spawn` on the session bus, so it's among the desktop's processes (ADR-0045), or
@@ -27,11 +29,15 @@ closes it.
 - **Drawn** on a transparent layer-shell surface over the whole screen, so the menu can sit at
   the pointer and stay on screen near the edges.
 - **A menu of items** with `--item ID=LABEL` (and `--separator`): it prints the chosen ID and
-  exits, or prints nothing if closed. `--edge bottom` counts Y from the bottom and opens upward,
+  exits, or prints nothing if closed. patina-bar asks for one for a window tab (New Window, Pin
+  or Unpin, Close Window), a tray item (its entries, submenus shown as "Friends › Online") and
+  the keyboard layouts (the one in use ticked), each as its own child, to read the answer
+  (`bar/src/menu.rs`). Submenus, icons and greyed entries aren't possible. `--edge bottom` counts Y from the bottom and opens upward,
   as patina-bar asks for a tab's menu (`bar/src/menu.rs`); `--edge left` or `right` counts X
   from that side and opens outward, for a split bar's columns (ADR-0063).
 - **A tooltip** with `--tooltip TEXT`: click-through, no keyboard, centred on X; it goes when its
-  standard input closes, which is how patina-bar hides it (`bar/src/tooltip.rs`).
+  standard input closes, which is how patina-bar hides it, after hovering for half a second
+  (`bar/src/tooltip.rs`).
 
 ## Code
 

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" width="960" height="520" role="img" aria-labelledby="t d">
+<title id="t">Why the menu covers the whole screen</title><desc id="d">The bar is 41 pixels tall, so a menu drawn inside it would be cut off. patina-menu is a transparent surface over the whole screen, and places its menu, tooltip or desktop menu anywhere on it. The edge option says which side the Y coordinate counts from and which way it opens.</desc>
+<style>:root{--bg:#fdf6e3;--group:#f4f0d9;--gstroke:#e0dcc7;--box:#fffbef;--bstroke:#a6b0a0;--text:#5c6a72;--muted:#708089;--blue:#3a94c5;--green:#8da101;--purple:#df69ba;--tblue:#2d7fa8;--tgreen:#677800;--tpurple:#b54f93;--busfill:#f3ecc2;--busstroke:#dfa000;--red:#f85552;--line:#829181;--note:#e4efe9;}@media (prefers-color-scheme: dark){:root{--bg:#2d353b;--group:#343f44;--gstroke:#475258;--box:#2d353b;--bstroke:#7a8478;--text:#d3c6aa;--muted:#9da9a0;--blue:#7fbbb3;--green:#a7c080;--purple:#d699b6;--tblue:#7fbbb3;--tgreen:#a7c080;--tpurple:#d699b6;--busfill:#4d4c43;--busstroke:#dbbc7f;--red:#e67e80;--line:#859289;--note:#384b55;}}
+text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:12.5px;fill:var(--text)}
+.b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.mu{fill:var(--muted);font-size:12px}.s{font-size:11.5px}.e{text-anchor:end}.c{text-anchor:middle}
+.h{font-size:14px;font-weight:600}
+.bg{fill:var(--bg)}
+.grp{fill:var(--group);stroke:var(--gstroke);stroke-width:1.2}
+.box{fill:var(--box);stroke:var(--bstroke);stroke-width:1.2}
+.bl{stroke:var(--blue);stroke-width:1.6}.gr{stroke:var(--green);stroke-width:1.6}.pu{stroke:var(--purple);stroke-width:1.6}
+.tb{fill:var(--tblue)}.tg{fill:var(--tgreen)}.tp{fill:var(--tpurple)}
+.bus{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}
+.ln{stroke:var(--line);stroke-width:1.5;fill:none}
+.dash{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5;fill:none}
+.ah{fill:var(--line)}
+.note{fill:var(--note);stroke:var(--blue);stroke-width:1}
+.red{fill:var(--red)}.bar{fill:var(--purple)}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect class="bg" width="960" height="520" rx="10"/>
+
+<rect x="40" y="40" width="520" height="340" rx="10" class="grp"/>
+<text x="52" y="62" class="s mu">patina-menu's surface: all of the screen, transparent</text>
+<rect x="40" y="340" width="520" height="40" rx="6" class="box bl"/>
+<text x="52" y="365" class="s mu">the bar, 41 px: a menu drawn in here would be cut off</text>
+<text x="548" y="365" class="s e mu">tray</text>
+
+<rect x="110" y="110" width="170" height="104" rx="6" class="box gr"/>
+<text x="195" y="134" class="b c">desktop menu</text>
+<text x="195" y="154" class="s c mu">Skin, Wallpaper…, Settings…</text>
+<circle cx="110" cy="110" r="4" class="red"/>
+<text x="120" y="102" class="s m">--at 110,110</text>
+<text x="195" y="232" class="s c mu">top left corner at the pointer</text>
+
+<rect x="300" y="248" width="150" height="82" rx="6" class="box gr"/>
+<text x="375" y="272" class="s c">New Window</text>
+<text x="375" y="292" class="s c">Pin to Bar</text>
+<text x="375" y="312" class="s c">Close Window</text>
+<line x1="470" y1="330" x2="470" y2="380" class="ln" marker-start="url(#a)" marker-end="url(#a)"/>
+<text x="478" y="360" class="s mu m">45</text>
+<circle cx="300" cy="335" r="4" class="red"/>
+<text x="310" y="238" class="s m">--at 300,45 --edge bottom</text>
+
+<rect x="470" y="300" width="82" height="26" rx="6" class="box"/>
+<text x="511" y="318" class="s c">Wi-Fi 72%</text>
+<text x="511" y="294" class="s c mu">tooltip</text>
+
+<text x="40" y="410" class="s">A menu started with --edge bottom counts Y up from the bottom of the screen and opens upward,</text>
+<text x="40" y="428" class="s">so the bar can ask for one "just past" it without knowing the screen's height.</text>
+
+<rect x="600" y="40" width="320" height="340" rx="10" class="grp"/>
+<text x="616" y="64" class="h">--edge: which way a menu opens</text>
+<text x="616" y="100" class="b m">top</text>
+<text x="616" y="118" class="s mu">the default: down from the point</text>
+<text x="616" y="156" class="b m">bottom</text>
+<text x="616" y="174" class="s mu">Y from the bottom, opens upward:</text>
+<text x="616" y="190" class="s mu">a bar along the bottom</text>
+<text x="616" y="228" class="b m">left</text>
+<text x="616" y="246" class="s mu">X from the left edge, opens outward:</text>
+<text x="616" y="262" class="s mu">a column of a split bar (ADR-0063)</text>
+<text x="616" y="300" class="b m">right</text>
+<text x="616" y="318" class="s mu">X from the right edge, opens outward</text>
+<text x="616" y="354" class="s mu">a tooltip is centred on X, past the edge</text>
+
+<rect x="40" y="460" width="880" height="28" rx="6" class="note"/>
+<text x="480" y="478" class="s c">closes on Escape, on a click on the transparent part, or when it loses the keyboard; a tooltip only when its input closes</text>
+</svg>
