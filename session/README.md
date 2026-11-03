@@ -20,6 +20,8 @@ means logging in again.
 - **The lock screen survives a restart:** the compositor keeps a marker in `XDG_RUNTIME_DIR` while
   locked and starts locked when it finds one; patina-session removes it when the session ends.
 
+How it all fits together, with diagrams, is in [HOW-IT-WORKS.md](HOW-IT-WORKS.md).
+
 ## Code
 
 `main.rs`. Its tests supervise stand-in compositors (shell scripts) through each case.

@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" width="960" height="520" role="img" aria-labelledby="t d">
+<title id="t">What patina-session does when the compositor exits</title><desc id="d">A signal from the login manager or exit status 0 ends the session. Status 75 starts the compositor again at once. Anything else is a crash: after a second it starts again, unless it is the third crash within a minute, which ends the session.</desc>
+<style>:root{--bg:#fdf6e3;--group:#f4f0d9;--gstroke:#e0dcc7;--box:#fffbef;--bstroke:#a6b0a0;--text:#5c6a72;--muted:#708089;--blue:#3a94c5;--green:#8da101;--purple:#df69ba;--tblue:#2d7fa8;--tgreen:#677800;--tpurple:#b54f93;--busfill:#f3ecc2;--busstroke:#dfa000;--red:#f85552;--line:#829181;--note:#e4efe9;}@media (prefers-color-scheme: dark){:root{--bg:#2d353b;--group:#343f44;--gstroke:#475258;--box:#2d353b;--bstroke:#7a8478;--text:#d3c6aa;--muted:#9da9a0;--blue:#7fbbb3;--green:#a7c080;--purple:#d699b6;--tblue:#7fbbb3;--tgreen:#a7c080;--tpurple:#d699b6;--busfill:#4d4c43;--busstroke:#dbbc7f;--red:#e67e80;--line:#859289;--note:#384b55;}}
+text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:12.5px;fill:var(--text)}
+.b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.mu{fill:var(--muted);font-size:12px}.s{font-size:11.5px}.e{text-anchor:end}.c{text-anchor:middle}
+.h{font-size:14px;font-weight:600}
+.bg{fill:var(--bg)}
+.grp{fill:var(--group);stroke:var(--gstroke);stroke-width:1.2}
+.box{fill:var(--box);stroke:var(--bstroke);stroke-width:1.2}
+.bl{stroke:var(--blue);stroke-width:1.6}.gr{stroke:var(--green);stroke-width:1.6}.pu{stroke:var(--purple);stroke-width:1.6}
+.tb{fill:var(--tblue)}.tg{fill:var(--tgreen)}.tp{fill:var(--tpurple)}
+.bus{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}
+.ln{stroke:var(--line);stroke-width:1.5;fill:none}
+.dash{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5;fill:none}
+.ah{fill:var(--line)}
+.note{fill:var(--note);stroke:var(--blue);stroke-width:1}
+.red{fill:var(--red)}.rd{stroke:var(--red);stroke-width:1.6}.bar{fill:var(--purple)}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect class="bg" width="960" height="520" rx="10"/>
+<rect x="380" y="30" width="200" height="40" rx="8" class="box bl"/>
+<text x="480" y="55" class="b c">the compositor exits</text>
+<path d="M480,70 V100 H140 V129" class="ln" marker-end="url(#a)"/>
+<path d="M480,70 V100 H370 V129" class="ln" marker-end="url(#a)"/>
+<path d="M480,70 V100 H600 V129" class="ln" marker-end="url(#a)"/>
+<path d="M480,70 V100 H830 V129" class="ln" marker-end="url(#a)"/>
+
+<rect x="40" y="130" width="200" height="70" rx="8" class="box"/>
+<text x="140" y="155" class="b c">told to end</text>
+<text x="140" y="174" class="s c mu">SIGTERM, SIGHUP or SIGINT</text>
+<text x="140" y="190" class="s c mu">from the login manager</text>
+<rect x="270" y="130" width="200" height="70" rx="8" class="box"/>
+<text x="370" y="155" class="b c">status 0</text>
+<text x="370" y="174" class="s c mu">Ctrl+Alt+Backspace:</text>
+<text x="370" y="190" class="s c mu">the way out of the session</text>
+<rect x="500" y="130" width="200" height="70" rx="8" class="box"/>
+<text x="600" y="155" class="b c">status 75</text>
+<text x="600" y="174" class="s c mu">Ctrl+Alt+Shift+Backspace, or</text>
+<text x="600" y="190" class="s c mu">Restart Desktop in Settings</text>
+<rect x="730" y="130" width="200" height="70" rx="8" class="box"/>
+<text x="830" y="155" class="b c">anything else</text>
+<text x="830" y="174" class="s c mu">a crash, or a kill:</text>
+<text x="830" y="190" class="s c mu">any other status</text>
+
+<rect x="100" y="260" width="300" height="60" rx="8" class="box gr"/>
+<text x="250" y="285" class="b c">the session ends</text>
+<text x="250" y="304" class="s c mu">back to the login screen</text>
+<line x1="140" y1="200" x2="140" y2="259" class="ln" marker-end="url(#a)"/>
+<line x1="370" y1="200" x2="370" y2="259" class="ln" marker-end="url(#a)"/>
+
+<line x1="600" y1="200" x2="600" y2="379" class="ln" marker-end="url(#a)"/>
+<text x="608" y="300" class="s">at once</text>
+
+<rect x="730" y="250" width="200" height="70" rx="8" class="box pu"/>
+<text x="830" y="275" class="b c">the third crash</text>
+<text x="830" y="294" class="s c mu">within a minute?</text>
+<line x1="830" y1="200" x2="830" y2="249" class="ln" marker-end="url(#a)"/>
+<line x1="880" y1="320" x2="880" y2="379" class="ln" marker-end="url(#a)"/>
+<text x="888" y="352" class="s">yes</text>
+<rect x="730" y="380" width="200" height="70" rx="8" class="box rd"/>
+<text x="830" y="405" class="b c">the session ends</text>
+<text x="830" y="424" class="s c mu">as a failure, rather than a</text>
+<text x="830" y="440" class="s c mu">loop with no way back</text>
+<path d="M730,285 H715 V410 H701" class="ln" marker-end="url(#a)"/>
+<text x="722" y="345" class="s">no: wait a second</text>
+
+<rect x="500" y="380" width="200" height="60" rx="8" class="box bl"/>
+<text x="600" y="405" class="b c">start the compositor</text>
+<text x="600" y="424" class="s c mu">again, in the same login</text>
+<path d="M500,410 H30 V50 H379" class="dash" marker-end="url(#a)"/>
+<text x="40" y="403" class="s mu">every window closes; the login stays</text>
+
+<rect x="175" y="478" width="610" height="28" rx="6" class="note"/>
+<text x="480" y="496" class="s c">a restart keeps the lock; the session removes its marker only when it ends</text>
+</svg>
