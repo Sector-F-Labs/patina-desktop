@@ -18,6 +18,8 @@ and prints what was said; or it transcribes a WAV file.
   `ggml-NAME.bin`; base.en is the default. Download them from
   `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-NAME.bin`.
 
+For how the pieces mesh with the compositor, drawn out, see [HOW-IT-WORKS.md](HOW-IT-WORKS.md).
+
 ## Code
 
 `main.rs`, the arguments and the run; `daemon.rs`, `--daemon`: the signals, recording,

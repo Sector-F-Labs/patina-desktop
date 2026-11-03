@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 890" width="960" height="890" role="img" aria-labelledby="t d">
+<title id="t">How dictation fits into the Patina desktop</title><desc id="d">The compositor sees the dictate key and signals Started and Stopped over D-Bus. The dictate daemon records, runs Whisper and calls Commit back, and the compositor types the text into the focused window through the clipboard. An overlay process shows the loudness.</desc>
+<style>:root{--bg:#fdf6e3;--group:#f4f0d9;--gstroke:#e0dcc7;--box:#fffbef;--bstroke:#a6b0a0;--text:#5c6a72;--muted:#708089;--blue:#3a94c5;--green:#8da101;--purple:#df69ba;--tblue:#2d7fa8;--tgreen:#677800;--tpurple:#b54f93;--busfill:#f3ecc2;--busstroke:#dfa000;--red:#f85552;--line:#829181;--note:#e4efe9;}@media (prefers-color-scheme: dark){:root{--bg:#2d353b;--group:#343f44;--gstroke:#475258;--box:#2d353b;--bstroke:#7a8478;--text:#d3c6aa;--muted:#9da9a0;--blue:#7fbbb3;--green:#a7c080;--purple:#d699b6;--tblue:#7fbbb3;--tgreen:#a7c080;--tpurple:#d699b6;--busfill:#4d4c43;--busstroke:#dbbc7f;--red:#e67e80;--line:#859289;--note:#384b55;}}
+text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:12.5px;fill:var(--text)}
+.b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.mu{fill:var(--muted);font-size:12px}.s{font-size:11.5px}.e{text-anchor:end}.c{text-anchor:middle}
+.h{font-size:14px;font-weight:600}
+.bg{fill:var(--bg)}
+.grp{fill:var(--group);stroke:var(--gstroke);stroke-width:1.2}
+.box{fill:var(--box);stroke:var(--bstroke);stroke-width:1.2}
+.bl{stroke:var(--blue);stroke-width:1.6}.gr{stroke:var(--green);stroke-width:1.6}.pu{stroke:var(--purple);stroke-width:1.6}
+.tb{fill:var(--tblue)}.tg{fill:var(--tgreen)}.tp{fill:var(--tpurple)}
+.bus{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}
+.ln{stroke:var(--line);stroke-width:1.5;fill:none}
+.dash{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5;fill:none}
+.ah{fill:var(--line)}
+.note{fill:var(--note);stroke:var(--blue);stroke-width:1}
+.red{fill:var(--red)}.bar{fill:var(--purple)}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect class="bg" width="960" height="890" rx="10"/>
+<rect x="100" y="20" width="280" height="52" rx="8" class="box"/>
+<text x="240" y="42" class="b c">You</text>
+<text x="240" y="60" class="mu c">hold Ctrl+Super+Alt, speak, let go</text>
+<rect x="440" y="20" width="240" height="52" rx="8" class="box"/>
+<text x="560" y="42" class="b c">Focused window</text>
+<text x="560" y="60" class="mu c">any Wayland app that pastes</text>
+<rect x="40" y="100" width="880" height="250" rx="12" class="grp"/>
+<text x="56" y="122" class="h tb">patina-compositor</text>
+<text x="904" y="122" class="mu e">owns the seat, the clipboard and the focus</text>
+<rect x="70" y="150" width="270" height="84" rx="8" class="box bl"/>
+<text x="84" y="174" class="b m">input.rs, keys.rs</text>
+<text x="84" y="194">chord down starts it; the first key up</text>
+<text x="84" y="212">stops it, others may still be held</text>
+<rect x="70" y="262" width="250" height="70" rx="8" class="box bl"/>
+<text x="84" y="286" class="b m">typing.rs</text>
+<text x="84" y="306">announces Started / Stopped</text>
+<text x="84" y="324">serves Commit(text)</text>
+<rect x="420" y="150" width="430" height="182" rx="8" class="box bl"/>
+<text x="434" y="174" class="b">Commit(text) types it into the focused window</text>
+<text x="434" y="194">1   wait for any chord key still held to come up</text>
+<text x="434" y="212">2   save the clipboard</text>
+<text x="434" y="230">3   serve the text as the selection</text>
+<text x="434" y="248">4   press Ctrl+V  (Ctrl+Shift+V in a terminal)</text>
+<text x="434" y="266">5   give the old clipboard back, 150 ms later</text>
+<text x="434" y="292" class="mu s">Step 1 is there because stopping fires on the first key up:</text>
+<text x="434" y="308" class="mu s">without it the window would see Ctrl+Alt+Super+V, not a paste.</text>
+<line x1="240" y1="72" x2="240" y2="150" class="ln" marker-end="url(#a)"/>
+<line x1="195" y1="234" x2="195" y2="262" class="ln" marker-end="url(#a)"/>
+<line x1="320" y1="297" x2="420" y2="297" class="ln" marker-end="url(#a)"/>
+<line x1="560" y1="150" x2="560" y2="72" class="ln" marker-end="url(#a)"/>
+<text x="572" y="92" class="mu s">key presses on the seat</text>
+<rect x="40" y="400" width="880" height="56" rx="10" class="bus"/>
+<text x="480" y="424" class="b c">session D-Bus</text>
+<text x="480" y="443" class="m c">com.sectorflabs.Patina.Input</text>
+<line x1="120" y1="332" x2="120" y2="400" class="ln" marker-end="url(#a)"/>
+<text x="130" y="382" class="mu s">Started, Stopped</text>
+<line x1="280" y1="400" x2="280" y2="332" class="ln" marker-end="url(#a)"/>
+<text x="290" y="382" class="mu s">Commit(text)</text>
+<rect x="40" y="480" width="880" height="250" rx="12" class="grp"/>
+<text x="56" y="502" class="h tg">patina-dictate --daemon</text>
+<text x="904" y="718" class="mu e s">an ordinary program: no Wayland connection, kept running by the compositor</text>
+<rect x="70" y="540" width="220" height="90" rx="8" class="box gr"/>
+<text x="84" y="564" class="b">on DictationStarted</text>
+<text x="84" y="584">open the microphone</text>
+<text x="84" y="602">start the overlay</text>
+<text x="84" y="620">feed it the loudness</text>
+<rect x="330" y="540" width="220" height="90" rx="8" class="box gr"/>
+<text x="344" y="564" class="b">on DictationStopped</text>
+<text x="344" y="584">stop recording</text>
+<text x="344" y="602">under 0.3 s: a slip, dropped</text>
+<text x="344" y="620">else on to Whisper</text>
+<rect x="610" y="540" width="240" height="90" rx="8" class="box gr"/>
+<text x="624" y="564" class="b">Whisper (whisper.cpp)</text>
+<text x="624" y="584">model loaded at start</text>
+<text x="624" y="602">GPU through Vulkan</text>
+<text x="624" y="620">then calls Commit(text)</text>
+<line x1="550" y1="585" x2="610" y2="585" class="ln" marker-end="url(#a)"/>
+<line x1="240" y1="456" x2="240" y2="540" class="ln" marker-end="url(#a)"/>
+<text x="250" y="518" class="mu s">DictationStarted</text>
+<line x1="440" y1="456" x2="440" y2="540" class="ln" marker-end="url(#a)"/>
+<text x="450" y="518" class="mu s">DictationStopped</text>
+<line x1="730" y1="540" x2="730" y2="456" class="ln" marker-end="url(#a)"/>
+<text x="740" y="518" class="mu s">Commit(text)</text>
+<rect x="70" y="660" width="150" height="50" rx="8" class="box"/>
+<text x="145" y="682" class="b c">microphone</text>
+<text x="145" y="699" class="mu s c">cpal, or /dev/dsp</text>
+<line x1="110" y1="660" x2="110" y2="630" class="ln" marker-end="url(#a)"/>
+<line x1="250" y1="630" x2="250" y2="770" class="ln" marker-end="url(#a)"/>
+<text x="262" y="752" class="mu s">stdin: the loudness 30 times a second, then “transcribing”, then closed</text>
+<rect x="40" y="770" width="880" height="96" rx="12" class="grp"/>
+<text x="56" y="794" class="h tp">patina-dictate --overlay</text>
+<text x="56" y="814" class="mu">a separate process, started on each press, gone in seconds</text>
+<text x="56" y="834" class="mu">layer-shell surface on patina-shell: no keyboard, no pointer</text>
+<rect x="640" y="788" width="250" height="52" rx="26" class="box pu"/>
+<circle cx="670" cy="814" r="8" class="red"/>
+<rect x="696" y="811.0" width="6" height="6" rx="3" class="bar"/>
+<rect x="707" y="809.0" width="6" height="10" rx="3" class="bar"/>
+<rect x="718" y="806.0" width="6" height="16" rx="3" class="bar"/>
+<rect x="729" y="802.0" width="6" height="24" rx="3" class="bar"/>
+<rect x="740" y="799.0" width="6" height="30" rx="3" class="bar"/>
+<rect x="751" y="803.0" width="6" height="22" rx="3" class="bar"/>
+<rect x="762" y="807.0" width="6" height="14" rx="3" class="bar"/>
+<rect x="773" y="810.0" width="6" height="8" rx="3" class="bar"/>
+<rect x="784" y="808.0" width="6" height="12" rx="3" class="bar"/>
+<rect x="795" y="804.0" width="6" height="20" rx="3" class="bar"/>
+<rect x="806" y="800.0" width="6" height="28" rx="3" class="bar"/>
+<rect x="817" y="804.0" width="6" height="20" rx="3" class="bar"/>
+<rect x="828" y="808.0" width="6" height="12" rx="3" class="bar"/>
+<rect x="839" y="810.0" width="6" height="8" rx="3" class="bar"/>
+<rect x="850" y="808.0" width="6" height="12" rx="3" class="bar"/>
+<rect x="861" y="806.0" width="6" height="16" rx="3" class="bar"/>
+<rect x="872" y="809.0" width="6" height="10" rx="3" class="bar"/>
+</svg>
