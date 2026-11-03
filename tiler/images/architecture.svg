@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 810" width="960" height="810" role="img" aria-labelledby="t d">
+<title id="t">How tiling is split between the compositor and patina-tiler</title><desc id="d">The compositor reports drags, Super+arrows, resizes, windows opening and closing and the work area as signals on the session bus. patina-tiler decides with pure functions and answers with method calls: Place, Move, Restore and ShowPreview. Whoever owns the Tiler name decides; patina-tiler queues for it and another tiler can take it over.</desc>
+<style>:root{--bg:#fdf6e3;--group:#f4f0d9;--gstroke:#e0dcc7;--box:#fffbef;--bstroke:#a6b0a0;--text:#5c6a72;--muted:#708089;--blue:#3a94c5;--green:#8da101;--purple:#df69ba;--tblue:#2d7fa8;--tgreen:#677800;--tpurple:#b54f93;--busfill:#f3ecc2;--busstroke:#dfa000;--red:#f85552;--line:#829181;--note:#e4efe9;}@media (prefers-color-scheme: dark){:root{--bg:#2d353b;--group:#343f44;--gstroke:#475258;--box:#2d353b;--bstroke:#7a8478;--text:#d3c6aa;--muted:#9da9a0;--blue:#7fbbb3;--green:#a7c080;--purple:#d699b6;--tblue:#7fbbb3;--tgreen:#a7c080;--tpurple:#d699b6;--busfill:#4d4c43;--busstroke:#dbbc7f;--red:#e67e80;--line:#859289;--note:#384b55;}}
+text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:12.5px;fill:var(--text)}
+.b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.mu{fill:var(--muted);font-size:12px}.s{font-size:11.5px}.e{text-anchor:end}.c{text-anchor:middle}
+.h{font-size:14px;font-weight:600}
+.bg{fill:var(--bg)}
+.grp{fill:var(--group);stroke:var(--gstroke);stroke-width:1.2}
+.box{fill:var(--box);stroke:var(--bstroke);stroke-width:1.2}
+.bl{stroke:var(--blue);stroke-width:1.6}.gr{stroke:var(--green);stroke-width:1.6}.pu{stroke:var(--purple);stroke-width:1.6}
+.tb{fill:var(--tblue)}.tg{fill:var(--tgreen)}.tp{fill:var(--tpurple)}
+.bus{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}
+.ln{stroke:var(--line);stroke-width:1.5;fill:none}
+.dash{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5;fill:none}
+.ah{fill:var(--line)}
+.note{fill:var(--note);stroke:var(--blue);stroke-width:1}
+.red{fill:var(--red)}.bar{fill:var(--purple)}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect class="bg" width="960" height="810" rx="10"/>
+
+<rect x="30" y="30" width="290" height="560" rx="12" class="grp"/>
+<text x="46" y="54" class="h tb">patina-compositor</text>
+<text x="46" y="72" class="s mu">the mechanism: reports and places</text>
+<rect x="46" y="90" width="258" height="62" rx="8" class="box bl"/>
+<text x="175" y="114" class="b c">input.rs</text>
+<text x="175" y="133" class="s c mu">drags, Super+arrows</text>
+<rect x="46" y="176" width="258" height="62" rx="8" class="box bl"/>
+<text x="175" y="200" class="b c">tiling.rs, tiling/dbus.rs</text>
+<text x="175" y="219" class="s c mu">numbers the windows, serves the bus</text>
+<rect x="46" y="262" width="258" height="62" rx="8" class="box bl"/>
+<text x="175" y="286" class="b c">places the window</text>
+<text x="175" y="305" class="s c mu">xdg configure to the rectangle</text>
+<rect x="46" y="348" width="258" height="62" rx="8" class="box bl"/>
+<text x="175" y="372" class="b c">the preview</text>
+<text x="175" y="391" class="s c mu">translucent blue, over the desktop</text>
+<rect x="46" y="434" width="258" height="62" rx="8" class="box bl"/>
+<text x="175" y="458" class="b c">split.rs</text>
+<text x="175" y="477" class="s c mu">drags the line between tiled windows</text>
+<rect x="46" y="520" width="258" height="56" rx="8" class="box bl"/>
+<text x="175" y="543" class="b c">the work area</text>
+<text x="175" y="562" class="s c mu">bar and gaps decide it</text>
+<line x1="175" y1="152" x2="175" y2="175" class="ln" marker-end="url(#a)"/>
+
+<rect x="350" y="30" width="260" height="560" rx="12" class="bus"/>
+<text x="480" y="54" class="h c">session D-Bus</text>
+<text x="480" y="72" class="s c mu">com.sectorflabs.Patina.Tiling</text>
+<text x="480" y="106" class="b c">signals, out</text>
+<text x="480" y="132" class="m c">DragStarted · Motion · Ended</text>
+<text x="480" y="152" class="m c">SnapRequested</text>
+<text x="480" y="172" class="m c">Resized</text>
+<text x="480" y="192" class="m c">WindowOpened · WindowClosed</text>
+<text x="480" y="212" class="m c">WorkAreaChanged</text>
+<line x1="380" y1="236" x2="580" y2="236" class="dash"/>
+<text x="480" y="266" class="b c">methods, in</text>
+<text x="480" y="292" class="m c">Windows · WorkArea · Gap · Screen</text>
+<text x="480" y="312" class="m c">Place · Move · Restore</text>
+<text x="480" y="332" class="m c">ShowPreview · HidePreview</text>
+<text x="480" y="380" class="s c mu">drag motions are coalesced</text>
+<text x="480" y="398" class="s c mu">to the latest when the bus is behind</text>
+
+<path d="M304,207 H349" class="ln" marker-end="url(#a)"/>
+<path d="M349,293 H305" class="ln" marker-end="url(#a)"/>
+<path d="M349,379 H305" class="ln" marker-end="url(#a)"/>
+<path d="M304,465 H328 V224 H349" class="ln" marker-end="url(#a)"/>
+
+<rect x="640" y="30" width="290" height="560" rx="12" class="grp"/>
+<text x="656" y="54" class="h tg">patina-tiler</text>
+<text x="656" y="72" class="s mu">the policy: decides, as Ubuntu does</text>
+<rect x="656" y="90" width="258" height="82" rx="8" class="box gr"/>
+<text x="785" y="114" class="b c">main.rs</text>
+<text x="785" y="133" class="s c mu">listens; checks it still owns</text>
+<text x="785" y="150" class="s c mu">the Tiler name before acting</text>
+<rect x="656" y="196" width="258" height="96" rx="8" class="box gr"/>
+<text x="785" y="220" class="b c">policy.rs</text>
+<text x="785" y="239" class="s c mu">pure functions, with tests:</text>
+<text x="785" y="256" class="m c s">zone · rect_for · after_snap</text>
+<text x="785" y="273" class="m c s">split_of · opening</text>
+<rect x="656" y="316" width="258" height="62" rx="8" class="box gr"/>
+<text x="785" y="340" class="b c">what it tiled</text>
+<text x="785" y="359" class="s c mu">id to Left, Right or Fill; the split</text>
+<rect x="656" y="402" width="258" height="62" rx="8" class="box gr"/>
+<text x="785" y="426" class="b c">positions.rs</text>
+<text x="785" y="445" class="s c mu">where each app's window was</text>
+<rect x="656" y="488" width="258" height="62" rx="8" class="box"/>
+<text x="785" y="512" class="b c">windows.toml</text>
+<text x="785" y="531" class="s c mu">~/.local/state/patina-tiler/</text>
+<line x1="785" y1="172" x2="785" y2="195" class="ln" marker-end="url(#a)"/>
+<line x1="785" y1="378" x2="785" y2="401" class="ln" marker-end="url(#a)"/>
+<line x1="785" y1="464" x2="785" y2="487" class="ln" marker-end="url(#a)"/>
+<path d="M610,120 H655" class="ln" marker-end="url(#a)"/>
+<path d="M655,150 H632 V293 H611" class="ln" marker-end="url(#a)"/>
+
+<rect x="30" y="620" width="900" height="170" rx="12" class="grp"/>
+<text x="46" y="644" class="h">Who decides</text>
+<text x="914" y="644" class="mu e s">the owner of one bus name; the compositor only reports</text>
+<rect x="56" y="690" width="250" height="60" rx="8" class="box gr"/>
+<text x="181" y="714" class="b c">patina-tiler</text>
+<text x="181" y="733" class="s c mu">claim_default: allows replacement, queues</text>
+<rect x="355" y="680" width="250" height="80" rx="8" class="bus"/>
+<text x="480" y="712" class="b c">com.sectorflabs.Patina.Tiler</text>
+<text x="480" y="732" class="s c mu">the owner decides</text>
+<rect x="654" y="690" width="250" height="60" rx="8" class="box"/>
+<text x="779" y="714" class="b c">another tiler</text>
+<text x="779" y="733" class="s c mu">claim: takes over; thirds example</text>
+<line x1="306" y1="720" x2="354" y2="720" class="ln" marker-end="url(#a)"/>
+<line x1="654" y1="720" x2="606" y2="720" class="ln" marker-end="url(#a)"/>
+<text x="480" y="778" class="s c mu">when the owner leaves the bus, the next in the queue decides</text>
+</svg>

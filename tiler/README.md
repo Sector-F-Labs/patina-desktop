@@ -26,6 +26,9 @@ desktop.
   takes over, and patina-tiler decides again when it leaves. A newer patina-tiler takes over
   from an older one still running.
 
+How the compositor and the tiler split the work, with diagrams, is in
+[HOW-IT-WORKS.md](HOW-IT-WORKS.md).
+
 ## Code
 
 `policy.rs`, what tiles where, as pure functions with their tests; `positions.rs`, where apps'
