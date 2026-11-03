@@ -84,7 +84,7 @@ impl State {
         }
         // Something has the whole screen, a game most likely: the chooser
         // would take the keyboard from it, so the key takes the screen.
-        if self.fullscreen.is_some() {
+        if self.fullscreen_on_top().is_some() {
             self.screenshot(crate::screenshot::Shot::Desktop);
             return;
         }
