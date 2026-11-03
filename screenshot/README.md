@@ -36,3 +36,5 @@ the chooser when an app asks to share the screen.
   `Monitor: …` and `Window: …` lines on stdin and prints the one chosen.
 - `PATINA_SCREENSHOT_PREVIEW=dir cargo test -p patina-screenshot preview -- --ignored` draws the
   pill in each skin, the recording's pill and the chooser as PNGs.
+
+How it all fits with the compositor, with diagrams, is in [HOW-IT-WORKS.md](HOW-IT-WORKS.md).

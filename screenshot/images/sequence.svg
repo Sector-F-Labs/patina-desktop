@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 680" width="960" height="680" role="img" aria-labelledby="t d">
+<title id="t">One screenshot, in time</title><desc id="d">From pressing Print to the PNG: the compositor remembers the focused window, starts patina-screenshot, which prints the choice and exits; the compositor then draws the desktop offscreen, hands the picture to a thread that saves it, and flashes the screen.</desc>
+<style>:root{--bg:#fdf6e3;--group:#f4f0d9;--gstroke:#e0dcc7;--box:#fffbef;--bstroke:#a6b0a0;--text:#5c6a72;--muted:#708089;--blue:#3a94c5;--green:#8da101;--purple:#df69ba;--tblue:#2d7fa8;--tgreen:#677800;--tpurple:#b54f93;--busfill:#f3ecc2;--busstroke:#dfa000;--red:#f85552;--line:#829181;--note:#e4efe9;}@media (prefers-color-scheme: dark){:root{--bg:#2d353b;--group:#343f44;--gstroke:#475258;--box:#2d353b;--bstroke:#7a8478;--text:#d3c6aa;--muted:#9da9a0;--blue:#7fbbb3;--green:#a7c080;--purple:#d699b6;--tblue:#7fbbb3;--tgreen:#a7c080;--tpurple:#d699b6;--busfill:#4d4c43;--busstroke:#dbbc7f;--red:#e67e80;--line:#859289;--note:#384b55;}}
+text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:12.5px;fill:var(--text)}
+.b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.mu{fill:var(--muted);font-size:12px}.s{font-size:11.5px}.e{text-anchor:end}.c{text-anchor:middle}
+.h{font-size:14px;font-weight:600}
+.bg{fill:var(--bg)}
+.grp{fill:var(--group);stroke:var(--gstroke);stroke-width:1.2}
+.box{fill:var(--box);stroke:var(--bstroke);stroke-width:1.2}
+.bl{stroke:var(--blue);stroke-width:1.6}.gr{stroke:var(--green);stroke-width:1.6}.pu{stroke:var(--purple);stroke-width:1.6}
+.tb{fill:var(--tblue)}.tg{fill:var(--tgreen)}.tp{fill:var(--tpurple)}
+.bus{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}
+.ln{stroke:var(--line);stroke-width:1.5;fill:none}
+.dash{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5;fill:none}
+.ah{fill:var(--line)}
+.note{fill:var(--note);stroke:var(--blue);stroke-width:1}
+.red{fill:var(--red)}.bar{fill:var(--purple)}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect class="bg" width="960" height="680" rx="10"/>
+<rect x="44" y="20" width="132" height="40" rx="8" class="box"/><text x="110" y="45" class="b c">You</text>
+<line x1="110" y1="60" x2="110" y2="660" class="dash"/>
+<rect x="274" y="20" width="132" height="40" rx="8" class="box bl"/><text x="340" y="45" class="b c">Compositor</text>
+<line x1="340" y1="60" x2="340" y2="660" class="dash"/>
+<rect x="500" y="20" width="180" height="40" rx="8" class="box gr"/><text x="590" y="45" class="b c">patina-screenshot</text>
+<line x1="590" y1="60" x2="590" y2="660" class="dash"/>
+<rect x="764" y="20" width="132" height="40" rx="8" class="box"/><text x="830" y="45" class="b c">Save thread</text>
+<line x1="830" y1="60" x2="830" y2="660" class="dash"/>
+
+<line x1="110" y1="100" x2="339" y2="100" class="ln" marker-end="url(#a)"/>
+<text x="225" y="93" class="s c">press Print</text>
+<rect x="175" y="120" width="330" height="28" rx="6" class="note"/>
+<text x="340" y="138" class="s c">fullscreen window on top? skip to “draw” (ADR-0102)</text>
+<rect x="175" y="168" width="330" height="28" rx="6" class="note"/>
+<text x="340" y="186" class="s c">keep the focused window: the pill takes the keyboard</text>
+<line x1="340" y1="236" x2="589" y2="236" class="ln" marker-end="url(#a)"/>
+<text x="465" y="229" class="s c">spawn it (--no-window if none)</text>
+<rect x="500" y="256" width="180" height="28" rx="6" class="note"/>
+<text x="590" y="274" class="s c">the pill, bottom of the screen</text>
+<line x1="110" y1="324" x2="589" y2="324" class="ln" marker-end="url(#a)"/>
+<text x="225" y="317" class="s c">choose Screen</text>
+<line x1="590" y1="364" x2="341" y2="364" class="ln" marker-end="url(#a)"/>
+<text x="465" y="357" class="s c">prints “screen”, exits</text>
+<rect x="175" y="384" width="330" height="28" rx="6" class="note"/>
+<text x="340" y="402" class="s c">wait for the exit: the pill is gone before drawing</text>
+<rect x="175" y="432" width="330" height="28" rx="6" class="note"/>
+<text x="340" y="450" class="s c">draw: the desktop offscreen, pointer left out</text>
+<line x1="340" y1="500" x2="829" y2="500" class="ln" marker-end="url(#a)"/>
+<text x="715" y="493" class="s c">the picture</text>
+<rect x="175" y="520" width="330" height="28" rx="6" class="note"/>
+<text x="340" y="538" class="s c">white flash fades (drawn after, so not in the PNG)</text>
+<rect x="725" y="568" width="225" height="28" rx="6" class="note"/>
+<text x="837" y="586" class="s c">Screenshot 2026-11-03 at 21.04.33.png</text>
+</svg>
