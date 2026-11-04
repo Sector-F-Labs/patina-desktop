@@ -62,7 +62,7 @@ impl Section {
     /// Where the part goes, as `config` says.
     pub fn spot(self, config: &Config) -> Option<Spot> {
         match self {
-            Section::Launcher => Some(config.launcher_at),
+            Section::Launcher => config.launcher_at,
             Section::Windows => Some(config.windows_at),
             Section::Tray => Some(config.tray_at),
             Section::Media => media_apart(config),
@@ -80,17 +80,85 @@ pub fn media_apart(config: &Config) -> Option<Spot> {
         .filter(|spot| *spot != config.tray_at && config.has_module("media"))
 }
 
-/// Where each part is, of those on a surface of their own.
-fn spots(config: &Config) -> Vec<Spot> {
-    let mut spots = vec![config.launcher_at, config.windows_at, config.tray_at];
-    spots.extend(media_apart(config));
-    spots
+/// Each part on a surface of its own, and where it is: the launcher only
+/// when it has a spot.
+fn parts(config: &Config) -> Vec<(Section, Spot)> {
+    let mut parts = Vec::new();
+    parts.extend(config.launcher_at.map(|spot| (Section::Launcher, spot)));
+    parts.push((Section::Windows, config.windows_at));
+    parts.push((Section::Tray, config.tray_at));
+    parts.extend(media_apart(config).map(|spot| (Section::Media, spot)));
+    parts
 }
 
-/// The edges the parts are along, each to be kept once.
+/// How thick `section` is across its edge, in logical pixels: its own
+/// `*_height`, else the bar's `height`.
+pub fn thickness(section: Section, config: &Config) -> u32 {
+    match section {
+        Section::Launcher => config.launcher_height,
+        Section::Windows => config.windows_height,
+        Section::Tray | Section::Media => config.tray_height,
+        Section::Reserve(_) => None,
+    }
+    .unwrap_or(config.height)
+    .max(1)
+}
+
+/// The two edges a corner spot meets, or just its own for a spot in the
+/// middle of an edge.
+fn edges(spot: Spot) -> Vec<Side> {
+    let across = match (spot.side(), spot.along()) {
+        (_, Along::Middle) => return vec![spot.side()],
+        (Side::Top | Side::Bottom, Along::Start) => Side::Left,
+        (Side::Top | Side::Bottom, _) => Side::Right,
+        (_, Along::Start) => Side::Top,
+        (_, _) => Side::Bottom,
+    };
+    vec![spot.side(), across]
+}
+
+/// Whether the launcher, the one square part, is in a corner and stays
+/// there. Whatever is along either of its edges already keeps that space,
+/// as it's as far as the corner goes, so it takes no part in what's kept
+/// (see `kept`). A column spot with a part in the row of its corner stacks
+/// past that row (see `placement`): it's out of the corner then, over the
+/// windows' space, and keeps its edge like any other part.
+fn in_corner(config: &Config, section: Section, spot: Spot) -> bool {
+    section == Section::Launcher
+        && spot.along() != Along::Middle
+        && !spot
+            .corner_row()
+            .is_some_and(|row| parts(config).iter().any(|(_, at)| *at == row))
+}
+
+/// How much of `side` is kept, and so how far windows stay from it, as
+/// thick as the thickest part along it, or none when no part is. A launcher
+/// in a corner keeps nothing of its own, but is as thick as the edges it
+/// meets if something else keeps them, so it never covers a window.
+fn kept(config: &Config, side: Side) -> Option<u32> {
+    let all = parts(config);
+    let mut along = all
+        .iter()
+        .filter(|(section, spot)| !in_corner(config, *section, *spot) && spot.side() == side)
+        .map(|(section, _)| thickness(*section, config))
+        .peekable();
+    along.peek()?;
+    let mut most = along.max()?;
+    for (section, spot) in &all {
+        if in_corner(config, *section, *spot) && edges(*spot).contains(&side) {
+            most = most.max(thickness(*section, config));
+        }
+    }
+    Some(most)
+}
+
+/// The edges the parts keep, each once.
 pub fn reserved(config: &Config) -> Vec<Side> {
     let mut sides = Vec::new();
-    for spot in spots(config) {
+    for (section, spot) in parts(config) {
+        if in_corner(config, section, spot) {
+            continue;
+        }
         let side = spot.side();
         if !sides.contains(&side) {
             sides.push(side);
@@ -206,8 +274,8 @@ pub fn placement(section: Option<Section>, config: &Config, gaps: Gaps) -> Place
         };
     };
     if let Section::Reserve(side) = section {
-        // A pixel-thin strip along the whole edge, keeping as much as a
-        // part and its gap take.
+        // A pixel-thin strip along the whole edge, keeping as much as the
+        // thickest part along it and its gap take.
         let (anchor, size) = match side {
             Side::Top => (Anchor::TOP | Anchor::LEFT | Anchor::RIGHT, (0, 1)),
             Side::Bottom => (Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT, (0, 1)),
@@ -217,7 +285,7 @@ pub fn placement(section: Option<Section>, config: &Config, gaps: Gaps) -> Place
         return Placement {
             anchor,
             margin: (0, 0, 0, 0),
-            exclusive_zone: hi + g,
+            exclusive_zone: kept(config, side).map_or(0, |t| t as i32) + g,
             size,
             opens: side.name(),
             x: Along::Start,
@@ -250,17 +318,21 @@ pub fn placement(section: Option<Section>, config: &Config, gaps: Gaps) -> Place
         Along::Middle => {}
     }
     // Past what's before it at its end of the edge: a row in the corner a
-    // column ends in, and the launcher, when they share the spot. Both are
-    // as thick as the bar.
+    // column ends in (as thick as the thickest there), and the launcher,
+    // when they share the spot.
     let mut before = 0;
-    if spot
-        .corner_row()
-        .is_some_and(|row| spots(config).contains(&row))
-    {
-        before += hi + g;
+    if let Some(row) = spot.corner_row() {
+        let thickest = parts(config)
+            .iter()
+            .filter(|(_, at)| *at == row)
+            .map(|(s, _)| thickness(*s, config))
+            .max();
+        if let Some(t) = thickest {
+            before += t as i32 + g;
+        }
     }
-    if section != Section::Launcher && config.launcher_at == spot {
-        before += hi + g;
+    if section != Section::Launcher && config.launcher_at == Some(spot) {
+        before += thickness(Section::Launcher, config) as i32 + g;
     }
     if spot.along() != Along::Middle {
         let end = match (spot.vertical(), spot.along()) {
@@ -271,10 +343,11 @@ pub fn placement(section: Option<Section>, config: &Config, gaps: Gaps) -> Place
         };
         *end = g + before;
     }
+    let t = thickness(section, config);
     let size = match (section, spot.vertical()) {
-        (Section::Launcher, _) => (h, h),
-        (_, true) => (h, 200),
-        (_, false) => (240, h),
+        (Section::Launcher, _) => (t, t),
+        (_, true) => (t, 200),
+        (_, false) => (240, t),
     };
     Placement {
         anchor,
@@ -399,7 +472,8 @@ mod tests {
         assert_eq!(reserved(&c), [Side::Bottom]);
         let c =
             config("layout = \"split\"\ntray_at = \"top-right\"\nwindows_at = \"center-right\"");
-        assert_eq!(reserved(&c), [Side::Bottom, Side::Right, Side::Top]);
+        // The launcher's bottom-left corner keeps nothing of its own.
+        assert_eq!(reserved(&c), [Side::Right, Side::Top]);
         let keep = placement(Some(Section::Reserve(Side::Top)), &c, GAPS);
         assert_eq!(keep.exclusive_zone, 49);
         assert_eq!(keep.size, (0, 1));
@@ -438,5 +512,85 @@ mod tests {
         let same = config("layout = \"split\"\nmedia_at = \"bottom-right\"");
         assert_eq!(media_apart(&same), None, "it would cover the tray");
         assert_eq!(modules(Section::Tray, &same)[0], "media");
+    }
+
+    #[test]
+    fn a_launcher_in_a_corner_keeps_no_edge_of_its_own() {
+        // The defaults: the launcher is bottom-left, the tray bottom-right.
+        // The bottom is kept for the tray, so the launcher adds nothing.
+        let c = config("layout = \"split\"\nwindows_at = \"top\"\ntray_at = \"top-right\"");
+        assert_eq!(
+            reserved(&c),
+            [Side::Top],
+            "nothing keeps the bottom or left"
+        );
+        let c = config("layout = \"split\"\nwindows_at = \"left\"\ntray_at = \"top-right\"");
+        assert_eq!(
+            reserved(&c),
+            [Side::Left, Side::Top],
+            "windows fill to the bottom: the left is kept top to bottom, not the bottom"
+        );
+    }
+
+    #[test]
+    fn a_launcher_in_the_middle_of_an_edge_keeps_it() {
+        let c = config("layout = \"split\"\nlauncher_at = \"right\"");
+        assert!(reserved(&c).contains(&Side::Right));
+    }
+
+    #[test]
+    fn a_corner_launcher_is_as_thick_as_the_edges_kept_beside_it() {
+        let c = config("layout = \"split\"\nlauncher_height = 64\ntray_height = 24");
+        // Bottom: the tray's 24 and the launcher's 64, which sits in the corner.
+        assert_eq!(kept(&c, Side::Bottom), Some(64));
+        assert_eq!(kept(&c, Side::Left), None, "nothing keeps the left");
+        let keep = placement(Some(Section::Reserve(Side::Bottom)), &c, GAPS);
+        assert_eq!(keep.exclusive_zone, 64 + 8);
+    }
+
+    #[test]
+    fn parts_are_as_thick_as_they_are_told() {
+        let c = config("layout = \"split\"\nwindows_height = 72\ntray_height = 24");
+        assert_eq!(thickness(Section::Windows, &c), 72);
+        assert_eq!(thickness(Section::Tray, &c), 24);
+        assert_eq!(thickness(Section::Launcher, &c), 41);
+        assert_eq!(placement(Some(Section::Windows), &c, GAPS).size.1, 72);
+        assert_eq!(placement(Some(Section::Tray), &c, GAPS).size.1, 24);
+        // The bottom is kept as far as the dock reaches.
+        assert_eq!(
+            placement(Some(Section::Reserve(Side::Bottom)), &c, GAPS).exclusive_zone,
+            72 + 8
+        );
+    }
+
+    #[test]
+    fn without_a_launcher_nothing_runs_it_or_stacks_past_it() {
+        let c = config("layout = \"split\"\nlauncher_at = \"none\"\nwindows_at = \"left-bottom\"");
+        assert_eq!(c.launcher_at, None);
+        let column = placement(Some(Section::Windows), &c, GAPS);
+        assert_eq!(
+            column.margin,
+            (0, 0, 8, 8),
+            "at the corner: nothing's in it"
+        );
+        assert_eq!(reserved(&c), [Side::Left, Side::Bottom]);
+    }
+
+    #[test]
+    fn a_launcher_stacked_above_a_row_keeps_its_side() {
+        // `left-bottom` with a window list along the bottom-left: the
+        // launcher sits above the row, out of the corner.
+        let c = config(
+            "layout = \"split\"\nlauncher_at = \"left-bottom\"\nwindows_at = \"bottom-left\"",
+        );
+        let launcher = placement(Some(Section::Launcher), &c, GAPS);
+        assert_eq!(launcher.margin, (0, 0, 8 + 41 + 8, 8));
+        assert!(reserved(&c).contains(&Side::Left));
+        assert_eq!(kept(&c, Side::Left), Some(41));
+        // With nothing in the corner's row it's in the corner, and keeps nothing.
+        let c = config(
+            "layout = \"split\"\nlauncher_at = \"left-bottom\"\nwindows_at = \"top\"\ntray_at = \"top-right\"",
+        );
+        assert!(!reserved(&c).contains(&Side::Left));
     }
 }

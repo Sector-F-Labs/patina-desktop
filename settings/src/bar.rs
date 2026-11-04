@@ -1,6 +1,6 @@
 //! The Bar page (ADR-0050): what the window tabs show, which edge the bar
 //! sits on, whether it's one bar or split into its parts and where each
-//! goes (experimental), and the bar's config file for everything else. All
+//! goes, and the bar's config file for everything else. All
 //! are top-level keys in the bar's config, which the bar follows within a
 //! second.
 
@@ -41,6 +41,9 @@ const PARTS: [(&str, &str, &str, &str); 3] = [
     ("windows_at", "Window list", "W", "bottom-center"),
     ("tray_at", "Tray", "T", "bottom-right"),
 ];
+
+/// The launcher's value for no button: it has its own shortcut.
+const NONE: &str = "none";
 
 /// A spot as the config may say it, older names included.
 fn spot(value: &str) -> Option<&'static str> {
@@ -92,7 +95,16 @@ fn mark_rect(index: usize, nth: usize, inner: egui::Rect) -> egui::Rect {
     egui::Rect::from_center_size(spot_point(index, inner) + step * nth as f32, size)
 }
 
+/// The thinnest and thickest a part can be made here, in pixels.
+const SIZES: std::ops::RangeInclusive<u32> = 16..=160;
+
+/// What the bar's `height` is when the file doesn't say.
+const HEIGHT: u32 = 41;
+
 pub struct BarPage {
+    /// How thick each part is, in the order of `PARTS`: its `*_height`, or
+    /// the bar's `height` where that's unset.
+    sizes: [u32; 3],
     window_tabs: String,
     top: bool,
     split: bool,
@@ -115,6 +127,7 @@ impl BarPage {
             top: false,
             split: false,
             spots: [PARTS[0].3, PARTS[1].3, PARTS[2].3],
+            sizes: [HEIGHT; 3],
             dragging: None,
         };
         page.reload();
@@ -128,8 +141,20 @@ impl BarPage {
             .unwrap_or_else(|| "both".into());
         self.top = read("position").as_deref() == Some("top");
         self.split = read("layout").as_deref() == Some("split");
+        let height = read("height")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(HEIGHT);
+        for (i, (key, ..)) in PARTS.iter().enumerate() {
+            let own = read(&key.replace("_at", "_height")).and_then(|v| v.parse().ok());
+            self.sizes[i] = own.unwrap_or(height);
+        }
         for (i, (key, _, _, default)) in PARTS.iter().enumerate() {
-            self.spots[i] = read(key).as_deref().and_then(spot).unwrap_or(default);
+            let value = read(key);
+            self.spots[i] = match value.as_deref() {
+                // The launcher button can be left out.
+                Some("none" | "off" | "hidden") if *key == "launcher_at" => NONE,
+                v => v.and_then(spot).unwrap_or(default),
+            };
         }
     }
 
@@ -137,10 +162,7 @@ impl BarPage {
     /// map of the screen.
     fn layout(&mut self, ui: &mut Ui, message: &mut Option<Message>) {
         ui.label(RichText::new("Layout").strong());
-        for (split, name) in [
-            (false, "One bar"),
-            (true, "Split into its parts (experimental)"),
-        ] {
+        for (split, name) in [(false, "One bar"), (true, "Split into its parts")] {
             if ui.radio(self.split == split, name).clicked() && self.split != split {
                 self.split = split;
                 Self::set("layout", if split { "split" } else { "bar" }, message);
@@ -153,24 +175,38 @@ impl BarPage {
             RichText::new(
                 "The launcher, the window list and the tray each on their own, anywhere along \
                  the screen's edges: a row along the top or bottom, a column up a side. Drag \
-                 them on the map, or choose from the lists.",
+                 them on the map, or choose from the lists. A thicker window list is a dock; \
+                 a thinner tray is a status line.",
             )
             .small()
             .weak(),
         );
         ui.add_space(4.0);
         ui.horizontal(|ui| {
-            egui::Grid::new("bar-parts").num_columns(2).show(ui, |ui| {
+            egui::Grid::new("bar-parts").num_columns(3).show(ui, |ui| {
                 for (i, (key, name, _, _)) in PARTS.iter().enumerate() {
                     ui.label(*name);
-                    let shown = SPOTS
-                        .iter()
-                        .find(|(v, ..)| *v == self.spots[i])
-                        .map_or(self.spots[i], |(_, label, _)| *label);
+                    let shown = if self.spots[i] == NONE {
+                        "Not shown"
+                    } else {
+                        SPOTS
+                            .iter()
+                            .find(|(v, ..)| *v == self.spots[i])
+                            .map_or(self.spots[i], |(_, label, _)| *label)
+                    };
                     egui::ComboBox::from_id_salt(*key)
                         .width(140.0)
                         .selected_text(shown)
                         .show_ui(ui, |ui| {
+                            if *key == "launcher_at"
+                                && ui
+                                    .selectable_label(self.spots[i] == NONE, "Not shown")
+                                    .clicked()
+                                && self.spots[i] != NONE
+                            {
+                                self.spots[i] = NONE;
+                                Self::set(key, NONE, message);
+                            }
                             for (value, label, _) in SPOTS {
                                 if ui.selectable_label(self.spots[i] == value, label).clicked()
                                     && self.spots[i] != value
@@ -180,6 +216,15 @@ impl BarPage {
                                 }
                             }
                         });
+                    let size = egui::DragValue::new(&mut self.sizes[i])
+                        .range(SIZES)
+                        .suffix(" px");
+                    let response = ui
+                        .add_enabled(self.spots[i] != NONE, size)
+                        .on_hover_text("How thick it is across its edge");
+                    if response.drag_stopped() || response.lost_focus() {
+                        Self::set_number(&key.replace("_at", "_height"), self.sizes[i], message);
+                    }
                     ui.end_row();
                 }
             });
@@ -212,6 +257,9 @@ impl BarPage {
         let mut dropped = None;
         let mut placed: Vec<usize> = Vec::new();
         for (part, (_, name, mark, _)) in PARTS.iter().enumerate() {
+            if self.spots[part] == NONE {
+                continue;
+            }
             let at = match self.dragging {
                 Some((p, spot)) if p == part => spot,
                 _ => SPOTS
@@ -265,6 +313,24 @@ impl BarPage {
                 self.spots[part] = value;
                 Self::set(PARTS[part].0, value, message);
             }
+        }
+    }
+
+    /// Sets `key` to a number, as the bar reads it: a bare integer, which
+    /// `patina_shell::bar::set` (strings only) can't write.
+    fn set_number(key: &str, value: u32, message: &mut Option<Message>) {
+        let result = (|| {
+            let path = patina_shell::bar::config_path().ok_or("no home folder")?;
+            let text = std::fs::read_to_string(&path).unwrap_or_default();
+            let text = patina_shell::bar::with_top_level(&text, key, &value.to_string());
+            let text = text.replace(&format!("{key} = \"{value}\""), &format!("{key} = {value}"));
+            if let Some(dir) = path.parent() {
+                std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+            }
+            std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))
+        })();
+        if let Err(e) = result {
+            *message = Some(Message::error(format!("Couldn't save the setting: {e}")));
         }
     }
 

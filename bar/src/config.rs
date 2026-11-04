@@ -161,6 +161,23 @@ impl From<WindowTabs> for patina::tabs::TabLabel {
     }
 }
 
+/// A spot, or "none" (also "off", "hidden") for no part at all.
+fn optional_spot<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Spot>, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Choice {
+        Spot(Spot),
+        Word(String),
+    }
+    match Choice::deserialize(d)? {
+        Choice::Spot(spot) => Ok(Some(spot)),
+        Choice::Word(w) if matches!(w.as_str(), "none" | "off" | "hidden") => Ok(None),
+        Choice::Word(w) => Err(serde::de::Error::custom(format!(
+            "unknown launcher_at `{w}`: a spot like \"bottom-left\", or \"none\""
+        ))),
+    }
+}
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -182,13 +199,22 @@ pub struct Config {
     pub layout: Layout,
     /// Split, where each part goes: an edge, then where along it, as
     /// "bottom-left" (a row) or "left-bottom" (a column); see `Spot`.
-    pub launcher_at: Spot,
+    /// `"none"` leaves the launcher button out: the launcher has its own
+    /// shortcut.
+    #[serde(deserialize_with = "optional_spot")]
+    pub launcher_at: Option<Spot>,
     pub windows_at: Spot,
     pub tray_at: Spot,
     /// Split, where the media controls go when they're apart from the tray
     /// (ADR-0101); unset, they stay in the tray's part. Ignored where
     /// `media` isn't one of the modules, and where it is the tray's spot.
     pub media_at: Option<Spot>,
+    /// Split, how thick each part is across its edge, in logical pixels
+    /// (its height along the top or bottom, its width up a side); unset,
+    /// `height`. A tall window list is a dock; a small tray is a status line.
+    pub launcher_height: Option<u32>,
+    pub windows_height: Option<u32>,
+    pub tray_height: Option<u32>,
     /// A strftime format, as in date(1).
     pub clock: String,
     /// What the launcher button runs, through sh(1).
@@ -241,10 +267,13 @@ impl Default for Config {
             ],
             window_tabs: WindowTabs::Both,
             layout: Layout::Bar,
-            launcher_at: Spot::BottomLeft,
+            launcher_at: Some(Spot::BottomLeft),
             windows_at: Spot::BottomCenter,
             tray_at: Spot::BottomRight,
             media_at: None,
+            launcher_height: None,
+            windows_height: None,
+            tray_height: None,
             clock: "%a %-d %b  %H:%M".into(),
             launcher: "patina-launcher".into(),
             volume: "patina-volume".into(),
@@ -353,10 +382,10 @@ mod tests {
         assert_eq!(c.windows_at, Spot::LeftCenter, "the old name for it");
         assert!(c.windows_at.vertical());
         assert_eq!(c.tray_at, Spot::TopRight);
-        assert_eq!(c.launcher_at, Spot::BottomLeft);
+        assert_eq!(c.launcher_at, Some(Spot::BottomLeft));
         let (c, w) = parse("launcher_at = \"center-right\"\nwindows_at = \"left-bottom\"\n");
         assert!(w.is_empty(), "{w:?}");
-        assert_eq!(c.launcher_at, Spot::RightCenter);
+        assert_eq!(c.launcher_at, Some(Spot::RightCenter));
         assert_eq!(
             (c.windows_at.x(), c.windows_at.y()),
             (Along::Start, Along::End)
@@ -365,6 +394,18 @@ mod tests {
         assert_eq!(c.windows_at.corner_row(), Some(Spot::BottomLeft));
         assert!(!Spot::BottomLeft.vertical());
         assert_eq!(parse("").0.layout, Layout::Bar);
+    }
+
+    #[test]
+    fn the_launcher_can_be_left_out_and_parts_sized() {
+        let (c, w) = parse("launcher_at = \"none\"\ntray_height = 24\nwindows_height = 64\n");
+        assert!(w.is_empty(), "{w:?}");
+        assert_eq!(c.launcher_at, None);
+        assert_eq!((c.tray_height, c.windows_height), (Some(24), Some(64)));
+        assert_eq!(c.launcher_height, None);
+        let (c, w) = parse("launcher_at = \"sideways\"");
+        assert_eq!(c.launcher_at, Config::default().launcher_at);
+        assert_eq!(w.len(), 1);
     }
 
     #[test]

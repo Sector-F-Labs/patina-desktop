@@ -9,8 +9,12 @@
 use egui::{Sense, Ui, vec2};
 use patina_system::audio::Volume;
 
-/// Space around the icon inside its button, as the launcher's.
-pub const PADDING: f32 = 10.0;
+/// Space around the icon inside a button `side` wide: 10 px, as the
+/// launcher's, in a bar's height, less in a thin tray so its icons stay a
+/// size to see (16 px at 24).
+pub fn padding(side: f32) -> f32 {
+    ((side - 16.0) / 2.0).clamp(2.0, 10.0)
+}
 
 /// The side of a square button in `ui`: as thick as the bar, across a row
 /// or a column, whatever room is left along it.
@@ -38,7 +42,7 @@ pub fn status_item(
         ui.painter()
             .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
     }
-    let icon = (side - 2.0 * PADDING).round();
+    let icon = (side - 2.0 * padding(side)).round();
     let corner = rect.center() - vec2(icon, icon) / 2.0;
     let corner = egui::emath::GuiRounding::round_to_pixels(corner, ui.ctx().pixels_per_point());
     let mark = egui::Rect::from_min_size(corner, vec2(icon, icon));
@@ -88,7 +92,11 @@ fn icon_button(
         v.text_color()
     };
     // The skip buttons' glyphs are smaller than a status icon's.
-    paint(ui.painter(), rect.shrink(PADDING + 2.0), colour);
+    paint(
+        ui.painter(),
+        rect.shrink(padding(rect.width()) + 2.0),
+        colour,
+    );
     crate::tooltip::hover(ui, &response, tip);
     response
 }
@@ -153,7 +161,12 @@ pub fn wifi(
     } else {
         v.text_color()
     };
-    patina_system::icons::wifi(ui.painter(), rect.shrink(PADDING), strength, colour);
+    patina_system::icons::wifi(
+        ui.painter(),
+        rect.shrink(padding(rect.width())),
+        strength,
+        colour,
+    );
     let tip = match strength {
         Some(s) => format!("Wi-Fi {s}%"),
         None => "Wi-Fi not connected".into(),
@@ -224,9 +237,9 @@ pub fn clock(
         .layout_no_wrap(text, font, egui::Color32::PLACEHOLDER);
     let side = side(ui);
     let size = if ui.layout().main_dir().is_vertical() {
-        vec2(side, galley.size().y + 2.0 * PADDING)
+        vec2(side, galley.size().y + 2.0 * padding(side))
     } else {
-        vec2(galley.size().x + 2.0 * PADDING, side)
+        vec2(galley.size().x + 2.0 * padding(side), side)
     };
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     if response.hovered() {
@@ -269,7 +282,7 @@ pub fn power(
     } else {
         v.text_color()
     };
-    patina_system::icons::power(ui.painter(), rect.shrink(PADDING), colour);
+    patina_system::icons::power(ui.painter(), rect.shrink(padding(rect.width())), colour);
     crate::tooltip::hover(ui, &response, "Lock, log out, restart or shut down");
     if response.clicked() {
         crate::launcher::run(command, skin, &opening(rect));
@@ -300,7 +313,7 @@ pub fn speaker(
     };
     patina_system::icons::speaker(
         ui.painter(),
-        rect.shrink(PADDING),
+        rect.shrink(padding(rect.width())),
         volume.level,
         volume.muted,
         colour,

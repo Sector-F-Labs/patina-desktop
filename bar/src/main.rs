@@ -81,6 +81,10 @@ fn main() -> ExitCode {
     let gaps = gaps::read();
     // Split, this one draws the window list and runs the other parts.
     let section = match (config.layout, section_arg) {
+        // The launcher button left out: a stray one goes.
+        (Layout::Split, Some(Section::Launcher)) if config.launcher_at.is_none() => {
+            return ExitCode::SUCCESS;
+        }
         (Layout::Split, Some(s)) => Some(s),
         (Layout::Split, None) => Some(Section::Windows),
         // A part left over from a split bar that's whole again goes.
@@ -88,7 +92,10 @@ fn main() -> ExitCode {
         (Layout::Bar, None) => None,
     };
     let parts = if config.layout == Layout::Split && section_arg.is_none() {
-        let mut parts = vec![Section::Launcher, Section::Tray];
+        let mut parts = vec![Section::Tray];
+        if config.launcher_at.is_some() {
+            parts.push(Section::Launcher);
+        }
         if split::media_apart(&config).is_some() {
             parts.push(Section::Media);
         }
@@ -365,9 +372,11 @@ fn run(
     // with, wherever its tray is.
     if uses_tray {
         let (sent, items) = channel::channel::<Vec<patina_system::sni::Item>>();
-        let pixels = (host.shell.config.height.max(1) as f32 - 2.0 * tray::PADDING)
-            .round()
-            .max(8.0) as u32;
+        let side = match host.shell.section {
+            Some(_) => split::thickness(Section::Tray, &host.shell.config) as f32,
+            None => host.shell.config.height.max(1) as f32,
+        };
+        let pixels = (side - 2.0 * tray::padding(side)).round().max(8.0) as u32;
         match patina_system::sni::start(pixels, move |list| sent.send(list).is_ok()) {
             Ok(handle) => host.shell.tray = Some(handle),
             Err(e) => eprintln!("patina-bar: no tray for apps' icons: {e}"),
@@ -479,7 +488,11 @@ fn run(
                                 && (config.windows_at != current.windows_at
                                     || config.launcher_at != current.launcher_at
                                     || config.tray_at != current.tray_at
-                                    || config.height != current.height));
+                                    || config.media_at != current.media_at
+                                    || config.height != current.height
+                                    || config.launcher_height != current.launcher_height
+                                    || config.windows_height != current.windows_height
+                                    || config.tray_height != current.tray_height));
                         // The parts go with the bar that ran them.
                         if relaid && !is_part {
                             restart(&mut parts);

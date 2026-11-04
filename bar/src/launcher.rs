@@ -7,9 +7,12 @@ use std::process::{Command, Stdio};
 
 use egui::{Id, Sense, TextureHandle, TextureOptions, Ui, vec2};
 
-/// Space around the logo inside the button, in points: a Patina header
-/// bar's margin, so the logo is as tall as a title bar's contents.
-const PADDING: f32 = 8.0;
+/// Space around the logo inside a button `side` wide, in points: a Patina
+/// header bar's margin (8), so the logo is as tall as a title bar's
+/// contents, and a fifth of the button when that's smaller.
+fn padding(side: f32) -> f32 {
+    (side * 0.2).min(8.0)
+}
 
 /// Where a piece the bar opens goes: the bar's edge (`PATINA_BAR_EDGE`),
 /// and where on the screen the button that opened it is
@@ -36,7 +39,7 @@ pub fn button(ui: &mut Ui, command: &str, skin: &str, opening: &dyn Fn(egui::Rec
     } else {
         v.text_color()
     };
-    let icon = rect.shrink(PADDING);
+    let icon = rect.shrink(padding(side));
     let pixels = (icon.width() * ui.ctx().pixels_per_point())
         .round()
         .max(1.0) as u32;

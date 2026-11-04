@@ -303,7 +303,8 @@ impl Bar {
     /// menu at the icon.
     fn tray_items(&self, ui: &mut Ui) {
         use patina_system::sni::Status;
-        let pixels = ((crate::tray::side(ui) - 2.0 * crate::tray::PADDING).round()
+        let pixels = ((crate::tray::side(ui) - 2.0 * crate::tray::padding(crate::tray::side(ui)))
+            .round()
             * ui.ctx().pixels_per_point())
         .round() as u32;
         for item in self
@@ -940,7 +941,7 @@ impl Bar {
         ui.painter()
             .rect_stroke(island, radius, line, egui::StrokeKind::Inside);
         let inner = island.shrink(line.width);
-        let height = self.config.height.max(1);
+        let height = crate::split::thickness(section, &self.config);
         match section {
             Section::Reserve(_) => {}
             Section::Windows if vertical => {
@@ -952,8 +953,9 @@ impl Bar {
             Section::Windows => {
                 // Each tab as wide as a full bar's would be at most, or an
                 // icon's.
+                let icon = (height as f32 + 3.0).max(44.0);
                 let per = if self.config.window_tabs == crate::config::WindowTabs::Icons {
-                    44.0
+                    icon
                 } else {
                     180.0
                 };
@@ -968,7 +970,7 @@ impl Bar {
                     .iter()
                     .map(|t| {
                         if matches!(t, Tab::Launcher(_)) {
-                            44.0
+                            icon
                         } else {
                             per
                         }
@@ -1417,14 +1419,42 @@ mod tests {
             ("split-windows", Section::Windows, "bottom", (600, 41), ""),
             ("split-launcher", Section::Launcher, "bottom", (41, 41), ""),
             ("split-tray", Section::Tray, "bottom", (260, 41), ""),
-            ("split-column", Section::Windows, "center-left", (41, 200), ""),
-            ("split-tray-column", Section::Tray, "center-left", (41, 200), ""),
-            ("split-media", Section::Media, "bottom", (130, 41), "top-right"),
-            ("split-media-column", Section::Media, "bottom", (41, 130), "left-top"),
+            (
+                "split-column",
+                Section::Windows,
+                "center-left",
+                (41, 200),
+                "",
+            ),
+            (
+                "split-tray-column",
+                Section::Tray,
+                "center-left",
+                (41, 200),
+                "",
+            ),
+            (
+                "split-media",
+                Section::Media,
+                "bottom",
+                (130, 41),
+                "top-right",
+            ),
+            (
+                "split-media-column",
+                Section::Media,
+                "bottom",
+                (41, 130),
+                "left-top",
+            ),
         ] {
             let mut b = bar(&format!(
                 "layout = \"split\"\nwindows_at = \"{edge}\"\ntray_at = \"{edge}\"\nmedia_at = \"{}\"\nright = [\"media\", \"clock\", \"power\"]",
-                if media_at.is_empty() { "bottom-center" } else { media_at }
+                if media_at.is_empty() {
+                    "bottom-center"
+                } else {
+                    media_at
+                }
             ));
             b.media = Some(patina_system::mpris::Player {
                 bus_name: "org.mpris.MediaPlayer2.unamp".into(),
