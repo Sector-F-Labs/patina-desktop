@@ -11,4 +11,5 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 egui = "0.35"
 libc = "0.2"
 patina-shell = { workspace = true }
+patina-system = { path = "../system" }
 patina-ui = { workspace = true }

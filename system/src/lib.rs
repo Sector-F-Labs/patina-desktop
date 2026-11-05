@@ -10,10 +10,11 @@
 //! shutting down (`session`), the compositor's tiling (`tiling`), and the
 //! apps pinned to the bar and its tabs' order (`pins`), the open windows'
 //! processes (`windows`), and how the wallpaper fits the screen
-//! (`wallpaper`).
+//! (`wallpaper`), and the user's picture (`avatar`).
 
 pub mod apps;
 pub mod audio;
+pub mod avatar;
 pub mod backlight;
 pub mod battery_history;
 pub mod defaults;

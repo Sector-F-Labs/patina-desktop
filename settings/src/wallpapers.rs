@@ -39,7 +39,7 @@ pub fn find() -> Vec<Wallpaper> {
 }
 
 /// The images directly in `dir`, by name.
-fn images(dir: &Path) -> Vec<Wallpaper> {
+pub fn images(dir: &Path) -> Vec<Wallpaper> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };

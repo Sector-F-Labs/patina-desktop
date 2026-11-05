@@ -29,6 +29,7 @@ pub enum Page {
     Appearance,
     Bar,
     Wallpaper,
+    Account,
     Defaults,
     Keyboard,
     Dictation,
@@ -38,10 +39,11 @@ pub enum Page {
 }
 
 impl Page {
-    const ALL: [Page; 9] = [
+    const ALL: [Page; 10] = [
         Page::Appearance,
         Page::Bar,
         Page::Wallpaper,
+        Page::Account,
         Page::Defaults,
         Page::Keyboard,
         Page::Dictation,
@@ -55,6 +57,7 @@ impl Page {
             "appearance" => Some(Page::Appearance),
             "bar" => Some(Page::Bar),
             "wallpaper" => Some(Page::Wallpaper),
+            "account" => Some(Page::Account),
             "defaults" => Some(Page::Defaults),
             "keyboard" => Some(Page::Keyboard),
             "dictation" => Some(Page::Dictation),
@@ -70,6 +73,7 @@ impl Page {
             Page::Appearance => "Appearance",
             Page::Bar => "Bar",
             Page::Wallpaper => "Wallpaper",
+            Page::Account => "Account",
             Page::Defaults => "Defaults",
             Page::Keyboard => "Keyboard",
             Page::Dictation => "Dictation",
@@ -122,6 +126,7 @@ pub struct App {
     decoded: Option<mpsc::Receiver<(PathBuf, Option<egui::ColorImage>)>>,
     /// The flask, for the default wallpaper's tile.
     flask: Option<TextureHandle>,
+    account: crate::account::AccountPage,
     bar: crate::bar::BarPage,
     defaults: crate::defaults::DefaultsPage,
     color_scheme: crate::color_scheme::ColorSchemeSection,
@@ -143,7 +148,7 @@ impl App {
         let mut app = Self {
             custom_frame: true,
             page,
-            skins,
+            skins: Vec::new(),
             skin_errors,
             skin: 0,
             bar_mtime: None,
@@ -153,6 +158,7 @@ impl App {
             thumbnails: HashMap::new(),
             decoded: None,
             flask: None,
+            account: crate::account::AccountPage::new(&skins),
             bar: crate::bar::BarPage::new(),
             defaults: crate::defaults::DefaultsPage::new(),
             color_scheme: crate::color_scheme::ColorSchemeSection::new(),
@@ -165,6 +171,7 @@ impl App {
             processes: crate::processes::ProcessesPage::new(ctx),
             message: None,
         };
+        app.skins = skins;
         app.follow_shell_skin(ctx);
         app
     }
@@ -604,6 +611,7 @@ impl App {
                     egui::ScrollArea::vertical().show(ui, |ui| self.bar.ui(ui, &mut self.message));
                 }
                 Page::Wallpaper => self.wallpaper_page(ui),
+                Page::Account => self.account.ui(ui, &mut self.message),
                 Page::Defaults => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.defaults.ui(ui, &mut self.message));

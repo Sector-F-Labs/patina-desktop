@@ -6,9 +6,11 @@ unlocks once PAM accepts the password (ADR-0028).
 ## On the desktop
 
 The compositor locks with Ctrl+Super+Q, Super+Escape, and before the machine sleeps. Every
-output shows the time and date; the one with the keyboard also shows who's locked and a
-password box. Typing shows only dots; Enter checks the password, and a wrong one is cleared with "Wrong
-password" under the box.
+output shows the time and date; the one with the keyboard also shows who's locked, with their
+picture (`~/.face`, set in Settings' Account page, or their initial) and a password box. The box
+has a ring and a caret while it waits and one dot per key typed. Enter or its arrow button checks
+the password, a spinner shows while PAM does, and a wrong one shakes the box and is cleared with
+"Wrong password" under it.
 
 ## How it fits in
 

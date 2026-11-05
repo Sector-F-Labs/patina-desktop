@@ -3,6 +3,7 @@
 //! bar, the wallpaper and Night Light. It edits the files those settings live in
 //! (the bar's config, the compositor's), and the pieces reading them follow.
 
+mod account;
 mod app;
 mod bar;
 mod battery;

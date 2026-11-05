@@ -12,6 +12,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 eframe = "0.35"
 egui = "0.35"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+rfd = "0.17"
 patina-shell = { workspace = true }
 patina-system = { path = "../system" }
 patina-ui = { workspace = true }

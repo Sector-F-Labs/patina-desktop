@@ -17,6 +17,9 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   bar or split (ADR-0063), each part dragged to its spot on a map of the screen.
 - **Wallpaper**: the default "Sector F Labs" and the images in `~/Pictures/Wallpapers` and the
   system's backgrounds, as thumbnails decoded off the UI thread.
+- **Account** (ADR-0104): your picture for the lock screen: the Sector F flask in each skin's
+  colours, an image from `~/Pictures/Avatars`, or any picture through the desktop's file chooser
+  (the portal, which is Files in the Patina session), cropped square and written to `~/.face`.
 - **Defaults** (ADR-0079): the app that opens links and each kind of file Files opens (web
   browser, email, calendar, folders, images, documents, text, music, video, archives), chosen
   from the installed apps that take it and saved in `~/.config/patina/defaults.toml`, which
@@ -67,7 +70,7 @@ patina-night-light inhibit -- darktable   # held off while a command runs
 
 ## Code
 
-`main.rs`, `app.rs` (the window, the Appearance and Wallpaper pages), `bar.rs` (the Bar page),
+`main.rs`, `app.rs` (the window, the Appearance and Wallpaper pages), `account.rs` (the Account page), `bar.rs` (the Bar page),
 `defaults.rs` (the Defaults page), `night_light.rs` and
 `power.rs` and `processes.rs` (theirs), `battery.rs` (the Power and Battery page's battery and its
 graphs; `cargo test -p patina-settings preview_the_battery -- --ignored` with

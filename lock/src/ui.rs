@@ -6,6 +6,7 @@
 //! copies of it: keys are read straight from egui's input, only dots are
 //! shown, and it's wiped once checked or cleared.
 
+use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 
@@ -14,6 +15,10 @@ use patina::skin::Skin;
 use patina_shell::Shell;
 
 const FIELD: egui::Vec2 = vec2(320.0, 46.0);
+/// The heights, in points, of the clock and date, and of the picture, name,
+/// box and message under them, to centre them by.
+const CLOCK: f32 = 140.0;
+const LOGIN: f32 = 210.0;
 /// How long the box shakes after a wrong password.
 const SHAKE: f32 = 0.45;
 /// Longer than any password; what's typed past it is dropped.
@@ -39,6 +44,9 @@ pub struct LockScreen {
     wrong_at: Option<Instant>,
     unlocked: bool,
     check: Sender<String>,
+    /// The user's picture, if they have one, and its texture on each output.
+    face: Option<egui::ColorImage>,
+    faces: HashMap<String, egui::TextureHandle>,
 }
 
 impl LockScreen {
@@ -51,6 +59,8 @@ impl LockScreen {
             wrong_at: None,
             unlocked: false,
             check,
+            face: patina_system::avatar::load(),
+            faces: HashMap::new(),
         }
     }
 
@@ -114,10 +124,26 @@ impl LockScreen {
         }
     }
 
-    /// A disc with the name's first letter, in the skin's accent.
-    fn avatar(&self, ui: &mut Ui) {
+    /// The user's picture in a circle, or a disc with the name's first
+    /// letter, in the skin's accent.
+    fn avatar(&mut self, ui: &mut Ui, output: &str) {
         let side = 84.0;
         let (rect, _) = ui.allocate_exact_size(vec2(side, side), Sense::hover());
+        if let Some(face) = &self.face {
+            let texture = self.faces.entry(output.to_string()).or_insert_with(|| {
+                ui.ctx()
+                    .load_texture("face", face.clone(), egui::TextureOptions::LINEAR)
+            });
+            egui::Image::from_texture(&*texture)
+                .corner_radius(side / 2.0)
+                .paint_at(ui, rect);
+            ui.painter().circle_stroke(
+                rect.center(),
+                side / 2.0,
+                Stroke::new(2.0, ui.visuals().selection.bg_fill),
+            );
+            return;
+        }
         let v = ui.visuals();
         ui.painter()
             .circle_filled(rect.center(), side / 2.0, v.selection.bg_fill);
@@ -252,7 +278,7 @@ impl Shell for LockScreen {
         }
     }
 
-    fn ui(&mut self, ui: &mut Ui, _: &str) {
+    fn ui(&mut self, ui: &mut Ui, output: &str) {
         let focused = ui.input(|i| i.focused);
         if focused {
             self.typed(ui);
@@ -262,7 +288,13 @@ impl Shell for LockScreen {
 
         let now = chrono::Local::now();
         ui.vertical_centered(|ui| {
-            ui.add_space(rect.height() * 0.18);
+            // The clock goes near the top where there's a login below it, and
+            // in the middle where there isn't.
+            ui.add_space(if focused {
+                rect.height() * 0.14
+            } else {
+                (rect.height() - CLOCK).max(0.0) / 2.0
+            });
             ui.label(
                 RichText::new(now.format("%H:%M").to_string())
                     .size(96.0)
@@ -272,8 +304,10 @@ impl Shell for LockScreen {
             if !focused {
                 return;
             }
-            ui.add_space(48.0);
-            self.avatar(ui);
+            // The picture, name and box are centred on the screen as one.
+            let top = rect.center().y - LOGIN / 2.0;
+            ui.add_space((top - ui.cursor().top()).max(32.0));
+            self.avatar(ui, output);
             ui.add_space(10.0);
             ui.label(RichText::new(&self.name).size(20.0));
             ui.add_space(14.0);
