@@ -7,13 +7,15 @@
 //! shown, and it's wiped once checked or cleared.
 
 use std::sync::mpsc::Sender;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use egui::{Align2, FontId, Rect, RichText, Sense, StrokeKind, Ui, vec2};
+use egui::{Align2, CornerRadius, FontId, RichText, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
 use patina::skin::Skin;
 use patina_shell::Shell;
 
-const FIELD: egui::Vec2 = vec2(300.0, 40.0);
+const FIELD: egui::Vec2 = vec2(320.0, 46.0);
+/// How long the box shakes after a wrong password.
+const SHAKE: f32 = 0.45;
 /// Longer than any password; what's typed past it is dropped.
 const MAX_PASSWORD: usize = 1024;
 
@@ -33,6 +35,8 @@ pub struct LockScreen {
     name: String,
     password: String,
     status: Status,
+    /// When the last password was refused, for the shake.
+    wrong_at: Option<Instant>,
     unlocked: bool,
     check: Sender<String>,
 }
@@ -44,6 +48,7 @@ impl LockScreen {
             name,
             password: String::with_capacity(MAX_PASSWORD),
             status: Status::Typing,
+            wrong_at: None,
             unlocked: false,
             check,
         }
@@ -56,9 +61,23 @@ impl LockScreen {
                 self.unlocked = true;
                 Status::Typing
             }
-            Ok(false) => Status::Wrong,
+            Ok(false) => {
+                self.wrong_at = Some(Instant::now());
+                Status::Wrong
+            }
             Err(e) => Status::Problem(e),
         };
+    }
+
+    /// Sends the password to be checked, if there is one.
+    fn submit(&mut self) {
+        if self.password.is_empty() || self.status == Status::Checking {
+            return;
+        }
+        let password = std::mem::replace(&mut self.password, String::with_capacity(MAX_PASSWORD));
+        if self.check.send(password).is_ok() {
+            self.status = Status::Checking;
+        }
     }
 
     /// Keys typed into the password box.
@@ -81,15 +100,7 @@ impl LockScreen {
                     modifiers,
                     ..
                 } => match key {
-                    egui::Key::Enter if !self.password.is_empty() => {
-                        let password = std::mem::replace(
-                            &mut self.password,
-                            String::with_capacity(MAX_PASSWORD),
-                        );
-                        if self.check.send(password).is_ok() {
-                            self.status = Status::Checking;
-                        }
-                    }
+                    egui::Key::Enter => self.submit(),
                     egui::Key::Backspace if modifiers.ctrl => wipe(&mut self.password),
                     egui::Key::Backspace => {
                         self.password.pop();
@@ -103,39 +114,132 @@ impl LockScreen {
         }
     }
 
-    fn password_box(&self, ui: &mut Ui) {
+    /// A disc with the name's first letter, in the skin's accent.
+    fn avatar(&self, ui: &mut Ui) {
+        let side = 84.0;
+        let (rect, _) = ui.allocate_exact_size(vec2(side, side), Sense::hover());
+        let v = ui.visuals();
+        ui.painter()
+            .circle_filled(rect.center(), side / 2.0, v.selection.bg_fill);
+        let initial = self
+            .name
+            .chars()
+            .next()
+            .map_or(String::new(), |c| c.to_uppercase().to_string());
+        ui.painter().text(
+            rect.center(),
+            Align2::CENTER_CENTER,
+            initial,
+            FontId::proportional(38.0),
+            v.selection.stroke.color,
+        );
+    }
+
+    /// The pill the password goes in: a ring while it has the keys, a dot
+    /// for each character and a caret after them, a button that sends it,
+    /// a spinner while PAM checks, and a shake when it's refused.
+    fn password_box(&mut self, ui: &mut Ui) {
         let visuals = ui.visuals().clone();
+        let time = ui.input(|i| i.time);
         let (rect, _) = ui.allocate_exact_size(FIELD, Sense::hover());
-        let painter = ui.painter();
-        let radius = visuals.widgets.inactive.corner_radius;
+        let shake = self
+            .wrong_at
+            .map(|t| t.elapsed().as_secs_f32())
+            .filter(|s| *s < SHAKE)
+            .map_or(0.0, |s| (s * 45.0).sin() * 10.0 * (1.0 - s / SHAKE));
+        let rect = rect.translate(vec2(shake, 0.0));
+        let checking = self.status == Status::Checking;
+        let radius = CornerRadius::same((FIELD.y / 2.0) as u8);
+        let painter = ui.painter().clone();
         painter.rect_filled(rect, radius, visuals.extreme_bg_color);
-        let stroke = if self.status == Status::Wrong {
-            egui::Stroke::new(1.5, visuals.error_fg_color)
+        let ring = if self.status == Status::Wrong {
+            Stroke::new(2.0, visuals.error_fg_color)
         } else {
-            visuals.selection.stroke
+            Stroke::new(2.0, visuals.selection.bg_fill)
         };
-        painter.rect_stroke(rect, radius, stroke, StrokeKind::Inside);
-        let inner = Rect::from_center_size(rect.center(), rect.size() - vec2(24.0, 0.0));
-        if self.password.is_empty() {
+        painter.rect_stroke(rect, radius, ring, StrokeKind::Inside);
+
+        // The button on the right.
+        let button = egui::Rect::from_center_size(
+            pos2(rect.right() - FIELD.y / 2.0, rect.center().y),
+            vec2(FIELD.y - 12.0, FIELD.y - 12.0),
+        );
+        let ready = !self.password.is_empty() && !checking;
+        let response = ui.interact(button, ui.id().with("unlock"), Sense::click());
+        if ready && response.hovered() {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+        }
+        let (fill, ink) = if ready {
+            let fill = if response.hovered() {
+                visuals.selection.bg_fill.gamma_multiply(0.85)
+            } else {
+                visuals.selection.bg_fill
+            };
+            (fill, visuals.selection.stroke.color)
+        } else {
+            (
+                visuals.widgets.inactive.weak_bg_fill,
+                visuals.weak_text_color(),
+            )
+        };
+        painter.circle_filled(button.center(), button.width() / 2.0, fill);
+        let c = button.center();
+        if checking {
+            // A dot going round.
+            let angle = time as f32 * 6.0;
+            for k in 0..3 {
+                let a = angle - k as f32 * 0.5;
+                painter.circle_filled(
+                    c + vec2(a.cos(), a.sin()) * 8.0,
+                    2.6 - k as f32 * 0.7,
+                    ink.gamma_multiply(1.0 - k as f32 * 0.3),
+                );
+            }
+        } else {
+            let line = Stroke::new(2.0, ink);
+            painter.line_segment([c - vec2(6.0, 0.0), c + vec2(6.0, 0.0)], line);
+            painter.line_segment([c + vec2(6.0, 0.0), c + vec2(1.0, -5.0)], line);
+            painter.line_segment([c + vec2(6.0, 0.0), c + vec2(1.0, 5.0)], line);
+        }
+        if ready && response.clicked() {
+            self.submit();
+        }
+
+        // Dots from the left, the newest last, then the caret.
+        let left = rect.left() + 22.0;
+        let room = button.left() - 14.0 - left;
+        let step = 15.0;
+        let fit = ((room / step) as usize).max(1);
+        let count = self.password.chars().count();
+        let shown = count.min(fit);
+        let dim = if checking { 0.45 } else { 1.0 };
+        for i in 0..shown {
+            painter.circle_filled(
+                pos2(left + 4.0 + i as f32 * step, rect.center().y),
+                4.5,
+                visuals.text_color().gamma_multiply(dim),
+            );
+        }
+        if count == 0 {
             painter.text(
-                inner.left_center(),
+                pos2(left + 6.0, rect.center().y),
                 Align2::LEFT_CENTER,
                 "Password",
                 FontId::proportional(16.0),
                 visuals.weak_text_color(),
             );
-        } else {
-            // One dot per character, as many as fit.
-            let dots = self.password.chars().count().min(24);
-            let step = 14.0;
-            let start = rect.center().x - (dots as f32 - 1.0) * step / 2.0;
-            for i in 0..dots {
-                painter.circle_filled(
-                    egui::pos2(start + i as f32 * step, rect.center().y),
-                    4.0,
-                    visuals.text_color(),
-                );
-            }
+        }
+        let blink = (time * 2.0) as i64 % 2 == 0;
+        if !checking && blink {
+            let x = left - 2.0 + shown as f32 * step;
+            let x = x.min(left - 2.0 + fit as f32 * step);
+            painter.line_segment(
+                [
+                    pos2(x, rect.center().y - 10.0),
+                    pos2(x, rect.center().y + 10.0),
+                ],
+                Stroke::new(1.5, visuals.text_color()),
+            );
         }
     }
 }
@@ -158,7 +262,7 @@ impl Shell for LockScreen {
 
         let now = chrono::Local::now();
         ui.vertical_centered(|ui| {
-            ui.add_space(rect.height() * 0.28);
+            ui.add_space(rect.height() * 0.18);
             ui.label(
                 RichText::new(now.format("%H:%M").to_string())
                     .size(96.0)
@@ -168,9 +272,11 @@ impl Shell for LockScreen {
             if !focused {
                 return;
             }
-            ui.add_space(56.0);
-            ui.label(RichText::new(&self.name).size(18.0));
-            ui.add_space(12.0);
+            ui.add_space(48.0);
+            self.avatar(ui);
+            ui.add_space(10.0);
+            ui.label(RichText::new(&self.name).size(20.0));
+            ui.add_space(14.0);
             self.password_box(ui);
             ui.add_space(10.0);
             let visuals = ui.visuals();
@@ -183,11 +289,22 @@ impl Shell for LockScreen {
             ui.label(RichText::new(text).color(colour));
         });
 
-        // The minute changes on its own.
+        // The minute changes on its own; the caret, spinner and shake need
+        // frames of their own while they show.
         let into_minute = Duration::from_millis(now.timestamp_subsec_millis().into())
             + Duration::from_secs(now.timestamp().rem_euclid(60) as u64);
-        ui.ctx()
-            .request_repaint_after(Duration::from_secs(60).saturating_sub(into_minute));
+        let mut next = Duration::from_secs(60).saturating_sub(into_minute);
+        if focused {
+            let shaking = self
+                .wrong_at
+                .is_some_and(|t| t.elapsed().as_secs_f32() < SHAKE);
+            next = next.min(if self.status == Status::Checking || shaking {
+                Duration::from_millis(16)
+            } else {
+                Duration::from_millis(500)
+            });
+        }
+        ui.ctx().request_repaint_after(next);
     }
 
     fn finished(&self) -> bool {
