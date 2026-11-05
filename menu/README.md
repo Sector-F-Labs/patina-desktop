@@ -1,8 +1,8 @@
 # patina-menu
 
 The desktop's menu, opened by a right click on the empty desktop (ADR-0029). It's the quick way
-to style the whole shell: the skin every piece wears, and the way into Settings (ADR-0038), where
-the wallpaper is chosen (ADR-0030). It's also a menu of any items (ADR-0056), for pieces too
+to set the style, light or dark, and the way into Settings (ADR-0038), where the skin (ADR-0105)
+and the wallpaper (ADR-0030) are chosen. It's also a menu of any items (ADR-0056), for pieces too
 small to hold their own menus: the bar opens its tabs' menus, its tray items' menus (ADR-0064)
 and the keyboard layouts' (ADR-0068) in it. And it's the bar's tooltips (ADR-0057).
 
@@ -10,7 +10,7 @@ How the jobs share one program, with diagrams, is in [HOW-IT-WORKS.md](HOW-IT-WO
 
 ## On the desktop
 
-At the pointer: the skins (Patina's built-ins and your own); Wallpaper…, which opens Settings at
+At the pointer: the style, Default, Light or Dark; Wallpaper…, which opens Settings at
 its Wallpaper page; items to copy the built-in skins to the bar's skins folder, open that folder,
 and open the bar's settings file; and Settings…. A click elsewhere, Escape or losing the keyboard
 closes it.
@@ -22,10 +22,9 @@ closes it.
 - **Starts patina-settings**, found on the compositor's PATH like the menu itself: through the
   compositor's `Spawn` on the session bus, so it's among the desktop's processes (ADR-0045), or
   itself where nothing serves that.
-- **Writes the skin** into the bar's config, `~/.config/patina-bar/config.toml`, through
-  patina-shell (`bar::set`). It doesn't tell anyone: the bar and
-  patina-wallpaper watch the file and change at once, and the launcher, menus and lock screen
-  read it when they next open.
+- **Sets the style** through `gsettings` (GNOME's `color-scheme`), as Settings does; the portal
+  hands it on and every piece that follows it changes at once. It no longer chooses the skin:
+  that's Settings' Appearance page.
 - **Drawn** on a transparent layer-shell surface over the whole screen, so the menu can sit at
   the pointer and stay on screen near the edges.
 - **A menu of items** with `--item ID=LABEL` (and `--separator`): it prints the chosen ID and

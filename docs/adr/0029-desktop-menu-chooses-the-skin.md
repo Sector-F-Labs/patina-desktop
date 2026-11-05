@@ -4,7 +4,7 @@ Date: 2026-10-15
 
 ## Status
 
-Accepted
+Accepted; the skin list was replaced by the style in [0105](0105-the-desktop-menu-chooses-the-style-not-the-skin.md)
 
 ## Context
 

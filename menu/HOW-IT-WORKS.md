@@ -18,11 +18,11 @@ them and prints which one was chosen.
 
 ## The picture
 
-<img src="images/architecture.svg" alt="The compositor opens patina-menu's desktop menu on a right click on the empty desktop; it sets the skin in the bar's config and opens Settings. The bar opens menus of items for window tabs, tray items and keyboard layouts and reads the chosen ID from standard output; it also shows tooltips, which end when their standard input closes.">
+<img src="images/architecture.svg" alt="The compositor opens patina-menu's desktop menu on a right click on the empty desktop; it sets the style (default, light or dark) through gsettings and opens Settings. The bar opens menus of items for window tabs, tray items and keyboard layouts and reads the chosen ID from standard output; it also shows tooltips, which end when their standard input closes.">
 
 One program, three jobs, chosen by its arguments:
 
-- **No items: the desktop's menu.** Skins (Patina's built-ins and your own), Wallpaper…, copy
+- **No items: the desktop's menu.** The style (default, light or dark), Wallpaper…, copy
   the built-in skins to the skins folder, open it, open the bar's settings file, and Settings….
 - **`--item ID=LABEL`, `--separator`: a menu of items.** It prints the ID of the one chosen, or
   nothing, and exits.
@@ -47,7 +47,7 @@ nor the clicks. `overlay.rs` places the menu for every job, kept on screen near 
 
 | Who | What it opens | What comes back |
 |-----|---------------|-----------------|
-| The compositor, on a right click where no window is, without Super held | the desktop's menu, `desktop_menu --at X,Y` (the config can change the command) | nothing on stdout; it writes the skin itself, and starts Settings |
+| The compositor, on a right click where no window is, without Super held | the desktop's menu, `desktop_menu --at X,Y` (the config can change the command) | nothing on stdout; it sets the style itself, and starts Settings |
 | The bar, a window tab's right click | New Window, Pin or Unpin, Close Window; Open and Unpin for a pinned app with no window (`bar/src/menu.rs`) | the item's ID, mapped back to a choice |
 | The bar, a tray item's right click | its menu, read over D-Bus (ADR-0064): submenus shown as "Friends › Online", ticks as ✔, entries that can't be chosen left out | the entry's number, handed back to the item |
 | The bar, the keyboard layout | each layout, the one in use ticked (ADR-0068) | the layout's index, which the bar switches to |
@@ -57,13 +57,13 @@ The bar runs it as its own child, not through the compositor's `Spawn`, because 
 answer. Settings, which the desktop's menu starts, does go through `Spawn`, so it is among the
 desktop's processes (ADR-0045).
 
-## The desktop's menu and the skin
+## The desktop's menu and the style
 
-Choosing a skin writes it into the bar's config, `~/.config/patina-bar/config.toml`, with
-patina-shell's `bar::set`. It tells nobody. The bar and the wallpaper watch the file and change at
-once; the launcher, menus and lock screen read it when they next open. The menu's own look
-(`skin.apply`) changes at the click, and `patina::appearance::watch` follows the system's light or
-dark setting.
+Choosing default, light or dark sets GNOME's `org.gnome.desktop.interface color-scheme` through
+`gsettings` (ADR-0087, ADR-0105), the same setting Settings' Appearance page changes.
+xdg-desktop-portal hands it on, and `patina::appearance::watch` follows it, so Patina apps on the
+Default skin, GTK 4 and Firefox change at once, the menu among them. The skin is chosen in
+Settings, not here.
 
 Every menu here wears the bar's skin, not the app's, so a tab's menu looks like the bar it came
 from.
@@ -85,7 +85,7 @@ from.
  ├── menu/src/
  │   ├── main.rs      the arguments, and the surface over the whole screen
  │   ├── overlay.rs   placing a menu, and closing it: shared by every job
- │   ├── ui.rs        the desktop's menu: skins, Wallpaper…, folders, Settings…
+ │   ├── ui.rs        the desktop's menu: style, Wallpaper…, folders, Settings…
  │   ├── items.rs     a menu of items; prints the one chosen
  │   └── tooltip.rs   a tooltip; ends when its stdin closes
  ├── compositor/src/state.rs   a right click on the empty desktop: open_desktop_menu

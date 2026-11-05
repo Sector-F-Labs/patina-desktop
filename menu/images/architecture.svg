@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 640" width="960" height="640" role="img" aria-labelledby="t d">
-<title id="t">Who opens patina-menu, and what it does</title><desc id="d">The compositor opens patina-menu's desktop menu on a right click on the empty desktop; it sets the skin in the bar's config and opens Settings. The bar opens menus of items for window tabs, tray items and keyboard layouts, and reads the chosen ID from standard output; it also shows tooltips, which end when standard input closes.</desc>
+<title id="t">Who opens patina-menu, and what it does</title><desc id="d">The compositor opens patina-menu's desktop menu on a right click on the empty desktop; it sets the style (default, light or dark) through gsettings and opens Settings. The bar opens menus of items for window tabs, tray items and keyboard layouts, and reads the chosen ID from standard output; it also shows tooltips, which end when standard input closes.</desc>
 <style>:root{--bg:#fdf6e3;--group:#f4f0d9;--gstroke:#e0dcc7;--box:#fffbef;--bstroke:#a6b0a0;--text:#5c6a72;--muted:#708089;--blue:#3a94c5;--green:#8da101;--purple:#df69ba;--tblue:#2d7fa8;--tgreen:#677800;--tpurple:#b54f93;--busfill:#f3ecc2;--busstroke:#dfa000;--red:#f85552;--line:#829181;--note:#e4efe9;}@media (prefers-color-scheme: dark){:root{--bg:#2d353b;--group:#343f44;--gstroke:#475258;--box:#2d353b;--bstroke:#7a8478;--text:#d3c6aa;--muted:#9da9a0;--blue:#7fbbb3;--green:#a7c080;--purple:#d699b6;--tblue:#7fbbb3;--tgreen:#a7c080;--tpurple:#d699b6;--busfill:#4d4c43;--busstroke:#dbbc7f;--red:#e67e80;--line:#859289;--note:#384b55;}}
 text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:12.5px;fill:var(--text)}
 .b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
@@ -48,7 +48,7 @@ text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;f
 <rect x="366" y="76" width="228" height="120" rx="8" class="box gr"/>
 <text x="480" y="100" class="b c">the desktop's menu</text>
 <text x="480" y="120" class="s c mu">no items given</text>
-<text x="480" y="138" class="s c mu">the skins, Wallpaper…, copy and</text>
+<text x="480" y="138" class="s c mu">the style, Wallpaper…, copy and</text>
 <text x="480" y="155" class="s c mu">open the skins folder, Settings…</text>
 <rect x="366" y="226" width="228" height="120" rx="8" class="box gr"/>
 <text x="480" y="250" class="b c">a menu of items</text>
@@ -71,9 +71,9 @@ text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;f
 <path d="M284,455 L365,436" class="ln" marker-end="url(#a)"/>
 
 <rect x="660" y="76" width="260" height="76" rx="8" class="bus"/>
-<text x="790" y="100" class="b c">the bar's config.toml</text>
-<text x="790" y="120" class="s c mu">skin = "…", in ~/.config/patina-bar</text>
-<text x="790" y="138" class="s c mu">written through patina-shell</text>
+<text x="790" y="100" class="b c">GNOME's color-scheme</text>
+<text x="790" y="120" class="s c mu">default, light or dark</text>
+<text x="790" y="138" class="s c mu">set through gsettings</text>
 <rect x="660" y="176" width="260" height="76" rx="8" class="box"/>
 <text x="790" y="200" class="b c">patina-settings</text>
 <text x="790" y="220" class="s c mu">started by the compositor's Spawn,</text>

@@ -1,6 +1,5 @@
-//! The desktop's menu: the skin menu Patina apps have, choosing the skin
-//! of the whole shell (the bar's, which the other pieces follow), and
-//! the way into Settings, which chooses the wallpaper (ADR-0030, ADR-0038).
+//! The desktop's menu: the style (default, light or dark), and the way into
+//! Settings, which chooses the skin and the wallpaper (ADR-0030, ADR-0038).
 //!
 //! It closes as every menu here does (`overlay.rs`).
 
@@ -9,6 +8,7 @@ use std::path::PathBuf;
 use egui::{Pos2, RichText, Ui};
 use patina::skin::{self, Skin};
 use patina_shell::Shell;
+use patina_system::color_scheme::{self, Scheme};
 
 use crate::overlay::{self, Place};
 
@@ -24,6 +24,8 @@ pub struct DesktopMenu {
     skins: Vec<Skin>,
     /// The skin in use, by index into `skins`.
     current: usize,
+    /// The style now; `None` where the system has no such setting.
+    style: Option<Scheme>,
     /// Problems loading skins or saving, and other notes.
     notes: Vec<String>,
     had_focus: bool,
@@ -40,40 +42,37 @@ impl DesktopMenu {
             at,
             skins,
             current,
+            style: color_scheme::read(),
             notes,
             had_focus: false,
             done: false,
         }
     }
 
-    fn choose(&mut self, index: usize, ctx: &egui::Context) {
-        match patina_shell::bar::set("skin", &self.skins[index].name) {
-            Ok(()) => {
-                self.current = index;
-                self.skins[index].apply(ctx);
-            }
-            Err(e) => self.notes.push(format!("Couldn't save the skin: {e}")),
+    /// Default, Light or Dark, as Settings' Appearance page has it.
+    fn style(&mut self, ui: &mut Ui) {
+        ui.label(RichText::new("Style").weak());
+        let Some(now) = &mut self.style else {
+            ui.label(RichText::new("Not set up on this system").small().weak());
+            return;
+        };
+        let before = *now;
+        for scheme in Scheme::ALL {
+            ui.radio_value(now, scheme, scheme.name()).on_hover_text(
+                "Light or dark for apps on the Default skin, and any that follow it",
+            );
+        }
+        if *now != before
+            && let Err(e) = color_scheme::write(*now)
+        {
+            *now = before;
+            self.notes.push(format!("Couldn't set the style: {e}"));
         }
     }
 
     fn items(&mut self, ui: &mut Ui) {
         ui.set_width(WIDTH);
-        ui.label(RichText::new("Skin").weak());
-        let mut chosen = None;
-        for (i, skin) in self.skins.iter().enumerate() {
-            let response = ui.radio(i == self.current, &skin.name);
-            let response = match (&skin.path, &skin.author) {
-                (Some(path), _) => response.on_hover_text(path.display().to_string()),
-                (None, Some(author)) => response.on_hover_text(format!("Built in, by {author}")),
-                (None, None) => response.on_hover_text("Stock egui"),
-            };
-            if response.clicked() {
-                chosen = Some(i);
-            }
-        }
-        if let Some(i) = chosen {
-            self.choose(i, ui.ctx());
-        }
+        self.style(ui);
         ui.separator();
         if ui
             .button("Wallpaper…")
@@ -225,7 +224,7 @@ mod tests {
         let ctx = egui::Context::default();
         let mut menu = DesktopMenu::new(egui::pos2(400.0, 300.0));
         frame(&mut menu, &ctx, Vec::new());
-        // The "Skin" heading: on the menu, but nothing to do.
+        // The "Style" heading: on the menu, but nothing to do.
         frame(&mut menu, &ctx, press(egui::pos2(415.0, 312.0)));
         assert!(!menu.done);
         frame(&mut menu, &ctx, press(egui::pos2(1200.0, 800.0)));

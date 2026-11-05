@@ -1,6 +1,6 @@
 //! patina-menu: the desktop's menu, which the compositor opens at the
-//! pointer on a right click on the desktop (ADR-0029), holding the skin
-//! menu for the whole shell; and a menu of any items (ADR-0056), for pieces
+//! pointer on a right click on the desktop (ADR-0029), holding the style
+//! (default, light or dark); and a menu of any items (ADR-0056), for pieces
 //! too small to hold their own, as the bar's window tabs are.
 
 mod items;
@@ -23,8 +23,8 @@ const USAGE: &str = "usage: patina-menu [--at X,Y] [--edge top|bottom|left|right
 
 Without items, opens the desktop's menu at X,Y, in the screen's logical
 pixels (the top-left corner without it), as patina-compositor does on a
-right click on the desktop. Choosing a skin sets it in patina-bar's config,
-and the bar and the other pieces follow it.
+right click on the desktop. Choosing a style (default, light or dark) sets GNOME's
+color-scheme, which apps that follow it change with.
 
 With items, opens a menu of them, in that order, and prints the ID of the
 one chosen; nothing if it's closed without a choice. --edge bottom counts Y

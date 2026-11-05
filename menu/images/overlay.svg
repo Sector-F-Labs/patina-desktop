@@ -28,7 +28,7 @@ text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;f
 
 <rect x="110" y="110" width="170" height="104" rx="6" class="box gr"/>
 <text x="195" y="134" class="b c">desktop menu</text>
-<text x="195" y="154" class="s c mu">Skin, Wallpaper…, Settings…</text>
+<text x="195" y="154" class="s c mu">Style, Wallpaper…, Settings…</text>
 <circle cx="110" cy="110" r="4" class="red"/>
 <text x="120" y="102" class="s m">--at 110,110</text>
 <text x="195" y="232" class="s c mu">top left corner at the pointer</text>

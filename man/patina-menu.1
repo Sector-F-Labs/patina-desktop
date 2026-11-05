@@ -26,11 +26,14 @@ runs it, as its
 .Ic desktop_menu ,
 at the pointer.
 .Pp
-It offers the skins, Patina's built-ins and your own: choosing one sets
-.Ic skin
-in the bar's config, and the bar and wallpaper change at once, the other
-pieces when they next open.
-Below them are Wallpaper\&..., which opens
+It offers the style, Default, Light or Dark, set through
+.Xr gsettings 1
+as GNOME's
+.Ic color-scheme :
+apps that follow it change at once.
+The skin is chosen in
+.Xr patina-settings 1 .
+Below are Wallpaper\&..., which opens
 .Xr patina-settings 1
 at its Wallpaper page; items to copy the built-in skins to the bar's skins
 folder, to open that folder, and to open the bar's config file; and
