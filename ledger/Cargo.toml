@@ -11,6 +11,7 @@ dirs = "7"
 eframe = { version = "0.35", features = ["persistence"] }
 egui = "0.35"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
+libc = "0.2.191"
 patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
 rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
 rusqlite = { version = "0.41.1", features = ["bundled"] }

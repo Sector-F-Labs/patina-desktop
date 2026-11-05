@@ -3,7 +3,7 @@
 //! Only the cells in view are painted, so a sheet can be as long as it likes.
 //! Colours come from the active `Visuals`, so skins reach the grid.
 
-use egui::{Align2, Event, Key, Modifiers, Pos2, Rect, Sense, Stroke, StrokeKind, TextEdit, Ui, Vec2};
+use egui::{Align2, Event, Key, Modifiers, Pos2, Rangef, Rect, Sense, Stroke, StrokeKind, TextEdit, Ui, Vec2};
 
 use crate::formula::{Pos, Value, cell_name, col_name};
 use crate::sheet::Sheet;
@@ -233,6 +233,10 @@ pub fn show(ui: &mut Ui, sheet: &mut Sheet, view: &mut View, keys: bool) -> Chan
                 if selected {
                     painter.rect_filled(cr, 0.0, visuals.selection.bg_fill.gamma_multiply(0.35));
                 }
+                if sheet.block_at(pos).is_some() {
+                    // Filled by a shell command: not typed, so not editable in place.
+                    painter.rect_filled(cr, 0.0, visuals.selection.bg_fill.gamma_multiply(0.10));
+                }
                 painter.rect_stroke(cr, 0.0, grid_line, StrokeKind::Inside);
                 if view.edit.is_some() && pos == view.cursor {
                     continue;
@@ -251,6 +255,49 @@ pub fn show(ui: &mut Ui, sheet: &mut Sheet, view: &mut View, keys: bool) -> Chan
                     _ => (Align2::LEFT_CENTER, cr.left_center() + Vec2::new(PAD, 0.0)),
                 };
                 clipped.text(at, anchor, value.display(), font.clone(), color);
+            }
+        }
+
+        // Shell output that didn't fit its block: a heavier edge with a "…" on it.
+        let warn = visuals.warn_fg_color;
+        let seen_x = Rangef::new(origin.x + viewport.min.x + HEADER_WIDTH, origin.x + viewport.max.x);
+        let seen_y = Rangef::new(origin.y + viewport.min.y + row_h, origin.y + viewport.max.y);
+        for b in sheet.blocks().iter().filter(|b| b.cut_lines > 0 || b.cut_fields > 0) {
+            let block = Rect::from_min_max(cell_rect(b.owner).min, cell_rect(b.end()).max);
+            let chip = |center: Pos2, id: &str, text: String| {
+                let rect = Rect::from_center_size(center, Vec2::new(26.0, 16.0));
+                painter.rect_filled(rect, 4.0, visuals.panel_fill);
+                painter.rect_stroke(rect, 4.0, Stroke::new(1.5, warn), StrokeKind::Inside);
+                painter.text(rect.center() - Vec2::new(0.0, 3.0), Align2::CENTER_CENTER, "…", font.clone(), warn);
+                ui.interact(rect, egui::Id::new((id, b.owner)), Sense::hover()).on_hover_text(text);
+            };
+            let shown_x = Rangef::new(block.left().max(seen_x.min), block.right().min(seen_x.max));
+            let shown_y = Rangef::new(block.top().max(seen_y.min), block.bottom().min(seen_y.max));
+            if b.cut_lines > 0 && seen_y.contains(block.bottom()) && shown_x.min < shown_x.max {
+                painter.line_segment([Pos2::new(block.left(), block.bottom()), Pos2::new(block.right(), block.bottom())], Stroke::new(3.0, warn));
+                let s = if b.cut_lines == 1 { "" } else { "s" };
+                chip(
+                    Pos2::new(shown_x.center(), block.bottom()),
+                    "cut-lines",
+                    format!(
+                        "{} more line{s} not shown. The command printed {}; this block holds {}.\nExtend the range, or leave its end row off.",
+                        b.cut_lines,
+                        b.rows + b.cut_lines,
+                        b.rows
+                    ),
+                );
+            }
+            if b.cut_fields > 0 && seen_x.contains(block.right()) && shown_y.min < shown_y.max {
+                painter.line_segment([Pos2::new(block.right(), block.top()), Pos2::new(block.right(), block.bottom())], Stroke::new(3.0, warn));
+                let s = if b.cut_fields == 1 { "" } else { "s" };
+                chip(
+                    Pos2::new(block.right(), shown_y.center()),
+                    "cut-fields",
+                    format!(
+                        "Up to {} more field{s} per line not shown (rest=drop).\nExtend the range, or use rest=keep to keep them in the last column.",
+                        b.cut_fields
+                    ),
+                );
             }
         }
 

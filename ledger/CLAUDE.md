@@ -25,7 +25,10 @@ matched by app id, so `cargo run` shows it only after `make install`.
 
 ## Layout
 
-- `src/formula.rs`: cell names, input parsing, formula parser and evaluator (cycle-safe).
+- `src/formula.rs`: cell names, input parsing, formula parser and evaluator (cycle-safe), shell
+  blocks and spills (`ShellState`, `Evaluated`).
+- `src/shell.rs`: running commands (`sh -c`, own process group, timeout) and laying output out
+  into a `Block`; the shell formula's behaviour is ADR-0006.
 - `src/sheet.rs`: one sheet's inputs and computed values.
 - `src/store.rs`: the SQLite file: schema, open/create, and the writer thread.
 - `src/grid.rs`: the grid widget: painting visible cells only, selection, keyboard, editing,
@@ -42,4 +45,8 @@ matched by app id, so `cargo run` shows it only after `make install`.
   that away; `double_click_edits_what_is_there...` fails without it.
 - When typing starts an edit, the grid removes the `Event::Text` it used, or the editor would
   type it a second time.
+- Shell cells never run on open or in an untrusted ledger. Trust lives in the user's config, never
+  the file. Don't add an env var or file flag that bypasses it. `LEDGER_RUN_SHELL=1` only runs
+  cells that are already trusted, for screenshots.
+- Tests that run commands use `sh` only (`printf`, `echo`, `sleep`).
 - Formulas aren't adjusted when pasted, and don't cross sheets (ADR-0005).

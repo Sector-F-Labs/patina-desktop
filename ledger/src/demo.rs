@@ -56,5 +56,31 @@ pub fn make(path: &Path) -> Result<(), String> {
     }
     cell(2, 6, 2, "Total");
     cell(2, 6, 3, "=SUM(D2:D5)");
+    // A sheet of shell output, stored as if the command had run, so the demo
+    // never runs anything. The block is smaller than the output on both
+    // edges, so the "…" marks show.
+    w.send(Write::AddSheet { id: 3, name: "Disk".into() });
+    let formula = "=SH(\"df -h\", :E6, rest=drop)";
+    cell(3, 0, 0, formula);
+    let stdout = "Filesystem Size Used Avail Use% Mounted\n\
+        /dev/nvme0n1p2 916G 412G 458G 48% /\n\
+        /dev/nvme0n1p1 1.0G 6.2M 1.0G 1% /boot/efi\n\
+        /dev/sda1 3.6T 2.1T 1.4T 61% /mnt/backup\n\
+        tmpfs 7.8G 12M 7.8G 1% /run/user/1000\n\
+        /dev/sdb1 1.8T 910G 820G 53% /mnt/media\n\
+        /dev/mapper/vault 500G 120G 355G 26% /mnt/vault\n\
+        /dev/sdc1 2.7T 1.9T 700G 74% /mnt/scratch\n";
+    w.send(Write::Shell {
+        sheet: 3,
+        pos: (0, 0),
+        run: crate::shell::Run {
+            formula: formula.into(),
+            status: crate::shell::Status::Ok,
+            stdout: stdout.into(),
+            stderr: String::new(),
+            ran_at: 1_790_000_000,
+        },
+    });
+    cell(3, 9, 0, "Output of df -h, cut off at row 6 and column E");
     Ok(())
 }

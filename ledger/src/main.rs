@@ -7,6 +7,7 @@ mod demo;
 mod formula;
 mod grid;
 mod sheet;
+mod shell;
 mod store;
 
 fn main() -> eframe::Result {

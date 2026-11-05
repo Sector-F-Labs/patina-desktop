@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{self, Receiver};
+use std::sync::mpsc::{self, Receiver, Sender};
 
 use egui::{Key, Modifiers};
 use patina::frame::{self, TitleBar};
@@ -11,9 +11,10 @@ use patina::skin::{self, Skin};
 use patina::tabs::{self, TabAction, TabStrip};
 
 use crate::config::Config;
-use crate::formula::{self, cell_name};
+use crate::formula::{self, Pos, cell_name};
 use crate::grid::{self, View};
-use crate::sheet::Sheet;
+use crate::sheet::{Sheet, is_shell};
+use crate::shell::{self, Status};
 use crate::store::{self, Document, Write};
 
 /// The skin used until the user picks one: stock egui, following the desktop.
@@ -27,6 +28,8 @@ enum Action {
     OpenPath(PathBuf),
     Close,
     Quit,
+    Trust(bool),
+    RunShell,
     NewSheet,
     Rename(usize),
     Delete(usize),
@@ -48,6 +51,13 @@ enum Dialog {
 enum Pick {
     New,
     Open,
+}
+
+/// A shell command that finished, on its way from its thread to the sheet.
+struct Finished {
+    sheet: i64,
+    pos: Pos,
+    run: shell::Run,
 }
 
 /// Screenshot mode: where to save, and whether it has been asked for.
@@ -72,6 +82,8 @@ pub struct App {
     problem: Option<String>,
     title: String,
     screenshot: Option<Screenshot>,
+    finished_tx: Sender<Finished>,
+    finished_rx: Receiver<Finished>,
 }
 
 impl App {
@@ -79,7 +91,10 @@ impl App {
         patina::appearance::watch(&cc.egui_ctx);
         let dirs: Vec<_> = skin::app_dir("ledger").into_iter().collect();
         let (skins, skin_errors) = skin::load_all(skin::BUILT_IN, &dirs);
+        let (finished_tx, finished_rx) = mpsc::channel();
         let mut app = Self {
+            finished_tx,
+            finished_rx,
             custom_frame: !config.system_title_bar,
             config,
             skins,
@@ -106,6 +121,14 @@ impl App {
             } else {
                 app.config.forget(&path);
             }
+        }
+        // For screenshots: run the shell cells (in a trusted ledger) once it's open.
+        if std::env::var_os("LEDGER_RUN_SHELL").is_some() {
+            app.run_all_shell(&cc.egui_ctx);
+        }
+        // For screenshots: start on this sheet.
+        if let (Some(name), Some(doc)) = (std::env::var("LEDGER_SHEET").ok(), &app.doc) {
+            app.active = doc.sheets.iter().position(|s| s.name == name).unwrap_or(0);
         }
         app
     }
@@ -189,6 +212,76 @@ impl App {
             }
             Err(mpsc::TryRecvError::Empty) => {}
             Err(mpsc::TryRecvError::Disconnected) => self.picking = None,
+        }
+    }
+
+    // --- Shell formulas (ADR-0006) -------------------------------------
+
+    fn trusted(&self) -> bool {
+        self.doc.as_ref().is_some_and(|d| self.config.is_trusted(&d.path))
+    }
+
+    /// Runs the shell formula in a cell, on a thread. Does nothing in a ledger
+    /// that isn't trusted, or for a cell that's already running.
+    fn run_shell(&mut self, ctx: &egui::Context, index: usize, pos: Pos) {
+        if !self.trusted() {
+            return;
+        }
+        let Some(doc) = &mut self.doc else { return };
+        let sheet = &mut doc.sheets[index];
+        if sheet.is_pending(pos) {
+            return;
+        }
+        match sheet.shell_job(pos) {
+            Ok(job) => {
+                sheet.set_pending(pos, true);
+                let (id, tx, ctx) = (sheet.id, self.finished_tx.clone(), ctx.clone());
+                std::thread::spawn(move || {
+                    let _ = tx.send(Finished { sheet: id, pos, run: shell::run(&job) });
+                    ctx.request_repaint();
+                });
+            }
+            Err(e) => self.problem = Some(format!("{}: {e}", cell_name(pos))),
+        }
+    }
+
+    fn run_all_shell(&mut self, ctx: &egui::Context) {
+        self.finish_edit();
+        let cells: Vec<(usize, Pos)> = match &mut self.doc {
+            Some(doc) => doc
+                .sheets
+                .iter_mut()
+                .enumerate()
+                .flat_map(|(i, s)| {
+                    s.recalc();
+                    s.shell_cells().into_iter().map(move |p| (i, p))
+                })
+                .collect(),
+            None => return,
+        };
+        if !self.trusted() && !cells.is_empty() {
+            self.problem = Some("This ledger isn't trusted, so its shell cells don't run (File > Trust This Ledger)".into());
+        }
+        for (i, pos) in cells {
+            self.run_shell(ctx, i, pos);
+        }
+    }
+
+    /// Takes the results of commands that have finished.
+    fn poll_shell(&mut self) {
+        let Some(doc) = &mut self.doc else {
+            while self.finished_rx.try_recv().is_ok() {}
+            return;
+        };
+        for f in self.finished_rx.try_iter() {
+            let Some(sheet) = doc.sheets.iter_mut().find(|s| s.id == f.sheet) else { continue };
+            sheet.set_pending(f.pos, false);
+            // Edited while it ran: the result is for a formula that's gone.
+            if sheet.input(f.pos) != f.run.formula {
+                continue;
+            }
+            doc.writer.send(Write::Shell { sheet: f.sheet, pos: f.pos, run: f.run.clone() });
+            sheet.set_run(f.pos, f.run);
         }
     }
 
@@ -297,6 +390,12 @@ impl App {
                 });
             });
             ui.separator();
+            let mut trusted = self.trusted();
+            let trust = ui.add_enabled(has_doc, egui::Checkbox::new(&mut trusted, "Trust This Ledger"));
+            if trust.on_hover_text("Let this ledger's shell formulas (=SH(...)) run commands on this computer").changed() {
+                actions.push(Action::Trust(trusted));
+            }
+            ui.separator();
             item(ui, actions, "Close", "", has_doc, Action::Close);
             item(ui, actions, "Quit", "Ctrl+Q", true, Action::Quit);
         });
@@ -309,6 +408,8 @@ impl App {
         ui.menu_button("Sheet", |ui| {
             let n = self.doc.as_ref().map_or(0, |d| d.sheets.len());
             item(ui, actions, "New Sheet", "Ctrl+T", has_doc, Action::NewSheet);
+            item(ui, actions, "Run Shell Cells", "Ctrl+R", has_doc, Action::RunShell);
+            ui.separator();
             item(ui, actions, "Rename Sheet…", "", has_doc, Action::Rename(self.active));
             item(ui, actions, "Delete Sheet", "Ctrl+W", n > 1, Action::Delete(self.active));
             ui.separator();
@@ -341,6 +442,15 @@ impl App {
             Action::OpenPath(path) => self.open_path(&path),
             Action::Close => self.close_document(),
             Action::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
+            Action::Trust(on) => {
+                if let Some(doc) = &self.doc {
+                    self.config.set_trusted(&doc.path, on);
+                }
+                if on {
+                    self.run_all_shell(ctx);
+                }
+            }
+            Action::RunShell => self.run_all_shell(ctx),
             Action::NewSheet => self.new_sheet(),
             Action::Rename(index) => {
                 if let Some(doc) = &self.doc {
@@ -394,6 +504,9 @@ impl App {
         }
         if pressed(ctx, Key::O) {
             self.act(ctx, Action::Open);
+        }
+        if pressed(ctx, Key::R) {
+            self.act(ctx, Action::RunShell);
         }
         let doc = self.doc.as_ref()?;
         tabs::keys(ctx, doc.sheets.len(), self.active)
@@ -473,7 +586,24 @@ impl App {
             if let Some(problem) = &self.problem {
                 ui.colored_label(ui.visuals().error_fg_color, problem);
             } else if let Some(doc) = &self.doc {
-                ui.weak(doc.path.display().to_string());
+                let sheet = &doc.sheets[self.active];
+                let here = self.views.get(&sheet.id).map(|v| v.cursor).and_then(|p| sheet.run(p));
+                let failure = here.and_then(|r| match &r.status {
+                    Status::Ok => None,
+                    Status::Exit(n) => Some(format!("exit {n}: {}", r.stderr.lines().next().unwrap_or(""))),
+                    Status::Timeout => Some("timed out".to_string()),
+                    Status::Failed(m) => Some(format!("couldn't start: {m}")),
+                });
+                if let Some(failure) = failure {
+                    ui.colored_label(ui.visuals().error_fg_color, failure);
+                } else if !self.trusted() && sheet_has_shell(&doc.sheets) {
+                    ui.colored_label(
+                        ui.visuals().warn_fg_color,
+                        "Shell cells show their last results and won't run: File > Trust This Ledger",
+                    );
+                } else {
+                    ui.weak(doc.path.display().to_string());
+                }
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let Some(doc) = &self.doc else { return };
@@ -524,6 +654,10 @@ impl App {
     }
 }
 
+fn sheet_has_shell(sheets: &[Sheet]) -> bool {
+    sheets.iter().any(|s| !s.shell_cells().is_empty())
+}
+
 /// A menu entry that queues `action` when clicked.
 fn item(ui: &mut egui::Ui, actions: &mut Vec<Action>, label: &str, shortcut: &str, enabled: bool, action: Action) {
     if ui.add_enabled(enabled, egui::Button::new(label).shortcut_text(shortcut)).clicked() {
@@ -547,6 +681,7 @@ impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         self.poll_picker();
+        self.poll_shell();
         if let Some(problem) = self.doc.as_ref().and_then(|d| d.writer.error()) {
             self.problem = Some(problem);
         }
@@ -613,6 +748,7 @@ impl eframe::App for App {
 
         let dialog_open = self.dialog.is_some();
         let mut start = None;
+        let mut new_shell: Vec<(usize, Pos)> = Vec::new();
         egui::CentralPanel::default().frame(egui::Frame::central_panel(ui.style()).inner_margin(0)).show(ui, |ui| {
             let Some(doc) = &mut self.doc else {
                 ui.vertical_centered(|ui| {
@@ -643,10 +779,15 @@ impl eframe::App for App {
                 });
             });
             let changes = grid::show(ui, sheet, view, !dialog_open);
+            // A shell formula that was just entered runs, in a trusted ledger.
+            new_shell.extend(changes.iter().filter(|(_, input)| is_shell(input)).map(|(pos, _)| (index, *pos)));
             sheet.recalc();
             send(doc, index, changes);
         });
 
+        for (index, pos) in new_shell {
+            self.run_shell(&ctx, index, pos);
+        }
         if let Some(kind) = start {
             self.pick(&ctx, kind);
         }

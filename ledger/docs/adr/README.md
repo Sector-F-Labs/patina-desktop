@@ -47,6 +47,7 @@ mechanics of adding one.
 | [0003](0003-cells-are-stored-as-typed-text.md) | Cells are stored as the text that was typed | Proposed |
 | [0004](0004-edits-are-saved-as-made.md) | Edits are saved as they're made, off the UI thread | Proposed |
 | [0005](0005-own-formula-evaluator.md) | A small formula evaluator of our own, within one sheet | Proposed |
+| [0006](0006-shell-formulas-fill-blocks.md) | Shell formulas fill a block of cells, and only run in trusted ledgers | Proposed |
 
 ## Decision Relationship
 
@@ -57,7 +58,10 @@ flowchart TD
     C[0003: cells as typed text]
     D[0004: saved as made]
     E[0005: own formula evaluator]
+    F[0006: shell formulas]
     B --> C
+    E --> F
+    C --> F
     B --> D
     C --> E
 ```
@@ -67,4 +71,6 @@ flowchart TD
 - Other tools need formula results from the file: add a stored `value` column ([0003](0003-cells-are-stored-as-typed-text.md)).
 - Money sums drift in `f64`: move to a decimal type ([0005](0005-own-formula-evaluator.md)).
 - A sheet reaches hundreds of thousands of cells: load lazily instead of in full ([0004](0004-edits-are-saved-as-made.md)).
+- A command needs to read a range, or results go stale unnoticed: dependency-aware re-runs ([0006](0006-shell-formulas-fill-blocks.md)).
+- Trust per file is too coarse, or a sandbox becomes available: per-command trust ([0006](0006-shell-formulas-fill-blocks.md)).
 - Two people or apps need the same file at once: add locking and change detection ([0002](0002-a-ledger-is-a-sqlite-database.md)).

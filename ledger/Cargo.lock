@@ -1848,6 +1848,7 @@ dependencies = [
  "eframe",
  "egui",
  "image",
+ "libc",
  "patina-ui",
  "resvg",
  "rfd",

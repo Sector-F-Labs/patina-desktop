@@ -13,6 +13,9 @@ pub struct Config {
     pub system_title_bar: bool,
     /// Most recent first; the first is reopened at start-up.
     pub recent: Vec<PathBuf>,
+    /// Ledgers whose shell formulas may run (ADR-0006). Kept here, never in the
+    /// file, so a file can't vouch for itself.
+    pub trusted: Vec<PathBuf>,
 }
 
 fn file() -> Option<PathBuf> {
@@ -42,11 +45,30 @@ impl Config {
         self.save();
     }
 
+    pub fn is_trusted(&self, path: &Path) -> bool {
+        let path = canonical(path);
+        self.trusted.contains(&path)
+    }
+
+    pub fn set_trusted(&mut self, path: &Path, trusted: bool) {
+        let path = canonical(path);
+        self.trusted.retain(|p| *p != path);
+        if trusted {
+            self.trusted.push(path);
+        }
+        self.save();
+    }
+
     /// Forgets a file that couldn't be opened.
     pub fn forget(&mut self, path: &Path) {
         self.recent.retain(|p| p != path);
         self.save();
     }
+}
+
+/// The file's real path, so a link or `..` can't make one file two.
+fn canonical(path: &Path) -> PathBuf {
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
 
 #[cfg(test)]

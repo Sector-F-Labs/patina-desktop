@@ -42,6 +42,7 @@ screenshot: scratch ## Regenerate docs/screenshot-*.png from the demo books, in 
 	@mkdir -p docs
 	$(SCRATCH_ENV) LEDGER_DEMO=$(CURDIR)/$(SCRATCH)/demo.sqlite3 LEDGER_SCREENSHOT=docs/screenshot-default.png LEDGER_SKIN=Default cargo run
 	$(SCRATCH_ENV) LEDGER_DEMO=$(CURDIR)/$(SCRATCH)/demo.sqlite3 LEDGER_SCREENSHOT=docs/screenshot-dark-orange.png LEDGER_SKIN="Dark Orange" cargo run
+	$(SCRATCH_ENV) LEDGER_DEMO=$(CURDIR)/$(SCRATCH)/demo.sqlite3 LEDGER_SCREENSHOT=docs/screenshot-shell.png LEDGER_SHEET=Disk cargo run
 
 icons: ## Render assets/ledger-icon-128.png from packaging/linux/ledger.svg
 	cargo run -q --example render_icon -- 128 assets/ledger-icon-128.png

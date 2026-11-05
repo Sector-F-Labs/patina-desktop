@@ -5,6 +5,9 @@
 //! input is what's stored (ADR-0002); values are worked out from it.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::time::Duration;
+
+use crate::shell::{self, Block, Job, Options, Status, Target};
 
 /// A cell position, zero-based: `(row, col)`. `A1` is `(0, 0)`.
 pub type Pos = (u32, u32);
@@ -15,6 +18,8 @@ pub enum Value {
     Number(f64),
     Text(String),
     Error(String),
+    /// A shell command that's running.
+    Pending,
 }
 
 impl Value {
@@ -25,6 +30,7 @@ impl Value {
             Value::Number(n) => format_number(*n),
             Value::Text(t) => t.clone(),
             Value::Error(e) => format!("#{e}"),
+            Value::Pending => "…".into(),
         }
     }
 }
@@ -98,6 +104,7 @@ enum Tok {
     Op(char),
     Comma,
     Colon,
+    Eq,
     LParen,
     RParen,
 }
@@ -120,6 +127,10 @@ fn tokenize(src: &str) -> Result<Vec<Tok>, String> {
             }
             ':' => {
                 out.push(Tok::Colon);
+                i += 1;
+            }
+            '=' => {
+                out.push(Tok::Eq);
                 i += 1;
             }
             '(' => {
@@ -182,6 +193,23 @@ pub enum Expr {
     Neg(Box<Expr>),
     Bin(char, Box<Expr>, Box<Expr>),
     Call(String, Vec<Expr>),
+    /// `name=value` in a call's arguments (shell options).
+    Named(String, Box<Expr>),
+    /// Where shell output goes: `:F20` (no start), `B2:F` (open ended).
+    Block(Option<Pos>, Target),
+}
+
+/// `F20` or `F`: the end of a block.
+fn parse_end(text: &str) -> Option<Target> {
+    if let Some((row, col)) = parse_ref(text) {
+        return Some(Target { end_col: Some(col), end_row: Some(row) });
+    }
+    let letters = text.chars().all(|c| c.is_ascii_alphabetic());
+    if letters && !text.is_empty() && text.len() <= 3 {
+        let col = text.to_ascii_uppercase().bytes().fold(0u32, |acc, b| acc * 26 + (b - b'A') as u32 + 1) - 1;
+        return Some(Target { end_col: Some(col), end_row: None });
+    }
+    None
 }
 
 struct Parser {
@@ -255,6 +283,10 @@ impl Parser {
                     _ => Err("PARSE".into()),
                 }
             }
+            Some(Tok::Colon) => match self.next() {
+                Some(Tok::Ident(n)) => Ok(Expr::Block(None, parse_end(&n).ok_or_else(|| "NAME".to_string())?)),
+                _ => Err("PARSE".into()),
+            },
             Some(Tok::Ident(name)) => {
                 if self.peek() == Some(&Tok::LParen) {
                     self.next();
@@ -263,7 +295,24 @@ impl Parser {
                         self.next();
                     } else {
                         loop {
-                            args.push(self.expr()?);
+                            if let (Some(Tok::Ident(n)), Some(Tok::Eq)) = (self.toks.get(self.at), self.toks.get(self.at + 1)) {
+                                let name = n.to_ascii_lowercase();
+                                self.at += 2;
+                                // A bare word is text: `rest=drop`.
+                                let value = match (self.toks.get(self.at), self.toks.get(self.at + 1)) {
+                                    (Some(Tok::Ident(w)), next)
+                                        if parse_ref(w).is_none() && next != Some(&Tok::LParen) =>
+                                    {
+                                        let w = w.clone();
+                                        self.at += 1;
+                                        Expr::Str(w)
+                                    }
+                                    _ => self.expr()?,
+                                };
+                                args.push(Expr::Named(name, Box::new(value)));
+                            } else {
+                                args.push(self.expr()?);
+                            }
                             match self.next() {
                                 Some(Tok::Comma) => {}
                                 Some(Tok::RParen) => break,
@@ -278,8 +327,11 @@ impl Parser {
                     self.next();
                     match self.next() {
                         Some(Tok::Ident(n2)) => {
-                            let b = parse_ref(&n2).ok_or_else(|| "NAME".to_string())?;
-                            return Ok(Expr::Range(a, b));
+                            if let Some(b) = parse_ref(&n2) {
+                                return Ok(Expr::Range(a, b));
+                            }
+                            let end = parse_end(&n2).ok_or_else(|| "NAME".to_string())?;
+                            return Ok(Expr::Block(Some(a), end));
                         }
                         _ => return Err("PARSE".into()),
                     }
@@ -300,32 +352,181 @@ pub fn parse_formula(src: &str) -> Result<Expr, String> {
 
 // --- Evaluating --------------------------------------------------------
 
+/// What the evaluator needs to know about shell cells.
+#[derive(Default)]
+pub struct ShellState {
+    /// The last result of each shell cell, by the cell.
+    pub runs: HashMap<Pos, shell::Run>,
+    /// Shell cells whose command is running.
+    pub pending: HashSet<Pos>,
+}
+
+/// Everything worked out for a sheet.
+pub struct Evaluated {
+    /// The value of every non-empty cell, including cells filled by shell output.
+    pub values: HashMap<Pos, Value>,
+    /// The blocks shell commands fill.
+    pub blocks: Vec<Block>,
+    /// Shell cells whose block is in the way of something typed or of another block.
+    pub conflicts: HashSet<Pos>,
+}
+
+/// What a shell formula asks for, from its arguments.
+struct ShellSpec {
+    target: Target,
+    options: Options,
+    timeout: Duration,
+}
+
+fn literal_text(e: &Expr) -> Option<String> {
+    match e {
+        Expr::Str(s) => Some(s.clone()),
+        Expr::Num(n) => Some(format_number(*n)),
+        _ => None,
+    }
+}
+
+/// The shell formula's call arguments, if `src` (after the `=`) is one.
+fn shell_call(src: &str) -> Option<Vec<Expr>> {
+    match parse_formula(src) {
+        Ok(Expr::Call(name, args)) if name == "SH" => Some(args),
+        _ => None,
+    }
+}
+
+fn shell_spec(owner: Pos, args: &[Expr]) -> Result<ShellSpec, String> {
+    let mut spec = ShellSpec { target: Target::default(), options: Options::default(), timeout: shell::DEFAULT_TIMEOUT };
+    let mut have_target = false;
+    for arg in args.iter().skip(1) {
+        match arg {
+            Expr::Range(a, b) if !have_target => {
+                if *a != owner {
+                    return Err("RANGE".into());
+                }
+                spec.target = Target { end_col: Some(b.1), end_row: Some(b.0) };
+                have_target = true;
+            }
+            Expr::Block(start, target) if !have_target => {
+                if start.is_some_and(|s| s != owner) {
+                    return Err("RANGE".into());
+                }
+                spec.target = *target;
+                have_target = true;
+            }
+            Expr::Named(name, value) => match (name.as_str(), literal_text(value)) {
+                ("sep", Some(s)) => spec.options.sep = Some(s),
+                ("skip", Some(n)) => spec.options.skip = n.parse().map_err(|_| "VALUE".to_string())?,
+                ("rest", Some(r)) if r == "keep" || r == "drop" => spec.options.keep_rest = r == "keep",
+                ("timeout", Some(n)) => {
+                    spec.timeout = Duration::from_secs_f64(n.parse::<f64>().map_err(|_| "VALUE".to_string())?.clamp(0.1, 600.0))
+                }
+                ("arg", _) => {}
+                _ => return Err("VALUE".into()),
+            },
+            _ => return Err("VALUE".into()),
+        }
+    }
+    if let (Some(c), true) = (spec.target.end_col, true)
+        && c < owner.1
+    {
+        return Err("RANGE".into());
+    }
+    if spec.target.end_row.is_some_and(|r| r < owner.0) {
+        return Err("RANGE".into());
+    }
+    Ok(spec)
+}
+
 /// Works out the values of a sheet's cells from their inputs, each once.
 pub struct Evaluator<'a> {
     inputs: &'a BTreeMap<Pos, String>,
+    state: &'a ShellState,
     done: HashMap<Pos, Value>,
     visiting: HashSet<Pos>,
+    blocks: Vec<Block>,
+    conflicts: HashSet<Pos>,
+    /// The cells shell blocks fill, other than the formula's own.
+    spills: HashMap<Pos, Value>,
 }
 
 impl<'a> Evaluator<'a> {
+    #[cfg(test)]
     pub fn new(inputs: &'a BTreeMap<Pos, String>) -> Self {
-        Self { inputs, done: HashMap::new(), visiting: HashSet::new() }
+        static NONE: std::sync::OnceLock<ShellState> = std::sync::OnceLock::new();
+        Self::with_shell(inputs, NONE.get_or_init(ShellState::default))
     }
 
-    /// The value of every non-empty cell.
-    pub fn all(mut self) -> HashMap<Pos, Value> {
+    pub fn with_shell(inputs: &'a BTreeMap<Pos, String>, state: &'a ShellState) -> Self {
+        let mut ev = Self {
+            inputs,
+            state,
+            done: HashMap::new(),
+            visiting: HashSet::new(),
+            blocks: Vec::new(),
+            conflicts: HashSet::new(),
+            spills: HashMap::new(),
+        };
+        ev.place_blocks();
+        ev
+    }
+
+    /// Lays out the output of every shell cell that has a good result, and
+    /// refuses any block that would overwrite typed cells or another block.
+    fn place_blocks(&mut self) {
+        for (&owner, input) in self.inputs {
+            let Some(src) = input.strip_prefix('=') else { continue };
+            let Some(args) = shell_call(src) else { continue };
+            let Some(run) = self.state.runs.get(&owner).filter(|r| &r.formula == input && r.status == Status::Ok) else {
+                continue;
+            };
+            let Ok(spec) = shell_spec(owner, &args) else { continue };
+            let block = shell::layout(owner, spec.target, &spec.options, &run.stdout);
+            if block.rows == 0 || block.cols == 0 {
+                continue;
+            }
+            let (er, ec) = block.end();
+            let typed = self
+                .inputs
+                .range((owner.0, 0)..=(er, u32::MAX))
+                .any(|(&p, _)| p != owner && block.contains(p));
+            let overlaps = self.blocks.iter().any(|b| {
+                let (br, bc) = b.end();
+                owner.0 <= br && b.owner.0 <= er && owner.1 <= bc && b.owner.1 <= ec
+            });
+            if typed || overlaps {
+                self.conflicts.insert(owner);
+                continue;
+            }
+            for (i, row) in block.cells.iter().enumerate() {
+                for (j, field) in row.iter().enumerate() {
+                    let pos = (owner.0 + i as u32, owner.1 + j as u32);
+                    if pos != owner && !field.is_empty() {
+                        self.spills.insert(pos, parse_input(field));
+                    }
+                }
+            }
+            self.blocks.push(block);
+        }
+    }
+
+    /// The value of every non-empty cell, and the blocks.
+    pub fn all(mut self) -> Evaluated {
         let keys: Vec<Pos> = self.inputs.keys().copied().collect();
         for k in keys {
             self.value(k);
         }
-        self.done
+        let mut values = std::mem::take(&mut self.spills);
+        values.extend(self.done);
+        Evaluated { values, blocks: self.blocks, conflicts: self.conflicts }
     }
 
     pub fn value(&mut self, pos: Pos) -> Value {
         if let Some(v) = self.done.get(&pos) {
             return v.clone();
         }
-        let Some(input) = self.inputs.get(&pos) else { return Value::Empty };
+        let Some(input) = self.inputs.get(&pos) else {
+            return self.spills.get(&pos).cloned().unwrap_or(Value::Empty);
+        };
         let value = match input.strip_prefix('=') {
             None => parse_input(input),
             Some(src) => {
@@ -333,6 +534,7 @@ impl<'a> Evaluator<'a> {
                     return Value::Error("CYCLE".into());
                 }
                 let v = match parse_formula(src) {
+                    Ok(Expr::Call(name, args)) if name == "SH" => self.shell_value(pos, input, &args),
                     Ok(expr) => self.eval(&expr),
                     Err(e) => Value::Error(e),
                 };
@@ -346,6 +548,58 @@ impl<'a> Evaluator<'a> {
         value
     }
 
+    /// A shell cell's own value: the top-left of its block, or why there isn't one.
+    fn shell_value(&mut self, pos: Pos, input: &str, args: &[Expr]) -> Value {
+        if let Err(e) = shell_spec(pos, args) {
+            return Value::Error(e);
+        }
+        if self.state.pending.contains(&pos) {
+            return Value::Pending;
+        }
+        let Some(run) = self.state.runs.get(&pos).filter(|r| r.formula == input) else {
+            return Value::Error("NORUN".into());
+        };
+        match &run.status {
+            Status::Ok => {}
+            Status::Exit(_) => return Value::Error("EXIT".into()),
+            Status::Timeout => return Value::Error("TIMEOUT".into()),
+            Status::Failed(_) => return Value::Error("FAILED".into()),
+        }
+        if self.conflicts.contains(&pos) {
+            return Value::Error("SPILL".into());
+        }
+        match self.blocks.iter().find(|b| b.owner == pos).and_then(|b| b.get(pos)) {
+            Some(first) => parse_input(first),
+            None => Value::Empty,
+        }
+    }
+
+    /// What to run for a shell cell: the command and its `arg=` cells, as they are now.
+    pub fn shell_job(&mut self, pos: Pos) -> Result<Job, String> {
+        let input = self.inputs.get(&pos).ok_or("not a shell cell")?;
+        let args = input.strip_prefix('=').and_then(shell_call).ok_or("not a shell cell")?;
+        let spec = shell_spec(pos, &args).map_err(|e| format!("#{e}"))?;
+        let command = match args.first() {
+            Some(e) => match self.eval(e) {
+                Value::Error(e) => return Err(format!("#{e}")),
+                v => v.display(),
+            },
+            None => return Err("SH needs a command".into()),
+        };
+        let mut cmd_args = Vec::new();
+        for arg in &args {
+            if let Expr::Named(name, value) = arg
+                && name == "arg"
+            {
+                match self.eval(value) {
+                    Value::Error(e) => return Err(format!("#{e}")),
+                    v => cmd_args.push(v.display()),
+                }
+            }
+        }
+        Ok(Job { formula: input.clone(), command, args: cmd_args, timeout: spec.timeout })
+    }
+
     fn number(&mut self, e: &Expr) -> Result<f64, Value> {
         match self.eval(e) {
             Value::Number(n) => Ok(n),
@@ -355,6 +609,7 @@ impl<'a> Evaluator<'a> {
                 _ => Err(Value::Error("VALUE".into())),
             },
             err @ Value::Error(_) => Err(err),
+            Value::Pending => Err(Value::Pending),
         }
     }
 
@@ -363,7 +618,7 @@ impl<'a> Evaluator<'a> {
             Expr::Num(n) => Value::Number(*n),
             Expr::Str(s) => Value::Text(s.clone()),
             Expr::Ref(p) => self.value(*p),
-            Expr::Range(..) => Value::Error("VALUE".into()),
+            Expr::Range(..) | Expr::Block(..) | Expr::Named(..) => Value::Error("VALUE".into()),
             Expr::Neg(x) => match self.number(x) {
                 Ok(n) => Value::Number(-n),
                 Err(e) => e,
@@ -407,12 +662,12 @@ impl<'a> Evaluator<'a> {
                 Expr::Range(a, b) => {
                     for r in a.0.min(b.0)..=a.0.max(b.0) {
                         for c in a.1.min(b.1)..=a.1.max(b.1) {
-                            if !self.inputs.contains_key(&(r, c)) {
+                            if !self.inputs.contains_key(&(r, c)) && !self.spills.contains_key(&(r, c)) {
                                 continue;
                             }
                             match self.value((r, c)) {
                                 Value::Number(n) => out.push(n),
-                                err @ Value::Error(_) => return Err(err),
+                                err @ (Value::Error(_) | Value::Pending) => return Err(err),
                                 _ => {}
                             }
                         }
@@ -536,5 +791,92 @@ mod tests {
         assert_eq!(format_number(1200.0), "1200");
         assert_eq!(format_number(-0.0), "0");
         assert_eq!(format_number(2.5), "2.5");
+    }
+
+    fn run(formula: &str, stdout: &str) -> shell::Run {
+        shell::Run { formula: formula.into(), status: Status::Ok, stdout: stdout.into(), stderr: String::new(), ran_at: 0 }
+    }
+
+    fn shell_sheet(cells: &[(&str, &str)], runs: &[(&str, &str)]) -> Evaluated {
+        let map: BTreeMap<Pos, String> = cells.iter().map(|(k, v)| (parse_ref(k).unwrap(), v.to_string())).collect();
+        let mut state = ShellState::default();
+        for (at, out) in runs {
+            let pos = parse_ref(at).unwrap();
+            state.runs.insert(pos, run(&map[&pos], out));
+        }
+        Evaluator::with_shell(&map, &state).all()
+    }
+
+    const DF: &str = "Filesystem Size Used\n/dev/sda1 100 40\ntmpfs 8 0\n";
+
+    #[test]
+    fn shell_output_fills_a_block_from_the_formula_cell() {
+        let e = shell_sheet(&[("B2", "=SH(\"df\", :D)"), ("F2", "=SUM(C3:C4)")], &[("B2", DF)]);
+        let at = |s: &str| e.values.get(&parse_ref(s).unwrap()).cloned().unwrap_or(Value::Empty);
+        assert_eq!(at("B2"), Value::Text("Filesystem".into()), "the formula cell shows the block's first cell");
+        assert_eq!(at("D2"), Value::Text("Used".into()));
+        assert_eq!(at("C3"), Value::Number(100.0));
+        assert_eq!(at("F2"), Value::Number(108.0), "formulas read the block");
+        assert_eq!(e.blocks.len(), 1);
+        assert_eq!(e.blocks[0].end(), (3, 3));
+    }
+
+    #[test]
+    fn a_block_never_overwrites_typed_cells_or_another_block() {
+        let e = shell_sheet(&[("A1", "=SH(\"df\")"), ("B2", "typed")], &[("A1", DF)]);
+        assert_eq!(e.values[&(0, 0)], Value::Error("SPILL".into()));
+        assert!(e.blocks.is_empty() && e.values[&(1, 1)] == Value::Text("typed".into()));
+        // B1:C3 and A3:C5 overlap at B3:C3, though neither covers the other's formula.
+        let e = shell_sheet(&[("B1", "=SH(\"a\", :C)"), ("A3", "=SH(\"b\")")], &[("B1", DF), ("A3", DF)]);
+        assert_eq!(e.values[&(0, 1)], Value::Text("Filesystem".into()));
+        assert_eq!(e.values[&(2, 0)], Value::Error("SPILL".into()), "the later formula gives way");
+        // A block covering another formula's cell gives way too.
+        let e = shell_sheet(&[("A1", "=SH(\"a\")"), ("B2", "=SH(\"b\")")], &[("A1", DF), ("B2", DF)]);
+        assert_eq!(e.values[&(0, 0)], Value::Error("SPILL".into()));
+    }
+
+    #[test]
+    fn shell_cells_say_why_they_have_no_value() {
+        let e = shell_sheet(&[("A1", "=SH(\"x\")")], &[]);
+        assert_eq!(e.values[&(0, 0)], Value::Error("NORUN".into()));
+        // A result for an earlier version of the formula doesn't count.
+        let map: BTreeMap<Pos, String> = [((0, 0), "=SH(\"new\")".to_string())].into();
+        let mut state = ShellState::default();
+        state.runs.insert((0, 0), run("=SH(\"old\")", "1\n"));
+        assert_eq!(Evaluator::with_shell(&map, &state).value((0, 0)), Value::Error("NORUN".into()));
+        state.runs.insert((0, 0), run("=SH(\"new\")", "1\n"));
+        state.runs.get_mut(&(0, 0)).unwrap().status = Status::Exit(2);
+        assert_eq!(Evaluator::with_shell(&map, &state).value((0, 0)), Value::Error("EXIT".into()));
+        state.runs.get_mut(&(0, 0)).unwrap().status = Status::Ok;
+        state.pending.insert((0, 0));
+        assert_eq!(Evaluator::with_shell(&map, &state).value((0, 0)), Value::Pending);
+        let e = shell_sheet(&[("B2", "=SH(\"x\", A1:C3)")], &[]);
+        assert_eq!(e.values[&(1, 1)], Value::Error("RANGE".into()), "the range starts at the formula's cell");
+    }
+
+    #[test]
+    fn jobs_pass_cells_as_arguments() {
+        let map: BTreeMap<Pos, String> = [
+            ((0, 0), "a b; rm".to_string()),
+            ((0, 1), "=SH(\"echo \"\"$1\"\" \"&\"x\", B1:C, arg=A1, arg=2*3, timeout=2, sep=\",\", rest=drop)".to_string()),
+        ]
+        .into();
+        let job = Evaluator::new(&map).shell_job((0, 1)).unwrap();
+        assert_eq!(job.command, "echo \"$1\" x");
+        assert_eq!(job.args, ["a b; rm", "6"]);
+        assert_eq!(job.timeout, Duration::from_secs(2));
+        assert!(Evaluator::new(&map).shell_job((0, 0)).is_err());
+    }
+
+    #[test]
+    fn shell_formulas_parse_their_ranges_and_options() {
+        let args = shell_call("SH(\"c\", C3:F, skip=1, rest=drop)").unwrap();
+        let spec = shell_spec((2, 2), &args).unwrap();
+        assert_eq!(spec.target, Target { end_col: Some(5), end_row: None });
+        assert_eq!((spec.options.skip, spec.options.keep_rest), (1, false));
+        let spec = shell_spec((0, 0), &shell_call("SH(\"c\", :B20)").unwrap()).unwrap();
+        assert_eq!(spec.target, Target { end_col: Some(1), end_row: Some(19) });
+        assert!(shell_spec((0, 0), &shell_call("SH(\"c\", bogus=1)").unwrap()).is_err());
+        assert!(shell_spec((5, 5), &shell_call("SH(\"c\", :B2)").unwrap()).is_err(), "can't end before it starts");
     }
 }
