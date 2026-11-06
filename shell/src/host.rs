@@ -115,6 +115,16 @@ pub trait Shell: 'static {
     fn wanted_size(&self) -> Option<(u32, u32)> {
         None
     }
+    /// The margin the surfaces should have, if the shell moves them (a part
+    /// of the HUD sliding off the screen); checked after every frame.
+    fn wanted_margin(&self) -> Option<(i32, i32, i32, i32)> {
+        None
+    }
+    /// The exclusive zone the surfaces should have, if the shell changes it
+    /// (the HUD giving its space back); checked after every frame.
+    fn wanted_exclusive_zone(&self) -> Option<i32> {
+        None
+    }
 }
 
 /// Where the host's surfaces go and what they take.
@@ -351,6 +361,16 @@ impl<S: Shell> Host<S> {
                 && size != self.options.size
             {
                 self.set_size(size);
+            }
+            if let Some(margin) = self.shell.wanted_margin()
+                && margin != self.options.margin
+            {
+                self.set_margin(margin);
+            }
+            if let Some(zone) = self.shell.wanted_exclusive_zone()
+                && zone != self.options.exclusive_zone
+            {
+                self.set_exclusive_zone(zone);
             }
             self.send_toplevel_requests();
             if self.shell.finished() || self.dismissed {

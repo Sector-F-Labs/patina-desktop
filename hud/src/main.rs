@@ -7,6 +7,7 @@ mod bar;
 mod config;
 mod dwl;
 mod gaps;
+mod hide;
 mod icons;
 mod launcher;
 mod menu;
@@ -26,10 +27,10 @@ use patina_shell::calloop::{
 };
 use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 
-use crate::config::{Layout, Position};
+use crate::config::{Layout, Position, Visibility};
 use crate::split::Section;
 
-const USAGE: &str = "usage: patina-hud [-c config.toml] [--section launcher|windows|tray]
+const USAGE: &str = "usage: patina-hud [--toggle] [-c config.toml] [--section launcher|windows|tray]
 
 A status bar for dwl. Run it as dwl's status command, so it reads dwl's
 status from stdin:
@@ -54,6 +55,18 @@ fn main() -> ExitCode {
                 Some(p) => config_path = Some(PathBuf::from(p)),
                 None => return usage_error(),
             },
+            "--toggle" => {
+                return match hide::toggle() {
+                    Ok(hidden) => {
+                        println!("{}", if hidden { "hidden" } else { "shown" });
+                        ExitCode::SUCCESS
+                    }
+                    Err(e) => {
+                        eprintln!("patina-hud: {e}");
+                        ExitCode::FAILURE
+                    }
+                };
+            }
             "-h" | "--help" => {
                 println!("{USAGE}");
                 return ExitCode::SUCCESS;
@@ -82,7 +95,11 @@ fn main() -> ExitCode {
     // Split, this one draws the window list and runs the other parts.
     let section = match (config.layout, section_arg) {
         // The launcher button left out: a stray one goes.
-        (Layout::Split, Some(Section::Launcher)) if config.launcher_at.is_none() => {
+        (Layout::Split, Some(s))
+            if s != Section::Windows
+                && !matches!(s, Section::Reserve(_))
+                && s.mode(&config) == Visibility::Hidden =>
+        {
             return ExitCode::SUCCESS;
         }
         (Layout::Split, Some(s)) => Some(s),
@@ -92,11 +109,13 @@ fn main() -> ExitCode {
         (Layout::Bar, None) => None,
     };
     let parts = if config.layout == Layout::Split && section_arg.is_none() {
-        let mut parts = vec![Section::Tray];
-        if config.launcher_at.is_some() {
-            parts.push(Section::Launcher);
+        let mut parts = Vec::new();
+        for section in [Section::Tray, Section::Launcher] {
+            if section.mode(&config) != Visibility::Hidden {
+                parts.push(section);
+            }
         }
-        if split::media_apart(&config).is_some() {
+        if split::media_apart(&config).is_some() && Section::Media.mode(&config) != Visibility::Hidden {
             parts.push(Section::Media);
         }
         parts.extend(split::reserved(&config).into_iter().map(Section::Reserve));
@@ -126,6 +145,8 @@ fn main() -> ExitCode {
     let (mut bar, skin_warnings) = bar::Bar::new(config);
     bar.gaps = gaps;
     bar.section = section;
+    bar.place = Some(place);
+    bar.all_hidden = hide::hidden();
     bar.config_path = config_path.clone();
     warnings.extend(skin_warnings);
     for w in &warnings {
@@ -489,6 +510,10 @@ fn run(
                                     || config.launcher_at != current.launcher_at
                                     || config.tray_at != current.tray_at
                                     || config.media_at != current.media_at
+                                    || config.launcher_mode != current.launcher_mode
+                                    || config.windows_mode != current.windows_mode
+                                    || config.tray_mode != current.tray_mode
+                                    || config.media_mode != current.media_mode
                                     || config.height != current.height
                                     || config.launcher_height != current.launcher_height
                                     || config.windows_height != current.windows_height
@@ -531,6 +556,21 @@ fn run(
                 }
                 host.redraw_all();
                 TimeoutAction::ToDuration(until_next_second())
+            },
+        )
+        .map_err(|e| e.to_string())?;
+
+    // Super+H: look for the hidden state a few times a second.
+    handle
+        .insert_source(
+            Timer::from_duration(Duration::from_millis(150)),
+            |_, _, host| {
+                let hidden = hide::hidden();
+                if hidden != host.shell.all_hidden {
+                    host.shell.all_hidden = hidden;
+                    host.redraw_all();
+                }
+                TimeoutAction::ToDuration(Duration::from_millis(150))
             },
         )
         .map_err(|e| e.to_string())?;

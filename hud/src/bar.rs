@@ -140,6 +140,12 @@ pub struct Bar {
     pub gaps: crate::gaps::Gaps,
     /// The part of a split bar this draws, if it's split (experimental).
     pub section: Option<crate::split::Section>,
+    /// Whether Super+H has hidden the HUD (ADR-0111).
+    pub all_hidden: bool,
+    /// How far out this part is, when it hides at its edge.
+    slide: crate::hide::Slide,
+    /// Where this part sits, which sliding moves it from.
+    pub place: Option<crate::split::Placement>,
     /// The size a split part wants, from its last frame.
     wanted: Cell<Option<(u32, u32)>>,
 }
@@ -176,6 +182,9 @@ impl Bar {
                 tooltip_shown: None,
                 gaps: crate::gaps::Gaps::default(),
                 section: None,
+                all_hidden: false,
+                slide: crate::hide::Slide::default(),
+                place: None,
                 wanted: Cell::new(None),
             },
             warnings,
@@ -907,6 +916,38 @@ impl Shell for Bar {
     fn wanted_size(&self) -> Option<(u32, u32)> {
         self.wanted.get()
     }
+
+    fn wanted_margin(&self) -> Option<(i32, i32, i32, i32)> {
+        let section = self.section?;
+        let place = self.place.as_ref()?;
+        if matches!(section, crate::split::Section::Reserve(_)) {
+            return None;
+        }
+        let sliver = if section.mode(&self.config) == crate::config::Visibility::Hidden {
+            0
+        } else {
+            crate::hide::SLIVER
+        };
+        Some(crate::split::slid_margin(
+            place,
+            section,
+            &self.config,
+            self.gaps,
+            self.slide.out(),
+            sliver,
+        ))
+    }
+
+    fn wanted_exclusive_zone(&self) -> Option<i32> {
+        // Hidden, the HUD gives its edges back to the windows.
+        match self.section? {
+            crate::split::Section::Reserve(_) => {
+                let place = self.place.as_ref()?;
+                Some(if self.all_hidden { 0 } else { place.exclusive_zone })
+            }
+            _ => None,
+        }
+    }
 }
 
 impl Bar {
@@ -922,6 +963,13 @@ impl Bar {
             // It only keeps the edge's space.
             self.wanted.set(None);
             return;
+        }
+        // Hiding at the edge: the pointer on what's showing brings it out.
+        let mode = crate::hide::effective(section.mode(&self.config), self.all_hidden);
+        let hover = ui.input(|i| i.pointer.hover_pos().is_some());
+        if self.slide.step(mode, hover, std::time::Instant::now()) {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_millis(16));
         }
         if section == Section::Media && self.media.is_none() {
             // Nothing playing: a pixel, drawn in nothing, rather than an
@@ -1278,6 +1326,9 @@ mod tests {
             tooltip_shown: None,
             gaps: crate::gaps::Gaps::default(),
             section: None,
+            all_hidden: false,
+            slide: crate::hide::Slide::default(),
+            place: None,
             wanted: Cell::new(None),
             config,
         }

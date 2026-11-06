@@ -8,6 +8,8 @@
 .Nm
 .Op Fl c Ar config.toml
 .Nm
+.Fl -toggle
+.Nm
 .Fl h | V
 .Sh DESCRIPTION
 .Nm
@@ -125,6 +127,15 @@ Draw one part of a split bar (see
 .Ic layout ) .
 The bar starts these itself, with its pipe on their standard input, and
 they end when it closes; there's no need to run them by hand.
+.It Fl -toggle
+Hide the HUD, or bring it back: every element that is shown hides at its
+edge as under
+.Cm autohide ,
+and gives its space to the windows.
+Super+H runs this.
+The state is the file
+.Pa $XDG_RUNTIME_DIR/patina-hud/hidden ,
+so it ends with the session.
 .It Fl h , -help
 Print a short usage message.
 .It Fl V , -version
@@ -174,10 +185,8 @@ none by default.
 .Xr patina-compositor 1
 reads it too, so Super+1 to 9 reach the same tabs.
 .It Ic layout
-.Dq bar ,
-one bar along an edge (the default); or
 .Dq split
-(experimental): its parts each on their own, the launcher, the window list
+(the default): its parts each on their own, the launcher, the window list
 and the rest
 .Pq the tray, the clock, the power button ,
 where
@@ -185,13 +194,30 @@ where
 .Ic windows_at
 and
 .Ic tray_at
-say.
+say; or
+.Dq bar ,
+one bar along an edge, as under dwl.
 The bar draws the window list and runs the other parts as
 .Ql patina-hud --section ;
 each edge with a part on it is kept clear of windows by a pixel-thin strip
 that takes no clicks.
 The bar starts itself again, laid out anew, within a second of a change to
 these keys.
+.It Ic launcher_mode , windows_mode , tray_mode , media_mode
+Whether each part of the split layout, the default, is shown:
+.Dq always
+(the default), on screen and keeping its space at its edge;
+.Dq autohide ,
+off the screen but for a sliver of two pixels at its edge, which slides it
+in when the pointer touches it, and out a moment after the pointer leaves;
+it keeps no space, so windows use it; or
+.Dq hidden ,
+not there at all.
+An element that is
+.Dq always
+hides like
+.Dq autohide
+while the HUD is hidden with Super+H, and returns when it is shown again.
 .It Ic launcher_at , windows_at , tray_at
 Where each part of a split bar goes: an edge, then where along it.
 Along the top or bottom a part is a row:

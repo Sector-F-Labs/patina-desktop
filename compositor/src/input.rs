@@ -39,6 +39,8 @@ pub enum KeyAction {
     /// Open the launcher (Super+Space, as Cmd+Space on macOS, or Super
     /// tapped on its own).
     Launcher,
+    /// Hide the HUD, or bring it back (Super+H): `patina-hud --toggle`.
+    Hud,
     /// Read config.toml again (Super+Shift+R).
     Reload,
     /// A brightness or volume key.
@@ -292,6 +294,10 @@ impl State {
             }
             Some(KeyAction::Launcher) => {
                 self.open_launcher();
+                None
+            }
+            Some(KeyAction::Hud) => {
+                self.spawn_client("patina-hud --toggle");
                 None
             }
             Some(KeyAction::Restart) => {

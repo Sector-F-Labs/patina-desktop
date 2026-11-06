@@ -152,6 +152,7 @@ mechanics of adding one.
 | [0108](0108-the-launcher-lives-in-this-repository.md) | The launcher lives in this repository | Accepted; changes [0037](0037-patina-shell-and-the-launcher-are-public.md) |
 | [0109](0109-patina-shell-lives-in-this-repository.md) | patina-shell lives in this repository | Accepted; supersedes the rest of [0037](0037-patina-shell-and-the-launcher-are-public.md) |
 | [0110](0110-the-bar-becomes-the-hud.md) | The bar becomes the HUD: `patina-hud`, `~/.config/patina-hud/` | Accepted |
+| [0111](0111-hud-elements-and-hiding.md) | HUD elements hide at their edge, and Super+H hides them all | Accepted |
 
 ## Decision Relationship
 

@@ -19,14 +19,28 @@ pub enum Position {
     Bottom,
 }
 
-/// One bar, or its parts apart (experimental): the launcher, the window
-/// list and the tray each on a surface of their own.
+/// The HUD: its elements each on a surface of their own (the default), or
+/// the old single bar along an edge.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Layout {
-    #[default]
     Bar,
+    #[default]
     Split,
+}
+
+/// Whether an element of the HUD is shown (ADR-0111).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Visibility {
+    /// On screen, keeping its space at the edge.
+    #[default]
+    Always,
+    /// Off screen but for a sliver at the edge, which slides it in when the
+    /// pointer touches it; it keeps no space.
+    Autohide,
+    /// Not there at all.
+    Hidden,
 }
 
 /// Where a part of the split bar goes: an edge, then where along it. Along
@@ -209,6 +223,14 @@ pub struct Config {
     /// (ADR-0101); unset, they stay in the tray's part. Ignored where
     /// `media` isn't one of the modules, and where it is the tray's spot.
     pub media_at: Option<Spot>,
+    /// Split, whether each element is `always` shown, `autohide`s off the
+    /// screen until the pointer goes where it is (and so keeps no space),
+    /// or is `hidden` altogether (ADR-0111). Super+H sets every shown
+    /// element to hide like `autohide`, and back.
+    pub launcher_mode: Visibility,
+    pub windows_mode: Visibility,
+    pub tray_mode: Visibility,
+    pub media_mode: Visibility,
     /// Split, how thick each part is across its edge, in logical pixels
     /// (its height along the top or bottom, its width up a side); unset,
     /// `height`. A tall window list is a dock; a small tray is a status line.
@@ -266,11 +288,15 @@ impl Default for Config {
                 "power".into(),
             ],
             window_tabs: WindowTabs::Both,
-            layout: Layout::Bar,
+            layout: Layout::Split,
             launcher_at: Some(Spot::BottomLeft),
             windows_at: Spot::BottomCenter,
             tray_at: Spot::BottomRight,
             media_at: None,
+            launcher_mode: Visibility::Always,
+            windows_mode: Visibility::Always,
+            tray_mode: Visibility::Always,
+            media_mode: Visibility::Always,
             launcher_height: None,
             windows_height: None,
             tray_height: None,
@@ -393,7 +419,7 @@ mod tests {
         assert!(c.windows_at.vertical());
         assert_eq!(c.windows_at.corner_row(), Some(Spot::BottomLeft));
         assert!(!Spot::BottomLeft.vertical());
-        assert_eq!(parse("").0.layout, Layout::Bar);
+        assert_eq!(parse("").0.layout, Layout::Split);
     }
 
     #[test]
