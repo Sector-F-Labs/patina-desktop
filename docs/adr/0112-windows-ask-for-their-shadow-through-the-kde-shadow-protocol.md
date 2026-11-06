@@ -69,8 +69,8 @@ Smithay has no implementation of it; `wayland-protocols-plasma` has the definiti
 - Windows the compositor frames itself (X11 windows, and Wayland ones that take server-side
   decorations, ADR-0077 and ADR-0085) get no shadow yet. They never ask, so they would need the
   compositor to add one, which is cheap to add here: it knows they have none.
-- The HUD and the menus are layer surfaces and don't use this. They need their own shadow in
-  `patina-shell`, which can size its own surfaces.
+- The HUD's parts are layer surfaces and ask for theirs through the same protocol (ADR-0113); the
+  menus don't yet.
 - The shadow is a fixed picture scaled with the window, not blurred per size. At a fractional
   output scale the tiles are stretched like any buffer, so they soften.
 - Not checked: maximised and tiled windows, a second app, and KWin. Applying the shadow at its

@@ -66,7 +66,9 @@ const MAX_TEXTURE_SIDE: usize = 8192;
 
 use crate::raster::Painter;
 use crate::scale::{FractionalData, NoEvents};
+use crate::shadow::{self, Style as ShadowStyle};
 use crate::toplevels::{ManagerData, Toplevel, ToplevelRequest, Toplevels};
+use wayland_protocols_plasma::shadow::client::org_kde_kwin_shadow_manager::OrgKdeKwinShadowManager;
 use smithay_client_toolkit::reexports::protocols::wp::{
     fractional_scale::v1::client::{
         wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1,
@@ -131,6 +133,20 @@ pub trait Shell: 'static {
     /// the element is out of the way. All zero for the whole surface.
     fn wanted_input_trim(&self) -> Option<(i32, i32, i32, i32)> {
         None
+    }
+    /// How far the shape the shell draws is inside its surface, in logical
+    /// pixels (top, right, bottom, left), when the surface is bigger than
+    /// what it shows: the HUD's transparent strip. A shadow (ADR-0113) goes
+    /// around the shape, not the surface.
+    fn shadow_inset(&self) -> (i32, i32, i32, i32) {
+        (0, 0, 0, 0)
+    }
+    /// Whether the shape is out of the way, off the screen but for a strip
+    /// (the HUD's hidden parts): its shadow would show at the screen's edge
+    /// with nothing to be the shadow of, so it's taken away until the shape
+    /// is back. Checked after every frame.
+    fn shadow_hidden(&self) -> bool {
+        false
     }
 }
 
@@ -220,6 +236,8 @@ struct Surface {
     focused: bool,
     /// The input trim last set, and the size it was set for.
     input: Option<InputTrim>,
+    /// The shadow asked of the compositor for this surface, while there is one.
+    shadow: Option<shadow::Hold>,
 }
 
 impl Drop for Surface {
@@ -270,6 +288,13 @@ pub struct Host<S: Shell> {
     pub(crate) toplevels: Toplevels,
     fractional_manager: Option<WpFractionalScaleManagerV1>,
     viewporter: Option<WpViewporter>,
+    /// KDE's shadow protocol, where the compositor has it (ADR-0113).
+    shadow_manager: Option<OrgKdeKwinShadowManager>,
+    /// The shadow to ask for on every layer surface, if any ([`Host::set_shadow`]).
+    shadow: Option<ShadowStyle>,
+    /// The shell says its shape is out of the way, so none is drawn
+    /// ([`Shell::shadow_hidden`]).
+    shadow_hidden: bool,
 }
 
 impl<S: Shell> Host<S> {
@@ -337,6 +362,9 @@ impl<S: Shell> Host<S> {
             toplevels: Toplevels::default(),
             fractional_manager: globals.bind(&qh, 1..=1, NoEvents).ok(),
             viewporter: globals.bind(&qh, 1..=1, NoEvents).ok(),
+            shadow_manager: globals.bind(&qh, 1..=2, NoEvents).ok(),
+            shadow: None,
+            shadow_hidden: false,
             loop_handle: event_loop.handle(),
             conn,
             qh,
@@ -386,6 +414,14 @@ impl<S: Shell> Host<S> {
                 && zone != self.options.exclusive_zone
             {
                 self.set_exclusive_zone(zone);
+            }
+            let hidden = self.shell.shadow_hidden();
+            if hidden != self.shadow_hidden {
+                self.shadow_hidden = hidden;
+                for s in &mut self.surfaces {
+                    s.shadow = None;
+                }
+                self.apply_shadow();
             }
             self.send_toplevel_requests();
             if self.shell.finished() || self.dismissed {
@@ -492,6 +528,46 @@ impl<S: Shell> Host<S> {
             if let Role::Layer(layer) = &s.role {
                 layer.set_exclusive_zone(zone);
                 layer.commit();
+            }
+        }
+    }
+
+    /// Asks the compositor for a shadow around every layer surface, in
+    /// `style`, or takes the shadows away (ADR-0113). Surfaces that come
+    /// later, a new output's, get it too. The compositor draws it outside the
+    /// surface, so nothing about the surface's size or place changes; where
+    /// it has no shadow protocol, nothing is drawn.
+    pub fn set_shadow(&mut self, style: Option<ShadowStyle>) {
+        if self.shadow == style {
+            return;
+        }
+        self.shadow = style;
+        for s in &mut self.surfaces {
+            s.shadow = None;
+        }
+        self.apply_shadow();
+    }
+
+    /// Gives the layer surfaces that have none the shadow that's asked for.
+    fn apply_shadow(&mut self) {
+        let (Some(style), Some(manager)) = (self.shadow, &self.shadow_manager) else {
+            return;
+        };
+        if self.shadow_hidden {
+            return;
+        }
+        let inset = self.shell.shadow_inset();
+        for s in &mut self.surfaces {
+            if s.shadow.is_some() || !matches!(s.role, Role::Layer(_)) {
+                continue;
+            }
+            match shadow::attach(manager, &self.shm, &self.qh, s.role.wl_surface(), style, inset) {
+                Ok(hold) => {
+                    s.shadow = Some(hold);
+                    // KWin applies a shadow with the surface's next commit.
+                    s.role.commit();
+                }
+                Err(e) => eprintln!("patina-shell: no shadow: {e}"),
             }
         }
     }
@@ -733,7 +809,9 @@ impl<S: Shell> Host<S> {
             events: Vec::new(),
             focused: false,
             input: None,
+            shadow: None,
         });
+        self.apply_shadow();
     }
 
     /// The compositor's exact scale for the surface behind `fractional`.

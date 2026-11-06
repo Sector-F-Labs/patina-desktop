@@ -405,6 +405,12 @@ where
                 .into_iter()
                 .map(DesktopElement::Surface),
             );
+            // The shadow a piece of the HUD asked for (ADR-0113), under it.
+            elements.extend(
+                crate::shadow::layer_elements(renderer, surface.wl_surface(), geometry, scale)
+                    .into_iter()
+                    .map(DesktopElement::Frame),
+            );
         }
     };
     layers(renderer, upper, &mut elements);

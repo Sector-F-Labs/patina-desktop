@@ -186,6 +186,23 @@ its app's icon and its title (the default);
 .Dq icons ,
 narrow tabs with only the icon and the title on hover; or
 .Dq titles .
+.It Ic shadows
+Whether each part of the HUD asks the compositor for a shadow, as Patina apps
+do:
+.Cm true
+(the default) or
+.Cm false .
+The compositor draws it only while its own
+.Ic [shadows]
+is on.
+.It Ic shadow_blur , shadow_opacity , shadow_drop , shadow_offset_x , shadow_spread , shadow_color
+How the shadows look: the blur's size in logical pixels, 8 by default (they reach
+about three times it); how dark they are at a part's edge, 0 to 1, 0.5; how far
+down and to the right they are moved, 3 and 0; how far their shape is grown
+past the part's, 0; and their colour as
+.Ql #rrggbb ,
+black.
+Settings' HUD page changes them.
 .It Ic pinned
 The apps pinned to the window tabs, by app id, in order, as
 .Ql pinned = ["firefox", "org.gnome.Nautilus"] ;

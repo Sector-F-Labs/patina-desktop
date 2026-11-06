@@ -966,6 +966,20 @@ impl Shell for Bar {
         ))
     }
 
+    fn shadow_hidden(&self) -> bool {
+        // Slid right off the screen but for its strip (`out` is 0 then, 1 in
+        // place): the shadow would show at the edge with no part to be the
+        // shadow of. While it moves, it goes with it.
+        self.section.is_some() && self.slide.out() <= 0.0
+    }
+
+    fn shadow_inset(&self) -> (i32, i32, i32, i32) {
+        // The island is the surface less the strip it hides into.
+        self.section
+            .and_then(|section| section.spot(&self.config))
+            .map_or((0, 0, 0, 0), |spot| crate::split::hot_trim(spot.side()))
+    }
+
     fn wanted_input_trim(&self) -> Option<(i32, i32, i32, i32)> {
         let section = self.section?;
         if matches!(section, crate::split::Section::Reserve(_)) {

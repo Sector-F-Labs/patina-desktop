@@ -5,6 +5,7 @@
 
 use std::path::{Path, PathBuf};
 
+use patina_shell::ShadowStyle;
 use serde::Deserialize;
 
 /// The modules a side of the bar can hold.
@@ -204,6 +205,20 @@ pub struct Config {
     pub tags: Vec<String>,
     /// Show only tags that have windows or are being viewed.
     pub hide_vacant_tags: bool,
+    /// Ask the compositor for a shadow around each element of the HUD
+    /// (ADR-0113). It draws shadows only while its own `[shadows]` is on.
+    pub shadows: bool,
+    /// How the shadows look (ADR-0113), in logical pixels: the blur's size
+    /// (its standard deviation; they reach about three times it), how far
+    /// down and to the right they're moved, how far their shape is grown
+    /// past the part's, how dark they are at its edge (0 to 1) and their
+    /// colour as `#rrggbb`. Settings' HUD page changes these.
+    pub shadow_blur: f32,
+    pub shadow_drop: f32,
+    pub shadow_offset_x: f32,
+    pub shadow_spread: f32,
+    pub shadow_opacity: f32,
+    pub shadow_color: String,
     pub left: Vec<String>,
     pub center: Vec<String>,
     pub right: Vec<String>,
@@ -274,6 +289,13 @@ impl Default for Config {
             skin: patina_shell::hud::DEFAULT_SKIN.to_string(),
             tags: (1..=9).map(|n| n.to_string()).collect(),
             hide_vacant_tags: false,
+            shadows: true,
+            shadow_blur: ShadowStyle::default().blur,
+            shadow_drop: ShadowStyle::default().drop,
+            shadow_offset_x: ShadowStyle::default().offset_x,
+            shadow_spread: ShadowStyle::default().spread,
+            shadow_opacity: ShadowStyle::default().opacity,
+            shadow_color: "#000000".into(),
             left: vec![
                 "launcher".into(),
                 "windows".into(),
@@ -331,6 +353,42 @@ pub fn default_path() -> Option<PathBuf> {
 
 /// Reads the config at `path`, returning it and anything worth telling the
 /// user. A missing file is the defaults, silently.
+/// `#rrggbb` as red, green and blue.
+pub fn parse_color(text: &str) -> Option<[u8; 3]> {
+    let hex = text.strip_prefix('#')?;
+    if hex.len() != 6 || !hex.is_ascii() {
+        return None;
+    }
+    let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
+    Some([byte(0)?, byte(2)?, byte(4)?])
+}
+
+impl Config {
+    /// The shadow the config describes for the HUD's parts (a colour it
+    /// can't read is black).
+    pub fn shadow_style(&self) -> ShadowStyle {
+        ShadowStyle {
+            blur: self.shadow_blur,
+            drop: self.shadow_drop,
+            opacity: self.shadow_opacity,
+            spread: self.shadow_spread,
+            offset_x: self.shadow_offset_x,
+            color: parse_color(&self.shadow_color).unwrap_or([0, 0, 0]),
+        }
+    }
+
+    /// Takes the shadow settings from `other`, a config just read.
+    pub fn copy_shadow(&mut self, other: &Config) {
+        self.shadows = other.shadows;
+        self.shadow_blur = other.shadow_blur;
+        self.shadow_drop = other.shadow_drop;
+        self.shadow_offset_x = other.shadow_offset_x;
+        self.shadow_spread = other.shadow_spread;
+        self.shadow_opacity = other.shadow_opacity;
+        self.shadow_color = other.shadow_color.clone();
+    }
+}
+
 pub fn load(path: &Path) -> (Config, Vec<String>) {
     match std::fs::read_to_string(path) {
         Ok(text) => parse(&text),
@@ -366,6 +424,12 @@ pub fn parse(text: &str) -> (Config, Vec<String>) {
                 MODULES.join(", ")
             ));
         }
+    }
+    if parse_color(&config.shadow_color).is_none() {
+        warnings.push(format!(
+            "shadow_color `{}` isn't #rrggbb; using black",
+            config.shadow_color
+        ));
     }
     (config, warnings)
 }
@@ -463,5 +527,27 @@ mod tests {
         assert_eq!(w.len(), 1);
         let (_, w) = parse("height = ");
         assert_eq!(w.len(), 1);
+    }
+
+    #[test]
+    fn the_shadow_is_described_by_its_keys() {
+        let (c, w) = parse("");
+        assert!(c.shadows && w.is_empty(), "{w:?}");
+        assert_eq!(c.shadow_style(), ShadowStyle::default());
+        let (c, w) = parse(
+            "shadows = false\nshadow_blur = 3\nshadow_drop = 1.5\nshadow_offset_x = -2\n\
+             shadow_spread = 4\nshadow_opacity = 0.8\nshadow_color = \"#102030\"\n",
+        );
+        assert!(!c.shadows && w.is_empty(), "{w:?}");
+        let style = c.shadow_style();
+        assert_eq!((style.blur, style.drop, style.offset_x), (3.0, 1.5, -2.0));
+        assert_eq!((style.spread, style.opacity), (4.0, 0.8));
+        assert_eq!(style.color, [0x10, 0x20, 0x30]);
+        let (c, w) = parse("shadow_color = \"red\"\n");
+        assert_eq!(c.shadow_style().color, [0, 0, 0]);
+        assert_eq!(w.len(), 1, "{w:?}");
+        assert_eq!(parse_color("#ffFF00"), Some([255, 255, 0]));
+        assert_eq!(parse_color("ffffff"), None);
+        assert_eq!(parse_color("#fff"), None);
     }
 }
