@@ -60,6 +60,7 @@ fn action(name: &str) -> Option<KeyAction> {
     use crate::screenshot::Shot;
     Some(match name {
         "launcher" => KeyAction::Launcher,
+        "hud" => KeyAction::Hud,
         "next_layout" => KeyAction::NextLayout,
         "quit_app" => KeyAction::QuitApp,
         "minimise" => KeyAction::Minimize,
@@ -407,8 +408,13 @@ mod tests {
             assert_eq!(at("Super", arrow), Some(KeyAction::Snap(snap)));
             assert_eq!(at("Ctrl+Super", vim), Some(KeyAction::Snap(snap)));
             assert_eq!(at("Super+Shift", arrow), Some(KeyAction::Grow(snap)));
-            // Super alone with a vim key is the app's, as Ctrl (ADR-0067).
-            assert_eq!(at("Super", vim), None);
+            // Super alone with a vim key is the app's, as Ctrl (ADR-0067),
+            // but for H, which hides the HUD (ADR-0111).
+            if vim == keysyms::KEY_h {
+                assert_eq!(at("Super", vim), Some(KeyAction::Hud));
+            } else {
+                assert_eq!(at("Super", vim), None);
+            }
         }
         for (vim, how) in [
             (keysyms::KEY_k, Resize::Grow),

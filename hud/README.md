@@ -59,9 +59,17 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
 - **Skins** are Patina's, built in or in `~/.config/patina-hud/skins`, and through the bar they
   are the whole shell's.
 
-## Split (experimental)
+## Elements, and hiding them
 
-With `layout = "split"` (ADR-0063) the launcher, the window list and the tray each sit on their
+The HUD is the split layout (ADR-0063, the default, ADR-0110; `layout = "bar"` is the old single
+strip, for dwl). Each element has `launcher_mode`, `windows_mode`, `tray_mode` and `media_mode`:
+`always`, `autohide` (off the screen but for a 2 px sliver, which slides it in when the pointer
+touches it, and keeps no space) or `hidden` (not started at all). **Super+H** runs `patina-hud
+--toggle`, which makes or removes `$XDG_RUNTIME_DIR/patina-hud/hidden`; every process looks for
+it a few times a second, and the elements that are `always` hide like `autohide` and give their
+space back (`hide.rs`, ADR-0111).
+
+With the split layout the launcher, the window list and the tray each sit on their
 own, at `launcher_at`, `windows_at` and `tray_at`: an edge, then where along it (`bottom-left` is
 a row, `left-bottom` a column). The media controls stay in the tray's part unless `media_at` (the
 same names) gives them a part of their own (ADR-0101). This process draws the window list and runs the others as

@@ -20,7 +20,7 @@
 use egui::{Pos2, Vec2};
 use patina_shell::Anchor;
 
-use crate::config::{Along, Config, Position, Side, Spot};
+use crate::config::{Along, Config, Position, Side, Spot, Visibility};
 use crate::gaps::Gaps;
 
 /// A part of the split bar, or the keeper of an edge's space.
@@ -71,6 +71,20 @@ impl Section {
     }
 }
 
+impl Section {
+    /// Whether the element is shown, hides at its edge or isn't there.
+    pub fn mode(self, config: &Config) -> Visibility {
+        match self {
+            Section::Launcher if config.launcher_at.is_none() => Visibility::Hidden,
+            Section::Launcher => config.launcher_mode,
+            Section::Windows => config.windows_mode,
+            Section::Tray => config.tray_mode,
+            Section::Media => config.media_mode,
+            Section::Reserve(_) => Visibility::Always,
+        }
+    }
+}
+
 /// Where the media controls sit on a part of their own: `media_at`, when
 /// the bar has them and it isn't the tray's spot, where they would only
 /// cover the tray. Otherwise they're in the tray's part.
@@ -83,6 +97,14 @@ pub fn media_apart(config: &Config) -> Option<Spot> {
 /// Each part on a surface of its own, and where it is: the launcher only
 /// when it has a spot.
 fn parts(config: &Config) -> Vec<(Section, Spot)> {
+    let mut parts = shown_parts(config);
+    // An element that hides, or isn't there, keeps no space at its edge.
+    parts.retain(|(section, _)| section.mode(config) == Visibility::Always);
+    parts
+}
+
+/// Every element that has a spot, hiding or not.
+fn shown_parts(config: &Config) -> Vec<(Section, Spot)> {
     let mut parts = Vec::new();
     parts.extend(config.launcher_at.map(|spot| (Section::Launcher, spot)));
     parts.push((Section::Windows, config.windows_at));
@@ -383,6 +405,32 @@ pub fn modules(section: Section, config: &Config) -> Vec<String> {
     }
 }
 
+/// `placement`'s margin for `section` when it is `out` of the way: 1 in
+/// place, 0 off the screen but for the sliver at its edge. Only the margin
+/// of the edge it sits on moves.
+pub fn slid_margin(
+    place: &Placement,
+    section: Section,
+    config: &Config,
+    gaps: Gaps,
+    out: f32,
+    sliver: i32,
+) -> (i32, i32, i32, i32) {
+    let Some(spot) = section.spot(config) else {
+        return place.margin;
+    };
+    let off = thickness(section, config) as i32 + gaps.gap - sliver;
+    let moved = ((1.0 - out.clamp(0.0, 1.0)) * off as f32).round() as i32;
+    let (mut top, mut right, mut bottom, mut left) = place.margin;
+    match spot.side() {
+        Side::Top => top -= moved,
+        Side::Right => right -= moved,
+        Side::Bottom => bottom -= moved,
+        Side::Left => left -= moved,
+    }
+    (top, right, bottom, left)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -396,6 +444,10 @@ mod tests {
         radius: 8.0,
     };
     const OUT: Vec2 = Vec2::new(1920.0, 1080.0);
+    const GAMELESS: Gaps = Gaps {
+        gap: 0,
+        radius: 0.0,
+    };
 
     #[test]
     fn the_whole_bars_menus_open_past_its_edge_as_before() {
@@ -592,5 +644,29 @@ mod tests {
             "layout = \"split\"\nlauncher_at = \"left-bottom\"\nwindows_at = \"top\"\ntray_at = \"top-right\"",
         );
         assert!(!reserved(&c).contains(&Side::Left));
+    }
+
+    #[test]
+    fn an_element_that_hides_keeps_no_space() {
+        let c = config("launcher_mode = \"autohide\"\ntray_mode = \"hidden\"");
+        assert_eq!(Section::Launcher.mode(&c), Visibility::Autohide);
+        assert_eq!(Section::Tray.mode(&c), Visibility::Hidden);
+        // Only the window list is left to keep the bottom edge.
+        assert_eq!(reserved(&c), vec![Side::Bottom]);
+        let c = config("windows_mode = \"autohide\"\nlauncher_mode = \"hidden\"\ntray_mode = \"autohide\"");
+        assert!(reserved(&c).is_empty());
+    }
+
+    #[test]
+    fn a_hidden_element_slides_off_its_own_edge() {
+        let c = config("windows_at = \"bottom\"\nheight = 40");
+        let p = placement(Some(Section::Windows), &c, GAMELESS);
+        let (top, right, bottom, left) = slid_margin(&p, Section::Windows, &c, GAMELESS, 0.0, 2);
+        assert_eq!((top, right, left), (p.margin.0, p.margin.1, p.margin.3));
+        assert_eq!(bottom, p.margin.2 - 38, "all but the 2 px sliver");
+        assert_eq!(slid_margin(&p, Section::Windows, &c, GAMELESS, 1.0, 2), p.margin);
+        let c = config("tray_at = \"right-top\"\nheight = 40");
+        let p = placement(Some(Section::Tray), &c, GAMELESS);
+        assert_eq!(slid_margin(&p, Section::Tray, &c, GAMELESS, 0.0, 0).1, p.margin.1 - 40);
     }
 }

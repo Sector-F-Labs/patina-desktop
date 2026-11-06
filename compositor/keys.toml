@@ -25,6 +25,7 @@
 
 [keys]
 launcher = ["Super", "Super+Space"]
+hud = "Super+H"
 next_layout = "Ctrl+Space"
 quit_app = "Super+Q"
 minimise = "Super+M"

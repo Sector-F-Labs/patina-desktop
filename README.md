@@ -123,6 +123,7 @@ ADR-0069; the defaults are in [compositor/keys.toml](compositor/keys.toml)):
 | Keys | |
 |---|---|
 | **Super**, **Super+Space** | the launcher |
+| **Super+H** | hide the HUD, or bring it back (`patina-hud --toggle`; ADR-0111) |
 | **Alt+T**, **Alt+B** | Teleprinter; Firefox, or its window if it's open |
 | **Alt+Tab**, **Alt+Shift+Tab** | step along the bar's tabs (fixed) |
 | **Super+1–9** | bring a tab forward |
