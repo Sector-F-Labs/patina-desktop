@@ -865,7 +865,10 @@ impl eframe::App for App {
         ctx.request_repaint_after(StdDuration::from_secs(60));
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        if !self.config.system_title_bar {
+            patina::frame::shadow::request(frame);
+        }
         let ctx = ui.ctx().clone();
         let custom = !self.config.system_title_bar;
         let style = self.skin().frame_style(ui.visuals());
