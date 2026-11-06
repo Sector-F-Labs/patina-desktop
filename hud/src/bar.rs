@@ -144,6 +144,11 @@ pub struct Bar {
     pub all_hidden: bool,
     /// How far out this part is, when it hides at its edge.
     slide: crate::hide::Slide,
+    /// Something asks this part to come out for a moment: a window change
+    /// for the window list, the launcher's shortcut for its button.
+    pub peek: bool,
+    /// The window with the keyboard, to see it change.
+    active: Option<u64>,
     /// Where this part sits, which sliding moves it from.
     pub place: Option<crate::split::Placement>,
     /// The size a split part wants, from its last frame.
@@ -184,6 +189,8 @@ impl Bar {
                 section: None,
                 all_hidden: false,
                 slide: crate::hide::Slide::default(),
+                peek: false,
+                active: None,
                 place: None,
                 wanted: Cell::new(None),
             },
@@ -885,6 +892,13 @@ impl Shell for Bar {
     /// change, with the new ones after.
     fn toplevels_changed(&mut self, toplevels: &[Toplevel]) {
         self.toplevels = in_order(&self.toplevels, toplevels);
+        // Another window has the keyboard (Alt+Tab, a new window, a click
+        // elsewhere): the window list comes out for a moment.
+        let active = toplevels.iter().find(|t| t.activated).map(|t| t.id);
+        if active != self.active {
+            self.active = active;
+            self.peek = true;
+        }
     }
 
     fn take_toplevel_requests(&mut self) -> Vec<ToplevelRequest> {
@@ -926,7 +940,7 @@ impl Shell for Bar {
         let sliver = if section.mode(&self.config) == crate::config::Visibility::Hidden {
             0
         } else {
-            crate::hide::SLIVER
+            crate::hide::HOT
         };
         Some(crate::split::slid_margin(
             place,
@@ -936,6 +950,21 @@ impl Shell for Bar {
             self.slide.out(),
             sliver,
         ))
+    }
+
+    fn wanted_input_trim(&self) -> Option<(i32, i32, i32, i32)> {
+        let section = self.section?;
+        if matches!(section, crate::split::Section::Reserve(_)) {
+            return None;
+        }
+        let spot = section.spot(&self.config)?;
+        // The strip takes the pointer only while the element is away; in
+        // place, what's beside it is the windows'.
+        Some(if self.slide.out() >= 1.0 {
+            crate::split::hot_trim(spot.side())
+        } else {
+            (0, 0, 0, 0)
+        })
     }
 
     fn wanted_exclusive_zone(&self) -> Option<i32> {
@@ -967,7 +996,13 @@ impl Bar {
         // Hiding at the edge: the pointer on what's showing brings it out.
         let mode = crate::hide::effective(section.mode(&self.config), self.all_hidden);
         let hover = ui.input(|i| i.pointer.hover_pos().is_some());
-        if self.slide.step(mode, hover, std::time::Instant::now()) {
+        let now = std::time::Instant::now();
+        // Only the window list comes out for a window change; the rest
+        // are asked by file (see `main`).
+        if std::mem::take(&mut self.peek) {
+            self.slide.peek(now);
+        }
+        if self.slide.step(mode, hover, now) {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_millis(16));
         }
@@ -978,7 +1013,14 @@ impl Bar {
             return;
         }
         let vertical = section.spot(&self.config).is_some_and(|s| s.vertical());
-        let island = full;
+        // The strip of the surface the element hides into is no part of it.
+        let spot_side = section.spot(&self.config).map(|s| s.side());
+        let (trim_top, trim_right, trim_bottom, trim_left) =
+            spot_side.map_or((0, 0, 0, 0), crate::split::hot_trim);
+        let island = Rect::from_min_max(
+            full.min + vec2(trim_left as f32, trim_top as f32),
+            full.max - vec2(trim_right as f32, trim_bottom as f32),
+        );
         let radius = if self.gaps.floating() {
             self.gaps.radius
         } else {
@@ -1062,6 +1104,12 @@ impl Bar {
                 self.wanted
                     .set(Some((width.ceil().max(1.0) as u32, height)));
             }
+        }
+        // The surface is the element and the strip it hides into.
+        if let Some((w, h)) = self.wanted.get() {
+            let hot = crate::hide::HOT as u32;
+            self.wanted
+                .set(Some(if vertical { (w + hot, h) } else { (w, h + hot) }));
         }
     }
 
@@ -1328,6 +1376,8 @@ mod tests {
             section: None,
             all_hidden: false,
             slide: crate::hide::Slide::default(),
+            peek: false,
+            active: None,
             place: None,
             wanted: Cell::new(None),
             config,

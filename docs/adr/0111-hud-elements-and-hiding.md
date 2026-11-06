@@ -18,12 +18,20 @@ window can use the whole screen. One key should do that for all of them at once.
 
 - Split is the default layout. Each element (`launcher`, `windows`, `tray`, `media`) has a
   `*_mode`: `always`, `autohide` or `hidden`. `launcher_at = "none"` still means `hidden`.
-- An autohiding element slides along its edge, by its layer-shell margin, until two pixels of
-  it are left; the pointer on that sliver slides it back, and it stays 0.6 s after the pointer
+- An autohiding element slides along its edge, by its layer-shell margin, until a transparent strip ten pixels deep of
+  its surface is left; the pointer on that strip slides it back, and it stays 0.6 s after the pointer
   leaves. A hidden element isn't started, except the window list, which the others hang from
   and which goes off screen entirely.
 - Only `always` elements keep space (the reserve sections, ADR-0063). An element that hides
   keeps none, so windows use it, and it opens over them.
+- The element's surface is the element plus a transparent strip (10 px) on its inner side. A
+  hiding element slides until only the strip is on screen, so the part that catches the pointer
+  is as long as the element and 10 px deep, not a pixel line. While the element is out, the
+  surface's input region leaves the strip out, so it never covers what is beside it.
+- An element also comes out for a moment (1.4 s): the window list when another window gets the
+  keyboard (Alt+Tab, a new window, a click), and the launcher's button when its shortcut opens
+  the launcher: the compositor runs `patina-hud --peek launcher`, which touches
+  `$XDG_RUNTIME_DIR/patina-hud/peek-launcher`, as for Super+H. Movement is eased over 260 ms.
 - **Super+H** (`hud` in `[keys]`) runs `patina-hud --toggle`, which makes or removes
   `$XDG_RUNTIME_DIR/patina-hud/hidden`. Every process looks for the file 6 times a second:
   with it, `always` elements act as `autohide`, and the reserve sections give their zone back.

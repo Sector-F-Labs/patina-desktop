@@ -63,7 +63,7 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
 
 The HUD is the split layout (ADR-0063, the default, ADR-0110; `layout = "bar"` is the old single
 strip, for dwl). Each element has `launcher_mode`, `windows_mode`, `tray_mode` and `media_mode`:
-`always`, `autohide` (off the screen but for a 2 px sliver, which slides it in when the pointer
+`always`, `autohide` (off the screen but for a transparent 10 px strip, which slides it in when the pointer
 touches it, and keeps no space) or `hidden` (not started at all). **Super+H** runs `patina-hud
 --toggle`, which makes or removes `$XDG_RUNTIME_DIR/patina-hud/hidden`; every process looks for
 it a few times a second, and the elements that are `always` hide like `autohide` and give their
