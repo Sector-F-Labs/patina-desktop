@@ -165,7 +165,7 @@ keys work, with an on-screen flash.
 - **[patina-processes](processes/README.md)** (`processes/`): the process manager, on Ctrl+Shift+Escape, a key no config can take: the apps with their windows, and every process, with what each costs the CPU, memory and disks; ending, killing and pausing them; and graphs over the last minute.
 - **patina-night-light** (`night-light/`): Night Light from the command line.
 - **[patina-system](system/README.md)** (`system/`): what the pieces read and change on the machine (volume, Wi-Fi, battery, backlight), and the tray's icons.
-- **[patina-shell](https://github.com/Sector-F-Labs/patina-shell)** (its own repository): what every shell piece is built on: a layer-shell host for egui drawn in software, and the bar's skin and edge.
+- **[patina-shell](shell/README.md)** (`shell/`): what every shell piece is built on: a layer-shell host for egui drawn in software, and the bar's skin and edge.
 
 Each crate's README says what it does on the desktop and how it fits with the others. Each
 program has a man page, installed with the desktop; `man patina-desktop` is the overview: the

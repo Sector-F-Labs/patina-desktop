@@ -3,17 +3,13 @@
 A cargo workspace (ADR-0009): `compositor/` is a floating Smithay compositor (ADR-0006, 0007),
 `bar/` is a layer-shell egui status bar skinned with Patina, and the menus, lock screen and
 wallpaper beside it; `system/` (patina-system) is what they read and draw from the machine.
-**patina-shell** lives in a public repository of its own, by git (ADR-0037): the layer-shell
-host and software painter every piece is built on (ADR-0011), github.com/Sector-F-Labs/patina-shell.
+`shell/` (patina-shell) is the layer-shell host and software painter every piece is built on
+(ADR-0011, ADR-0109; it was a repository of its own, ADR-0037).
 `launcher/` (patina-launcher) is the launcher the bar's Sector F button opens (ADR-0108; it ran
 from its own repository before, and still runs alone on GNOME). `files/` is Files, the file
 manager and the session's file chooser (ADR-0106), `reader/` is Reader and `notebook/` is
 Notebook (ADR-0107); each has its own ADRs, and `files/` and the others an `AGENTS.md`. The compositor
 puts its own folder first on its clients' PATH, so the pieces are found beside it.
-
-To change patina-shell along with the desktop, clone it beside this repo and add
-`[patch."https://github.com/Sector-F-Labs/patina-shell"] patina-shell = { path = "../patina-shell" }`
-to a local, uncommitted `.cargo/config.toml`; push it, then `cargo update -p patina-shell` here.
 
 Smithay comes from the `patina-0.7` branch of Sector-F-Labs/smithay, a fork (ADR-0044): 0.7.0 with upstream's
 `_NET_ACTIVE_WINDOW` fix backported (Wine minimised fullscreen games without it), its
@@ -182,7 +178,7 @@ puts them in `$(PREFIX)/share/man`.
   pixman rendering copied into wl_shm, parent input → seat (ADR-0008). `State::nested` and
   `State::winit` are Options; exactly one is set. sctk traits are aliased (`Client*`) where their
   names clash with Smithay's.
-- patina-shell (its own repo): `host.rs`, the layer-shell egui host (sctk), generic over a
+- patina-shell (`shell/`): `host.rs`, the layer-shell egui host (sctk), generic over a
   `Shell`, with `Options` for anchor, size, keyboard, per-output surfaces, lock and the window
   fallback where there's no layer shell; `raster.rs`, the CPU painter (ADR-0002); `piece.rs`, one
   copy per display over a socket; `bar.rs`, the bar's skin, edge and config; `toplevels.rs`.

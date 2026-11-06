@@ -3,7 +3,7 @@
 Desktop pieces in [egui](https://github.com/emilk/egui): a bar, a launcher, a menu or a lock
 screen, each an egui UI on a wlr-layer-shell surface, drawn in software. It's the base of the
 [Patina](https://github.com/Sector-F-Labs/patina) desktop's shell pieces and of
-[patina-launcher](https://github.com/Sector-F-Labs/patina-launcher), and works on any
+[patina-launcher](../launcher/README.md), and works on any
 compositor with layer shell: sway, Hyprland, river, KDE, COSMIC, Patina's own.
 
 eframe only makes ordinary windows; a desktop piece needs a surface anchored to an edge, on a
@@ -72,11 +72,11 @@ Skins are [Patina](https://github.com/Sector-F-Labs/patina)'s, so pieces look li
 
 ## Use
 
-Not on crates.io; depend on it from GitHub. It uses Patina's `develop` branch, so depend on
+Not on crates.io; depend on it from GitHub (cargo finds the crate in the patina-desktop workspace). It uses Patina's `develop` branch, so depend on
 that too, for the skins to be the same crate:
 
 ```toml
-patina-shell = { git = "https://github.com/Sector-F-Labs/patina-shell" }
+patina-shell = { git = "https://github.com/Sector-F-Labs/patina-desktop" }
 patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
 egui = "0.35"
 ```

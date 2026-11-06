@@ -1,13 +1,13 @@
 [workspace]
 resolver = "3"
-members = ["bar", "clock", "compositor", "dictate", "files", "launcher", "lock", "menu", "notebook", "power", "processes", "raise", "reader", "screenshot", "session", "settings", "system", "tiler", "volume", "wallpaper", "wifi"]
+members = ["bar", "clock", "compositor", "dictate", "files", "launcher", "lock", "menu", "notebook", "power", "processes", "raise", "reader", "screenshot", "session", "settings", "shell", "system", "tiler", "volume", "wallpaper", "wifi"]
 
 # Patina's develop branch, so desktop work can use Patina changes before
 # they're released.
 [workspace.dependencies]
 patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
-# The layer-shell host the pieces are drawn on, published on its own (ADR-0037).
-patina-shell = { git = "https://github.com/Sector-F-Labs/patina-shell" }
+# The layer-shell host the pieces are drawn on (ADR-0109).
+patina-shell = { path = "shell" }
 
 # Smithay 0.7 with two upstream fixes backported. _NET_ACTIVE_WINDOW (2026-10-06):
 # 0.7 set it to the root window, so Wine thought its fullscreen games had lost

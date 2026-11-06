@@ -150,6 +150,7 @@ mechanics of adding one.
 | [0106](0106-files-lives-in-this-repository.md) | Files lives in this repository | Accepted |
 | [0107](0107-reader-and-notebook-live-in-this-repository.md) | Reader and Notebook live in this repository | Accepted |
 | [0108](0108-the-launcher-lives-in-this-repository.md) | The launcher lives in this repository | Accepted; changes [0037](0037-patina-shell-and-the-launcher-are-public.md) |
+| [0109](0109-patina-shell-lives-in-this-repository.md) | patina-shell lives in this repository | Accepted; supersedes the rest of [0037](0037-patina-shell-and-the-launcher-are-public.md) |
 
 ## Decision Relationship
 
