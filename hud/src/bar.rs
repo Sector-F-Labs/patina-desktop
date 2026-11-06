@@ -509,7 +509,21 @@ impl Bar {
             "launcher" => {
                 let ctx = ui.ctx().clone();
                 let opening = |rect| self.opening(&ctx, rect);
-                crate::launcher::button(ui, &self.config.launcher, &self.skin.name, &opening)
+                // The hover fill follows the island's corners, inside its outline.
+                let radius = if self.gaps.floating() {
+                    self.gaps.radius
+                } else {
+                    8.0
+                };
+                let rounding =
+                    (radius - ui.visuals().widgets.noninteractive.bg_stroke.width).max(0.0);
+                crate::launcher::button(
+                    ui,
+                    &self.config.launcher,
+                    &self.skin.name,
+                    rounding,
+                    &opening,
+                )
             }
             "clock" => {
                 let ctx = ui.ctx().clone();
@@ -972,7 +986,11 @@ impl Shell for Bar {
         match self.section? {
             crate::split::Section::Reserve(_) => {
                 let place = self.place.as_ref()?;
-                Some(if self.all_hidden { 0 } else { place.exclusive_zone })
+                Some(if self.all_hidden {
+                    0
+                } else {
+                    place.exclusive_zone
+                })
             }
             _ => None,
         }

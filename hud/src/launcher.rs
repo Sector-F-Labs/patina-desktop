@@ -25,14 +25,20 @@ pub struct Opening {
 }
 
 /// Draws the button; runs `command` when it's clicked, telling it the bar's
-/// skin and where the button is, so the launcher matches and opens from it.
-pub fn button(ui: &mut Ui, command: &str, skin: &str, opening: &dyn Fn(egui::Rect) -> Opening) {
+/// skin and where the button is (`rounding` rounds its hover fill), so the launcher matches and opens from it.
+pub fn button(
+    ui: &mut Ui,
+    command: &str,
+    skin: &str,
+    rounding: f32,
+    opening: &dyn Fn(egui::Rect) -> Opening,
+) {
     let side = crate::tray::side(ui);
     let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
     let v = ui.visuals();
     if response.hovered() {
         ui.painter()
-            .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
+            .rect_filled(rect, rounding, v.widgets.hovered.weak_bg_fill);
     }
     let tint = if response.hovered() {
         v.strong_text_color()
