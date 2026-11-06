@@ -38,8 +38,8 @@ const SPOTS: [(&str, &str, (f32, f32)); 12] = [
 /// mark on the map, and where they go by default.
 const PARTS: [(&str, &str, &str, &str); 3] = [
     ("launcher_at", "Launcher", "L", "bottom-left"),
-    ("windows_at", "Window list", "W", "bottom-center"),
-    ("tray_at", "Tray", "T", "bottom-right"),
+    ("windows_at", "Window list", "W", "bottom-left"),
+    ("tray_at", "Tray", "T", "left-bottom"),
 ];
 
 /// Whether a part is shown: the config's `*_mode` value and what Settings
