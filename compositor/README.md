@@ -45,7 +45,8 @@ this workspace is a Wayland client of it.
   same (ADR-0085); Patina apps ask for their own. Fullscreen windows, menus and apps that draw
   their own never get one.
 - **Shadows** for windows that ask for one through KDE's shadow protocol (ADR-0112), as Patina apps
-  do: drawn outside the window, so tiling sees the window and not its shadow. Windows that draw
+  do: drawn outside the window, so tiling sees the window and not its shadow, and lighter while it
+  isn't focused. Windows that draw
   their own, as Firefox and GTK apps, are left alone.
 - **Fullscreen** for games and videos that ask (ADR-0041): the whole screen, over the bar.
   Smithay comes from a fork whose X11 window manager names the focused window as the active one,
