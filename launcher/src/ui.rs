@@ -16,6 +16,16 @@ pub const ICON: f32 = 28.0;
 const ROW_HEIGHT: f32 = 44.0;
 const MARGIN: f32 = 12.0;
 
+/// Which end of the list the search box sits at.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub enum Search {
+    /// Below the list, nearest a bar at the bottom of the screen.
+    #[default]
+    Bottom,
+    /// Above the list, as in Spotlight.
+    Top,
+}
+
 pub struct Launcher {
     apps: Vec<App>,
     icons: Vec<Option<TextureHandle>>,
@@ -29,10 +39,16 @@ pub struct Launcher {
     had_focus: bool,
     done: bool,
     skin: Skin,
+    search: Search,
 }
 
 impl Launcher {
-    pub fn new(apps: Vec<App>, skin: Skin, start_icons: Box<dyn FnOnce(u32)>) -> Self {
+    pub fn new(
+        apps: Vec<App>,
+        skin: Skin,
+        search: Search,
+        start_icons: Box<dyn FnOnce(u32)>,
+    ) -> Self {
         Self {
             icons: vec![None; apps.len()],
             apps,
@@ -43,6 +59,7 @@ impl Launcher {
             had_focus: false,
             done: false,
             skin,
+            search,
         }
     }
 
@@ -192,11 +209,16 @@ impl Shell for Launcher {
             v.window_stroke,
             StrokeKind::Inside,
         );
-        // Laid out from the bottom: the search box, then the list above it.
+        // Laid out from the search box's end: the box, then the list
+        // beyond it.
+        let layout = match self.search {
+            Search::Bottom => egui::Layout::bottom_up(egui::Align::Min),
+            Search::Top => egui::Layout::top_down(egui::Align::Min),
+        };
         let mut ui = ui.new_child(
             UiBuilder::new()
                 .max_rect(rect.shrink(MARGIN))
-                .layout(egui::Layout::bottom_up(egui::Align::Min)),
+                .layout(layout),
         );
 
         let search = ui.add(
