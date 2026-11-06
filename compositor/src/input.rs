@@ -36,9 +36,11 @@ pub enum KeyAction {
     Restart,
     /// The next keyboard layout (Ctrl+Space, as on macOS).
     NextLayout,
-    /// Open the launcher (Super+Space, as Cmd+Space on macOS, or Super
-    /// tapped on its own).
+    /// Open the launcher as the HUD's button does (Super tapped on its own).
     Launcher,
+    /// Open the launcher as a search box in the middle of the screen
+    /// (Super+Space, as Spotlight).
+    Spotlight,
     /// Hide the HUD, or bring it back (Super+H): `patina-hud --toggle`.
     Hud,
     /// Read config.toml again (Super+Shift+R).
@@ -296,6 +298,12 @@ impl State {
                 self.open_launcher();
                 None
             }
+            Some(KeyAction::Spotlight) => {
+                if !self.config.launcher_spotlight.is_empty() {
+                    self.spawn_client(&self.config.launcher_spotlight.clone());
+                }
+                None
+            }
             Some(KeyAction::Hud) => {
                 self.spawn_client("patina-hud --toggle");
                 None
@@ -390,19 +398,25 @@ impl State {
         }
     }
 
-    /// Opens the configured launcher, unless it's set to "".
+    /// Opens the configured launcher from the HUD's button, unless it's set
+    /// to "": `patina-hud --open launcher` runs it where its button is, and
+    /// brings the button out for a moment if it hides. Without the HUD, the
+    /// command runs itself.
     fn open_launcher(&mut self) {
-        if !self.config.launcher.is_empty() {
-            self.spawn_client(&self.config.launcher.clone());
-            // The HUD's launcher button comes out for a moment if it hides.
-            if let Ok(mut peek) = std::process::Command::new("patina-hud")
-                .args(["--peek", "launcher"])
-                .spawn()
-            {
+        if self.config.launcher.is_empty() {
+            return;
+        }
+        match std::process::Command::new("patina-hud")
+            .args(["--open", "launcher"])
+            .env("WAYLAND_DISPLAY", &self.socket_name)
+            .spawn()
+        {
+            Ok(mut open) => {
                 std::thread::spawn(move || {
-                    let _ = peek.wait();
+                    let _ = open.wait();
                 });
             }
+            Err(_) => self.spawn_client(&self.config.launcher.clone()),
         }
     }
 

@@ -60,6 +60,7 @@ fn action(name: &str) -> Option<KeyAction> {
     use crate::screenshot::Shot;
     Some(match name {
         "launcher" => KeyAction::Launcher,
+        "launcher_spotlight" => KeyAction::Spotlight,
         "hud" => KeyAction::Hud,
         "next_layout" => KeyAction::NextLayout,
         "quit_app" => KeyAction::QuitApp,
@@ -375,7 +376,7 @@ mod tests {
         let k = defaults_keys();
         let at = |m: &str, sym| k.lookup(&mods(m), sym);
         assert_eq!(k.tap(), Some(&KeyAction::Launcher));
-        assert_eq!(at("Super", keysyms::KEY_space), Some(KeyAction::Launcher));
+        assert_eq!(at("Super", keysyms::KEY_space), Some(KeyAction::Spotlight));
         assert_eq!(at("Ctrl", keysyms::KEY_space), Some(KeyAction::NextLayout));
         assert_eq!(at("Ctrl+Super", keysyms::KEY_space), None);
         assert_eq!(at("Super", keysyms::KEY_q), Some(KeyAction::QuitApp));
@@ -459,7 +460,7 @@ mod tests {
     #[test]
     fn a_set_action_replaces_its_defaults_and_the_rest_stay() {
         let set: BTreeMap<String, KeyList> = toml::from_str(
-            "snap_right = \"Super+Right\"\nlauncher = [\"Super+Space\"]\nquit_app = \"\"\n",
+            "snap_right = \"Super+Right\"\nlauncher = [\"Super+slash\"]\nquit_app = \"\"\n",
         )
         .unwrap();
         let (k, warnings) = Keys::new(&set, &BTreeMap::new());

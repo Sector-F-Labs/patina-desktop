@@ -31,12 +31,12 @@ closes it.
   exits, or prints nothing if closed. patina-hud asks for one for a window tab (New Window, Pin
   or Unpin, Close Window), a tray item (its entries, submenus shown as "Friends › Online") and
   the keyboard layouts (the one in use ticked), each as its own child, to read the answer
-  (`bar/src/menu.rs`). Submenus, icons and greyed entries aren't possible. `--edge bottom` counts Y from the bottom and opens upward,
-  as patina-hud asks for a tab's menu (`bar/src/menu.rs`); `--edge left` or `right` counts X
+  (`hud/src/menu.rs`). Submenus, icons and greyed entries aren't possible. `--edge bottom` counts Y from the bottom and opens upward,
+  as patina-hud asks for a tab's menu (`hud/src/menu.rs`); `--edge left` or `right` counts X
   from that side and opens outward, for a split bar's columns (ADR-0063).
 - **A tooltip** with `--tooltip TEXT`: click-through, no keyboard, centred on X; it goes when its
   standard input closes, which is how patina-hud hides it, after hovering for half a second
-  (`bar/src/tooltip.rs`).
+  (`hud/src/tooltip.rs`).
 
 ## Code
 

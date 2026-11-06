@@ -73,7 +73,7 @@ fn texture(ctx: &egui::Context, pixels: u32) -> Option<TextureHandle> {
 /// to open (`PATINA_OPEN_AT`). On a thread, so the bus never holds the bar
 /// up: Patina's compositor starts it, so it's among the desktop's processes
 /// (ADR-0045); under any other, or without a session bus, the bar does.
-pub fn run(command: &str, skin: &str, opening: &Opening) {
+pub fn run(command: &str, skin: &str, opening: &Opening) -> std::thread::JoinHandle<()> {
     let (command, skin, opening) = (command.to_string(), skin.to_string(), opening.clone());
     std::thread::spawn(move || {
         let mut env = vec![
@@ -86,7 +86,7 @@ pub fn run(command: &str, skin: &str, opening: &Opening) {
         if patina_system::processes::spawn(&command, &env).is_err() {
             run_here(&command, &env);
         }
-    });
+    })
 }
 
 /// Runs `command` as the bar's own child, detached: no stdin, and reaped

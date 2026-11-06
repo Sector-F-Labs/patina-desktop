@@ -48,10 +48,10 @@ nor the clicks. `overlay.rs` places the menu for every job, kept on screen near 
 | Who | What it opens | What comes back |
 |-----|---------------|-----------------|
 | The compositor, on a right click where no window is, without Super held | the desktop's menu, `desktop_menu --at X,Y` (the config can change the command) | nothing on stdout; it sets the style itself, and starts Settings |
-| The bar, a window tab's right click | New Window, Pin or Unpin, Close Window; Open and Unpin for a pinned app with no window (`bar/src/menu.rs`) | the item's ID, mapped back to a choice |
+| The bar, a window tab's right click | New Window, Pin or Unpin, Close Window; Open and Unpin for a pinned app with no window (`hud/src/menu.rs`) | the item's ID, mapped back to a choice |
 | The bar, a tray item's right click | its menu, read over D-Bus (ADR-0064): submenus shown as "Friends › Online", ticks as ✔, entries that can't be chosen left out | the entry's number, handed back to the item |
 | The bar, the keyboard layout | each layout, the one in use ticked (ADR-0068) | the layout's index, which the bar switches to |
-| The bar, hovering 500 ms (`bar/src/tooltip.rs`) | a tooltip, past the bar's edge | nothing; the bar closes its stdin when the hover ends |
+| The bar, hovering 500 ms (`hud/src/tooltip.rs`) | a tooltip, past the bar's edge | nothing; the bar closes its stdin when the hover ends |
 
 The bar runs it as its own child, not through the compositor's `Spawn`, because it has to read the
 answer. Settings, which the desktop's menu starts, does go through `Spawn`, so it is among the
@@ -89,7 +89,7 @@ from.
  │   ├── items.rs     a menu of items; prints the one chosen
  │   └── tooltip.rs   a tooltip; ends when its stdin closes
  ├── compositor/src/state.rs   a right click on the empty desktop: open_desktop_menu
- └── bar/src/
+ └── hud/src/
      ├── menu.rs      the arguments for a tab's, a tray item's and the layouts' menus
      └── tooltip.rs   when to show a tooltip, and the pipe that ends it
 ```
