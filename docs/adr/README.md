@@ -238,6 +238,4 @@ flowchart TD
   ([ADR-0035](0035-the-launcher-lists-folder-apps.md)).
 - A surface that is large or animated draws too slowly on the CPU
   ([ADR-0002](0002-software-rendering.md)).
-- The compositor gets workspaces: the bar's tags move from dwl's stdin to the compositor
-  ([ADR-0004](0004-dwl-status-from-stdin.md), [ADR-0006](0006-own-compositor.md)).
 - Running on real hardware: a DRM/KMS backend ([ADR-0008](0008-nested-software-backend.md)).
