@@ -193,6 +193,9 @@ impl Role {
     }
 }
 
+/// An input trim (top, right, bottom, left) and the surface size it was set for.
+type InputTrim = ((i32, i32, i32, i32), (u32, u32));
+
 struct Surface {
     output: Option<wl_output::WlOutput>,
     name: String,
@@ -216,7 +219,7 @@ struct Surface {
     /// Whether this surface has the keyboard.
     focused: bool,
     /// The input trim last set, and the size it was set for.
-    input: Option<((i32, i32, i32, i32), (u32, u32))>,
+    input: Option<InputTrim>,
 }
 
 impl Drop for Surface {
