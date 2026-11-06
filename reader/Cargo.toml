@@ -1,0 +1,21 @@
+[package]
+name = "reader"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "A Patina reader for a project's documentation and code: markdown shown as Notebook shows it, and Rust source highlighted"
+
+[dependencies]
+dirs = "7"
+eframe = { version = "0.35", features = ["persistence"] }
+egui = "0.35"
+# Patina's develop branch, for its markdown widget (Patina's ADR-0015).
+patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop", features = ["markdown"] }
+rfd = "0.17"
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+image = { version = "0.25", default-features = false, features = ["png"] }
+notify = "8"
+
+[dev-dependencies]
+resvg = "0.48.1"
