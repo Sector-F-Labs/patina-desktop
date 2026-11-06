@@ -20,8 +20,8 @@ Lists the installed apps, filters them as you type and starts the one you
 pick. Run it again while it's open to close it.
 
   --position bar      open at the bar's button, like a menu (the default):
-                      at the left end of the edge named by PATINA_BAR_EDGE
-                      (top or bottom, as patina-bar sets; bottom by default)
+                      at the left end of the edge named by PATINA_HUD_EDGE
+                      (top or bottom, as patina-hud sets; bottom by default)
   --position center   open in the middle of the screen, as Spotlight does
   --search bottom     the search box below the list (the default)
   --search top        the search box above the list

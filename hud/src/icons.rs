@@ -194,12 +194,12 @@ pub fn spawn(send: impl Fn(Found) -> bool + Send + 'static) -> mpsc::Sender<Ask>
             }
         });
     if let Err(e) = started {
-        eprintln!("patina-bar: no icons: {e}");
+        eprintln!("patina-hud: no icons: {e}");
     }
     ask
 }
 
-/// What this machine finds for some app ids: `cargo test -p patina-bar
+/// What this machine finds for some app ids: `cargo test -p patina-hud
 /// installed_icons -- --ignored --nocapture`.
 #[cfg(test)]
 #[test]
@@ -225,7 +225,7 @@ fn installed_icons() {
 }
 
 /// What this machine finds for Steam's tray icon:
-/// `cargo test -p patina-bar steams_tray_icon -- --ignored --nocapture`.
+/// `cargo test -p patina-hud steams_tray_icon -- --ignored --nocapture`.
 #[cfg(test)]
 #[test]
 #[ignore = "reads the installed Steam"]

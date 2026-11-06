@@ -30,8 +30,8 @@ Constraints that shaped the design:
 ## Decision
 
 - **Parts are separate bar processes.**
-  - `patina-bar` in split mode draws the window list.
-  - It runs `patina-bar --section launcher` and `--section tray` with a pipe on their standard
+  - `patina-hud` in split mode draws the window list.
+  - It runs `patina-hud --section launcher` and `--section tray` with a pipe on their standard
     input. They end when it closes, as when the bar exits, or when it restarts itself in place
     (exec) after a change to the layout keys. Before restarting, it waits for them, so none is
     left a zombie.

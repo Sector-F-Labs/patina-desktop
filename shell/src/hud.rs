@@ -1,6 +1,6 @@
 //! The bar's skin and edge, for shell pieces the bar opens (the launcher,
 //! the volume menu) so they match it and open from it. The bar passes them
-//! as PATINA_SKIN and PATINA_BAR_EDGE; when something else starts a piece
+//! as PATINA_SKIN and PATINA_HUD_EDGE; when something else starts a piece
 //! (the compositor, for the Super key or a volume key), they come from the
 //! bar's config file instead.
 
@@ -23,16 +23,24 @@ pub fn skin_or_default() -> String {
 
 /// Whether the bar is at the top of the screen (the default is the bottom).
 pub fn at_top() -> bool {
-    std::env::var("PATINA_BAR_EDGE")
+    std::env::var("PATINA_HUD_EDGE")
         .ok()
         .or_else(|| config_value("position"))
         .as_deref()
         == Some("top")
 }
 
-/// The bar's config file, `~/.config/patina-bar/config.toml`.
+/// The HUD's config file, `~/.config/patina-hud/config.toml`. The folder was
+/// `patina-bar` before the bar became the HUD (ADR-0110): when only the old
+/// one exists it is moved to the new name, skins and all.
 pub fn config_path() -> Option<std::path::PathBuf> {
-    Some(dirs_config()?.join("patina-bar").join("config.toml"))
+    let base = dirs_config()?;
+    let dir = base.join("patina-hud");
+    let old = base.join("patina-bar");
+    if !dir.exists() && old.is_dir() {
+        let _ = std::fs::rename(&old, &dir);
+    }
+    Some(dir.join("config.toml"))
 }
 
 fn config_value(key: &str) -> Option<String> {

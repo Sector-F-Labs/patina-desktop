@@ -27,7 +27,7 @@ text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;f
 <text x="170" y="112" class="s c mu">(not with Super held)</text>
 
 <rect x="40" y="156" width="260" height="364" rx="12" class="grp"/>
-<text x="56" y="180" class="h tb">patina-bar</text>
+<text x="56" y="180" class="h tb">patina-hud</text>
 <text x="284" y="180" class="s mu e">too thin to hold a menu</text>
 <rect x="56" y="196" width="228" height="62" rx="8" class="box bl"/>
 <text x="170" y="220" class="b c">a window tab, right click</text>

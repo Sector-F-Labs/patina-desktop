@@ -17,8 +17,8 @@ pub fn user_dir() -> Option<PathBuf> {
 
 /// `wallpaper_fit` in the bar's config.
 pub fn configured_fit() -> Fit {
-    let text = patina_shell::bar::config_path().and_then(|p| std::fs::read_to_string(p).ok());
-    let name = text.and_then(|t| patina_shell::bar::top_level(&t, "wallpaper_fit"));
+    let text = patina_shell::hud::config_path().and_then(|p| std::fs::read_to_string(p).ok());
+    let name = text.and_then(|t| patina_shell::hud::top_level(&t, "wallpaper_fit"));
     Fit::from_name(name.as_deref())
 }
 

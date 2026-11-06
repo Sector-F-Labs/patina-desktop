@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory holds ADRs for the Patina desktop (patina-compositor and patina-bar) — short records of significant architecture decisions,
+This directory holds ADRs for the Patina desktop (patina-compositor and patina-hud) — short records of significant architecture decisions,
 written at the time they're made, following Michael Nygard's format as popularized by Martin
 Fowler: <https://martinfowler.com/bliki/ArchitectureDecisionRecord.html>.
 
@@ -42,7 +42,7 @@ mechanics of adding one.
 
 | # | Title | Status |
 |---|-------|--------|
-| [0001](0001-build-on-patina.md) | Build patina-bar as an egui layer-shell client on Patina | Accepted |
+| [0001](0001-build-on-patina.md) | Build patina-hud as an egui layer-shell client on Patina | Accepted |
 | [0002](0002-software-rendering.md) | Draw egui in software into wl_shm buffers | Proposed |
 | [0003](0003-layer-shell-host.md) | Keep the layer-shell host separate from the bar | Proposed |
 | [0004](0004-dwl-status-from-stdin.md) | Read dwl's status from stdin | Proposed |
@@ -151,6 +151,7 @@ mechanics of adding one.
 | [0107](0107-reader-and-notebook-live-in-this-repository.md) | Reader and Notebook live in this repository | Accepted |
 | [0108](0108-the-launcher-lives-in-this-repository.md) | The launcher lives in this repository | Accepted; changes [0037](0037-patina-shell-and-the-launcher-are-public.md) |
 | [0109](0109-patina-shell-lives-in-this-repository.md) | patina-shell lives in this repository | Accepted; supersedes the rest of [0037](0037-patina-shell-and-the-launcher-are-public.md) |
+| [0110](0110-the-bar-becomes-the-hud.md) | The bar becomes the HUD: `patina-hud`, `~/.config/patina-hud/` | Accepted |
 
 ## Decision Relationship
 

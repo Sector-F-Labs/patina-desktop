@@ -24,7 +24,7 @@ use patina_system::wallpaper::Fit;
 
 const USAGE: &str = "usage: patina-wallpaper
 
-Draws the desktop's wallpaper: patina-bar's `wallpaper` setting, an image
+Draws the desktop's wallpaper: patina-hud's `wallpaper` setting, an image
 file, filling each screen, fitting in it or centred as `wallpaper_fit`
 says, or without one the Sector F Labs logo in
 the colours of the bar's skin. Changes to the settings are followed.";
@@ -77,7 +77,7 @@ fn run() -> Result<(), String> {
         window_fallback: false,
     };
     let (host, event_loop) = Host::connect(options, Wallpaper::new())?;
-    let config = patina_shell::bar::config_path();
+    let config = patina_shell::hud::config_path();
     let mut seen = config.as_deref().and_then(modified);
     event_loop
         .handle()
@@ -128,7 +128,7 @@ impl Wallpaper {
     /// Reads the wallpaper, its fit and the skin from the bar's config
     /// again; true if any changed.
     fn reload(&mut self) -> bool {
-        let path = patina_shell::bar::wallpaper();
+        let path = patina_shell::hud::wallpaper();
         let fit = configured_fit();
         let skin = piece::skin("patina-wallpaper");
         let changed = path != self.path || fit != self.fit || skin.name != self.skin.name;
@@ -228,8 +228,8 @@ fn accent(colour: Color32, background: Color32) -> Option<Color32> {
 
 /// `wallpaper_fit` in the bar's config.
 fn configured_fit() -> Fit {
-    let text = patina_shell::bar::config_path().and_then(|p| std::fs::read_to_string(p).ok());
-    let name = text.and_then(|t| patina_shell::bar::top_level(&t, "wallpaper_fit"));
+    let text = patina_shell::hud::config_path().and_then(|p| std::fs::read_to_string(p).ok());
+    let name = text.and_then(|t| patina_shell::hud::top_level(&t, "wallpaper_fit"));
     Fit::from_name(name.as_deref())
 }
 

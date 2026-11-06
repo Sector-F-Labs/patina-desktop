@@ -63,7 +63,7 @@ impl Drop for Single {
 
 /// The edge the bar is on, which the piece opens from.
 pub fn bar_edge() -> Anchor {
-    if crate::bar::at_top() {
+    if crate::hud::at_top() {
         Anchor::TOP
     } else {
         Anchor::BOTTOM
@@ -140,11 +140,11 @@ fn place(at: &str, (w, h): (u32, u32), gap: i32) -> Option<Place> {
 }
 
 /// The bar's skin, from Patina's built-ins, the bar's skins folder and the
-/// piece's own; the bar's `skin`, else [`crate::bar::DEFAULT_SKIN`], and
+/// piece's own; the bar's `skin`, else [`crate::hud::DEFAULT_SKIN`], and
 /// Default if there's none by that name.
 pub fn skin(app: &str) -> Skin {
-    let name = crate::bar::skin_or_default();
-    let dirs: Vec<_> = skin::app_dir("patina-bar")
+    let name = crate::hud::skin_or_default();
+    let dirs: Vec<_> = skin::app_dir("patina-hud")
         .into_iter()
         .chain(skin::app_dir(app))
         .collect();

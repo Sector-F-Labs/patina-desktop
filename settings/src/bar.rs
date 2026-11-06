@@ -116,8 +116,8 @@ pub struct BarPage {
 
 /// The bar config's top-level `key`, as the file says now.
 fn read(key: &str) -> Option<String> {
-    let text = std::fs::read_to_string(patina_shell::bar::config_path()?).ok()?;
-    patina_shell::bar::top_level(&text, key)
+    let text = std::fs::read_to_string(patina_shell::hud::config_path()?).ok()?;
+    patina_shell::hud::top_level(&text, key)
 }
 
 impl BarPage {
@@ -317,12 +317,12 @@ impl BarPage {
     }
 
     /// Sets `key` to a number, as the bar reads it: a bare integer, which
-    /// `patina_shell::bar::set` (strings only) can't write.
+    /// `patina_shell::hud::set` (strings only) can't write.
     fn set_number(key: &str, value: u32, message: &mut Option<Message>) {
         let result = (|| {
-            let path = patina_shell::bar::config_path().ok_or("no home folder")?;
+            let path = patina_shell::hud::config_path().ok_or("no home folder")?;
             let text = std::fs::read_to_string(&path).unwrap_or_default();
-            let text = patina_shell::bar::with_top_level(&text, key, &value.to_string());
+            let text = patina_shell::hud::with_top_level(&text, key, &value.to_string());
             let text = text.replace(&format!("{key} = \"{value}\""), &format!("{key} = {value}"));
             if let Some(dir) = path.parent() {
                 std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -335,7 +335,7 @@ impl BarPage {
     }
 
     fn set(key: &str, value: &str, message: &mut Option<Message>) {
-        if let Err(e) = patina_shell::bar::set(key, value) {
+        if let Err(e) = patina_shell::hud::set(key, value) {
             *message = Some(Message::error(format!("Couldn't save the setting: {e}")));
         }
     }
@@ -378,7 +378,7 @@ impl BarPage {
             ui.add_space(16.0);
         }
 
-        if let Some(path) = patina_shell::bar::config_path() {
+        if let Some(path) = patina_shell::hud::config_path() {
             ui.label(RichText::new("Everything Else").strong());
             ui.label(
                 RichText::new(

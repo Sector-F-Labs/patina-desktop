@@ -64,7 +64,7 @@ host.run(event_loop)?;
   `edge,x,y[,far]`), turned towards the side of the screen with more room, or on the bar's
   edge without it.
 - **`bar`**: the Patina bar's conventions every piece follows: its skin and edge from
-  `PATINA_SKIN` and `PATINA_BAR_EDGE`, or from `~/.config/patina-bar/config.toml`, and writing
+  `PATINA_SKIN` and `PATINA_HUD_EDGE`, or from `~/.config/patina-hud/config.toml`, and writing
   `skin` and `wallpaper` there.
 - **`toplevels`**: the open windows through wlr-foreign-toplevel-management, for a window list.
 

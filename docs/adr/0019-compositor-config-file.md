@@ -15,7 +15,7 @@ default.
 
 ## Decision
 
-`~/.config/patina-compositor/config.toml`, in the style of patina-bar's: every key optional, unknown
+`~/.config/patina-compositor/config.toml`, in the style of patina-hud's: every key optional, unknown
 keys and out-of-range values are warnings, and a broken file never stops the session (the defaults
 at start-up, the settings in use on a reload).
 

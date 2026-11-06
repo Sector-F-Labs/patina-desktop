@@ -20,7 +20,7 @@ use crate::sample::{self, Ask, Signal, Snapshot};
 use crate::window::ProcessWindow;
 
 /// The shell's skins folder, the bar's.
-const SHELL: &str = "patina-bar";
+const SHELL: &str = "patina-hud";
 const SKIN_POLL: Duration = Duration::from_secs(1);
 /// The processes' own windows' app id, apart from the main window's, so
 /// Ctrl+Shift+Escape brings that one forward.
@@ -162,14 +162,14 @@ impl App {
 
     /// Takes the shell's skin from the bar's config when it changes.
     fn follow_shell_skin(&mut self, ctx: &egui::Context) {
-        let mtime = patina_shell::bar::config_path()
+        let mtime = patina_shell::hud::config_path()
             .and_then(|p| std::fs::metadata(p).ok())
             .and_then(|m| m.modified().ok());
         if mtime == self.bar_mtime && self.bar_mtime.is_some() {
             return;
         }
         self.bar_mtime = mtime;
-        let name = patina_shell::bar::skin_or_default();
+        let name = patina_shell::hud::skin_or_default();
         self.skin = self.skins.iter().position(|s| s.name == name).unwrap_or(0);
         self.skins[self.skin].apply(ctx);
     }

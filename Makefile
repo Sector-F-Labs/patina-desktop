@@ -50,7 +50,7 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps run run-bar build test check install stage deploy deb install-full uninstall-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm test-vm-rc vm-linux-stop clean
+.PHONY: help deps run run-hud build test check install stage deploy deb install-full uninstall-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm test-vm-rc vm-linux-stop clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -72,8 +72,8 @@ run: ## Run the compositor in a window on this desktop, with the bar, on a bus o
 	cargo build --workspace
 	$(OWN_BUS) target/debug/patina-compositor
 
-run-bar: ## Run only the bar on the current compositor (needs layer-shell; not GNOME)
-	cargo run -p patina-bar < /dev/null
+run-hud: ## Run only the HUD on the current compositor (needs layer-shell; not GNOME)
+	cargo run -p patina-hud < /dev/null
 
 build: ## Build the release binaries
 	cargo build --release
@@ -86,7 +86,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := files notebook patina-bar patina-clock patina-compositor patina-dictate patina-launcher patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
+BINARIES := files notebook patina-hud patina-clock patina-compositor patina-dictate patina-launcher patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
 # The session's terminal, which deploy installs too: the checkout beside this
 # one, as it is, else GitHub's.
 TELEPRINTER ?= $(abspath ../teleprinter)

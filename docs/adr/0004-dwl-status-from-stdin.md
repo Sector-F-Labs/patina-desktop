@@ -15,7 +15,7 @@ instead need the dwl-ipc patch (`zdwl_ipc_manager_v2`), which also lets a bar sw
 
 ## Decision
 
-We will run as `dwl -s patina-bar` and parse dwl's status lines from stdin (`src/dwl.rs`), on a
+We will run as `dwl -s patina-hud` and parse dwl's status lines from stdin (`src/dwl.rs`), on a
 thread of its own that never waits on drawing. Each output's bar shows the monitor dwl names after
 it; an output dwl hasn't named shows the selected monitor. Unknown fields are ignored, so patched
 dwls that print more still work.

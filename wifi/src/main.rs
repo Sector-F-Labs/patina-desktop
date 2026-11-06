@@ -17,7 +17,7 @@ use crate::ui::{Command, Status, WifiMenu};
 const USAGE: &str = "usage: patina-wifi
 
 Opens the Wi-Fi menu at the bar's right end, or closes it if it's open.
-PATINA_SKIN and PATINA_BAR_EDGE, as patina-bar sets them, choose the skin
+PATINA_SKIN and PATINA_HUD_EDGE, as patina-hud sets them, choose the skin
 and which edge it opens from.";
 
 const SIZE: (u32, u32) = (360, 440);

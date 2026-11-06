@@ -16,7 +16,7 @@ share it over VNC (`[gui] desktop = "wayland"`).
 ## Decision
 
 We will test in a FreeBSD 15.1 VM from `bsdt.toml`: dwl, foot, wmenu and grim from packages, the
-bar built in the VM by `provision`, and dwl started as `dwl -s 'exec patina-bar/target/release/patina-bar'`.
+bar built in the VM by `provision`, and dwl started as `dwl -s 'exec patina-hud/target/release/patina-hud'`.
 `make vm-restart` rebuilds and restarts the desktop; `make screenshot` takes the bar with grim.
 
 ## Consequences

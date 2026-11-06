@@ -1,4 +1,4 @@
-# patina-bar
+# patina-hud
 
 The bar along the bottom (or top) of the screen, and the desktop's switchboard: its buttons and
 icons open the launcher and the tray's menus, its tabs are the list of open windows, and its
@@ -38,16 +38,16 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
 
 - **Started by** patina-compositor at start-up, as a layer-shell client with an exclusive zone,
   so windows are placed above (or below) it. It also runs on other layer-shell compositors, and
-  as dwl's status command (`dwl -s patina-bar`), reading dwl's status lines from stdin for the
+  as dwl's status command (`dwl -s patina-hud`), reading dwl's status lines from stdin for the
   tags (`dwl.rs`, ADR-0004).
 - **Learns about windows** through wlr-foreign-toplevel-management (patina-shell's
   `toplevels.rs`), and asks the compositor to activate or close them.
 - **Opens the other pieces** by running their commands through `sh`, with `PATINA_SKIN` and
-  `PATINA_BAR_EDGE` set so they match it and open from its edge: `launcher`, `volume`, `wifi`,
+  `PATINA_HUD_EDGE` set so they match it and open from its edge: `launcher`, `volume`, `wifi`,
   `battery`, `calendar` and `power` in its config. Under patina-compositor it asks the compositor to start them (`Spawn` on the
   session bus), so they're listed in Settings' Processes page with their output (ADR-0045);
   anywhere else, or without a session bus, it starts them itself.
-- **Owns the shared config**, `~/.config/patina-bar/config.toml` (`config.rs`): `position`,
+- **Owns the shared config**, `~/.config/patina-hud/config.toml` (`config.rs`): `position`,
   `height`, `skin`, the modules of each side, `clock` (a strftime format), the commands,
   `tags`, `pinned` (the pinned apps, which the compositor reads too), and `wallpaper` and
   `wallpaper_fit` (fill, fit or centre), which patina-wallpaper draws. patina-menu writes `skin` and
@@ -56,7 +56,7 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
 - **Floats with gaps** (ADR-0051): `gaps.rs` reads `[gaps]` from the compositor's config, which
   the bar checks each second too. With gaps on, the bar's layer-shell margin keeps it the gap
   away from the screen's edges, and it draws with rounded corners and an outline all round.
-- **Skins** are Patina's, built in or in `~/.config/patina-bar/skins`, and through the bar they
+- **Skins** are Patina's, built in or in `~/.config/patina-hud/skins`, and through the bar they
   are the whole shell's.
 
 ## Split (experimental)
@@ -65,7 +65,7 @@ With `layout = "split"` (ADR-0063) the launcher, the window list and the tray ea
 own, at `launcher_at`, `windows_at` and `tray_at`: an edge, then where along it (`bottom-left` is
 a row, `left-bottom` a column). The media controls stay in the tray's part unless `media_at` (the
 same names) gives them a part of their own (ADR-0101). This process draws the window list and runs the others as
-`patina-bar --section`, which end when its pipe to them closes; each edge with a part on it is
+`patina-hud --section`, which end when its pipe to them closes; each edge with a part on it is
 kept by a pixel-thin `reserve-EDGE` section. `split.rs` places every surface and turns a point on
 it into a place on the screen, which menus, tooltips and the pieces the bar opens
 (`PATINA_OPEN_AT`) open at. Settings' Bar page places the parts by dragging.
@@ -81,6 +81,6 @@ surface and drawing come from patina-shell.
 
 ```sh
 make run-bar                      # on the current compositor (needs layer-shell, so not GNOME)
-dwl -s patina-bar                 # on dwl, with its tags
-patina-bar -c some-config.toml
+dwl -s patina-hud                 # on dwl, with its tags
+patina-hud -c some-config.toml
 ```

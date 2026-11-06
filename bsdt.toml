@@ -2,7 +2,7 @@
 #
 # A FreeBSD VM whose desktop is dwl from packages, used only as somewhere
 # for patina-compositor's window to open. The compositor fills the screen
-# (dwl tiles its only window) and runs patina-bar inside it.
+# (dwl tiles its only window) and runs patina-hud inside it.
 #
 #   make vm            # create, build, start dwl and the compositor
 #   make vm-gui        # open the desktop in a VNC viewer

@@ -1,9 +1,9 @@
 [package]
-name = "patina-bar"
+name = "patina-hud"
 version = "0.1.0"
 edition = "2024"
 license = "BSD-3-Clause"
-description = "A status bar for dwl in the Patina style: egui drawn on a wlr-layer-shell surface"
+description = "The Patina desktop's HUD (what was the bar): launcher, window list, tray and clock: egui drawn on a wlr-layer-shell surface"
 repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [dependencies]

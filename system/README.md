@@ -44,7 +44,7 @@ painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in it
   Super+arrows in, placing windows and the preview out, and holding the Tiler name, for
   patina-tiler and other tilers (`cargo run -p patina-system --example thirds`).
 - **`sni.rs`**: the system tray (ADR-0064): serves `org.kde.StatusNotifierWatcher` (or follows
-  another program's), reads apps' StatusNotifierItems and their dbusmenu menus, for patina-bar.
+  another program's), reads apps' StatusNotifierItems and their dbusmenu menus, for patina-hud.
   `cargo run -p patina-system --example tray` prints what's registered and its menus;
   `dbus-run-session -- cargo test -p patina-system sni -- --ignored` tests it against a fake app.
 - **`logo.rs`**: the Sector F flask (the bar's launcher button, the default wallpaper) and Ubuntu
