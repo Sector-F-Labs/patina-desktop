@@ -11,17 +11,25 @@ use std::time::{Duration, Instant};
 
 use crate::config::Visibility;
 
-/// How much of a hidden element stays on screen to be touched, in logical
-/// pixels.
-pub const SLIVER: i32 = 2;
+/// How much of a hidden element's surface stays on screen to be touched, in
+/// logical pixels: a transparent strip along its edge, past the element
+/// itself, which is where the pointer brings it out.
+pub const HOT: i32 = 10;
 /// How long an element takes to slide in or out.
-const SLIDE: Duration = Duration::from_millis(140);
+const SLIDE: Duration = Duration::from_millis(260);
 /// How long one stays out after the pointer leaves it.
 const LINGER: Duration = Duration::from_millis(600);
+/// How long one stays out when it came for a moment (a window change, the
+/// launcher's shortcut).
+const PEEK: Duration = Duration::from_millis(1400);
+
+fn state_dir() -> Option<PathBuf> {
+    let dir = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from)?;
+    Some(dir.join("patina-hud"))
+}
 
 fn state_path() -> Option<PathBuf> {
-    let dir = std::env::var_os("XDG_RUNTIME_DIR").map(PathBuf::from)?;
-    Some(dir.join("patina-hud").join("hidden"))
+    Some(state_dir()?.join("hidden"))
 }
 
 /// Whether the HUD has been hidden with Super+H.
@@ -43,6 +51,24 @@ pub fn toggle() -> Result<bool, String> {
     Ok(true)
 }
 
+/// Asks the element called `name` to come out for a moment: `patina-hud
+/// --peek launcher`, which the compositor runs for the launcher's shortcut.
+/// It's a file the element looks at, as for [`hidden`].
+pub fn peek(name: &str) -> Result<(), String> {
+    let dir = state_dir().ok_or("no XDG_RUNTIME_DIR")?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    let path = dir.join(format!("peek-{name}"));
+    // The file's time is the ask, so each one is a new time.
+    let _ = std::fs::remove_file(&path);
+    std::fs::write(&path, "").map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// When `name` was last asked to peek.
+pub fn peeked(name: &str) -> Option<std::time::SystemTime> {
+    let path = state_dir()?.join(format!("peek-{name}"));
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
 /// What an element is doing now, with the HUD hidden or not.
 pub fn effective(mode: Visibility, all_hidden: bool) -> Visibility {
     match mode {
@@ -51,13 +77,20 @@ pub fn effective(mode: Visibility, all_hidden: bool) -> Visibility {
     }
 }
 
-/// How far out an element is, from 0 (off screen but for the sliver) to 1
-/// (in place), moving toward where it should be.
+fn ease(p: f32) -> f32 {
+    // Quick out of the gate, settling at the end.
+    1.0 - (1.0 - p).powi(3)
+}
+
+/// How far out an element is, from 0 (off screen but for the strip) to 1
+/// (in place), eased toward where it should be.
 #[derive(Debug, Clone, Copy)]
 pub struct Slide {
     out: f32,
-    last: Option<Instant>,
-    /// Until when the pointer counts as being on it.
+    from: f32,
+    to: f32,
+    started: Option<Instant>,
+    /// Until when the pointer, or a peek, keeps it out.
     until: Option<Instant>,
 }
 
@@ -65,7 +98,9 @@ impl Default for Slide {
     fn default() -> Self {
         Self {
             out: 1.0,
-            last: None,
+            from: 1.0,
+            to: 1.0,
+            started: None,
             until: None,
         }
     }
@@ -76,11 +111,16 @@ impl Slide {
         self.out
     }
 
+    /// Comes out for a moment.
+    pub fn peek(&mut self, now: Instant) {
+        self.until = Some(self.until.map_or(now + PEEK, |t| t.max(now + PEEK)));
+    }
+
     /// Moves on to `now`; `mode` is the element's, `hover` whether the
     /// pointer is on it. Returns whether it's still moving, or waiting to.
     pub fn step(&mut self, mode: Visibility, hover: bool, now: Instant) -> bool {
         if hover {
-            self.until = Some(now + LINGER);
+            self.until = Some(self.until.map_or(now + LINGER, |t| t.max(now + LINGER)));
         }
         let held = self.until.is_some_and(|t| t > now);
         let target = match mode {
@@ -88,18 +128,20 @@ impl Slide {
             Visibility::Autohide if held => 1.0,
             Visibility::Autohide | Visibility::Hidden => 0.0,
         };
-        let dt = self
-            .last
-            .map_or(Duration::ZERO, |t| now.saturating_duration_since(t));
-        self.last = Some(now);
-        let by = dt.as_secs_f32() / SLIDE.as_secs_f32();
-        if self.out < target {
-            self.out = (self.out + by.max(0.2)).min(target);
-        } else if self.out > target {
-            self.out = (self.out - by.max(0.2)).max(target);
+        if target != self.to {
+            self.from = self.out;
+            self.to = target;
+            self.started = Some(now);
         }
-        // A part waiting out its linger needs another frame to leave.
-        self.out != target || (mode == Visibility::Autohide && held)
+        let progress = self.started.map_or(1.0, |t| {
+            (now.saturating_duration_since(t).as_secs_f32() / SLIDE.as_secs_f32()).min(1.0)
+        });
+        self.out = self.from + (self.to - self.from) * ease(progress);
+        if progress >= 1.0 {
+            self.out = self.to;
+        }
+        // Waiting out a linger needs another frame to leave.
+        progress < 1.0 || (mode == Visibility::Autohide && held)
     }
 }
 
@@ -120,13 +162,13 @@ mod tests {
         let t = Instant::now();
         let mut now = t;
         // No pointer: goes out.
-        for _ in 0..20 {
+        for _ in 0..40 {
             now += Duration::from_millis(16);
             s.step(Visibility::Autohide, false, now);
         }
         assert_eq!(s.out(), 0.0);
-        // The pointer on the sliver brings it in, and it stays a while.
-        for _ in 0..20 {
+        // The pointer on the strip brings it in, and it stays a while.
+        for _ in 0..40 {
             now += Duration::from_millis(16);
             s.step(Visibility::Autohide, true, now);
         }
@@ -134,7 +176,46 @@ mod tests {
         now += Duration::from_millis(100);
         s.step(Visibility::Autohide, false, now);
         assert_eq!(s.out(), 1.0, "it lingers");
-        for _ in 0..80 {
+        for _ in 0..120 {
+            now += Duration::from_millis(16);
+            s.step(Visibility::Autohide, false, now);
+        }
+        assert_eq!(s.out(), 0.0);
+    }
+
+    #[test]
+    fn it_eases_rather_than_jumping() {
+        let mut s = Slide::default();
+        let mut now = Instant::now();
+        let mut seen = Vec::new();
+        for _ in 0..30 {
+            now += Duration::from_millis(16);
+            s.step(Visibility::Autohide, false, now);
+            seen.push(s.out());
+        }
+        // Many steps on the way, each smaller than the one before.
+        let moving = seen.iter().filter(|o| **o > 0.0 && **o < 1.0).count();
+        assert!(moving >= 8, "{seen:?}");
+        let steps: Vec<f32> = seen.windows(2).map(|w| w[0] - w[1]).collect();
+        assert!(steps[1] > steps[steps.len() / 2], "{steps:?}");
+    }
+
+    #[test]
+    fn a_peek_brings_it_out_and_it_goes_again() {
+        let mut s = Slide::default();
+        let mut now = Instant::now();
+        for _ in 0..40 {
+            now += Duration::from_millis(16);
+            s.step(Visibility::Autohide, false, now);
+        }
+        assert_eq!(s.out(), 0.0);
+        s.peek(now);
+        for _ in 0..40 {
+            now += Duration::from_millis(16);
+            s.step(Visibility::Autohide, false, now);
+        }
+        assert_eq!(s.out(), 1.0);
+        for _ in 0..200 {
             now += Duration::from_millis(16);
             s.step(Visibility::Autohide, false, now);
         }

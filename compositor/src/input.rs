@@ -394,6 +394,15 @@ impl State {
     fn open_launcher(&mut self) {
         if !self.config.launcher.is_empty() {
             self.spawn_client(&self.config.launcher.clone());
+            // The HUD's launcher button comes out for a moment if it hides.
+            if let Ok(mut peek) = std::process::Command::new("patina-hud")
+                .args(["--peek", "launcher"])
+                .spawn()
+            {
+                std::thread::spawn(move || {
+                    let _ = peek.wait();
+                });
+            }
         }
     }
 

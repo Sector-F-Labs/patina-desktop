@@ -30,7 +30,7 @@ use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 use crate::config::{Layout, Position, Visibility};
 use crate::split::Section;
 
-const USAGE: &str = "usage: patina-hud [--toggle] [-c config.toml] [--section launcher|windows|tray]
+const USAGE: &str = "usage: patina-hud [--toggle] [--peek launcher] [-c config.toml] [--section launcher|windows|tray]
 
 A status bar for dwl. Run it as dwl's status command, so it reads dwl's
 status from stdin:
@@ -65,6 +65,16 @@ fn main() -> ExitCode {
                         eprintln!("patina-hud: {e}");
                         ExitCode::FAILURE
                     }
+                };
+            }
+            "--peek" => {
+                return match args.next().map(|n| hide::peek(&n)) {
+                    Some(Ok(())) => ExitCode::SUCCESS,
+                    Some(Err(e)) => {
+                        eprintln!("patina-hud: {e}");
+                        ExitCode::FAILURE
+                    }
+                    None => usage_error(),
                 };
             }
             "-h" | "--help" => {
@@ -560,17 +570,28 @@ fn run(
         )
         .map_err(|e| e.to_string())?;
 
-    // Super+H: look for the hidden state a few times a second.
+    // Super+H and a peek's ask: look for them a few times a second.
+    let name = host.shell.section.map(|s| s.name());
+    let mut peeked = name.as_deref().and_then(hide::peeked);
     handle
         .insert_source(
-            Timer::from_duration(Duration::from_millis(150)),
-            |_, _, host| {
+            Timer::from_duration(Duration::from_millis(100)),
+            move |_, _, host| {
                 let hidden = hide::hidden();
-                if hidden != host.shell.all_hidden {
-                    host.shell.all_hidden = hidden;
+                let mut redraw = hidden != host.shell.all_hidden;
+                host.shell.all_hidden = hidden;
+                if let Some(name) = &name
+                    && let Some(at) = hide::peeked(name)
+                    && peeked != Some(at)
+                {
+                    peeked = Some(at);
+                    host.shell.peek = true;
+                    redraw = true;
+                }
+                if redraw {
                     host.redraw_all();
                 }
-                TimeoutAction::ToDuration(Duration::from_millis(150))
+                TimeoutAction::ToDuration(Duration::from_millis(100))
             },
         )
         .map_err(|e| e.to_string())?;

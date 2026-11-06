@@ -189,6 +189,19 @@ pub fn reserved(config: &Config) -> Vec<Side> {
     sides
 }
 
+/// Where the transparent strip of a part's surface is (top, right, bottom,
+/// left): along its inner side, so what hides leaves the strip at the
+/// screen's edge, for the pointer to touch.
+pub fn hot_trim(side: Side) -> (i32, i32, i32, i32) {
+    let hot = crate::hide::HOT;
+    match side {
+        Side::Bottom => (hot, 0, 0, 0),
+        Side::Top => (0, 0, hot, 0),
+        Side::Left => (0, hot, 0, 0),
+        Side::Right => (0, 0, 0, hot),
+    }
+}
+
 /// How far past a surface's edge its menus and tooltips open.
 pub const SPACE: f32 = 4.0;
 
@@ -226,6 +239,9 @@ pub struct Placement {
     pub size: (u32, u32),
     /// Which way its menus and tooltips open: top, bottom, left or right.
     pub opens: &'static str,
+    /// How much of the surface, across its edge, is the strip a part hides
+    /// into; 0 for the whole bar and the reserves.
+    pub hot: f32,
     x: Along,
     y: Along,
 }
@@ -252,6 +268,11 @@ impl Placement {
     pub fn popup(&self, point: Pos2, surface: Vec2, output: Option<Vec2>) -> Popup {
         let (top, right, bottom, left) = self.margin;
         let origin = self.origin(surface, output);
+        // The strip is nothing to open past.
+        let surface = match self.opens {
+            "left" | "right" => Vec2::new(surface.x - self.hot, surface.y),
+            _ => Vec2::new(surface.x, surface.y - self.hot),
+        };
         match self.opens {
             "left" | "right" => {
                 let side = if self.opens == "left" { left } else { right };
@@ -291,6 +312,7 @@ pub fn placement(section: Option<Section>, config: &Config, gaps: Gaps) -> Place
             exclusive_zone: hi,
             size: (0, h),
             opens: if top { "top" } else { "bottom" },
+            hot: 0.0,
             x: Along::Start,
             y: if top { Along::Start } else { Along::End },
         };
@@ -310,6 +332,7 @@ pub fn placement(section: Option<Section>, config: &Config, gaps: Gaps) -> Place
             exclusive_zone: kept(config, side).map_or(0, |t| t as i32) + g,
             size,
             opens: side.name(),
+            hot: 0.0,
             x: Along::Start,
             y: Along::Start,
         };
@@ -366,10 +389,12 @@ pub fn placement(section: Option<Section>, config: &Config, gaps: Gaps) -> Place
         *end = g + before;
     }
     let t = thickness(section, config);
+    let hot = crate::hide::HOT as u32;
     let size = match (section, spot.vertical()) {
-        (Section::Launcher, _) => (t, t),
-        (_, true) => (t, 200),
-        (_, false) => (240, t),
+        (Section::Launcher, true) => (t + hot, t),
+        (Section::Launcher, false) => (t, t + hot),
+        (_, true) => (t + hot, 200),
+        (_, false) => (240, t + hot),
     };
     Placement {
         anchor,
@@ -378,6 +403,7 @@ pub fn placement(section: Option<Section>, config: &Config, gaps: Gaps) -> Place
         exclusive_zone: -1,
         size,
         opens: spot.side().name(),
+        hot: hot as f32,
         x: spot.x(),
         y: spot.y(),
     }
@@ -419,7 +445,7 @@ pub fn slid_margin(
     let Some(spot) = section.spot(config) else {
         return place.margin;
     };
-    let off = thickness(section, config) as i32 + gaps.gap - sliver;
+    let off = thickness(section, config) as i32 + gaps.gap + crate::hide::HOT - sliver;
     let moved = ((1.0 - out.clamp(0.0, 1.0)) * off as f32).round() as i32;
     let (mut top, mut right, mut bottom, mut left) = place.margin;
     match spot.side() {
@@ -463,7 +489,7 @@ mod tests {
         let p = placement(Some(Section::Windows), &config("layout = \"split\""), GAPS);
         assert_eq!(p.anchor, Anchor::BOTTOM);
         assert_eq!(p.exclusive_zone, -1, "kept by the reserve instead");
-        let at = p.popup(egui::pos2(10.0, 5.0), egui::vec2(400.0, 41.0), Some(OUT));
+        let at = p.popup(egui::pos2(10.0, 5.0), egui::vec2(400.0, 51.0), Some(OUT));
         assert_eq!((at.edge, at.x, at.y), ("bottom", 770.0, 53.0));
     }
 
@@ -472,7 +498,7 @@ mod tests {
         let c = config("layout = \"split\"\nwindows_at = \"center-left\"");
         let p = placement(Some(Section::Windows), &c, GAPS);
         assert_eq!(p.anchor, Anchor::LEFT);
-        let at = p.popup(egui::pos2(20.0, 30.0), egui::vec2(41.0, 200.0), Some(OUT));
+        let at = p.popup(egui::pos2(20.0, 30.0), egui::vec2(51.0, 200.0), Some(OUT));
         // Past the column, level with the icon; the column is centred.
         assert_eq!((at.edge, at.x, at.y), ("left", 53.0, 470.0));
     }
@@ -482,7 +508,7 @@ mod tests {
         let c = config("layout = \"split\"\ntray_at = \"top-right\"\nlauncher_at = \"top-left\"");
         let tray = placement(Some(Section::Tray), &c, GAPS);
         assert_eq!(tray.anchor, Anchor::TOP | Anchor::RIGHT);
-        let at = tray.popup(egui::pos2(10.0, 5.0), egui::vec2(200.0, 41.0), Some(OUT));
+        let at = tray.popup(egui::pos2(10.0, 5.0), egui::vec2(200.0, 51.0), Some(OUT));
         assert_eq!((at.edge, at.x, at.y), ("top", 1722.0, 53.0));
         let launcher = placement(Some(Section::Launcher), &c, GAPS);
         assert_eq!(launcher.anchor, Anchor::TOP | Anchor::LEFT);
@@ -495,7 +521,7 @@ mod tests {
         assert_eq!(column.anchor, Anchor::LEFT | Anchor::BOTTOM);
         // Past the launcher at bottom-left: its 41, and a gap either side.
         assert_eq!(column.margin, (0, 0, 8 + 41 + 8, 8));
-        let at = column.popup(egui::pos2(20.0, 30.0), egui::vec2(41.0, 120.0), Some(OUT));
+        let at = column.popup(egui::pos2(20.0, 30.0), egui::vec2(51.0, 120.0), Some(OUT));
         assert_eq!(
             (at.edge, at.x, at.y),
             ("left", 53.0, 1080.0 - 57.0 - 120.0 + 30.0)
@@ -606,8 +632,9 @@ mod tests {
         assert_eq!(thickness(Section::Windows, &c), 72);
         assert_eq!(thickness(Section::Tray, &c), 24);
         assert_eq!(thickness(Section::Launcher, &c), 41);
-        assert_eq!(placement(Some(Section::Windows), &c, GAPS).size.1, 72);
-        assert_eq!(placement(Some(Section::Tray), &c, GAPS).size.1, 24);
+        // The surface is the element and the strip it hides into.
+        assert_eq!(placement(Some(Section::Windows), &c, GAPS).size.1, 72 + 10);
+        assert_eq!(placement(Some(Section::Tray), &c, GAPS).size.1, 24 + 10);
         // The bottom is kept as far as the dock reaches.
         assert_eq!(
             placement(Some(Section::Reserve(Side::Bottom)), &c, GAPS).exclusive_zone,
@@ -661,12 +688,12 @@ mod tests {
     fn a_hidden_element_slides_off_its_own_edge() {
         let c = config("windows_at = \"bottom\"\nheight = 40");
         let p = placement(Some(Section::Windows), &c, GAMELESS);
-        let (top, right, bottom, left) = slid_margin(&p, Section::Windows, &c, GAMELESS, 0.0, 2);
+        let (top, right, bottom, left) = slid_margin(&p, Section::Windows, &c, GAMELESS, 0.0, crate::hide::HOT);
         assert_eq!((top, right, left), (p.margin.0, p.margin.1, p.margin.3));
-        assert_eq!(bottom, p.margin.2 - 38, "all but the 2 px sliver");
-        assert_eq!(slid_margin(&p, Section::Windows, &c, GAMELESS, 1.0, 2), p.margin);
+        assert_eq!(bottom, p.margin.2 - 40, "all but the strip");
+        assert_eq!(slid_margin(&p, Section::Windows, &c, GAMELESS, 1.0, crate::hide::HOT), p.margin);
         let c = config("tray_at = \"right-top\"\nheight = 40");
         let p = placement(Some(Section::Tray), &c, GAMELESS);
-        assert_eq!(slid_margin(&p, Section::Tray, &c, GAMELESS, 0.0, 0).1, p.margin.1 - 40);
+        assert_eq!(slid_margin(&p, Section::Tray, &c, GAMELESS, 0.0, 0).1, p.margin.1 - 50);
     }
 }

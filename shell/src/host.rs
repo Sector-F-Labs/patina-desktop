@@ -125,6 +125,13 @@ pub trait Shell: 'static {
     fn wanted_exclusive_zone(&self) -> Option<i32> {
         None
     }
+    /// How much of each side of the surfaces takes no pointer input, in
+    /// logical pixels (top, right, bottom, left), if the shell leaves some:
+    /// the HUD's transparent strip, which only catches the pointer while
+    /// the element is out of the way. All zero for the whole surface.
+    fn wanted_input_trim(&self) -> Option<(i32, i32, i32, i32)> {
+        None
+    }
 }
 
 /// Where the host's surfaces go and what they take.
@@ -208,6 +215,8 @@ struct Surface {
     events: Vec<egui::Event>,
     /// Whether this surface has the keyboard.
     focused: bool,
+    /// The input trim last set, and the size it was set for.
+    input: Option<((i32, i32, i32, i32), (u32, u32))>,
 }
 
 impl Drop for Surface {
@@ -367,6 +376,9 @@ impl<S: Shell> Host<S> {
             {
                 self.set_margin(margin);
             }
+            if let Some(trim) = self.shell.wanted_input_trim() {
+                self.set_input_trim(trim);
+            }
             if let Some(zone) = self.shell.wanted_exclusive_zone()
                 && zone != self.options.exclusive_zone
             {
@@ -442,6 +454,31 @@ impl<S: Shell> Host<S> {
                 layer.set_size(size.0, size.1);
                 layer.commit();
             }
+        }
+    }
+
+    /// Leaves `trim` (top, right, bottom, left) of each layer surface out
+    /// of its input region, when that or the surface's size has changed.
+    fn set_input_trim(&mut self, trim: (i32, i32, i32, i32)) {
+        for s in &mut self.surfaces {
+            let Role::Layer(layer) = &s.role else {
+                continue;
+            };
+            let size = (s.width, s.height);
+            if s.input == Some((trim, size)) {
+                continue;
+            }
+            let Ok(region) = Region::new(&self.compositor) else {
+                continue;
+            };
+            let (top, right, bottom, left) = trim;
+            let (w, h) = (size.0 as i32 - left - right, size.1 as i32 - top - bottom);
+            if w > 0 && h > 0 {
+                region.add(left, top, w, h);
+            }
+            layer.set_input_region(Some(region.wl_region()));
+            layer.commit();
+            s.input = Some((trim, size));
         }
     }
 
@@ -692,6 +729,7 @@ impl<S: Shell> Host<S> {
             repaint_at: None,
             events: Vec::new(),
             focused: false,
+            input: None,
         });
     }
 
