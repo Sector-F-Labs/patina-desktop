@@ -92,7 +92,7 @@ boot() {
     -drive "driver=vvfat,dir=$SEED,label=CIDATA,read-only=on,if=virtio" \
     "${shares[@]}" \
     -nic "user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:$SSH_PORT-:22" \
-    -device virtio-vga -vnc "127.0.0.1:$VNC_DISPLAY" \
+    -device virtio-vga,xres=1920,yres=1200 -vnc "127.0.0.1:$VNC_DISPLAY" \
     -device qemu-xhci -device usb-tablet -device usb-kbd \
     -monitor "unix:$MONITOR,server,nowait" \
     -display none -serial "file:$SERIAL_LOG" \

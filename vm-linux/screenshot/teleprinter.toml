@@ -1,0 +1,6 @@
+skin = "Everforest Dark"
+light_dark = "system"
+system_title_bar = false
+font_size = 15.0
+gap = 0.0
+pane_title_height = 28.0
