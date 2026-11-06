@@ -1384,7 +1384,10 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
+        if !self.config.system_title_bar {
+            patina::frame::shadow::request(frame);
+        }
         let ctx = ui.ctx().clone();
         self.take_done();
         if let Some(files) = self.incoming.as_ref().and_then(|r| {
