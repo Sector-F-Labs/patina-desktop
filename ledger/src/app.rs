@@ -678,7 +678,10 @@ fn send(doc: &Document, sheet: usize, changes: grid::Changes) {
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        if self.custom_frame {
+            patina::frame::shadow::request(frame);
+        }
         let ctx = ui.ctx().clone();
         self.poll_picker();
         self.poll_shell();
