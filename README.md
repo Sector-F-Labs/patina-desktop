@@ -6,7 +6,7 @@ screen, menus, a process manager and the apps it was tested with (a terminal, fi
 reader, paint, video and music), each its own small program, so one going wrong can be restarted
 without the others. Windows float, tile when you drag them to an edge, and have tabs in the bar.
 
-![The Patina desktop: With gaps on, split bar on and Everforest theme selected](docs/screenshot.png)
+![The Patina desktop: Teleprinter running fastfetch, with gaps on, the split bar in its default layout and the Everforest theme](docs/screenshot.png)
 
 **Where it runs.** It is developed and tested on **Ubuntu 26.04**, and the instructions below
 assume an Ubuntu-like system. Other Linux distributions should work, since it asks only for
