@@ -205,6 +205,7 @@ impl State {
         seat.add_touch();
         output.create_global::<State>(&dh);
         crate::shadow::init(&dh);
+        crate::shadow::set_enabled(config.shadows.enabled);
         let mut space = Space::default();
         space.map_output(&output, (0, 0));
 

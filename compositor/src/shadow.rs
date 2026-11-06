@@ -12,6 +12,7 @@
 //! then, which are released at once.
 
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use smithay::{
     backend::{
@@ -234,6 +235,15 @@ fn read_tile(buffer: &WlBuffer) -> Option<Tile> {
     .flatten()
 }
 
+/// Whether shadows are drawn at all (`[shadows] enabled`, which Settings'
+/// Appearance page changes). The renderer reads it where it has no `State`.
+static ENABLED: AtomicBool = AtomicBool::new(true);
+
+/// Turns the shadows on or off, from the config.
+pub fn set_enabled(on: bool) {
+    ENABLED.store(on, Ordering::Relaxed);
+}
+
 /// How much of its shadow a window keeps when it isn't the focused one.
 /// Firefox's, on a white background, is 27 to 34 of 255 dark beside the
 /// window unfocused and 61 to 79 focused: about 0.45.
@@ -253,6 +263,9 @@ where
     R: Renderer + ImportMem,
     R::TextureId: Send + Clone + Texture + 'static,
 {
+    if !ENABLED.load(Ordering::Relaxed) {
+        return Vec::new();
+    }
     if let Some(toplevel) = window.toplevel()
         && toplevel
             .current_state()

@@ -22,6 +22,8 @@ pub struct Config {
     pub screen: Screen,
     pub night_light: NightLight,
     pub gaps: Gaps,
+    /// The shadows drawn for windows that ask for one (ADR-0112).
+    pub shadows: Shadows,
     /// What tapping Super on its own opens, as the HUD's launcher button
     /// would (`patina-hud --open launcher` runs this command, from the
     /// button's place); "" for nothing.
@@ -220,6 +222,20 @@ impl Default for Gaps {
     }
 }
 
+/// Shadows (ADR-0112): whether the compositor draws the shadow a window asks
+/// for, through KDE's shadow protocol, as Patina apps do.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct Shadows {
+    pub enabled: bool,
+}
+
+impl Default for Shadows {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
 impl Config {
     /// The gap around tiled windows: 0 when gaps are off.
     pub fn gap(&self) -> i32 {
@@ -365,6 +381,7 @@ impl Default for Config {
             screen: Screen::default(),
             night_light: NightLight::default(),
             gaps: Gaps::default(),
+            shadows: Shadows::default(),
             launcher: "patina-launcher".into(),
             launcher_spotlight: "patina-launcher --position center --search top".into(),
             desktop_menu: "patina-menu".into(),
@@ -681,6 +698,7 @@ impl crate::state::State {
         self.night_light.configure(&config.night_light);
         self.keys = crate::keys::Keys::new(&config.keys, &config.remap).0;
         let gaps_changed = config.gap() != self.config.gap();
+        crate::shadow::set_enabled(config.shadows.enabled);
         self.config = config;
         if gaps_changed {
             self.relayout_maximized();
@@ -877,6 +895,15 @@ mod tests {
         assert_eq!(c.night_light, NightLight::default());
         assert_eq!(w.len(), 2, "{w:?}");
         assert!(parse("[night_light]\nmode = \"sometimes\"\n").is_err());
+    }
+
+    #[test]
+    fn shadows_are_on_unless_the_config_turns_them_off() {
+        let (c, w) = parse("").unwrap();
+        assert!(c.shadows.enabled && w.is_empty(), "{w:?}");
+        let (c, w) = parse("[shadows]\nenabled = false\n").unwrap();
+        assert!(!c.shadows.enabled && w.is_empty(), "{w:?}");
+        assert!(parse("[shadows]\nenabled = \"no\"\n").is_err());
     }
 
     #[test]

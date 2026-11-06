@@ -131,6 +131,7 @@ pub struct App {
     defaults: crate::defaults::DefaultsPage,
     color_scheme: crate::color_scheme::ColorSchemeSection,
     gaps: crate::gaps::GapsSection,
+    shadows: crate::shadows::ShadowsSection,
     icons: crate::icons::IconsSection,
     keyboard: crate::keyboard::KeyboardPage,
     dictation: crate::dictation::DictationPage,
@@ -163,6 +164,7 @@ impl App {
             defaults: crate::defaults::DefaultsPage::new(),
             color_scheme: crate::color_scheme::ColorSchemeSection::new(),
             gaps: crate::gaps::GapsSection::new(),
+            shadows: crate::shadows::ShadowsSection::new(),
             icons: crate::icons::IconsSection::new(),
             keyboard: crate::keyboard::KeyboardPage::new(ctx),
             dictation: crate::dictation::DictationPage::new(),
@@ -303,7 +305,7 @@ impl App {
     }
 
     /// The shell's skin, and its skins folder, as the desktop's menu
-    /// offers them; light or dark; the gaps; and the icon theme.
+    /// offers them; light or dark; the gaps; the shadows; and the icon theme.
     fn appearance(&mut self, ui: &mut Ui) {
         ui.heading("Appearance");
         ui.label("The skin the bar, the menus, the lock screen and the wallpaper wear.");
@@ -335,6 +337,8 @@ impl App {
         self.color_scheme.ui(ui, &mut self.message);
         ui.add_space(16.0);
         self.gaps.ui(ui, &mut self.message);
+        ui.add_space(16.0);
+        self.shadows.ui(ui, &mut self.message);
         ui.add_space(16.0);
         self.icons.ui(ui, &mut self.message);
     }
