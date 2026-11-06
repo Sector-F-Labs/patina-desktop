@@ -51,6 +51,9 @@ Smithay has no implementation of it; `wayland-protocols-plasma` has the definiti
     white background its shadow is 27 to 34 of 255 dark unfocused against 61 to 79 focused. The
     compositor does this for every client, so apps need nothing. It can't shorten the reach as
     Firefox also does (about 12 px against 20), only lighten it.
+- **`[shadows] enabled`** in the compositor's config turns them all off (on by default), and
+  Settings' Appearance page has the checkbox. The renderer reads it from a flag the config sets,
+  and a reload applies it within a second.
 - **A window that doesn't ask gets nothing.** Firefox, GTK and Qt windows that draw their own
   keep it and don't get a second.
 - **The shadow takes effect when the client commits it,** not with the surface's next commit as

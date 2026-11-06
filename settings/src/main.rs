@@ -17,6 +17,7 @@ mod keyboard;
 mod night_light;
 mod power;
 mod processes;
+mod shadows;
 mod wallpapers;
 
 use std::process::ExitCode;

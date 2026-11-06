@@ -129,6 +129,13 @@
 # The floating bar's corner radius, in pixels.
 # radius = 8
 
+[shadows]
+# Draw the shadow a window asks for, through KDE's shadow protocol, as Patina
+# apps do: soft, and lighter while the window isn't focused. Windows that
+# draw their own shadow, as Firefox does, keep it. Settings' Appearance page
+# changes this.
+# enabled = true
+
 [keys]
 # The desktop's own keys, by action, applied within a second of a save. Each
 # action set here replaces its defaults, the others keep theirs; "" or []

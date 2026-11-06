@@ -234,6 +234,44 @@ pub fn with_gaps(text: &str, gaps: &Gaps) -> Result<String, String> {
     Ok(doc.to_string())
 }
 
+/// Whether the compositor draws the shadows windows ask for (ADR-0112).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Shadows {
+    pub enabled: bool,
+}
+
+impl Default for Shadows {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
+}
+
+/// `[shadows]` from the config's text, on when it's missing or wrong.
+pub fn parse_shadows(text: &str) -> Shadows {
+    let mut shadows = Shadows::default();
+    if let Ok(doc) = text.parse::<DocumentMut>()
+        && let Some(on) = doc
+            .get("shadows")
+            .and_then(|t| t.get("enabled"))
+            .and_then(|v| v.as_bool())
+    {
+        shadows.enabled = on;
+    }
+    shadows
+}
+
+/// `text` with `[shadows]` set to `shadows`, everything else kept.
+pub fn with_shadows(text: &str, shadows: &Shadows) -> Result<String, String> {
+    let mut doc = text.parse::<DocumentMut>().map_err(|e| e.to_string())?;
+    let table = doc
+        .entry("shadows")
+        .or_insert_with(toml_edit::table)
+        .as_table_mut()
+        .ok_or("shadows in the compositor's config isn't a section")?;
+    table["enabled"] = value(shadows.enabled);
+    Ok(doc.to_string())
+}
+
 /// `[keyboard]`'s layouts and key repeat, as the compositor has them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Keyboard {
@@ -339,6 +377,11 @@ pub fn read_gaps() -> Gaps {
     read_text().map(|t| parse_gaps(&t)).unwrap_or_default()
 }
 
+/// The shadows setting from the compositor's config.
+pub fn read_shadows() -> Shadows {
+    read_text().map(|t| parse_shadows(&t)).unwrap_or_default()
+}
+
 /// The keyboard's settings from the compositor's config.
 pub fn read_keyboard() -> Keyboard {
     read_text().map(|t| parse_keyboard(&t)).unwrap_or_default()
@@ -352,6 +395,11 @@ pub fn write_keyboard(keyboard: &Keyboard) -> Result<(), String> {
 /// Writes the gaps into the compositor's config.
 pub fn write_gaps(gaps: &Gaps) -> Result<(), String> {
     update(|text| with_gaps(text, gaps))
+}
+
+/// Writes the shadows setting into the compositor's config.
+pub fn write_shadows(shadows: &Shadows) -> Result<(), String> {
+    update(|text| with_shadows(text, shadows))
 }
 
 /// Writes Night Light's settings into the compositor's config, making it if
@@ -456,6 +504,20 @@ mod tests {
         assert_eq!(text.matches("[gaps]").count(), 1);
         assert_eq!(parse_gaps(&text), Gaps::default());
         assert_eq!(parse_gaps("[gaps]\nsize = 500\n"), Gaps::default());
+    }
+
+    #[test]
+    fn shadows_are_written_keeping_the_rest() {
+        assert_eq!(parse_shadows(STARTER), Shadows { enabled: true });
+        let off = Shadows { enabled: false };
+        let text = with_shadows(STARTER, &off).unwrap();
+        assert!(text.contains("[shadows]\nenabled = false"), "{text}");
+        assert!(text.contains("[night_light]\n# How warm."));
+        assert_eq!(parse_shadows(&text), off);
+        let text = with_shadows(&text, &Shadows::default()).unwrap();
+        assert_eq!(text.matches("[shadows]").count(), 1);
+        assert_eq!(parse_shadows(&text), Shadows::default());
+        assert_eq!(parse_shadows("[shadows]\nenabled = 3\n"), Shadows::default());
     }
 
     #[test]
