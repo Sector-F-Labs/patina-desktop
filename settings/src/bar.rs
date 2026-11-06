@@ -5,6 +5,7 @@
 //! second.
 
 use egui::{RichText, Ui};
+use patina_shell::ShadowStyle;
 
 use crate::app::Message;
 
@@ -114,6 +115,10 @@ pub struct BarPage {
     /// the bar's `height` where that's unset.
     sizes: [u32; 3],
     window_tabs: String,
+    /// `shadows`: shadows around the HUD's parts (ADR-0113), and how they
+    /// look (`shadow_blur`, `shadow_drop` and the rest).
+    shadows: bool,
+    shadow: ShadowStyle,
     top: bool,
     split: bool,
     /// Each part's spot, in the order of `PARTS`.
@@ -122,6 +127,16 @@ pub struct BarPage {
     modes: [&'static str; 3],
     /// A part being dragged on the map, and the spot it would snap to.
     dragging: Option<(usize, usize)>,
+}
+
+/// `#rrggbb` as red, green and blue.
+fn parse_color(text: &str) -> Option<[u8; 3]> {
+    let hex = text.strip_prefix('#')?;
+    if hex.len() != 6 || !hex.is_ascii() {
+        return None;
+    }
+    let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
+    Some([byte(0)?, byte(2)?, byte(4)?])
 }
 
 /// The bar config's top-level `key`, as the file says now.
@@ -134,6 +149,8 @@ impl BarPage {
     pub fn new() -> Self {
         let mut page = Self {
             window_tabs: String::new(),
+            shadows: true,
+            shadow: ShadowStyle::default(),
             top: false,
             split: false,
             spots: [PARTS[0].3, PARTS[1].3, PARTS[2].3],
@@ -150,6 +167,23 @@ impl BarPage {
         self.window_tabs = read("window_tabs")
             .filter(|v| WINDOW_TABS.iter().any(|(value, _)| v == value))
             .unwrap_or_else(|| "both".into());
+        self.shadows = read("shadows").is_none_or(|v| v != "false");
+        let defaults = ShadowStyle::default();
+        let number = |key: &str, default: f32| {
+            read(key)
+                .and_then(|v| v.parse::<f32>().ok())
+                .unwrap_or(default)
+        };
+        self.shadow = ShadowStyle {
+            blur: number("shadow_blur", defaults.blur),
+            drop: number("shadow_drop", defaults.drop),
+            opacity: number("shadow_opacity", defaults.opacity),
+            spread: number("shadow_spread", defaults.spread),
+            offset_x: number("shadow_offset_x", defaults.offset_x),
+            color: read("shadow_color")
+                .and_then(|v| parse_color(&v))
+                .unwrap_or(defaults.color),
+        };
         self.top = read("position").as_deref() == Some("top");
         // The HUD is the split layout unless the file says "bar".
         self.split = read("layout").as_deref() != Some("bar");
@@ -375,6 +409,111 @@ impl BarPage {
         }
     }
 
+    /// Whether the HUD's parts have shadows, and how they look. Each change
+    /// is written when a slider is let go; the HUD follows within a second.
+    fn shadows_ui(&mut self, ui: &mut Ui, message: &mut Option<Message>) {
+        ui.label(RichText::new("Shadows").strong());
+        if ui
+            .checkbox(&mut self.shadows, "Draw shadows around the HUD's parts")
+            .changed()
+            && let Err(e) = patina_shell::hud::set_bool("shadows", self.shadows)
+        {
+            *message = Some(Message::error(format!("Couldn't save the setting: {e}")));
+        }
+        ui.label(
+            RichText::new("The desktop draws them, so they also need Shadows on in Appearance.")
+                .small()
+                .weak(),
+        );
+        ui.add_space(4.0);
+        let failed = std::cell::RefCell::new(None);
+        let write = |key: &str, value: f32| {
+            if let Err(e) = patina_shell::hud::set_number(key, value as f64) {
+                *failed.borrow_mut() = Some(e);
+            }
+        };
+        ui.add_enabled_ui(self.shadows, |ui| {
+            egui::Grid::new("hud_shadow").num_columns(2).show(ui, |ui| {
+                // The key, its name, the range and what it means.
+                let rows: [(&str, &str, &mut f32, std::ops::RangeInclusive<f32>, &str); 5] = [
+                    (
+                        "shadow_blur",
+                        "Size",
+                        &mut self.shadow.blur,
+                        0.5..=32.0,
+                        "How soft the edge is; the shadow reaches about three times this far.",
+                    ),
+                    (
+                        "shadow_opacity",
+                        "Opacity",
+                        &mut self.shadow.opacity,
+                        0.0..=1.0,
+                        "How dark it is at the edge of a part.",
+                    ),
+                    (
+                        "shadow_drop",
+                        "Drop",
+                        &mut self.shadow.drop,
+                        -32.0..=32.0,
+                        "How far down it is moved; negative moves it up.",
+                    ),
+                    (
+                        "shadow_offset_x",
+                        "Sideways",
+                        &mut self.shadow.offset_x,
+                        -32.0..=32.0,
+                        "How far right it is moved; negative moves it left.",
+                    ),
+                    (
+                        "shadow_spread",
+                        "Spread",
+                        &mut self.shadow.spread,
+                        -16.0..=32.0,
+                        "How far its shape is grown past the part's before it is blurred.",
+                    ),
+                ];
+                for (key, name, value, range, hint) in rows {
+                    ui.label(name).on_hover_text(hint);
+                    let slider = ui.add(egui::Slider::new(value, range).fixed_decimals(1));
+                    // Saved when it's let go, not on every step of a drag.
+                    if slider.drag_stopped() || (slider.changed() && !slider.dragged()) {
+                        write(key, *value);
+                    }
+                    ui.end_row();
+                }
+                ui.label("Colour");
+                if ui.color_edit_button_srgb(&mut self.shadow.color).changed() {
+                    let [r, g, b] = self.shadow.color;
+                    if let Err(e) =
+                        patina_shell::hud::set("shadow_color", &format!("#{r:02x}{g:02x}{b:02x}"))
+                    {
+                        *failed.borrow_mut() = Some(e);
+                    }
+                }
+                ui.end_row();
+            });
+            if ui.button("Reset the shadow to the defaults").clicked() {
+                self.shadow = ShadowStyle::default();
+                let d = self.shadow;
+                for (key, value) in [
+                    ("shadow_blur", d.blur),
+                    ("shadow_opacity", d.opacity),
+                    ("shadow_drop", d.drop),
+                    ("shadow_offset_x", d.offset_x),
+                    ("shadow_spread", d.spread),
+                ] {
+                    write(key, value);
+                }
+                if let Err(e) = patina_shell::hud::set("shadow_color", "#000000") {
+                    *failed.borrow_mut() = Some(e);
+                }
+            }
+        });
+        if let Some(e) = failed.into_inner() {
+            *message = Some(Message::error(format!("Couldn't save the setting: {e}")));
+        }
+    }
+
     pub fn ui(&mut self, ui: &mut Ui, message: &mut Option<Message>) {
         ui.heading("HUD");
         ui.add_space(8.0);
@@ -412,6 +551,9 @@ impl BarPage {
             }
             ui.add_space(16.0);
         }
+
+        self.shadows_ui(ui, message);
+        ui.add_space(16.0);
 
         if let Some(path) = patina_shell::hud::config_path() {
             ui.label(RichText::new("Everything Else").strong());

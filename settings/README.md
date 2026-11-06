@@ -14,7 +14,7 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   ask for (ADR-0112), written to `[shadows]`; and the icon theme (`icons.rs`), the installed
   ones offered, for Files and GTK apps through GNOME's `icon-theme` setting for now.
 - **Bar** (ADR-0050): what the window tabs show (icons and titles, icons, titles), which edge the
-  bar is on, and the button that opens its config file for everything else; and its layout, one
+  bar is on, whether its parts have shadows and how they look (`shadows` and `shadow_*` in its config, ADR-0113), and the button that opens its config file for everything else; and its layout, one
   bar or split (ADR-0063), each part dragged to its spot on a map of the screen.
 - **Wallpaper**: the default "Sector F Labs" and the images in `~/Pictures/Wallpapers` and the
   system's backgrounds, as thumbnails decoded off the UI thread.

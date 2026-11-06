@@ -49,7 +49,9 @@ host.run(event_loop)?;
   touch into egui (each finger an egui touch, the first one egui's pointer too, so taps press), frame callbacks, repaints when egui asks. A shell can size its surfaces to what it
   shows (`Shell::wanted_size`), and learn its output's size (`output_size`) to know where on the
   screen something centred is; `set_anchor`, `set_margin`, `set_size` and `set_exclusive_zone`
-  move a surface while it runs.
+  move a surface while it runs, and `set_shadow` asks the compositor for a shadow around the layer
+  surfaces (KDE's shadow protocol, `shadow.rs`, the desktop's ADR-0113; `Shell::shadow_inset` says where
+  the shape is inside a bigger surface).
   - With `lock`, ext-session-lock surfaces instead, one per output, for a lock screen that
     unlocks when the shell finishes.
   - With `window_fallback`, a compositor without layer shell (GNOME) gets an ordinary window

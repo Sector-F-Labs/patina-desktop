@@ -276,6 +276,16 @@ fn usage_error() -> ExitCode {
     ExitCode::from(2)
 }
 
+/// The shadow to ask the compositor for around a part of the HUD, if the
+/// config wants one: not for a reserve, which draws nothing and only keeps
+/// an edge's space.
+fn shadow_for(
+    config: &config::Config,
+    section: Option<Section>,
+) -> Option<patina_shell::ShadowStyle> {
+    (config.shadows && !matches!(section, Some(Section::Reserve(_)))).then(|| config.shadow_style())
+}
+
 fn run(
     options: Options,
     bar: bar::Bar,
@@ -284,6 +294,7 @@ fn run(
     is_part: bool,
 ) -> Result<(), String> {
     let (mut host, event_loop) = Host::connect(options, bar)?;
+    host.set_shadow(shadow_for(&host.shell.config, host.shell.section));
     let handle = event_loop.handle();
 
     // dwl blocks when its status pipe fills up, so stdin is read on a thread
@@ -577,6 +588,9 @@ fn run(
                             restart(&mut parts);
                         }
                         host.shell.config.window_tabs = config.window_tabs;
+                        // Nothing changes where the shadow is as it was.
+                        host.shell.config.copy_shadow(&config);
+                        host.set_shadow(shadow_for(&host.shell.config, host.shell.section));
                         host.shell.set_pinned(config.pinned.clone());
                         if !split && config.position != host.shell.config.position {
                             host.shell.config.position = config.position;

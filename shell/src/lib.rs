@@ -11,8 +11,10 @@ pub mod host;
 pub mod piece;
 pub mod raster;
 mod scale;
+mod shadow;
 pub mod toplevels;
 
 pub use host::{Anchor, Host, KeyboardInteractivity, Layer, Options, Shell, output_size};
+pub use shadow::Style as ShadowStyle;
 pub use smithay_client_toolkit::reexports::calloop;
 pub use toplevels::{Toplevel, ToplevelRequest};

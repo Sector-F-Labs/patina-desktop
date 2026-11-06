@@ -284,7 +284,48 @@ where
     let Some(surface) = window.wl_surface() else {
         return Vec::new();
     };
-    let Some(shadow) = with_states(&surface, |states| {
+    around(
+        renderer,
+        &surface,
+        Rectangle::new(location, window.geometry().size),
+        scale,
+        alpha,
+    )
+}
+
+/// A layer surface's shadow tiles, if it has asked for one (the HUD's pieces
+/// do, ADR-0113), around `geometry`, its place on the output, and under it.
+pub fn layer_elements<R>(
+    renderer: &mut R,
+    surface: &WlSurface,
+    geometry: Rectangle<i32, Logical>,
+    scale: f64,
+) -> Vec<MemoryRenderBufferRenderElement<R>>
+where
+    R: Renderer + ImportMem,
+    R::TextureId: Send + Clone + Texture + 'static,
+{
+    if !ENABLED.load(Ordering::Relaxed) {
+        return Vec::new();
+    }
+    around(renderer, surface, geometry, scale, 1.0)
+}
+
+/// `surface`'s shadow tiles around `window`, the rectangle that is the
+/// window (or the layer surface) on the output, drawn at `alpha`.
+fn around<R>(
+    renderer: &mut R,
+    surface: &WlSurface,
+    window: Rectangle<i32, Logical>,
+    scale: f64,
+    alpha: f32,
+) -> Vec<MemoryRenderBufferRenderElement<R>>
+where
+    R: Renderer + ImportMem,
+    R::TextureId: Send + Clone + Texture + 'static,
+{
+    let (location, size) = (window.loc, window.size);
+    let Some(shadow) = with_states(surface, |states| {
         states
             .data_map
             .get::<Slot>()
@@ -292,14 +333,13 @@ where
     }) else {
         return Vec::new();
     };
-    let geometry = window.geometry();
     let [left, top, right, bottom] = shadow.offsets.map(|o| o.round() as i32);
     // The rectangle the shadow fills, around the window.
     let outer = Rectangle::<i32, Logical>::new(
         (location.x - left, location.y - top).into(),
         (
-            geometry.size.w + left + right,
-            geometry.size.h + top + bottom,
+            size.w + left + right,
+            size.h + top + bottom,
         )
             .into(),
     );
