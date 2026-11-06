@@ -24,7 +24,8 @@
 # the desktop), the consoles and the media keys (`input::key_action`).
 
 [keys]
-launcher = ["Super", "Super+Space"]
+launcher = "Super"
+launcher_spotlight = "Super+Space"
 hud = "Super+H"
 next_layout = "Ctrl+Space"
 quit_app = "Super+Q"

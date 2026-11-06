@@ -22,8 +22,13 @@ pub struct Config {
     pub screen: Screen,
     pub night_light: NightLight,
     pub gaps: Gaps,
-    /// What tapping Super on its own runs; "" for nothing.
+    /// What tapping Super on its own opens, as the HUD's launcher button
+    /// would (`patina-hud --open launcher` runs this command, from the
+    /// button's place); "" for nothing.
     pub launcher: String,
+    /// What Super+Space runs, a launcher as a search box at the top of the
+    /// screen's middle; "" for nothing.
+    pub launcher_spotlight: String,
     /// What a right click on the desktop runs, with `--at X,Y` (the
     /// pointer) added; "" for nothing.
     pub desktop_menu: String,
@@ -361,6 +366,7 @@ impl Default for Config {
             night_light: NightLight::default(),
             gaps: Gaps::default(),
             launcher: "patina-launcher".into(),
+            launcher_spotlight: "patina-launcher --position center --search top".into(),
             desktop_menu: "patina-menu".into(),
             bindings: default_bindings(),
             keys: Default::default(),

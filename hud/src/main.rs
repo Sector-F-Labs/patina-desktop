@@ -30,7 +30,7 @@ use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 use crate::config::{Layout, Position, Visibility};
 use crate::split::Section;
 
-const USAGE: &str = "usage: patina-hud [--toggle] [--peek launcher] [-c config.toml] [--section launcher|windows|tray]
+const USAGE: &str = "usage: patina-hud [--toggle] [--peek launcher] [--open launcher] [-c config.toml] [--section launcher|windows|tray]
 
 A status bar for dwl. Run it as dwl's status command, so it reads dwl's
 status from stdin:
@@ -65,6 +65,12 @@ fn main() -> ExitCode {
                         eprintln!("patina-hud: {e}");
                         ExitCode::FAILURE
                     }
+                };
+            }
+            "--open" => {
+                return match args.next().as_deref() {
+                    Some("launcher") => open_launcher(config_path.as_deref()),
+                    _ => usage_error(),
                 };
             }
             "--peek" => {
@@ -225,6 +231,42 @@ fn restart(parts: &mut Vec<std::process::Child>) -> ! {
     let e = std::process::Command::new(program).args(args).exec();
     eprintln!("patina-hud: can't restart: {e}");
     std::process::exit(1)
+}
+
+/// Runs the launcher as its button would, from the button's place, as for
+/// the Super key (the compositor runs this); the button comes out for a
+/// moment if it hides.
+fn open_launcher(config_path: Option<&Path>) -> ExitCode {
+    let config = config_path.map_or_else(config::Config::default, |p| config::load(p).0);
+    let gaps = gaps::read();
+    let place = split::placement(Some(Section::Launcher), &config, gaps);
+    let opening = match config.launcher_at {
+        Some(spot) => {
+            let (w, h) = (place.size.0 as f32, place.size.1 as f32);
+            let side = split::thickness(Section::Launcher, &config) as f32 / 2.0;
+            let at = place.popup(egui::pos2(side, side), egui::vec2(w, h), None);
+            launcher::Opening {
+                edge: if spot.y() == config::Along::Start {
+                    "top"
+                } else {
+                    "bottom"
+                },
+                at: Some(at.env()),
+            }
+        }
+        // No button: open where the bar would have it.
+        None => launcher::Opening {
+            edge: if config.position == Position::Top {
+                "top"
+            } else {
+                "bottom"
+            },
+            at: None,
+        },
+    };
+    let _ = hide::peek("launcher");
+    let _ = launcher::run(&config.launcher, &config.skin, &opening).join();
+    ExitCode::SUCCESS
 }
 
 fn usage_error() -> ExitCode {

@@ -858,7 +858,7 @@ impl Bar {
             match command {
                 Some(command) => {
                     let opening = crate::launcher::Opening { edge, at: None };
-                    crate::launcher::run(&command, &skin, &opening)
+                    let _ = crate::launcher::run(&command, &skin, &opening);
                 }
                 None => eprintln!("patina-hud: no .desktop entry or program for {app_id:?}"),
             }

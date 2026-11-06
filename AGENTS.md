@@ -1,7 +1,7 @@
 # Patina desktop
 
 A cargo workspace (ADR-0009): `compositor/` is a floating Smithay compositor (ADR-0006, 0007),
-`bar/` is a layer-shell egui status bar skinned with Patina, and the menus, lock screen and
+`hud/` is a layer-shell egui status bar skinned with Patina, and the menus, lock screen and
 wallpaper beside it; `system/` (patina-system) is what they read and draw from the machine.
 `shell/` (patina-shell) is the layer-shell host and software painter every piece is built on
 (ADR-0011, ADR-0109; it was a repository of its own, ADR-0037).
@@ -230,7 +230,7 @@ puts them in `$(PREFIX)/share/man`.
   file's mtime each second and restyles (`Host::restyle`). Wallpaper… opens Settings at its page.
 - Gaps (ADR-0051): `[gaps]` in the compositor's config is the one place: `State::tiling_area`
   insets the work area and `rect_for` splits halves with the gap; the bar reads the same table
-  (`bar/src/gaps.rs`) and floats by layer-shell margin (`Host::set_margin`), which the compositor
+  (`hud/src/gaps.rs`) and floats by layer-shell margin (`Host::set_margin`), which the compositor
   adds to its exclusive zone.
 - `settings/`: patina-settings (ADR-0038), an eframe Patina app: Appearance (skin, light or dark
   through gsettings' `color-scheme`, `color_scheme.rs`, ADR-0087, gaps, icon theme
@@ -272,18 +272,18 @@ puts them in `$(PREFIX)/share/man`.
 - Pinned apps and dragging tabs (ADR-0080): `pinned` in the bar's config; `system/src/pins.rs`
   `arrange`s the tabs (pins first, a launcher for one not open) for the bar and the compositor
   alike (`toplevels.rs` `order`/`nth`; Super+N on a launcher `start_app`s it). A drop is decided
-  in `bar/src/pins.rs`: pins rewritten, or a window `Move`d by the compositor
+  in `hud/src/pins.rs`: pins rewritten, or a window `Move`d by the compositor
   (`compositor/src/tabs/dbus.rs`, `com.sectorflabs.Patina.Tabs`), whose `Moved` the bar
   applies to its own list. Patina's `TabStrip::movable`/`launchers` draw it.
   `dbus-run-session -- cargo test -p patina-compositor tabs -- --ignored` tests the service.
-- `bar/src/dwl.rs`: dwl's status lines; `bar/src/bar.rs`: modules; `bar/src/config.rs`;
+- `hud/src/dwl.rs`: dwl's status lines; `hud/src/bar.rs`: modules; `hud/src/config.rs`;
   `system/src/apps.rs`: a window's `.desktop` entry by app id, for its tab's icon (`icons.rs`) and
   New Window in the tab's menu (ADR-0055). The tab's menu opens in patina-menu
-  (`bar/src/menu.rs`, ADR-0056: `TabStrip::own_menu` reports the right click, and patina-menu
+  (`hud/src/menu.rs`, ADR-0056: `TabStrip::own_menu` reports the right click, and patina-menu
   `--item`s print the choice), since the bar's surface is too thin for egui menus. Tooltips
-  likewise (`bar/src/tooltip.rs`, ADR-0057): sites call `tooltip::hover`, and after the delay
+  likewise (`hud/src/tooltip.rs`, ADR-0057): sites call `tooltip::hover`, and after the delay
   the bar runs `patina-menu --tooltip`, ended by closing its stdin; egui's tooltips are off.
-  Split mode (`bar/src/split.rs`, ADR-0063, experimental): `Section`s run as `patina-hud
+  Split mode (`hud/src/split.rs`, ADR-0063, experimental): `Section`s run as `patina-hud
   --section`, `Spot`s in `config.rs`, `Placement::popup` for where things open on screen, passed
   to pieces as `PATINA_OPEN_AT` (patina-shell's `piece::opening`); patina-shell's
   `Shell::wanted_size` and `output_size` serve it.

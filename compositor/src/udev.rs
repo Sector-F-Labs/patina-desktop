@@ -491,6 +491,7 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             KeyAction::NextLayout
             | KeyAction::Launcher
             | KeyAction::Hud
+            | KeyAction::Spotlight
             | KeyAction::Reload
             | KeyAction::Restart
             | KeyAction::Media(_)

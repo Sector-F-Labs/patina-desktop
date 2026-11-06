@@ -122,7 +122,8 @@ ADR-0069; the defaults are in [compositor/keys.toml](compositor/keys.toml)):
 
 | Keys | |
 |---|---|
-| **Super**, **Super+Space** | the launcher |
+| **Super** | the launcher, opened from its button in the HUD |
+| **Super+Space** | the launcher as a search box at the top of the screen's middle, as Spotlight |
 | **Super+H** | hide the HUD, or bring it back (`patina-hud --toggle`; ADR-0111) |
 | **Alt+T**, **Alt+B** | Teleprinter; Firefox, or its window if it's open |
 | **Alt+Tab**, **Alt+Shift+Tab** | step along the bar's tabs (fixed) |
@@ -149,7 +150,7 @@ keys work, with an on-screen flash.
 
 - **[patina-compositor](compositor/README.md)** (`compositor/`): a floating Wayland compositor built on [Smithay](https://github.com/Smithay/smithay). It runs **nested** in a window on another desktop (OpenGL ES, or `PATINA_RENDERER=pixman` in software), or **on the hardware** as a login session (DRM/KMS, GBM, GLES, libinput, libseat). It owns the desktop's keys, minimises, maximises and fullscreens windows, and starts and keeps running the other pieces.
 - **[patina-session](session/README.md)** (`session/`): the login session. It runs the compositor and starts it again when it restarts (Ctrl+Alt+Shift+Backspace) or crashes, so neither means logging in again.
-- **[patina-hud](bar/README.md)** (`bar/`): a status bar in egui on a wlr-layer-shell surface, skinned with the same skins as the Patina apps: the launcher button, the pinned apps and a tab per window (drag them to reorder), the tray (apps' status icons, keyboard layout, Wi-Fi, volume, battery), the clock and the power button. It runs on any layer-shell compositor, including dwl, where it also shows dwl's tags.
+- **[patina-hud](hud/README.md)** (`hud/`): a status bar in egui on a wlr-layer-shell surface, skinned with the same skins as the Patina apps: the launcher button, the pinned apps and a tab per window (drag them to reorder), the tray (apps' status icons, keyboard layout, Wi-Fi, volume, battery), the clock and the power button. It runs on any layer-shell compositor, including dwl, where it also shows dwl's tags.
 - **[patina-launcher](launcher/README.md)** (`launcher/`): opened by the bar's Sector F button or the Super key. It lists the installed apps from their `.desktop` files, and folder apps in `~/Apps` (each `Name.app` with an `app.toml`, ADR-0035), and filters them as you type.
 - **[patina-tiler](tiler/README.md)** (`tiler/`): how windows tile: dragged to an edge, or with Super and an arrow; it reopens an app's window where it was.
 - **[patina-raise](raise/README.md)** (`raise/`): focuses an app's window, or starts the app: Alt+B for Firefox.
@@ -209,7 +210,7 @@ next for the player playing, from MPRIS; take it out of the list to turn it off)
 wlr-foreign-toplevel-management, such as patina-compositor or sway. Unknown keys and modules are
 reported on stderr and skipped, and a broken file falls back to the defaults. Settings' pages
 change most of these for you; `layout = "split"` (experimental) places the launcher, tabs and
-tray apart ([bar/README.md](bar/README.md)).
+tray apart ([hud/README.md](hud/README.md)).
 
 ## The compositor's config
 
