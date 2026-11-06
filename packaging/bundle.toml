@@ -29,12 +29,6 @@ architecture = "amd64"
 #   files     more files, { "/where" = "from" }, with @BINDIR@ as /usr/bin
 
 [[app]]
-name = "patina-launcher"
-repo = "https://github.com/Sector-F-Labs/patina-launcher"
-commit = "8a0018a"
-why = "The launcher: Super, and the bar's left menu"
-
-[[app]]
 name = "teleprinter"
 repo = "https://github.com/Sector-F-Labs/teleprinter"
 commit = "80f03e6"

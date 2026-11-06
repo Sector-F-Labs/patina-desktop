@@ -75,9 +75,8 @@ run: ## Run the compositor in a window on this desktop, with the bar, on a bus o
 run-bar: ## Run only the bar on the current compositor (needs layer-shell; not GNOME)
 	cargo run -p patina-bar < /dev/null
 
-build: ## Build the release binaries, and the launcher from its repository
+build: ## Build the release binaries
 	cargo build --release
-	cargo install --quiet --locked --git $(LAUNCHER) --root target/launcher patina-launcher
 
 test: ## Run the tests
 	cargo test --workspace
@@ -87,9 +86,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := files notebook patina-bar patina-clock patina-compositor patina-dictate patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
-# The launcher lives in its own repository (ADR-0037); install builds it from there.
-LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
+BINARIES := files notebook patina-bar patina-clock patina-compositor patina-dictate patina-launcher patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
 # The session's terminal, which deploy installs too: the checkout beside this
 # one, as it is, else GitHub's.
 TELEPRINTER ?= $(abspath ../teleprinter)
@@ -101,7 +98,7 @@ install: build ## Build, then install this repository for every user into /usr/l
 else
 # As root it never builds, so nothing in target/ ends up root's.
 install:
-	@test -x target/release/patina-compositor -a -x target/launcher/bin/patina-launcher || \
+	@test -x target/release/patina-compositor || \
 		{ echo "Nothing built: run make build first, as yourself."; exit 1; }
 	$(MAKE) --no-print-directory stage
 	-update-desktop-database -q $(APPSDIR)
@@ -114,7 +111,7 @@ endif
 # there for another machine. Built already.
 stage:
 	install -d $(DESTDIR)$(PREFIX)/bin $(DESTDIR)$(MANDIR)/man1 $(DESTDIR)$(MANDIR)/man7
-	install -m 755 $(addprefix target/release/,$(BINARIES)) target/launcher/bin/patina-launcher $(DESTDIR)$(PREFIX)/bin/
+	install -m 755 $(addprefix target/release/,$(BINARIES)) $(DESTDIR)$(PREFIX)/bin/
 	install -m 644 man/*.1 $(DESTDIR)$(MANDIR)/man1/
 	install -m 644 man/*.7 $(DESTDIR)$(MANDIR)/man7/
 	@# The entries' Exec gets the absolute path, so it works whatever PATH is.
@@ -200,7 +197,7 @@ uninstall: ## Remove what install put in place (asks doas or sudo)
 	$(AS_ROOT) $(MAKE) --no-print-directory uninstall PREFIX=$(PREFIX) MANDIR=$(MANDIR) SESSIONDIR=$(SESSIONDIR) PAMDIR=$(PAMDIR) XDGCONFDIR=$(XDGCONFDIR)
 else
 uninstall:
-	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES) patina-launcher)
+	rm -f $(addprefix $(PREFIX)/bin/,$(BINARIES))
 	rm -f $(addprefix $(MANDIR)/man1/,$(notdir $(wildcard man/*.1)))
 	rm -f $(addprefix $(MANDIR)/man7/,$(notdir $(wildcard man/*.7)))
 	rm -f $(APPSDIR)/$(SETTINGS_ID).desktop $(APPSDIR)/patina-mimeapps.list $(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg \

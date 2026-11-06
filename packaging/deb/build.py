@@ -214,10 +214,6 @@ def main():
 
     say(f"building patina-desktop {head[:7]}{'+dirty' if dirty else ''}")
     run("cargo", "build", "--release", "--locked", cwd=desktop)
-    # make stage installs the launcher from where make build puts it.
-    launcher = desktop / "target/launcher/bin"
-    launcher.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(stage / BINDIR.lstrip("/") / "patina-launcher", launcher)
     layout = [f"PREFIX={PREFIX}"]
     if not args.stage:
         # The Makefile's own defaults are the host's, which is right for an install.

@@ -50,6 +50,7 @@ button passes its skin and edge, so the launcher matches the bar and opens from 
 ## Install
 
 ```sh
+git clone https://github.com/Sector-F-Labs/patina-desktop && cd patina-desktop/launcher
 make install          # ~/.local/bin/patina-launcher (PREFIX=~/.local)
 ```
 

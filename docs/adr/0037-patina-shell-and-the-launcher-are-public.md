@@ -4,7 +4,7 @@ Date: 2026-10-16
 
 ## Status
 
-Accepted
+Accepted. The launcher part was changed by [0108](0108-the-launcher-lives-in-this-repository.md): it is back in this repository.
 
 ## Context
 

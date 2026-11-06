@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 license = "BSD-3-Clause"
 description = "An app launcher in the Patina style: installed apps from .desktop files and folder apps in ~/Apps, with search; on layer-shell compositors and GNOME"
-repository = "https://github.com/Sector-F-Labs/patina-launcher"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [dependencies]
 egui = "0.35"
@@ -12,9 +12,8 @@ freedesktop-desktop-entry = { version = "0.8", default-features = false }
 freedesktop-icons = "0.4"
 libc = "0.2"
 patina-apps = { git = "https://github.com/Sector-F-Labs/patina-apps", features = ["icon"] }
-patina-shell = { git = "https://github.com/Sector-F-Labs/patina-shell" }
-# Patina's develop branch, as patina-shell uses it, so skins agree.
-patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+patina-shell = { workspace = true }
+patina-ui = { workspace = true }
 smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop"] }
 
 [dev-dependencies]
