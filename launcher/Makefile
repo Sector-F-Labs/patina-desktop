@@ -1,5 +1,8 @@
 .DEFAULT_GOAL := help
 
+# The workspace builds into the repository's target/, not the crate's.
+TARGET ?= ../target
+
 PREFIX ?= $(HOME)/.local
 
 .PHONY: help run build test check install uninstall clean
@@ -22,7 +25,7 @@ check: test ## Run the tests and clippy
 	cargo clippy --all-targets -- -D warnings
 
 install: build ## Install into $(PREFIX)/bin
-	install -Dm755 target/release/patina-launcher $(PREFIX)/bin/patina-launcher
+	install -Dm755 $(TARGET)/release/patina-launcher $(PREFIX)/bin/patina-launcher
 
 uninstall: ## Remove what make install put in place
 	rm -f $(PREFIX)/bin/patina-launcher

@@ -1,5 +1,8 @@
 .DEFAULT_GOAL := help
 
+# The workspace builds into the repository's target/, not the crate's.
+TARGET ?= ../target
+
 APP_ID := com.sectorflabs.Reader
 PREFIX ?= $(HOME)/.local
 BINDIR := $(PREFIX)/bin
@@ -30,14 +33,14 @@ check: test ## Run the tests and clippy
 
 screenshot: build ## docs/screenshot-markdown.png: this README, in a scratch config
 	@mkdir -p $(SCRATCH) docs
-	XDG_CONFIG_HOME=$(CURDIR)/$(SCRATCH) READER_SCREENSHOT=docs/screenshot-markdown.png target/release/reader README.md
+	XDG_CONFIG_HOME=$(CURDIR)/$(SCRATCH) READER_SCREENSHOT=docs/screenshot-markdown.png $(TARGET)/release/reader README.md
 
 icon: ## docs/icon.png: the app icon at 120 px, for the README
 	scripts/icon.sh
 
 # For the current user; no sudo.
 install: build ## Install Reader and its launcher for the current user (PREFIX=~/.local)
-	install -Dm755 target/release/reader $(BINDIR)/reader
+	install -Dm755 $(TARGET)/release/reader $(BINDIR)/reader
 	install -Dm644 packaging/linux/reader.svg $(ICONDIR)/scalable/apps/$(APP_ID).svg
 	install -d $(APPSDIR)
 	sed 's|^Exec=reader|Exec=$(BINDIR)/reader|' packaging/linux/$(APP_ID).desktop > $(APPSDIR)/$(APP_ID).desktop

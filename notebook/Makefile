@@ -1,5 +1,8 @@
 .DEFAULT_GOAL := help
 
+# The workspace builds into the repository's target/, not the crate's.
+TARGET ?= ../target
+
 APP_ID := com.sectorflabs.Notebook
 PREFIX ?= $(HOME)/.local
 BINDIR := $(PREFIX)/bin
@@ -48,7 +51,7 @@ icon: ## docs/icon.png: the app icon at 120 px, for the README
 # Exec gets the absolute path, so it works even if $(BINDIR) isn't on the
 # GNOME session's PATH.
 install: build ## Install Notebook and its launcher for the current user (PREFIX=~/.local)
-	install -Dm755 target/release/notebook $(BINDIR)/notebook
+	install -Dm755 $(TARGET)/release/notebook $(BINDIR)/notebook
 	install -Dm644 packaging/linux/notebook.svg $(ICONDIR)/scalable/apps/$(APP_ID).svg
 	install -Dm644 assets/notebook-icon-128.png $(ICONDIR)/128x128/apps/$(APP_ID).png
 	install -d $(APPSDIR)

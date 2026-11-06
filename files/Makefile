@@ -1,5 +1,8 @@
 .DEFAULT_GOAL := help
 
+# The workspace builds into the repository's target/, not the crate's.
+TARGET ?= ../target
+
 APP_ID := com.sectorflabs.Files
 PREFIX ?= $(HOME)/.local
 BINDIR := $(PREFIX)/bin
@@ -40,7 +43,7 @@ check: test ## Run the tests and clippy
 # For the current user; no sudo. The launcher's Exec gets the absolute path,
 # so it works even if $(BINDIR) isn't on the session's PATH.
 install: build ## Install Files and its launcher for the current user (PREFIX=~/.local)
-	install -Dm755 target/release/files $(BINDIR)/files
+	install -Dm755 $(TARGET)/release/files $(BINDIR)/files
 	install -Dm644 packaging/linux/files.svg $(ICONDIR)/scalable/apps/$(APP_ID).svg
 	install -d $(APPSDIR)
 	sed 's|^Exec=files|Exec=$(BINDIR)/files|' packaging/linux/$(APP_ID).desktop > $(APPSDIR)/$(APP_ID).desktop
@@ -70,7 +73,7 @@ uninstall: ## Remove what make install put in place
 
 app: build ## Make target/Files.app, a folder app for ~/Apps
 	rm -rf target/Files.app && mkdir -p target/Files.app/bin
-	install -m755 target/release/files target/Files.app/bin/files
+	install -m755 $(TARGET)/release/files target/Files.app/bin/files
 	install -m644 packaging/linux/files.svg target/Files.app/icon.svg
 	printf 'format = 1\nname = "Files"\nexec = "bin/files"\nid = "$(APP_ID)"\nsummary = "File Manager"\nkeywords = ["folder", "file manager"]\ncategories = ["System", "Utility"]\nicon = "icon.svg"\n' > target/Files.app/app.toml
 	@echo "Made target/Files.app"

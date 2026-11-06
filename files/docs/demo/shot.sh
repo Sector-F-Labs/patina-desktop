@@ -1,7 +1,7 @@
 #!/bin/bash
 # One screenshot of Files on made-up data, for the website. See README.md here.
 #   shot.sh NAME FOLDER 'config.toml text'   ->  $OUT/NAME.png   (SIZE=1180x740 by default)
-# Needs sway, unshare and python3 with Pillow. The files binary is target/release/files.
+# Needs sway, unshare and python3 with Pillow. The files binary is target/release/files in the workspace root.
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 WORK=${WORK:-${TMPDIR:-/tmp}/files-demo}       # the made-up home and sway's scratch space
@@ -10,7 +10,7 @@ name=$1; folder=$2; config=$3
 mkdir -p "$OUT" "$WORK"
 [ -d "$WORK/home" ] || python3 "$HERE/build_home.py" "$WORK/home"
 # Copied outside /home, which the namespace below hides.
-cp "$HERE/../../target/release/files" "$WORK/files-bin"
+cp "$HERE/../../../target/release/files" "$WORK/files-bin"
 rm -rf "$WORK/bin"; cp -r "$HERE/bin" "$WORK/bin"; cp "$HERE/mountinfo" "$WORK/mountinfo"
 mkdir -p "$WORK/home/.config/files"
 printf '%s\n' "$config" > "$WORK/home/.config/files/config.toml"
