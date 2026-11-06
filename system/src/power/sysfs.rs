@@ -150,8 +150,10 @@ mod tests {
         }
     }
 
+    /// Readings taken from a real laptop's battery (energy_now, energy_full and
+    /// power_now in µWh and µW).
     #[test]
-    fn nifls_battery() {
+    fn discharging_gives_percent_and_time_left() {
         let b = combine(&[reading(
             29_560_000.0,
             45_670_000.0,
