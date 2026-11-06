@@ -31,4 +31,4 @@ strip.
 
 - Anything outside this repository that runs `patina-bar` or sets `PATINA_BAR_EDGE` has to
   change. Within the Sector F repositories the installer and patina-os' build are updated.
-- Settings' "Bar" page keeps its name for now.
+- Settings' Bar page is the HUD page; its page id is unchanged.
