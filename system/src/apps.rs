@@ -229,7 +229,7 @@ mod tests {
 }
 
 /// What New Window runs for some app ids on this machine: `cargo test -p
-/// patina-bar installed_commands -- --ignored --nocapture`.
+/// patina-hud installed_commands -- --ignored --nocapture`.
 #[cfg(test)]
 #[test]
 #[ignore = "reads the installed apps"]

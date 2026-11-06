@@ -98,9 +98,9 @@ fn position(text: &str) -> Option<egui::Pos2> {
 /// The skin the bar wears, as the pieces it opens do.
 pub fn bar_skin() -> patina::skin::Skin {
     use patina::skin;
-    let dirs: Vec<_> = skin::app_dir("patina-bar").into_iter().collect();
+    let dirs: Vec<_> = skin::app_dir("patina-hud").into_iter().collect();
     let (mut skins, _) = skin::load_all(skin::BUILT_IN, &dirs);
-    let name = patina_shell::bar::skin_or_default();
+    let name = patina_shell::hud::skin_or_default();
     skins.swap_remove(skins.iter().position(|s| s.name == name).unwrap_or(0))
 }
 

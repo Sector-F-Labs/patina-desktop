@@ -18,7 +18,7 @@ use crate::ui::LockScreen;
 const USAGE: &str = "usage: patina-lock
 
 Locks the session until your password is typed. Needs a compositor with
-ext-session-lock, such as patina-compositor. PATINA_SKIN, as patina-bar
+ext-session-lock, such as patina-compositor. PATINA_SKIN, as patina-hud
 sets it, or the bar's config chooses the skin.";
 
 fn main() -> ExitCode {

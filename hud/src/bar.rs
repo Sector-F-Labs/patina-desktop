@@ -204,7 +204,7 @@ impl Bar {
         if let Some(path) = &self.config_path
             && let Err(e) = patina_system::pins::set(path, &pinned)
         {
-            eprintln!("patina-bar: can't pin: {e}");
+            eprintln!("patina-hud: can't pin: {e}");
         }
         *self.pinned.borrow_mut() = pinned;
     }
@@ -282,7 +282,7 @@ impl Bar {
                 }
             }
         };
-        let id = egui::Id::new("patina-bar-icons");
+        let id = egui::Id::new("patina-hud-icons");
         let known = ctx.data(|d| d.get_temp::<Textures>(id)).unwrap_or_default();
         if let Some(texture) = known.0.get(&key) {
             return Some(texture.id());
@@ -395,7 +395,7 @@ impl Bar {
                 return None;
             }
         };
-        let id = egui::Id::new("patina-bar-icons");
+        let id = egui::Id::new("patina-hud-icons");
         let known = ctx.data(|d| d.get_temp::<Textures>(id)).unwrap_or_default();
         if let Some(texture) = known.0.get(app_id) {
             return Some(texture.id());
@@ -485,7 +485,7 @@ impl Bar {
                         let sent = patina_system::mpris::connect()
                             .and_then(|bus| patina_system::mpris::send(&bus, &name, command));
                         if let Err(e) = sent {
-                            eprintln!("patina-bar: {name}: {e}");
+                            eprintln!("patina-hud: {name}: {e}");
                         }
                     });
                 }
@@ -844,7 +844,7 @@ impl Bar {
                     let opening = crate::launcher::Opening { edge, at: None };
                     crate::launcher::run(&command, &skin, &opening)
                 }
-                None => eprintln!("patina-bar: no .desktop entry or program for {app_id:?}"),
+                None => eprintln!("patina-hud: no .desktop entry or program for {app_id:?}"),
             }
         });
     }
@@ -1215,7 +1215,7 @@ impl Bar {
 /// The skin called `name` among Patina's built-ins and the bar's own skins
 /// folder, or Default, with any problems to report.
 fn find_skin(name: &str) -> (Skin, Vec<String>) {
-    let dirs: Vec<_> = skin::app_dir("patina-bar").into_iter().collect();
+    let dirs: Vec<_> = skin::app_dir("patina-hud").into_iter().collect();
     let (skins, mut warnings) = skin::load_all(skin::BUILT_IN, &dirs);
     let skin = match skins.into_iter().find(|s| s.name == name) {
         Some(s) => s,
@@ -1312,18 +1312,18 @@ mod tests {
         ));
         frame(&mut b, &ctx, &mut time, vec![]);
         let textures = ctx
-            .data(|d| d.get_temp::<Textures>(egui::Id::new("patina-bar-icons")))
+            .data(|d| d.get_temp::<Textures>(egui::Id::new("patina-hud-icons")))
             .expect("the icon became a texture");
         assert_eq!(textures.0.len(), 1);
     }
 
     /// Draws the window tabs as each `window_tabs` shows them, with this
-    /// machine's icons, as PNGs in the folder PATINA_BAR_PREVIEW names:
-    /// `cargo test -p patina-bar preview -- --ignored`.
+    /// machine's icons, as PNGs in the folder PATINA_HUD_PREVIEW names:
+    /// `cargo test -p patina-hud preview -- --ignored`.
     #[test]
     #[ignore = "reads the installed apps' icons"]
     fn preview_the_window_tabs() {
-        let dir = std::path::PathBuf::from(std::env::var("PATINA_BAR_PREVIEW").unwrap());
+        let dir = std::path::PathBuf::from(std::env::var("PATINA_HUD_PREVIEW").unwrap());
         let (w, h) = (1000usize, 41usize);
         let apps = [
             ("firefox", "Patina — Mozilla Firefox"),
@@ -1402,14 +1402,14 @@ mod tests {
         }
     }
 
-    /// Draws each part of a split bar as PNGs in PATINA_BAR_PREVIEW, at the
-    /// size each asks for: `cargo test -p patina-bar preview_split --
+    /// Draws each part of a split bar as PNGs in PATINA_HUD_PREVIEW, at the
+    /// size each asks for: `cargo test -p patina-hud preview_split --
     /// --ignored`.
     #[test]
     #[ignore = "reads the installed apps' icons"]
     fn preview_split() {
         use crate::split::Section;
-        let dir = std::path::PathBuf::from(std::env::var("PATINA_BAR_PREVIEW").unwrap());
+        let dir = std::path::PathBuf::from(std::env::var("PATINA_HUD_PREVIEW").unwrap());
         let apps = [
             ("firefox", "Patina — Mozilla Firefox"),
             ("org.gnome.Nautilus", "Home"),
@@ -1784,7 +1784,7 @@ mod tests {
 
     #[test]
     fn a_window_dragged_among_the_pins_pins_its_app() {
-        let dir = std::env::temp_dir().join(format!("patina-bar-pins-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("patina-hud-pins-{}", std::process::id()));
         let path = dir.join("config.toml");
         let mut b = bar("center = []\nright = []\npinned = [\"app9\"]");
         b.config_path = Some(path.clone());

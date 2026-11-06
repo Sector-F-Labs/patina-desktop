@@ -14,7 +14,7 @@ fn padding(side: f32) -> f32 {
     (side * 0.2).min(8.0)
 }
 
-/// Where a piece the bar opens goes: the bar's edge (`PATINA_BAR_EDGE`),
+/// Where a piece the bar opens goes: the bar's edge (`PATINA_HUD_EDGE`),
 /// and where on the screen the button that opened it is
 /// (`PATINA_OPEN_AT`, as patina-shell's `piece::opening` reads it), so it
 /// opens from the button.
@@ -69,7 +69,7 @@ fn texture(ctx: &egui::Context, pixels: u32) -> Option<TextureHandle> {
 }
 
 /// Runs `command` through sh(1), telling it the bar's skin
-/// (`PATINA_SKIN`), edge (`PATINA_BAR_EDGE`, `top` or `bottom`) and where
+/// (`PATINA_SKIN`), edge (`PATINA_HUD_EDGE`, `top` or `bottom`) and where
 /// to open (`PATINA_OPEN_AT`). On a thread, so the bus never holds the bar
 /// up: Patina's compositor starts it, so it's among the desktop's processes
 /// (ADR-0045); under any other, or without a session bus, the bar does.
@@ -78,7 +78,7 @@ pub fn run(command: &str, skin: &str, opening: &Opening) {
     std::thread::spawn(move || {
         let mut env = vec![
             ("PATINA_SKIN", skin.as_str()),
-            ("PATINA_BAR_EDGE", opening.edge),
+            ("PATINA_HUD_EDGE", opening.edge),
         ];
         if let Some(at) = &opening.at {
             env.push(("PATINA_OPEN_AT", at.as_str()));
@@ -102,6 +102,6 @@ fn run_here(command: &str, env: &[(&str, &str)]) {
         Ok(mut child) => {
             let _ = child.wait();
         }
-        Err(e) => eprintln!("patina-bar: can't run {command}: {e}"),
+        Err(e) => eprintln!("patina-hud: can't run {command}: {e}"),
     }
 }

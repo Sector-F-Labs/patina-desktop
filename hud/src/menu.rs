@@ -80,7 +80,7 @@ fn run_menu(args: &[String]) -> String {
     let mut child = match child {
         Ok(child) => child,
         Err(e) => {
-            eprintln!("patina-bar: can't open patina-menu: {e}");
+            eprintln!("patina-hud: can't open patina-menu: {e}");
             return String::new();
         }
     };
@@ -169,7 +169,7 @@ pub fn open_layouts(args: Vec<String>) {
         if let Ok(i) = run_menu(&args).parse::<usize>()
             && let Err(e) = patina_system::keyboard::set_current(i)
         {
-            eprintln!("patina-bar: can't switch keyboard layout: {e}");
+            eprintln!("patina-hud: can't switch keyboard layout: {e}");
         }
     });
 }

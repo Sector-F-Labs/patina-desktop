@@ -2,7 +2,7 @@
 .Dt PATINA-BAR 1
 .Os
 .Sh NAME
-.Nm patina-bar
+.Nm patina-hud
 .Nd the Patina desktop's bar
 .Sh SYNOPSIS
 .Nm
@@ -102,13 +102,13 @@ It's started by
 and started again whenever it exits.
 It runs on any compositor with wlr-layer-shell, and as dwl's status
 command
-.Pq Ql dwl -s patina-bar ,
+.Pq Ql dwl -s patina-hud ,
 reading dwl's status from its standard input.
 .Pp
 The menus and the launcher are opened with the bar's skin and edge in
 .Ev PATINA_SKIN
 and
-.Ev PATINA_BAR_EDGE .
+.Ev PATINA_HUD_EDGE .
 Under
 .Xr patina-compositor 1
 they're started by the compositor, so they're listed with their output in
@@ -119,7 +119,7 @@ Settings' Processes page; anywhere else the bar starts them itself.
 Read
 .Ar file
 instead of
-.Pa ~/.config/patina-bar/config.toml .
+.Pa ~/.config/patina-hud/config.toml .
 .It Fl -section Cm launcher | windows | tray | reserve- Ns Ar edge
 Draw one part of a split bar (see
 .Ic layout ) .
@@ -131,7 +131,7 @@ Print a short usage message.
 Print the version.
 .El
 .Sh CONFIGURATION
-.Pa ~/.config/patina-bar/config.toml ,
+.Pa ~/.config/patina-hud/config.toml ,
 TOML; every key is optional.
 The bar reads it again within a second of a change, and the other pieces
 read it when they open.
@@ -187,7 +187,7 @@ and
 .Ic tray_at
 say.
 The bar draws the window list and runs the other parts as
-.Ql patina-bar --section ;
+.Ql patina-hud --section ;
 each edge with a part on it is kept clear of windows by a pixel-thin strip
 that takes no clicks.
 The bar starts itself again, laid out anew, within a second of a change to
@@ -217,7 +217,7 @@ bottom centre and the tray at the bottom right.
 Settings' Bar page places them by dragging them on a map of the screen.
 .It Ic skin
 A Patina skin by name: a built-in, or one in
-.Pa ~/.config/patina-bar/skins .
+.Pa ~/.config/patina-hud/skins .
 .It Ic left , center , right
 The modules on each side, as lists:
 .Dl left = [\(dqlauncher\(dq, \(dqwindows\(dq]
@@ -249,7 +249,7 @@ A label per dwl tag, and whether to hide tags with no windows.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds
-.It Ev PATINA_SKIN , PATINA_BAR_EDGE
+.It Ev PATINA_SKIN , PATINA_HUD_EDGE
 Set for what the bar opens: its skin, and
 .Dq top
 or
@@ -257,16 +257,16 @@ or
 .El
 .Sh FILES
 .Bl -tag -width Ds
-.It Pa ~/.config/patina-bar/config.toml
+.It Pa ~/.config/patina-hud/config.toml
 The settings above.
-.It Pa ~/.config/patina-bar/skins/
+.It Pa ~/.config/patina-hud/skins/
 Skins of your own.
 .El
 .Sh EXAMPLES
 Restart the bar after installing a new one; the compositor starts it
 again:
 .Pp
-.Dl $ pkill -x patina-bar
+.Dl $ pkill -x patina-hud
 .Sh SEE ALSO
 .Xr patina-clock 1 ,
 .Xr patina-compositor 1 ,

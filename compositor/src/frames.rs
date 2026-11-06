@@ -484,11 +484,11 @@ impl Default for Frames {
 /// `PATINA_SKIN`, which the bar gives the pieces it opens, and which a
 /// compositor started from one of them (a terminal) would keep.
 fn bar_skin() -> Skin {
-    let name = patina_shell::bar::config_path()
+    let name = patina_shell::hud::config_path()
         .and_then(|path| std::fs::read_to_string(path).ok())
-        .and_then(|text| patina_shell::bar::top_level(&text, "skin"));
-    let name = name.unwrap_or_else(|| patina_shell::bar::DEFAULT_SKIN.to_string());
-    let dirs: Vec<_> = patina::skin::app_dir("patina-bar").into_iter().collect();
+        .and_then(|text| patina_shell::hud::top_level(&text, "skin"));
+    let name = name.unwrap_or_else(|| patina_shell::hud::DEFAULT_SKIN.to_string());
+    let dirs: Vec<_> = patina::skin::app_dir("patina-hud").into_iter().collect();
     let (skins, _) = patina::skin::load_all(patina::skin::BUILT_IN, &dirs);
     skins
         .into_iter()
@@ -497,7 +497,7 @@ fn bar_skin() -> Skin {
 }
 
 fn bar_mtime() -> Option<SystemTime> {
-    std::fs::metadata(patina_shell::bar::config_path()?)
+    std::fs::metadata(patina_shell::hud::config_path()?)
         .and_then(|m| m.modified())
         .ok()
 }

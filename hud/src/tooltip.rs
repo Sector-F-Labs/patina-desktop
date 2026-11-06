@@ -13,7 +13,7 @@ pub const DELAY: Duration = Duration::from_millis(500);
 
 /// Where this frame's hovered tooltip is kept, in each output's context.
 fn key() -> Id {
-    Id::new("patina-bar-tooltip")
+    Id::new("patina-hud-tooltip")
 }
 
 /// Notes `text` as the tooltip for `response`, if it's hovered.
@@ -138,7 +138,7 @@ impl Shown {
         {
             Ok(child) => Some(Self(Some(child))),
             Err(e) => {
-                eprintln!("patina-bar: can't show a tooltip with patina-menu: {e}");
+                eprintln!("patina-hud: can't show a tooltip with patina-menu: {e}");
                 None
             }
         }

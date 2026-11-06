@@ -27,7 +27,7 @@ the whole shell's, not the bar's.
   menu frame at the pointer, kept on screen. It closes on a click elsewhere, Escape, or losing the
   keyboard. It lists the skins (Patina's built-ins and the bar's skins folder) with the one in use
   chosen, then Copy built-in skins to folder, Open skins folder and Open bar settings.
-- Choosing a skin writes `skin = "…"` into `~/.config/patina-bar/config.toml`, keeping the rest of
+- Choosing a skin writes `skin = "…"` into `~/.config/patina-hud/config.toml`, keeping the rest of
   the file (or making it), and restyles the menu at once. The bar checks the file's modification
   time each second, on the clock's tick, and restyles itself when the skin in it changes
   (`Shell::restyle`). Pieces read the skin when they open, now also from the bar's skins folder.

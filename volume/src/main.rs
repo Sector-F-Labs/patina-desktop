@@ -25,7 +25,7 @@ Opens the volume menu at the bar's right end, or closes it if it's open.
 With --flash, shows the volume briefly without taking the keyboard, as
 after a volume key, or keeps an open one up; with --brightness, the
 screen's brightness, as after a brightness key. PATINA_SKIN and
-PATINA_BAR_EDGE, as patina-bar sets them, choose the skin and which edge it
+PATINA_HUD_EDGE, as patina-hud sets them, choose the skin and which edge it
 opens from.";
 
 const SIZE: (u32, u32) = (320, 56);

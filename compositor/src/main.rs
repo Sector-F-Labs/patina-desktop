@@ -1,6 +1,6 @@
 //! patina-compositor: a floating Wayland compositor for the Patina desktop,
 //! built on Smithay. For now it runs as a window on another desktop and
-//! starts patina-bar and a terminal inside it.
+//! starts patina-hud and a terminal inside it.
 
 mod clients;
 mod capture;
@@ -55,7 +55,7 @@ use crate::state::State;
 const USAGE: &str = "usage: patina-compositor [--session] [command ...]
 
 Opens a window on the current Wayland desktop and runs a Patina desktop in
-it: patina-wallpaper, patina-bar and patina-tiler, then each command given,
+it: patina-wallpaper, patina-hud and patina-tiler, then each command given,
 with WAYLAND_DISPLAY set to the compositor's socket. Apps are started from the
 bar's launcher.
 
@@ -174,7 +174,7 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     state.start_xwayland();
     // The wallpaper first, so it's there by the time the bar is.
     state.keep_client("patina-wallpaper");
-    state.keep_client("patina-bar");
+    state.keep_client("patina-hud");
     // Tiling's decisions (ADR-0053).
     state.keep_client("patina-tiler");
     // Dictation (ADR-0072): it listens for the dictate key on the bus.

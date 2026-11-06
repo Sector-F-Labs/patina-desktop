@@ -1,4 +1,4 @@
-//! wlr-foreign-toplevel-management: tells clients such as patina-bar (or
+//! wlr-foreign-toplevel-management: tells clients such as patina-hud (or
 //! waybar's taskbar) which windows are open, their titles and app ids and
 //! which is active, maximised or minimised, and lets them activate, close,
 //! maximise or minimise one (ADR-0012, ADR-0084).
@@ -131,7 +131,7 @@ impl ForeignToplevels {
 
 /// The apps pinned in the bar's config.
 pub fn bar_pins() -> Vec<String> {
-    patina_shell::bar::config_path()
+    patina_shell::hud::config_path()
         .and_then(|path| std::fs::read_to_string(path).ok())
         .map(|text| pins::read(&text))
         .unwrap_or_default()

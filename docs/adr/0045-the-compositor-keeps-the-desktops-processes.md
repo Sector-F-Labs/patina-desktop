@@ -58,7 +58,7 @@ separate app (ADR-0027: a feature grows where it already lives).
 - **The bar and the desktop's menu start what they open through `Spawn`** (added the same day):
   the tray's Wi-Fi and volume menus, the launcher from the flask button, and Settings. The
   compositor runs the command once, as one of its own clients, with the caller's variables (the
-  bar's `PATINA_SKIN` and `PATINA_BAR_EDGE`) besides its own; a caller can't set
+  bar's `PATINA_SKIN` and `PATINA_HUD_EDGE`) besides its own; a caller can't set
   `WAYLAND_DISPLAY`, `DISPLAY`, `PATH` or `XDG_*`. When the call fails (another compositor, or no
   session bus) the caller starts the command itself, as before, so the tray never stops working
   over D-Bus; only the listing is lost. The bar calls on a thread, so the bus never holds it up.

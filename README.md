@@ -148,7 +148,7 @@ keys work, with an on-screen flash.
 
 - **[patina-compositor](compositor/README.md)** (`compositor/`): a floating Wayland compositor built on [Smithay](https://github.com/Smithay/smithay). It runs **nested** in a window on another desktop (OpenGL ES, or `PATINA_RENDERER=pixman` in software), or **on the hardware** as a login session (DRM/KMS, GBM, GLES, libinput, libseat). It owns the desktop's keys, minimises, maximises and fullscreens windows, and starts and keeps running the other pieces.
 - **[patina-session](session/README.md)** (`session/`): the login session. It runs the compositor and starts it again when it restarts (Ctrl+Alt+Shift+Backspace) or crashes, so neither means logging in again.
-- **[patina-bar](bar/README.md)** (`bar/`): a status bar in egui on a wlr-layer-shell surface, skinned with the same skins as the Patina apps: the launcher button, the pinned apps and a tab per window (drag them to reorder), the tray (apps' status icons, keyboard layout, Wi-Fi, volume, battery), the clock and the power button. It runs on any layer-shell compositor, including dwl, where it also shows dwl's tags.
+- **[patina-hud](bar/README.md)** (`bar/`): a status bar in egui on a wlr-layer-shell surface, skinned with the same skins as the Patina apps: the launcher button, the pinned apps and a tab per window (drag them to reorder), the tray (apps' status icons, keyboard layout, Wi-Fi, volume, battery), the clock and the power button. It runs on any layer-shell compositor, including dwl, where it also shows dwl's tags.
 - **[patina-launcher](launcher/README.md)** (`launcher/`): opened by the bar's Sector F button or the Super key. It lists the installed apps from their `.desktop` files, and folder apps in `~/Apps` (each `Name.app` with an `app.toml`, ADR-0035), and filters them as you type.
 - **[patina-tiler](tiler/README.md)** (`tiler/`): how windows tile: dragged to an edge, or with Super and an arrow; it reopens an app's window where it was.
 - **[patina-raise](raise/README.md)** (`raise/`): focuses an app's window, or starts the app: Alt+B for Firefox.
@@ -177,13 +177,13 @@ add Teleprinter (the terminal), Draw, Montage and UnAmp, from their own reposito
 
 ## The bar's config
 
-`~/.config/patina-bar/config.toml`, or `patina-bar -c <file>`. Every key is optional; these are
+`~/.config/patina-hud/config.toml`, or `patina-hud -c <file>`. Every key is optional; these are
 the defaults:
 
 ```toml
 position = "bottom"         # or "top"
 height = 41                 # as tall as a Patina title bar
-skin = "Everforest Dark"    # a Patina skin, or one in ~/.config/patina-bar/skins
+skin = "Everforest Dark"    # a Patina skin, or one in ~/.config/patina-hud/skins
 left = ["launcher", "windows", "tags", "layout"]
 center = ["title"]
 right = ["media", "tray", "clock", "power"]
@@ -267,8 +267,8 @@ as GNOME or sway, with the bar and wallpaper inside it. Nothing is installed and
 ```sh
 make run                          # builds, then the compositor in a window, with the bar, on a session bus of its own
 patina-compositor foot firefox    # (target/debug/) and any clients to start besides the bar
-make run-bar                      # only the bar, on the current compositor (needs layer-shell, so not GNOME)
-dwl -s patina-bar                 # the bar alone, on dwl, with dwl's tags
+make run-hud                      # only the HUD, on the current compositor (needs layer-shell, so not GNOME)
+dwl -s patina-hud                 # the bar alone, on dwl, with dwl's tags
 make check                        # tests, clippy, and the man pages linted
 ```
 

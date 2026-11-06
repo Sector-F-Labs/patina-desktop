@@ -8,7 +8,7 @@ Accepted
 
 ## Context
 
-patina-bar first ran on dwl (ADR-0004, ADR-0005). Making its tags clickable needed either the
+patina-hud first ran on dwl (ADR-0004, ADR-0005). Making its tags clickable needed either the
 dwl-ipc patch, key emulation through a virtual keyboard, or a fork of dwl. dwl is small and its
 policy is its own: it ignores `xdg_toplevel.move` and `resize`, so Patina's frame can't be dragged,
 and maximise and minimise do nothing. The user decided not to get attached to dwl and to move to a
@@ -21,7 +21,7 @@ runs on FreeBSD (niri is in its packages).
 ## Decision
 
 We will write patina-compositor in Rust on Smithay. The first milestone is only to draw foot and
-patina-bar: xdg-shell windows and layer-shell surfaces, a seat with keyboard and pointer, and
+patina-hud: xdg-shell windows and layer-shell surfaces, a seat with keyboard and pointer, and
 click to focus. The bar stays a separate layer-shell client, not part of the compositor.
 
 ## Consequences

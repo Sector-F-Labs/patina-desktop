@@ -70,7 +70,7 @@ this workspace is a Wayland client of it.
   from a text console: DRM/KMS, GBM, GLES, libinput, and devices from logind through libseat
   (`udev.rs`, ADR-0016). Which one is decided by whether `WAYLAND_DISPLAY` is set when it starts.
 - **It starts the desktop.** At start-up it runs Xwayland (when installed), `patina-wallpaper`,
-  `patina-bar` and `patina-tiler`, then any commands given on its command line. Its own keys run
+  `patina-hud` and `patina-tiler`, then any commands given on its command line. Its own keys run
   `patina-launcher`, `patina-menu --at X,Y`, `patina-lock` and `patina-volume
   --flash`/`--brightness` (all configurable). Clients get `WAYLAND_DISPLAY`, `DISPLAY`
   (Xwayland's), `XDG_CURRENT_DESKTOP=Patina`, a `PATH` with the compositor's own folder

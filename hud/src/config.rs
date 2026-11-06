@@ -1,4 +1,4 @@
-//! `~/.config/patina-bar/config.toml`. Every key has a default, so the file
+//! `~/.config/patina-hud/config.toml`. Every key has a default, so the file
 //! can be missing. A broken file never stops the bar: it falls back to the
 //! defaults and says why on stderr, and unknown keys are warnings, as with
 //! Patina skins.
@@ -184,7 +184,7 @@ pub struct Config {
     pub position: Position,
     /// Height in logical pixels.
     pub height: u32,
-    /// A Patina skin by name: a built-in, or one in ~/.config/patina-bar/skins.
+    /// A Patina skin by name: a built-in, or one in ~/.config/patina-hud/skins.
     pub skin: String,
     /// One label per dwl tag, in order. dwl has 9 by default.
     pub tags: Vec<String>,
@@ -249,7 +249,7 @@ impl Default for Config {
             // The height of a Patina window's header bar: its 25 px row,
             // 8 px margins and the 1 px line under it.
             height: 41,
-            skin: patina_shell::bar::DEFAULT_SKIN.to_string(),
+            skin: patina_shell::hud::DEFAULT_SKIN.to_string(),
             tags: (1..=9).map(|n| n.to_string()).collect(),
             hide_vacant_tags: false,
             left: vec![
@@ -300,7 +300,7 @@ impl Config {
 }
 
 pub fn default_path() -> Option<PathBuf> {
-    dirs::config_dir().map(|d| d.join("patina-bar").join("config.toml"))
+    patina_shell::hud::config_path()
 }
 
 /// Reads the config at `path`, returning it and anything worth telling the

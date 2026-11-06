@@ -17,8 +17,8 @@ use crate::ui::{Action, PowerMenu};
 const USAGE: &str = "usage: patina-power
 
 Opens the power menu at the bar's right end, or closes it if it's open:
-Lock, Log Out, Restart and Shut Down. PATINA_SKIN and PATINA_BAR_EDGE, as
-patina-bar sets them, choose the skin and which edge it opens from.";
+Lock, Log Out, Restart and Shut Down. PATINA_SKIN and PATINA_HUD_EDGE, as
+patina-hud sets them, choose the skin and which edge it opens from.";
 
 const SIZE: (u32, u32) = (260, 196);
 const GAP: i32 = 4;

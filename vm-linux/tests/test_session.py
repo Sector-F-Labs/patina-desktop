@@ -1,7 +1,7 @@
 """The session starts and stays up."""
 
 # The compositor by its path; the bar and wallpaper it starts by name, from its own folder.
-PIECES = ["release/patina-compositor", "patina-bar", "patina-wallpaper"]
+PIECES = ["release/patina-compositor", "patina-hud", "patina-wallpaper"]
 
 
 def test_the_sessions_pieces_are_running(vm):

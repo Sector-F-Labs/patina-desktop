@@ -2,7 +2,7 @@
 //! optional; a missing file is the defaults. A broken file never stops the
 //! session: at start it falls back to the defaults, and on a reload
 //! (Super+Shift+R) the settings in use stay. Unknown keys are warnings, as
-//! in patina-bar's config and Patina's skins.
+//! in patina-hud's config and Patina's skins.
 
 use std::path::{Path, PathBuf};
 

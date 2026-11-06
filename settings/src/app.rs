@@ -16,7 +16,7 @@ use crate::night_light::NightLightPage;
 use crate::wallpapers::{self, Wallpaper};
 
 /// The shell's skins folder, the bar's, where its own skins go.
-const SHELL: &str = "patina-bar";
+const SHELL: &str = "patina-hud";
 /// How often the bar's config is looked at, to follow a skin chosen in the
 /// desktop's menu.
 const SKIN_POLL: Duration = Duration::from_secs(1);
@@ -153,7 +153,7 @@ impl App {
             skin: 0,
             bar_mtime: None,
             wallpapers: Vec::new(),
-            wallpaper: patina_shell::bar::wallpaper(),
+            wallpaper: patina_shell::hud::wallpaper(),
             wallpaper_fit: wallpapers::configured_fit(),
             thumbnails: HashMap::new(),
             decoded: None,
@@ -179,23 +179,23 @@ impl App {
     /// Takes the shell's skin from the bar's config if it changed, as it
     /// does when it's chosen in the desktop's menu.
     fn follow_shell_skin(&mut self, ctx: &egui::Context) {
-        let mtime = patina_shell::bar::config_path()
+        let mtime = patina_shell::hud::config_path()
             .and_then(|p| std::fs::metadata(p).ok())
             .and_then(|m| m.modified().ok());
         if mtime == self.bar_mtime && self.bar_mtime.is_some() {
             return;
         }
         self.bar_mtime = mtime;
-        let name = patina_shell::bar::skin_or_default();
+        let name = patina_shell::hud::skin_or_default();
         self.skin = self.skins.iter().position(|s| s.name == name).unwrap_or(0);
         self.skins[self.skin].apply(ctx);
-        self.wallpaper = patina_shell::bar::wallpaper();
+        self.wallpaper = patina_shell::hud::wallpaper();
         self.wallpaper_fit = wallpapers::configured_fit();
         self.bar.reload();
     }
 
     fn choose_skin(&mut self, index: usize, ctx: &egui::Context) {
-        match patina_shell::bar::set("skin", &self.skins[index].name) {
+        match patina_shell::hud::set("skin", &self.skins[index].name) {
             Ok(()) => {
                 self.skin = index;
                 self.skins[index].apply(ctx);
@@ -209,7 +209,7 @@ impl App {
             .as_deref()
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_default();
-        match patina_shell::bar::set("wallpaper", &value) {
+        match patina_shell::hud::set("wallpaper", &value) {
             Ok(()) => self.wallpaper = path,
             Err(e) => {
                 self.message = Some(Message::error(format!("Couldn't save the wallpaper: {e}")))
@@ -218,7 +218,7 @@ impl App {
     }
 
     fn choose_fit(&mut self, fit: Fit) {
-        match patina_shell::bar::set("wallpaper_fit", fit.name()) {
+        match patina_shell::hud::set("wallpaper_fit", fit.name()) {
             Ok(()) => self.wallpaper_fit = fit,
             Err(e) => self.message = Some(Message::error(format!("Couldn't save the fit: {e}"))),
         }

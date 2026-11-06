@@ -10,7 +10,7 @@ Mono, in the colours of the skin.
 - **A click-through surface on the background layer** of each output (patina-shell's host with
   `per_output` and `click_through`), so clicks on the desktop reach the compositor, which opens
   patina-menu on a right click.
-- **What it draws** comes from the bar's config, `~/.config/patina-bar/config.toml`: `wallpaper`
+- **What it draws** comes from the bar's config, `~/.config/patina-hud/config.toml`: `wallpaper`
   (an image), `wallpaper_fit` (`fill`, `fit` or `centre`, `patina_system::wallpaper::Fit`, which
   says where the image goes) and `skin` (the default's colours). Settings writes them, and patina-menu the skin; the
   wallpaper watches the file and redraws when any changes.

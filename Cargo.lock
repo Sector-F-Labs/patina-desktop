@@ -3663,24 +3663,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "patina-bar"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "dirs 6.0.0",
- "egui",
- "freedesktop-icons",
- "image",
- "patina-apps",
- "patina-shell",
- "patina-system",
- "patina-ui",
- "serde",
- "serde_ignored",
- "toml",
-]
-
-[[package]]
 name = "patina-clock"
 version = "0.1.0"
 dependencies = [
@@ -3731,6 +3713,24 @@ dependencies = [
  "toml",
  "whisper-rs",
  "zbus",
+]
+
+[[package]]
+name = "patina-hud"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dirs 6.0.0",
+ "egui",
+ "freedesktop-icons",
+ "image",
+ "patina-apps",
+ "patina-shell",
+ "patina-system",
+ "patina-ui",
+ "serde",
+ "serde_ignored",
+ "toml",
 ]
 
 [[package]]

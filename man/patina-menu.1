@@ -46,7 +46,7 @@ page; outside Patina's compositor the menu starts it itself.
 Given items,
 .Nm
 is instead a menu of them, for a piece too small to hold its own menu, as
-.Xr patina-bar 1
+.Xr patina-hud 1
 is: a window tab's right click opens New Window and Close Window this way,
 so the menu isn't cut off at the bar's edge.
 It shows the items in order, prints the
@@ -108,9 +108,9 @@ Print the version.
 .El
 .Sh FILES
 .Bl -tag -width Ds
-.It Pa ~/.config/patina-bar/config.toml
+.It Pa ~/.config/patina-hud/config.toml
 Where the skin is written.
-.It Pa ~/.config/patina-bar/skins/
+.It Pa ~/.config/patina-hud/skins/
 Skins of your own.
 .El
 .Sh EXAMPLES
@@ -120,6 +120,6 @@ patina-menu --at 300,45 --edge bottom \
     --item new-window='New Window' --item close='Close Window'
 .Ed
 .Sh SEE ALSO
-.Xr patina-bar 1 ,
+.Xr patina-hud 1 ,
 .Xr patina-settings 1 ,
 .Xr patina-desktop 7

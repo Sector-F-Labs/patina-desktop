@@ -27,7 +27,7 @@ used. They also asked for the Super key on its own to open the launcher.
 - **The Super key**, tapped on its own, runs the compositor config's `launcher` (patina-launcher);
   any other key or a click while it's held (Super+Space, Super+drag) cancels it.
 - Pieces started by the compositor rather than the bar read the bar's skin and edge from its config
-  file (`patina_shell::bar`), so they match it.
+  file (`patina_shell::hud`), so they match it.
 - patina-shell's host can change a surface's keyboard interactivity at runtime (`set_keyboard`), for
   the flash becoming the menu.
 

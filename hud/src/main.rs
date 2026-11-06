@@ -1,6 +1,6 @@
-//! patina-bar: a status bar for dwl, in the Patina style.
+//! patina-hud: a status bar for dwl, in the Patina style.
 //!
-//! Run it as dwl's status command, `dwl -s patina-bar`, and it reads dwl's
+//! Run it as dwl's status command, `dwl -s patina-hud`, and it reads dwl's
 //! status lines from stdin.
 
 mod bar;
@@ -29,16 +29,16 @@ use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 use crate::config::{Layout, Position};
 use crate::split::Section;
 
-const USAGE: &str = "usage: patina-bar [-c config.toml] [--section launcher|windows|tray]
+const USAGE: &str = "usage: patina-hud [-c config.toml] [--section launcher|windows|tray]
 
 A status bar for dwl. Run it as dwl's status command, so it reads dwl's
 status from stdin:
 
-    dwl -s patina-bar
+    dwl -s patina-hud
 
-The config defaults to ~/.config/patina-bar/config.toml. With layout =
+The config defaults to ~/.config/patina-hud/config.toml. With layout =
 \"split\" in it (experimental), the bar draws the window list and runs
-the launcher and the tray as `patina-bar --section`, each on its own.";
+the launcher and the tray as `patina-hud --section`, each on its own.";
 
 fn main() -> ExitCode {
     let mut config_path = config::default_path();
@@ -59,7 +59,7 @@ fn main() -> ExitCode {
                 return ExitCode::SUCCESS;
             }
             "-V" | "--version" => {
-                println!("patina-bar {}", env!("CARGO_PKG_VERSION"));
+                println!("patina-hud {}", env!("CARGO_PKG_VERSION"));
                 return ExitCode::SUCCESS;
             }
             _ => return usage_error(),
@@ -107,8 +107,8 @@ fn main() -> ExitCode {
     let place = split::placement(section, &config, gaps);
     let options = Options {
         namespace: match section {
-            Some(s) => format!("patina-bar-{}", s.name()),
-            None => "patina-bar".into(),
+            Some(s) => format!("patina-hud-{}", s.name()),
+            None => "patina-hud".into(),
         },
         layer: Layer::Top,
         anchor: place.anchor,
@@ -129,13 +129,13 @@ fn main() -> ExitCode {
     bar.config_path = config_path.clone();
     warnings.extend(skin_warnings);
     for w in &warnings {
-        eprintln!("patina-bar: {w}");
+        eprintln!("patina-hud: {w}");
     }
 
     match run(options, bar, config_path, parts, section_arg.is_some()) {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("patina-bar: {e}");
+            eprintln!("patina-hud: {e}");
             ExitCode::FAILURE
         }
     }
@@ -151,13 +151,13 @@ fn anchor(position: Position) -> Anchor {
 }
 
 /// Starts the split bar's other parts (the launcher, the tray, and the
-/// reserves keeping their edges) as `patina-bar --section`, each with its
+/// reserves keeping their edges) as `patina-hud --section`, each with its
 /// standard input a pipe from this one: they end when it closes, as this
 /// process ends or restarts.
 fn start_parts(parts: &[Section], config_path: Option<&Path>) -> Vec<std::process::Child> {
     let program = std::env::args()
         .next()
-        .unwrap_or_else(|| "patina-bar".into());
+        .unwrap_or_else(|| "patina-hud".into());
     parts
         .iter()
         .filter_map(|section| {
@@ -171,7 +171,7 @@ fn start_parts(parts: &[Section], config_path: Option<&Path>) -> Vec<std::proces
             match command.spawn() {
                 Ok(child) => Some(child),
                 Err(e) => {
-                    eprintln!("patina-bar: can't start the {}: {e}", section.name());
+                    eprintln!("patina-hud: can't start the {}: {e}", section.name());
                     None
                 }
             }
@@ -190,9 +190,9 @@ fn restart(parts: &mut Vec<std::process::Child>) -> ! {
         let _ = part.wait();
     }
     let mut args = std::env::args();
-    let program = args.next().unwrap_or_else(|| "patina-bar".into());
+    let program = args.next().unwrap_or_else(|| "patina-hud".into());
     let e = std::process::Command::new(program).args(args).exec();
-    eprintln!("patina-bar: can't restart: {e}");
+    eprintln!("patina-hud: can't restart: {e}");
     std::process::exit(1)
 }
 
@@ -379,7 +379,7 @@ fn run(
         let pixels = (side - 2.0 * tray::padding(side)).round().max(8.0) as u32;
         match patina_system::sni::start(pixels, move |list| sent.send(list).is_ok()) {
             Ok(handle) => host.shell.tray = Some(handle),
-            Err(e) => eprintln!("patina-bar: no tray for apps' icons: {e}"),
+            Err(e) => eprintln!("patina-hud: no tray for apps' icons: {e}"),
         }
         handle
             .insert_source(items, |event, _, host| {
@@ -507,7 +507,7 @@ fn run(
                         }
                         let (changed, warnings) = host.shell.set_skin(&config.skin);
                         for w in warnings {
-                            eprintln!("patina-bar: {w}");
+                            eprintln!("patina-hud: {w}");
                         }
                         if changed {
                             host.restyle();

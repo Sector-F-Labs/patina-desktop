@@ -1,4 +1,4 @@
-# 0001. Build patina-bar as an egui layer-shell client on Patina
+# 0001. Build patina-hud as an egui layer-shell client on Patina
 
 Date: 2026-10-14
 
@@ -19,12 +19,12 @@ a wlr-layer-shell surface, anchored to an edge with an exclusive zone, so eframe
 
 ## Decision
 
-We will build patina-bar in Rust with egui, driven directly rather than through eframe, on a
+We will build patina-hud in Rust with egui, driven directly rather than through eframe, on a
 wlr-layer-shell surface (smithay-client-toolkit), and take its look from
 [Patina](https://github.com/Sector-F-Labs/patina) (`patina-ui`):
 
 - Skins through `patina::skin`: Default, Patina's built-ins, and the bar's own folder
-  `~/.config/patina-bar/skins` (`skin::app_dir`). The skin is picked by name in the bar's config.
+  `~/.config/patina-hud/skins` (`skin::app_dir`). The skin is picked by name in the bar's config.
 - Default follows the desktop's light/dark setting through `patina::appearance`.
 - Stock egui widgets, fonts and visuals otherwise; the bar paints only its tags itself, in colours
   from the active visuals.

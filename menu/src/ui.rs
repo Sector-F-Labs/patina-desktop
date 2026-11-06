@@ -13,7 +13,7 @@ use patina_system::color_scheme::{self, Scheme};
 use crate::overlay::{self, Place};
 
 /// The bar's skins folder, where the shell's own skins go.
-const APP: &str = "patina-bar";
+const APP: &str = "patina-hud";
 const WIDTH: f32 = 240.0;
 /// Settings (ADR-0038).
 const SETTINGS: &str = "patina-settings";
@@ -36,7 +36,7 @@ impl DesktopMenu {
     pub fn new(at: Pos2) -> Self {
         let dirs: Vec<_> = skin::app_dir(APP).into_iter().collect();
         let (skins, notes) = skin::load_all(skin::BUILT_IN, &dirs);
-        let name = patina_shell::bar::skin_or_default();
+        let name = patina_shell::hud::skin_or_default();
         let current = skins.iter().position(|s| s.name == name).unwrap_or(0);
         Self {
             at,
@@ -104,7 +104,7 @@ impl DesktopMenu {
                 self.open(dir.clone());
             }
         }
-        if let Some(path) = patina_shell::bar::config_path()
+        if let Some(path) = patina_shell::hud::config_path()
             && ui
                 .button("Open bar settings")
                 .on_hover_text(path.display().to_string())
@@ -112,7 +112,7 @@ impl DesktopMenu {
         {
             // Opened even before it exists, so there's something to edit.
             if !path.exists() {
-                let _ = patina_shell::bar::set("skin", &self.skins[self.current].name);
+                let _ = patina_shell::hud::set("skin", &self.skins[self.current].name);
             }
             self.open(path);
         }

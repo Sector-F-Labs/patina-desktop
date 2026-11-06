@@ -283,7 +283,7 @@ puts them in `$(PREFIX)/share/man`.
   `--item`s print the choice), since the bar's surface is too thin for egui menus. Tooltips
   likewise (`bar/src/tooltip.rs`, ADR-0057): sites call `tooltip::hover`, and after the delay
   the bar runs `patina-menu --tooltip`, ended by closing its stdin; egui's tooltips are off.
-  Split mode (`bar/src/split.rs`, ADR-0063, experimental): `Section`s run as `patina-bar
+  Split mode (`bar/src/split.rs`, ADR-0063, experimental): `Section`s run as `patina-hud
   --section`, `Spot`s in `config.rs`, `Placement::popup` for where things open on screen, passed
   to pieces as `PATINA_OPEN_AT` (patina-shell's `piece::opening`); patina-shell's
   `Shell::wanted_size` and `output_size` serve it.

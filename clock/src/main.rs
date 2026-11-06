@@ -20,7 +20,7 @@ const USAGE: &str = "usage: patina-clock
 
 Opens the clock's menu at the bar's right end, or closes it if it's open: a
 month, and the chosen day's events from Calendar (calendar --agenda), which
-a click opens Calendar at. PATINA_SKIN and PATINA_BAR_EDGE, as patina-bar
+a click opens Calendar at. PATINA_SKIN and PATINA_HUD_EDGE, as patina-hud
 sets them, choose the skin and which edge it opens from.";
 
 const SIZE: (u32, u32) = (320, 500);

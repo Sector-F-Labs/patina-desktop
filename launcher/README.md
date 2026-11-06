@@ -20,8 +20,8 @@ Running `patina-launcher` while it's open closes it, so bind one key to it:
 - **[wbindkeys](https://github.com/divanvisagie/wbindkeys)**: `bind("ALT+E", "/home/you/.local/bin/patina-launcher")`
 
 On a layer-shell compositor it opens at the button that opened it, when the bar says where that
-is (`PATINA_OPEN_AT`, as patina-bar sets it); otherwise at the bottom-left corner, as a menu from
-a bar's button (`PATINA_BAR_EDGE=top` for the top-left). On GNOME, which has no layer shell, it opens centred
+is (`PATINA_OPEN_AT`, as patina-hud sets it); otherwise at the bottom-left corner, as a menu from
+a bar's button (`PATINA_HUD_EDGE=top` for the top-left). On GNOME, which has no layer shell, it opens centred
 over the windows ([ADR-0004](docs/adr/0004-a-centred-window-on-gnome.md)).
 
 Two options change where it opens and where the search box sits:
@@ -54,7 +54,7 @@ pixmaps) or the app's folder, decoded on a thread so the list shows at once.
 ## Looks
 
 It wears a Patina skin: `PATINA_SKIN` names one, else the Patina bar's
-(`~/.config/patina-bar/config.toml`), else the Default skin. In the Patina desktop the bar's
+(`~/.config/patina-hud/config.toml`), else the Default skin. In the Patina desktop the bar's
 button passes its skin and edge, so the launcher matches the bar and opens from it.
 
 ## Install

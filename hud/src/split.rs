@@ -5,7 +5,7 @@
 //! Parts stack rather than overlap where they can: a column at a side's
 //! end sits past a row in that corner, and a part sharing the launcher's
 //! spot lines up after it. The bar draws the window list itself and runs the
-//! other parts as `patina-bar --section`, which end when its pipe to them
+//! other parts as `patina-hud --section`, which end when its pipe to them
 //! closes.
 //!
 //! The parts keep no space of their own: a corner can't keep the edge it's
