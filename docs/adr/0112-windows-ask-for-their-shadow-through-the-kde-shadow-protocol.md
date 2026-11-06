@@ -47,6 +47,10 @@ Smithay has no implementation of it; `wayland-protocols-plasma` has the definiti
     corners of that rectangle and the sides are stretched between them, as KWin lays them out.
   - It is drawn under its window and above the windows below, in `frames::desktop_elements`. A
     fullscreen or maximised window gets none, and a client can `unset` or destroy it.
+  - It is drawn at 45% while its window isn't the focused one (`Activated`), as Firefox's is: on a
+    white background its shadow is 27 to 34 of 255 dark unfocused against 61 to 79 focused. The
+    compositor does this for every client, so apps need nothing. It can't shorten the reach as
+    Firefox also does (about 12 px against 20), only lighten it.
 - **A window that doesn't ask gets nothing.** Firefox, GTK and Qt windows that draw their own
   keep it and don't get a second.
 - **The shadow takes effect when the client commits it,** not with the surface's next commit as

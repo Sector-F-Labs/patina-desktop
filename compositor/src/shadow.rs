@@ -234,9 +234,15 @@ fn read_tile(buffer: &WlBuffer) -> Option<Tile> {
     .flatten()
 }
 
+/// How much of its shadow a window keeps when it isn't the focused one.
+/// Firefox's, on a white background, is 27 to 34 of 255 dark beside the
+/// window unfocused and 61 to 79 focused: about 0.45.
+const UNFOCUSED: f32 = 0.45;
+
 /// `window`'s shadow tiles, if it has asked for one and isn't maximised
 /// (the window's own geometry then fills what it was given), around its
-/// geometry at `location` (relative to the output) and under it.
+/// geometry at `location` (relative to the output) and under it. The shadow
+/// is lighter while the window isn't focused (`UNFOCUSED`).
 pub fn elements<R>(
     renderer: &mut R,
     window: &Window,
@@ -255,6 +261,13 @@ where
     {
         return Vec::new();
     }
+    let focused = window.toplevel().is_none_or(|toplevel| {
+        toplevel
+            .current_state()
+            .states
+            .contains(xdg_toplevel::State::Activated)
+    });
+    let alpha = if focused { 1.0 } else { UNFOCUSED };
     let Some(surface) = window.wl_surface() else {
         return Vec::new();
     };
@@ -371,7 +384,7 @@ where
                     .to_i32_round::<i32>()
                     .to_f64(),
                 &tile.buffer,
-                None,
+                Some(alpha),
                 Some(Rectangle::from_size(
                     (tile.size.w as f64, tile.size.h as f64).into(),
                 )),
