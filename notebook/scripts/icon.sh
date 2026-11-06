@@ -5,4 +5,4 @@
 set -eu
 cd "$(dirname "$0")/.."
 mkdir -p docs
-cargo run --quiet --example render_icon -- "${SIZE:-120}" "${OUT:-docs/icon.png}"
+cargo run --quiet --example render_icon_notebook -- "${SIZE:-120}" "${OUT:-docs/icon.png}"

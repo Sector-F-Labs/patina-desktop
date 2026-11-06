@@ -6,8 +6,8 @@ wallpaper beside it; `system/` (patina-system) is what they read and draw from t
 parts live in public repositories of their own, by git (ADR-0037): **patina-shell**
 (github.com/Sector-F-Labs/patina-shell), the layer-shell host and software painter every piece
 is built on (ADR-0011), and **patina-launcher** (github.com/Sector-F-Labs/patina-launcher), the
-launcher the bar's Sector F button opens, which `make install` builds from there. `files/` is Files, the file manager and the session's file chooser (ADR-0106; its own
-`AGENTS.md` and ADRs are in it). The compositor
+launcher the bar's Sector F button opens, which `make install` builds from there. `files/` is Files, the file manager and the session's file chooser (ADR-0106), `reader/` is
+Reader and `notebook/` is Notebook (ADR-0107); each has its own `AGENTS.md` and ADRs. The compositor
 puts its own folder first on its clients' PATH, so the pieces are found beside it.
 
 To change patina-shell along with the desktop, clone it beside this repo and add
@@ -37,7 +37,7 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 - `make deb` (ADR-0099, `packaging/deb/build.py`) builds one `patina-desktop` .deb into
   `target/deb`: this repository's last commit, or its working tree with `WORKTREE=1` (which then
   says `+dirty`), laid out by `make stage` under `/usr`, and the apps `packaging/bundle.toml` pins (launcher, Teleprinter,
-  Reader, Notebook, Draw, Montage, UnAmp), each from a clean export of its commit. Work is kept in
+  Draw, Montage, UnAmp), each from a clean export of its commit. Work is kept in
   `~/.cache/patina-desktop/deb`. Changing what ships is a commit to `bundle.toml`.
 - `make run` opens the compositor as a window on the current desktop, on a session bus of its own
   (`dbus-run-session`) so it never takes a running Patina session's names (it pops up on the user's

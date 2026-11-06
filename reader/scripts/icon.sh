@@ -3,4 +3,4 @@
 # 120 px, for the README. SIZE and OUT change either.
 set -eu
 cd "$(dirname "$0")/.."
-cargo run --quiet --example render_icon -- "${SIZE:-120}" "${OUT:-docs/icon.png}"
+cargo run --quiet --example render_icon_reader -- "${SIZE:-120}" "${OUT:-docs/icon.png}"

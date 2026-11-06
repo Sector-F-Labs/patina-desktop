@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 license = "BSD-3-Clause"
 description = "WYSIWYG markdown notes for a folder of .md files, built with egui and Patina"
-repository = "https://github.com/Sector-F-Labs/notebook"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [dependencies]
 dirs = "7"
@@ -12,7 +12,7 @@ eframe = { version = "0.35", features = ["persistence"] }
 egui = "0.35"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp"] }
 # Patina's develop branch, for the markdown widget it now holds (ADR-0013).
-patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop", features = ["markdown"] }
+patina-ui = { workspace = true, features = ["markdown"] }
 rfd = "0.17"
 serde = { version = "1", features = ["derive"] }
 toml = "1"
@@ -21,3 +21,7 @@ trash = "5"
 [dev-dependencies]
 resvg = "0.48.1"
 
+
+[[example]]
+name = "render_icon_notebook"
+path = "examples/render_icon.rs"

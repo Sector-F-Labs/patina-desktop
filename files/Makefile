@@ -32,7 +32,7 @@ screenshots: build ## Rewrite docs/screenshots on made-up data (docs/demo/)
 	docs/demo/screenshots.sh
 
 icon: ## docs/icon.png: the app icon at 120 px, for the README
-	cargo run -q --example render_icon -- 120 docs/icon.png
+	cargo run -q --example render_icon_files -- 120 docs/icon.png
 
 check: test ## Run the tests and clippy
 	cargo clippy --all-targets -- -D warnings

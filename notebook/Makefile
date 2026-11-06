@@ -39,7 +39,7 @@ check: test ## Run the tests and clippy
 	cargo clippy --all-targets -- -D warnings
 
 icons: ## Render assets/notebook-icon-128.png from packaging/linux/notebook.svg
-	cargo run -q --example render_icon -- 128 assets/notebook-icon-128.png
+	cargo run -q --example render_icon_notebook -- 128 assets/notebook-icon-128.png
 
 icon: ## docs/icon.png: the app icon at 120 px, for the README
 	scripts/icon.sh

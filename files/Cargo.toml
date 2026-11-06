@@ -26,3 +26,7 @@ trash = "5.2.9"
 wayland-backend = { version = "0.3", features = ["client_system"] }
 wayland-client = "0.31"
 zbus = "5"
+
+[[example]]
+name = "render_icon_files"
+path = "examples/render_icon.rs"

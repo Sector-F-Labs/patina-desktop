@@ -15,9 +15,9 @@ architecture = "amd64"
 # This repository goes in as make stage lays it out: every binary in the
 # Makefile's BINARIES, the man pages, the session entry, the lock screen's
 # PAM service, the portal config, the default apps list, and the Settings,
-# Process Manager and Files entries and icons, with Files' portal backend
-# (the session's file chooser; ADR-0106). patina-dictate is built as it is
-# by default, on the GPU through Vulkan (ADR-0074).
+# Process Manager, Files, Reader and Notebook entries and icons, with Files'
+# portal backend (the session's file chooser; ADR-0106, ADR-0107). patina-dictate is built
+# as it is by default, on the GPU through Vulkan (ADR-0074).
 
 # Apps from other repositories. Each is built with `cargo build --release
 # --locked` at `commit`, from the checkout at `local` (default: ../<name>)
@@ -40,20 +40,6 @@ repo = "https://github.com/Sector-F-Labs/teleprinter"
 commit = "80f03e6"
 id = "com.sectorflabs.Teleprinter"
 why = "The terminal: Alt+T"
-
-[[app]]
-name = "reader"
-repo = "https://github.com/Sector-F-Labs/reader"
-commit = "b7faf9a"
-id = "com.sectorflabs.Reader"
-why = "Process Manager opens man pages in it"
-
-[[app]]
-name = "notebook"
-repo = "https://github.com/Sector-F-Labs/notebook"
-commit = "b9782f2"
-id = "com.sectorflabs.Notebook"
-why = "Notes: WYSIWYG markdown for a folder of .md files"
 
 [[app]]
 name = "draw"

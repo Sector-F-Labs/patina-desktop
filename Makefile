@@ -14,6 +14,9 @@ PROCESSES_ID := com.sectorflabs.ProcessManager
 # for the session, as a portal backend.
 FILES_ID := com.sectorflabs.Files
 PORTAL_SERVICE := org.freedesktop.impl.portal.desktop.patina
+# Reader and Notebook (ADR-0107): launcher entries and icons.
+READER_ID := com.sectorflabs.Reader
+NOTEBOOK_ID := com.sectorflabs.Notebook
 # The login screen's session entry and the lock screen's PAM service go
 # where the system looks: on FreeBSD under PREFIX, as ports put them; on
 # Linux, where every login manager reads sessions, and /etc/pam.d.
@@ -84,7 +87,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := files patina-bar patina-clock patina-compositor patina-dictate patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise patina-screenshot patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
+BINARIES := files notebook patina-bar patina-clock patina-compositor patina-dictate patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
 # The launcher lives in its own repository (ADR-0037); install builds it from there.
 LAUNCHER := https://github.com/Sector-F-Labs/patina-launcher
 # The session's terminal, which deploy installs too: the checkout beside this
@@ -125,6 +128,12 @@ stage:
 	sed 's|^Exec=files|Exec=$(PREFIX)/bin/files|' files/packaging/linux/$(FILES_ID).desktop > $(DESTDIR)$(APPSDIR)/$(FILES_ID).desktop
 	install -m 644 files/packaging/portal/patina.portal $(DESTDIR)$(PORTALDIR)/portals/patina.portal
 	sed 's|@BINDIR@|$(PREFIX)/bin|' files/packaging/portal/$(PORTAL_SERVICE).service > $(DESTDIR)$(PREFIX)/share/dbus-1/services/$(PORTAL_SERVICE).service
+	install -m 644 reader/packaging/linux/reader.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(READER_ID).svg
+	sed 's|^Exec=reader|Exec=$(PREFIX)/bin/reader|' reader/packaging/linux/$(READER_ID).desktop > $(DESTDIR)$(APPSDIR)/$(READER_ID).desktop
+	install -d $(DESTDIR)$(ICONDIR)/128x128/apps
+	install -m 644 notebook/packaging/linux/notebook.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(NOTEBOOK_ID).svg
+	install -m 644 notebook/assets/notebook-icon-128.png $(DESTDIR)$(ICONDIR)/128x128/apps/$(NOTEBOOK_ID).png
+	sed 's|^Exec=notebook|Exec=$(PREFIX)/bin/notebook|' notebook/packaging/linux/$(NOTEBOOK_ID).desktop > $(DESTDIR)$(APPSDIR)/$(NOTEBOOK_ID).desktop
 	install -m 644 packaging/patina-mimeapps.list $(DESTDIR)$(APPSDIR)/
 	sed 's|@BINDIR@|$(PREFIX)/bin|' packaging/linux/patina.desktop > $(DESTDIR)$(SESSIONDIR)/patina.desktop
 	install -m 644 packaging/linux/patina-lock.pam $(DESTDIR)$(PAMDIR)/patina-lock
@@ -198,6 +207,8 @@ uninstall:
 		$(APPSDIR)/$(PROCESSES_ID).desktop $(ICONDIR)/scalable/apps/$(PROCESSES_ID).svg
 	rm -f $(APPSDIR)/$(FILES_ID).desktop $(ICONDIR)/scalable/apps/$(FILES_ID).svg $(PORTALDIR)/portals/patina.portal \
 		$(PREFIX)/share/dbus-1/services/$(PORTAL_SERVICE).service
+	rm -f $(APPSDIR)/$(READER_ID).desktop $(ICONDIR)/scalable/apps/$(READER_ID).svg \
+		$(APPSDIR)/$(NOTEBOOK_ID).desktop $(ICONDIR)/scalable/apps/$(NOTEBOOK_ID).svg $(ICONDIR)/128x128/apps/$(NOTEBOOK_ID).png
 	rm -f $(SESSIONDIR)/patina.desktop $(PAMDIR)/patina-lock $(PORTALCONF) $(WLRCONF)
 	-update-desktop-database -q $(APPSDIR)
 endif
