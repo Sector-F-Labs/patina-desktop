@@ -680,7 +680,9 @@ mod tests {
         assert_eq!(Section::Tray.mode(&c), Visibility::Hidden);
         // Only the window list is left to keep the bottom edge.
         assert_eq!(reserved(&c), vec![Side::Bottom]);
-        let c = config("windows_mode = \"autohide\"\nlauncher_mode = \"hidden\"\ntray_mode = \"autohide\"");
+        let c = config(
+            "windows_mode = \"autohide\"\nlauncher_mode = \"hidden\"\ntray_mode = \"autohide\"",
+        );
         assert!(reserved(&c).is_empty());
     }
 
@@ -688,12 +690,19 @@ mod tests {
     fn a_hidden_element_slides_off_its_own_edge() {
         let c = config("windows_at = \"bottom\"\nheight = 40");
         let p = placement(Some(Section::Windows), &c, GAMELESS);
-        let (top, right, bottom, left) = slid_margin(&p, Section::Windows, &c, GAMELESS, 0.0, crate::hide::HOT);
+        let (top, right, bottom, left) =
+            slid_margin(&p, Section::Windows, &c, GAMELESS, 0.0, crate::hide::HOT);
         assert_eq!((top, right, left), (p.margin.0, p.margin.1, p.margin.3));
         assert_eq!(bottom, p.margin.2 - 40, "all but the strip");
-        assert_eq!(slid_margin(&p, Section::Windows, &c, GAMELESS, 1.0, crate::hide::HOT), p.margin);
+        assert_eq!(
+            slid_margin(&p, Section::Windows, &c, GAMELESS, 1.0, crate::hide::HOT),
+            p.margin
+        );
         let c = config("tray_at = \"right-top\"\nheight = 40");
         let p = placement(Some(Section::Tray), &c, GAMELESS);
-        assert_eq!(slid_margin(&p, Section::Tray, &c, GAMELESS, 0.0, 0).1, p.margin.1 - 50);
+        assert_eq!(
+            slid_margin(&p, Section::Tray, &c, GAMELESS, 0.0, 0).1,
+            p.margin.1 - 50
+        );
     }
 }

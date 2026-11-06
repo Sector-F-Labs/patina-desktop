@@ -131,7 +131,9 @@ fn main() -> ExitCode {
                 parts.push(section);
             }
         }
-        if split::media_apart(&config).is_some() && Section::Media.mode(&config) != Visibility::Hidden {
+        if split::media_apart(&config).is_some()
+            && Section::Media.mode(&config) != Visibility::Hidden
+        {
             parts.push(Section::Media);
         }
         parts.extend(split::reserved(&config).into_iter().map(Section::Reserve));
