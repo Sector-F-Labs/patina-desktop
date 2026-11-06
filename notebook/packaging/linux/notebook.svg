@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- A Moleskine-style notebook: brown leather hardcover with rounded corners,
+       an elastic band, cream page edges and an orange ribbon bookmark. -->
+  <defs>
+    <linearGradient id="cover" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9a6a43"/>
+      <stop offset="0.55" stop-color="#744c2e"/>
+      <stop offset="1" stop-color="#53351f"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2e1d10"/>
+      <stop offset="0.45" stop-color="#4f3320"/>
+      <stop offset="1" stop-color="#2e1d10"/>
+    </linearGradient>
+    <linearGradient id="pages" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#efe4c8"/>
+      <stop offset="1" stop-color="#d9cba6"/>
+    </linearGradient>
+    <linearGradient id="ribbon" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#c7431a"/>
+      <stop offset="0.5" stop-color="#e95420"/>
+      <stop offset="1" stop-color="#c7431a"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.10"/>
+      <stop offset="0.45" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="coverclip">
+      <rect x="22" y="9" width="78" height="104" rx="8"/>
+    </clipPath>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.5"/>
+    </filter>
+  </defs>
+
+  <!-- shadow -->
+  <rect x="27" y="14" width="80" height="106" rx="9" fill="#000" opacity="0.35" filter="url(#shadow)"/>
+
+  <!-- page block, peeking out at the fore-edge and bottom -->
+  <rect x="26" y="12" width="78" height="104" rx="8" fill="url(#pages)"/>
+  <g stroke="#c9b98f" stroke-width="0.6" opacity="0.8">
+    <line x1="101.2" y1="18" x2="101.2" y2="110"/>
+    <line x1="102.6" y1="20" x2="102.6" y2="108"/>
+    <line x1="32" y1="113.4" x2="98" y2="113.4"/>
+  </g>
+
+  <!-- ribbon bookmark hanging below -->
+  <path d="M58 100 h7 v25 l-3.5 -3.5 l-3.5 3.5 z" fill="url(#ribbon)"/>
+
+  <!-- cover -->
+  <rect x="22" y="9" width="78" height="104" rx="8" fill="url(#cover)"/>
+  <g clip-path="url(#coverclip)">
+    <!-- hinge along the spine -->
+    <rect x="22" y="9" width="9.5" height="104" fill="#000" opacity="0.3"/>
+    <line x1="31.5" y1="9" x2="31.5" y2="113" stroke="#a7784f" stroke-width="0.8"/>
+    <!-- soft gloss from the top-left -->
+    <rect x="22" y="9" width="78" height="104" fill="url(#gloss)"/>
+  </g>
+  <!-- a faint edge, so the cover holds up on dark panels -->
+  <rect x="22.4" y="9.4" width="77.2" height="103.2" rx="7.6" fill="none" stroke="#3e2716" stroke-width="0.8" opacity="0.6"/>
+
+  <!-- elastic band -->
+  <rect x="85" y="7.5" width="6.5" height="107" rx="1.5" fill="url(#band)"/>
+  <line x1="88.3" y1="8" x2="88.3" y2="114" stroke="#6b4a33" stroke-width="0.5" opacity="0.7"/>
+</svg>

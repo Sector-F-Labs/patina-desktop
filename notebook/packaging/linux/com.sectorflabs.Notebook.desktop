@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Notebook
+GenericName=Notes
+Comment=Write notes in a folder of markdown files, as rich text
+Exec=notebook %f
+Icon=com.sectorflabs.Notebook
+Terminal=false
+Categories=Office;
+Keywords=notes;markdown;notebook;
+MimeType=text/markdown;text/x-markdown;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.Notebook
