@@ -433,6 +433,14 @@ where
                     .into_iter()
                     .map(DesktopElement::Surface),
             );
+            // A shadow the window asked for, under it.
+            if fullscreen != Some(window) {
+                elements.extend(
+                    crate::shadow::elements(renderer, window, location, scale)
+                        .into_iter()
+                        .map(DesktopElement::Frame),
+                );
+            }
         }
     }
     layers(renderer, lower, &mut elements);
