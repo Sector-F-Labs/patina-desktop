@@ -204,6 +204,7 @@ impl State {
         // where the seat has it (ADR-0094).
         seat.add_touch();
         output.create_global::<State>(&dh);
+        crate::shadow::init(&dh);
         let mut space = Space::default();
         space.map_output(&output, (0, 0));
 

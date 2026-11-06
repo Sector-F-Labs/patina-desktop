@@ -2,9 +2,9 @@
 //! built on Smithay. For now it runs as a window on another desktop and
 //! starts patina-hud and a terminal inside it.
 
-mod clients;
-mod capture;
 mod caps;
+mod capture;
+mod clients;
 mod cmd;
 mod config;
 mod constraints;
@@ -31,6 +31,7 @@ mod remap;
 mod scale;
 mod screenshot;
 mod session;
+mod shadow;
 mod split;
 mod state;
 mod sync;

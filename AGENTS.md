@@ -147,6 +147,9 @@ puts them in `$(PREFIX)/share/man`.
   their app's was (ADR-0065): the compositor signals `WindowOpened` on the first buffer
   (`window_shown`) and `WindowClosed` with where it floated, and serves `Move`; the tiler's
   `positions.rs` keeps them by app id and `policy::opening` moves it, or fills if too big.
+- `compositor/src/shadow.rs`: `org_kde_kwin_shadow` (ADR-0112): the eight shm tiles a client commits are
+  copied out then and drawn under its window by `frames::desktop_elements` (not fullscreen or
+  maximised); patina-ui's `frame::shadow::request` sends them. Windows that don't ask get none.
 - `compositor/src/frames.rs`: frames for X11 windows that draw none (ADR-0077) and Wayland windows
   in xdg-decoration's server side (ADR-0085, the `XdgDecorationHandler`, which gives the mode
   asked for, server side by default): `wants_frame`

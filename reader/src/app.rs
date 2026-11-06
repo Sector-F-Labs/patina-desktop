@@ -1087,9 +1087,12 @@ impl Reader {
 }
 
 impl eframe::App for Reader {
-    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         let custom = !self.config.system_title_bar;
+        if custom {
+            patina::frame::shadow::request(frame);
+        }
         let style = self.skins[self.skin].frame_style(ui.visuals());
         let radius = if custom { frame::corner_radius(&ctx, style.radius) } else { 0 };
         self.keys(&ctx);

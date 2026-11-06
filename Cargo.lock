@@ -3694,6 +3694,7 @@ dependencies = [
  "smithay",
  "smithay-client-toolkit 0.21.1",
  "toml",
+ "wayland-protocols-plasma",
  "xcursor",
  "zbus",
 ]
@@ -3880,7 +3881,7 @@ dependencies = [
 [[package]]
 name = "patina-ui"
 version = "0.1.14"
-source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#603f9f72a0149820117ff7a63d125f6f04a3cbe0"
+source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#f97376fb36feccaf49c9fd63d1f4b302b2d3fa8a"
 dependencies = [
  "dirs 7.0.0",
  "egui",
@@ -3888,11 +3889,15 @@ dependencies = [
  "image",
  "libc",
  "pulldown-cmark",
+ "raw-window-handle",
  "serde",
  "serde_ignored",
  "syntect",
  "toml",
  "two-face",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols-plasma",
  "zbus",
 ]
 
@@ -5968,6 +5973,7 @@ dependencies = [
  "wayland-client",
  "wayland-protocols",
  "wayland-scanner",
+ "wayland-server",
 ]
 
 [[package]]

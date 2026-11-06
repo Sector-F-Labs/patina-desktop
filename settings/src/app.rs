@@ -546,7 +546,10 @@ fn default_wallpaper(ui: &Ui, rect: Rect, flask: Option<&TextureHandle>) {
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
+        if self.custom_frame {
+            patina::frame::shadow::request(frame);
+        }
         self.draw(ui);
     }
 

@@ -1275,9 +1275,12 @@ impl eframe::App for App {
         self.remember_tabs();
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         let custom = !self.config.system_title_bar;
+        if custom {
+            patina::frame::shadow::request(frame);
+        }
         let style = self.skin().frame_style(ui.visuals());
         let radius = if custom { frame::corner_radius(&ctx, style.radius) } else { 0 };
 
