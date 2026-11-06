@@ -486,7 +486,11 @@ mod tests {
 
     #[test]
     fn a_centred_dock_finds_itself_from_the_outputs_width() {
-        let p = placement(Some(Section::Windows), &config("layout = \"split\""), GAPS);
+        let p = placement(
+            Some(Section::Windows),
+            &config("layout = \"split\"\nwindows_at = \"bottom-center\""),
+            GAPS,
+        );
         assert_eq!(p.anchor, Anchor::BOTTOM);
         assert_eq!(p.exclusive_zone, -1, "kept by the reserve instead");
         let at = p.popup(egui::pos2(10.0, 5.0), egui::vec2(400.0, 51.0), Some(OUT));
@@ -531,7 +535,7 @@ mod tests {
     #[test]
     fn a_part_sharing_the_launchers_spot_lines_up_after_it() {
         let c = config(
-            "layout = \"split\"\nlauncher_at = \"left-bottom\"\nwindows_at = \"left-bottom\"",
+            "layout = \"split\"\nlauncher_at = \"left-bottom\"\nwindows_at = \"left-bottom\"\ntray_at = \"bottom-right\"",
         );
         let launcher = placement(Some(Section::Launcher), &c, GAPS);
         assert_eq!(launcher.margin, (0, 0, 8, 8));
@@ -547,7 +551,7 @@ mod tests {
     #[test]
     fn each_edge_with_a_part_is_kept_once() {
         let c = config("layout = \"split\"");
-        assert_eq!(reserved(&c), [Side::Bottom]);
+        assert_eq!(reserved(&c), [Side::Bottom, Side::Left]);
         let c =
             config("layout = \"split\"\ntray_at = \"top-right\"\nwindows_at = \"center-right\"");
         // The launcher's bottom-left corner keeps nothing of its own.
@@ -569,10 +573,10 @@ mod tests {
 
     #[test]
     fn the_media_controls_are_in_the_tray_until_given_a_spot() {
-        let c = config("layout = \"split\"");
+        let c = config("layout = \"split\"\ntray_at = \"bottom-right\"");
         assert_eq!(media_apart(&c), None);
         assert!(modules(Section::Media, &c).is_empty());
-        let c = config("layout = \"split\"\nmedia_at = \"top-right\"");
+        let c = config("layout = \"split\"\nmedia_at = \"top-right\"\ntray_at = \"bottom-right\"");
         assert_eq!(media_apart(&c), Some(Spot::TopRight));
         assert_eq!(modules(Section::Media, &c), ["media"]);
         assert_eq!(modules(Section::Tray, &c), ["tray", "clock", "power"]);
@@ -587,14 +591,14 @@ mod tests {
             config("layout = \"split\"\nmedia_at = \"top-right\"\nright = [\"tray\", \"clock\"]");
         assert_eq!(media_apart(&off), None);
         assert_eq!(modules(Section::Tray, &off), ["tray", "clock"]);
-        let same = config("layout = \"split\"\nmedia_at = \"bottom-right\"");
+        let same = config("layout = \"split\"\nmedia_at = \"left-bottom\"");
         assert_eq!(media_apart(&same), None, "it would cover the tray");
         assert_eq!(modules(Section::Tray, &same)[0], "media");
     }
 
     #[test]
     fn a_launcher_in_a_corner_keeps_no_edge_of_its_own() {
-        // The defaults: the launcher is bottom-left, the tray bottom-right.
+        // The defaults: the launcher and the window list are bottom-left, the tray left-bottom.
         // The bottom is kept for the tray, so the launcher adds nothing.
         let c = config("layout = \"split\"\nwindows_at = \"top\"\ntray_at = \"top-right\"");
         assert_eq!(
@@ -618,7 +622,9 @@ mod tests {
 
     #[test]
     fn a_corner_launcher_is_as_thick_as_the_edges_kept_beside_it() {
-        let c = config("layout = \"split\"\nlauncher_height = 64\ntray_height = 24");
+        let c = config(
+            "layout = \"split\"\nlauncher_height = 64\ntray_height = 24\ntray_at = \"bottom-right\"",
+        );
         // Bottom: the tray's 24 and the launcher's 64, which sits in the corner.
         assert_eq!(kept(&c, Side::Bottom), Some(64));
         assert_eq!(kept(&c, Side::Left), None, "nothing keeps the left");
@@ -628,7 +634,9 @@ mod tests {
 
     #[test]
     fn parts_are_as_thick_as_they_are_told() {
-        let c = config("layout = \"split\"\nwindows_height = 72\ntray_height = 24");
+        let c = config(
+            "layout = \"split\"\nwindows_at = \"bottom-center\"\ntray_at = \"bottom-right\"\nwindows_height = 72\ntray_height = 24",
+        );
         assert_eq!(thickness(Section::Windows, &c), 72);
         assert_eq!(thickness(Section::Tray, &c), 24);
         assert_eq!(thickness(Section::Launcher, &c), 41);
@@ -644,7 +652,9 @@ mod tests {
 
     #[test]
     fn without_a_launcher_nothing_runs_it_or_stacks_past_it() {
-        let c = config("layout = \"split\"\nlauncher_at = \"none\"\nwindows_at = \"left-bottom\"");
+        let c = config(
+            "layout = \"split\"\nlauncher_at = \"none\"\nwindows_at = \"left-bottom\"\ntray_at = \"bottom-right\"",
+        );
         assert_eq!(c.launcher_at, None);
         let column = placement(Some(Section::Windows), &c, GAPS);
         assert_eq!(
