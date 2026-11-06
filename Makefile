@@ -50,7 +50,7 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps run run-hud build test check install stage deploy deb install-full uninstall-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-gui test-vm test-vm-rc vm-linux-stop clean
+.PHONY: help deps run run-hud build test check install stage deploy deb install-full uninstall-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-screenshot vm-linux-gui test-vm test-vm-rc vm-linux-stop clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -220,7 +220,7 @@ vm-restart: ## Rebuild in the VM and restart its desktop
 vm-gui: ## Open the VM's desktop in a VNC viewer
 	bsdt gui
 
-screenshot: ## Save the VM's desktop to docs/screenshot.png
+screenshot: ## Save the FreeBSD VM's desktop to docs/screenshot.png (the README's: make vm-linux-screenshot)
 	@mkdir -p docs
 	bsdt exec -- sh -c '$(VM_WAYLAND) grim /tmp/patina-desktop.png'
 	bsdt exec -- cat /tmp/patina-desktop.png > docs/screenshot.png
@@ -233,6 +233,9 @@ vm-linux-restart: build ## Rebuild here and restart the Linux VM's session
 
 vm-linux-shot: ## Save the Linux VM's screen to target/vm-linux/screen.png
 	vm-linux/vm.sh shot
+
+vm-linux-screenshot: ## Retake the README's screenshot, docs/screenshot.png, in the Linux VM (vm-linux/screenshot.sh)
+	vm-linux/screenshot.sh
 
 vm-linux-gui: ## Open the Linux VM's screen in a VNC viewer
 	vm-linux/vm.sh view
