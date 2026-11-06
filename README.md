@@ -252,7 +252,6 @@ minimise = "Super+M"
 ## Not yet
 
 - **Multiple monitors**, hotplug, lid close/open (it drives the first monitor).
-- **Virtual desktops**: there is one workspace (the bar's tags are for dwl).
 - **Flatpak integration** through portals. (Screen sharing goes through xdg-desktop-portal-wlr,
   ADR-0092, and files through Files' chooser.)
 - **Polkit agent** for auth prompts (Software, Disks, etc.).
