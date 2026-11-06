@@ -71,7 +71,7 @@ impl Page {
     fn title(self) -> &'static str {
         match self {
             Page::Appearance => "Appearance",
-            Page::Bar => "Bar",
+            Page::Bar => "HUD",
             Page::Wallpaper => "Wallpaper",
             Page::Account => "Account",
             Page::Defaults => "Defaults",

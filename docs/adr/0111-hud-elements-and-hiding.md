@@ -40,4 +40,4 @@ window can use the whole screen. One key should do that for all of them at once.
 - Menus and tooltips of an element that has slid away open at its place in the layout, as the
   HUD can't know where a half-hidden element is on screen mid-slide; they only open on a
   click or a hover, when it is out.
-- Settings' page still places only the elements, not their modes.
+- Settings' HUD page (was Bar) sets each element's mode beside its spot.

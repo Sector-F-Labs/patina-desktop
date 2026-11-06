@@ -1,4 +1,4 @@
-//! The Bar page (ADR-0050): what the window tabs show, which edge the bar
+//! The HUD page (ADR-0050): what the window tabs show, which edge the bar
 //! sits on, whether it's one bar or split into its parts and where each
 //! goes, and the bar's config file for everything else. All
 //! are top-level keys in the bar's config, which the bar follows within a
@@ -40,6 +40,14 @@ const PARTS: [(&str, &str, &str, &str); 3] = [
     ("launcher_at", "Launcher", "L", "bottom-left"),
     ("windows_at", "Window list", "W", "bottom-center"),
     ("tray_at", "Tray", "T", "bottom-right"),
+];
+
+/// Whether a part is shown: the config's `*_mode` value and what Settings
+/// calls it (ADR-0111).
+const MODES: [(&str, &str); 3] = [
+    ("always", "Always shown"),
+    ("autohide", "Hides at its edge"),
+    ("hidden", "Hidden"),
 ];
 
 /// The launcher's value for no button: it has its own shortcut.
@@ -110,6 +118,8 @@ pub struct BarPage {
     split: bool,
     /// Each part's spot, in the order of `PARTS`.
     spots: [&'static str; 3],
+    /// Each part's `*_mode`, in the order of `PARTS`.
+    modes: [&'static str; 3],
     /// A part being dragged on the map, and the spot it would snap to.
     dragging: Option<(usize, usize)>,
 }
@@ -127,6 +137,7 @@ impl BarPage {
             top: false,
             split: false,
             spots: [PARTS[0].3, PARTS[1].3, PARTS[2].3],
+            modes: ["always"; 3],
             sizes: [HEIGHT; 3],
             dragging: None,
         };
@@ -140,13 +151,19 @@ impl BarPage {
             .filter(|v| WINDOW_TABS.iter().any(|(value, _)| v == value))
             .unwrap_or_else(|| "both".into());
         self.top = read("position").as_deref() == Some("top");
-        self.split = read("layout").as_deref() == Some("split");
+        // The HUD is the split layout unless the file says "bar".
+        self.split = read("layout").as_deref() != Some("bar");
         let height = read("height")
             .and_then(|v| v.parse().ok())
             .unwrap_or(HEIGHT);
         for (i, (key, ..)) in PARTS.iter().enumerate() {
             let own = read(&key.replace("_at", "_height")).and_then(|v| v.parse().ok());
             self.sizes[i] = own.unwrap_or(height);
+        }
+        for (i, (key, ..)) in PARTS.iter().enumerate() {
+            self.modes[i] = read(&key.replace("_at", "_mode"))
+                .and_then(|v| MODES.iter().map(|(m, _)| *m).find(|m| *m == v))
+                .unwrap_or("always");
         }
         for (i, (key, _, _, default)) in PARTS.iter().enumerate() {
             let value = read(key);
@@ -176,14 +193,15 @@ impl BarPage {
                 "The launcher, the window list and the tray each on their own, anywhere along \
                  the screen's edges: a row along the top or bottom, a column up a side. Drag \
                  them on the map, or choose from the lists. A thicker window list is a dock; \
-                 a thinner tray is a status line.",
+                 a thinner tray is a status line. A part that hides slides off the screen \
+                 and comes back when the pointer touches its edge; Super+H hides them all.",
             )
             .small()
             .weak(),
         );
         ui.add_space(4.0);
         ui.horizontal(|ui| {
-            egui::Grid::new("bar-parts").num_columns(3).show(ui, |ui| {
+            egui::Grid::new("bar-parts").num_columns(4).show(ui, |ui| {
                 for (i, (key, name, _, _)) in PARTS.iter().enumerate() {
                     ui.label(*name);
                     let shown = if self.spots[i] == NONE {
@@ -213,6 +231,23 @@ impl BarPage {
                                 {
                                     self.spots[i] = value;
                                     Self::set(key, value, message);
+                                }
+                            }
+                        });
+                    let mode_label = MODES
+                        .iter()
+                        .find(|(m, _)| *m == self.modes[i])
+                        .map_or("", |(_, label)| *label);
+                    egui::ComboBox::from_id_salt((*key, "mode"))
+                        .width(150.0)
+                        .selected_text(mode_label)
+                        .show_ui(ui, |ui| {
+                            for (value, label) in MODES {
+                                if ui.selectable_label(self.modes[i] == value, label).clicked()
+                                    && self.modes[i] != value
+                                {
+                                    self.modes[i] = value;
+                                    Self::set(&key.replace("_at", "_mode"), value, message);
                                 }
                             }
                         });
@@ -341,7 +376,7 @@ impl BarPage {
     }
 
     pub fn ui(&mut self, ui: &mut Ui, message: &mut Option<Message>) {
-        ui.heading("Bar");
+        ui.heading("HUD");
         ui.add_space(8.0);
 
         ui.label(RichText::new("Window Tabs").strong());
@@ -389,7 +424,7 @@ impl BarPage {
                 .weak(),
             );
             if ui
-                .button("Open bar settings")
+                .button("Open HUD settings")
                 .on_hover_text(path.display().to_string())
                 .clicked()
             {
