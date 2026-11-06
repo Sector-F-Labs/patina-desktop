@@ -19,7 +19,7 @@ ext-image-capture-source and ext-image-copy-capture modules (ADR-0092), without 
 then `cargo update -p smithay`; drop the `[patch.crates-io]` once a release has them.
 
 Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there, push
-`develop`, then `cargo update -p patina-ui` here. Never publish Patina without asking.
+`develop` to `origin` and `github`, then `cargo update -p patina-ui` here. Never publish Patina without asking.
 
 ## Commands
 
