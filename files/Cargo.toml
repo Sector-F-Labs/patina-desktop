@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 license = "BSD-3-Clause"
 description = "A Patina file manager, where a Name.app folder is an app you open"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [dependencies]
 async-channel = "2"
@@ -17,7 +18,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 libc = "0.2"
 notify = "7"
 patina-apps = { git = "https://github.com/Sector-F-Labs/patina-apps", features = ["icon"] }
-patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+patina-ui = { workspace = true }
 raw-window-handle = "0.6"
 serde = { version = "1", features = ["derive"] }
 toml = "1"

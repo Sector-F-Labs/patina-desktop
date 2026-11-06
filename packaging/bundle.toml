@@ -14,8 +14,9 @@ architecture = "amd64"
 
 # This repository goes in as make stage lays it out: every binary in the
 # Makefile's BINARIES, the man pages, the session entry, the lock screen's
-# PAM service, the portal config, the default apps list, and the Settings
-# and Process Manager entries and icons. patina-dictate is built as it is
+# PAM service, the portal config, the default apps list, and the Settings,
+# Process Manager and Files entries and icons, with Files' portal backend
+# (the session's file chooser; ADR-0106). patina-dictate is built as it is
 # by default, on the GPU through Vulkan (ADR-0074).
 
 # Apps from other repositories. Each is built with `cargo build --release
@@ -39,16 +40,6 @@ repo = "https://github.com/Sector-F-Labs/teleprinter"
 commit = "80f03e6"
 id = "com.sectorflabs.Teleprinter"
 why = "The terminal: Alt+T"
-
-[[app]]
-name = "files"
-repo = "https://github.com/Sector-F-Labs/files"
-commit = "41c20b2"
-id = "com.sectorflabs.Files"
-why = "Folders, and the session's file chooser through the portal"
-[app.files]
-"/usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.patina.service" = "packaging/portal/org.freedesktop.impl.portal.desktop.patina.service"
-"/usr/share/xdg-desktop-portal/portals/patina.portal" = "packaging/portal/patina.portal"
 
 [[app]]
 name = "reader"

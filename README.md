@@ -33,7 +33,7 @@ make install-full          # builds as you, then installs with sudo (or doas)
 ```
 
 `make install-full` installs this repository and the apps `packaging/bundle.toml` pins (a
-terminal, Files, Reader, Notebook, Draw, Montage and UnAmp), each cloned from its GitHub repository
+terminal, Reader, Notebook, Draw, Montage and UnAmp), each cloned from its GitHub repository
 and built at the commit it was tested at, so it needs the network. `make install` installs this
 repository alone, without those apps. `PREFIX=/usr` changes where they go. `make uninstall-full`
 (or `make uninstall`) removes what each put in place.
@@ -171,9 +171,9 @@ Each crate's README says what it does on the desktop and how it fits with the ot
 program has a man page, installed with the desktop; `man patina-desktop` is the overview: the
 pieces, the keys, where settings are kept, and restarting and recovering.
 
-The `.deb` and `make install-full` add Teleprinter (the terminal), Files (also the session's file
-chooser, through the portal), Reader, Notebook, Draw, Montage and UnAmp, from their own
-repositories.
+Files, the file manager and the session's file chooser (through the portal), is the `files/` crate
+here (ADR-0106). The `.deb` and `make install-full` add Teleprinter (the terminal), Reader,
+Notebook, Draw, Montage and UnAmp, from their own repositories.
 
 ## The bar's config
 
@@ -285,8 +285,8 @@ things are for the hardware only, such as console switching and Night Light, so 
 |---|---|
 | `make run` | The compositor in a window on this desktop |
 | `make check` | Tests and clippy |
-| `make install` | Build, then install **this repository** for every user into `/usr/local`, with the login screen's session and the lock screen's PAM service; asks doas or sudo ([how](docs/running-as-a-session.md), ADR-0078). The apps from other repositories (a terminal, files, notes) aren't in it: that's `install-full` |
-| `make install-full` | `make install`, plus the apps `packaging/bundle.toml` pins (Teleprinter, Files, Reader, Notebook, Draw, Montage, UnAmp), each cloned from its GitHub repository and built at its pinned commit, so it needs the network (ADR-0099) |
+| `make install` | Build, then install **this repository** for every user into `/usr/local`, with the login screen's session and the lock screen's PAM service; asks doas or sudo ([how](docs/running-as-a-session.md), ADR-0078). The apps from other repositories (a terminal, notes) aren't in it: that's `install-full` |
+| `make install-full` | `make install`, plus the apps `packaging/bundle.toml` pins (Teleprinter, Reader, Notebook, Draw, Montage, UnAmp), each cloned from its GitHub repository and built at its pinned commit, so it needs the network (ADR-0099) |
 | `make uninstall-full` | Remove everything `install-full` put in place, from the list of files it left in `/usr/local/share/patina-desktop/files` |
 | `make deb` | The whole desktop as a `.deb` in `target/deb` (`WORKTREE=1` for uncommitted changes) |
 | `make deploy <host>` | Build here, and install the same on an ssh host through `doas rsync` (needs rsync and doas there), with Teleprinter from `../teleprinter` (else GitHub) as its terminal |
