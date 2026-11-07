@@ -160,6 +160,7 @@ mechanics of adding one.
 | [0116](0116-screenshots-go-to-the-clipboard-and-clipboard-settings.md) | Screenshots always go to the clipboard, and `[clipboard]` in the compositor config with a Settings page | Accepted; builds on [0114](0114-the-compositor-keeps-the-clipboard-history.md) |
 | [0117](0117-the-volume-menu-lists-the-players.md) | The volume menu lists the media players, and the bar counts them | Accepted; builds on [0101](0101-media-controls-in-the-bar.md) |
 | [0118](0118-skin-builder.md) | Skin Builder makes skins and applies them to the apps in ~/.config | Accepted; builds on Patina's ADR-0004 |
+| [0119](0119-dictation-settings-and-models.md) | Dictation's model, language and accuracy are settings, and models download from Settings | Accepted |
 
 ## Decision Relationship
 

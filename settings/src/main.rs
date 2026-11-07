@@ -12,6 +12,7 @@ mod color_scheme;
 mod compositor_config;
 mod defaults;
 mod dictation;
+mod dictation_models;
 mod gaps;
 mod icons;
 mod keyboard;

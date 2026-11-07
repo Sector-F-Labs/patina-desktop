@@ -10,7 +10,7 @@
 //! lose, and a restarted desktop would have two.
 
 use std::io::Write;
-use std::path::Path;
+use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use crate::audio::Audio;
 use crate::capture::{Meter, Recording};
-use crate::transcribe::Transcriber;
+use crate::transcribe::{Transcriber, Tuning, model_path};
 
 const NAME: &str = "com.sectorflabs.Patina.Input";
 const PATH: &str = "/com/sectorflabs/Patina/Input";
@@ -96,7 +96,8 @@ fn say(input: &Mutex<Option<ChildStdin>>, line: &str) -> bool {
 }
 
 /// Listens until the session bus goes away.
-pub fn run(model: &Path, language: Option<&str>, verbose: bool) -> Result<(), String> {
+/// `model` and `language` are the command line's, which win over the config's.
+pub fn run(model: Option<&str>, language: Option<&str>, verbose: bool) -> Result<(), String> {
     let bus = zbus::blocking::Connection::session().map_err(|e| e.to_string())?;
     end_with_the_compositor(&bus)?;
     let rule = zbus::MatchRule::builder()
@@ -110,11 +111,19 @@ pub fn run(model: &Path, language: Option<&str>, verbose: bool) -> Result<(), St
 
     let (recorded, todo) = mpsc::channel::<(Audio, Option<Shown>)>();
     let committing = bus.clone();
-    let model = model.to_path_buf();
+    let model = model.map(String::from);
     let language = language.map(String::from);
     std::thread::Builder::new()
         .name("transcribe".into())
-        .spawn(move || transcribe(&todo, &model, language.as_deref(), verbose, &committing))
+        .spawn(move || {
+            transcribe(
+                &todo,
+                model.as_deref(),
+                language.as_deref(),
+                verbose,
+                &committing,
+            )
+        })
         .map_err(|e| e.to_string())?;
 
     let mut recording: Option<(Recording, Instant, Option<Shown>)> = None;
@@ -175,25 +184,47 @@ fn end_with_the_compositor(bus: &zbus::blocking::Connection) -> Result<(), Strin
     Ok(())
 }
 
-/// Turns each recording into text and commits it. The model is loaded at
-/// the start, and again at each recording until it loads, so one
+/// Turns each recording into text and commits it. The settings are read at
+/// each recording: a changed model or language is loaded then, the tuning
+/// used as it is, and a model that wouldn't load is tried again, so one
 /// downloaded later is used without a restart.
 fn transcribe(
     todo: &mpsc::Receiver<(Audio, Option<Shown>)>,
-    model: &Path,
+    model: Option<&str>,
     language: Option<&str>,
     verbose: bool,
     bus: &zbus::blocking::Connection,
 ) {
-    let load = || {
-        Transcriber::new(model, language, !verbose)
-            .inspect_err(|e| eprintln!("patina-dictate: {e}"))
-            .ok()
-    };
-    let mut transcriber = load();
+    // What is loaded, and what asked for it.
+    let mut transcriber: Option<Transcriber> = None;
+    let mut loaded: Option<(PathBuf, Option<String>)> = None;
     for (audio, shown) in todo {
-        if transcriber.is_none() {
-            transcriber = load();
+        let config = crate::config::load();
+        let path = model_path(
+            model
+                .or(config.model.as_deref())
+                .unwrap_or(crate::DEFAULT_MODEL),
+        );
+        let language = language
+            .map(String::from)
+            .or_else(|| config.language.clone());
+        let wanted = (path, language);
+        if transcriber.is_none() || loaded.as_ref() != Some(&wanted) {
+            let started = Instant::now();
+            transcriber = Transcriber::new(&wanted.0, wanted.1.as_deref(), !verbose)
+                .inspect_err(|e| eprintln!("patina-dictate: {e}"))
+                .ok();
+            if verbose && transcriber.is_some() {
+                eprintln!(
+                    "patina-dictate: loaded {} in {:.2?}",
+                    wanted.0.display(),
+                    started.elapsed()
+                );
+            }
+            loaded = Some(wanted);
+        }
+        if let Some(t) = &mut transcriber {
+            t.tuning = Tuning::from(&config);
         }
         // Gone once the text is in, or there's none.
         let _closes = Closes(shown);
