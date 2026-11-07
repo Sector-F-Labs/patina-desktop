@@ -785,7 +785,13 @@ impl Bar {
     /// Where a piece opened by the button at `rect` goes: from the bar's
     /// edge, at the button.
     fn opening(&self, ctx: &egui::Context, rect: Rect) -> crate::launcher::Opening {
-        let popup = self.popup(ctx, rect.center());
+        let mut popup = self.popup(ctx, rect.center());
+        // Past the bar by the gaps setting, as windows are, when that's more than a menu's.
+        let extra = (self.gaps.gap as f32 - crate::split::SPACE).max(0.0);
+        match popup.edge {
+            "left" | "right" => popup.x += extra,
+            _ => popup.y += extra,
+        }
         let mut at = popup.env();
         // Without the output's size there's no far side to put the ends after.
         if popup.far.is_some() {
