@@ -6,7 +6,6 @@
 //! copies of it: keys are read straight from egui's input, only dots are
 //! shown, and it's wiped once checked or cleared.
 
-use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 
@@ -44,9 +43,10 @@ pub struct LockScreen {
     wrong_at: Option<Instant>,
     unlocked: bool,
     check: Sender<String>,
-    /// The user's picture, if they have one, and its texture on each output.
+    /// The user's picture, if they have one; its texture is kept in each
+    /// output's egui context, since a texture belongs to one and an output's
+    /// name outlives its surface.
     face: Option<egui::ColorImage>,
-    faces: HashMap<String, egui::TextureHandle>,
 }
 
 impl LockScreen {
@@ -60,7 +60,6 @@ impl LockScreen {
             unlocked: false,
             check,
             face: patina_system::avatar::load(),
-            faces: HashMap::new(),
         }
     }
 
@@ -126,15 +125,21 @@ impl LockScreen {
 
     /// The user's picture in a circle, or a disc with the name's first
     /// letter, in the skin's accent.
-    fn avatar(&mut self, ui: &mut Ui, output: &str) {
+    fn avatar(&mut self, ui: &mut Ui) {
         let side = 84.0;
         let (rect, _) = ui.allocate_exact_size(vec2(side, side), Sense::hover());
         if let Some(face) = &self.face {
-            let texture = self.faces.entry(output.to_string()).or_insert_with(|| {
-                ui.ctx()
-                    .load_texture("face", face.clone(), egui::TextureOptions::LINEAR)
-            });
-            egui::Image::from_texture(&*texture)
+            let ctx = ui.ctx().clone();
+            let id = egui::Id::new("patina-lock-face");
+            let texture = ctx
+                .data(|d| d.get_temp::<egui::TextureHandle>(id))
+                .unwrap_or_else(|| {
+                    let texture =
+                        ctx.load_texture("face", face.clone(), egui::TextureOptions::LINEAR);
+                    ctx.data_mut(|d| d.insert_temp(id, texture.clone()));
+                    texture
+                });
+            egui::Image::from_texture(&texture)
                 .corner_radius(side / 2.0)
                 .paint_at(ui, rect);
             ui.painter().circle_stroke(
@@ -278,7 +283,7 @@ impl Shell for LockScreen {
         }
     }
 
-    fn ui(&mut self, ui: &mut Ui, output: &str) {
+    fn ui(&mut self, ui: &mut Ui, _output: &str) {
         let focused = ui.input(|i| i.focused);
         if focused {
             self.typed(ui);
@@ -307,7 +312,7 @@ impl Shell for LockScreen {
             // The picture, name and box are centred on the screen as one.
             let top = rect.center().y - LOGIN / 2.0;
             ui.add_space((top - ui.cursor().top()).max(32.0));
-            self.avatar(ui, output);
+            self.avatar(ui);
             ui.add_space(10.0);
             ui.label(RichText::new(&self.name).size(20.0));
             ui.add_space(14.0);

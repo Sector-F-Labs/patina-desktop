@@ -106,11 +106,26 @@ struct Wallpaper {
     fit: Fit,
     /// The colour around the image; `None` for the skin's.
     background: Option<[u8; 3]>,
-    /// The image laid on each output, by output name: the output's size in
-    /// pixels, and the texture, in that output's egui context.
-    scaled: HashMap<String, ([usize; 2], TextureHandle)>,
+    /// The image laid on each output, by output name: which context the
+    /// texture is in (`context_key`), the output's size in pixels, and the
+    /// texture. An output switched off and on, or unplugged and plugged in,
+    /// has its name again but a new context, which knows nothing of the old
+    /// one's textures.
+    scaled: HashMap<String, (u64, [usize; 2], TextureHandle)>,
     /// The default's logo, the same way: its side in pixels.
-    logos: HashMap<String, (u32, TextureHandle)>,
+    logos: HashMap<String, (u64, u32, TextureHandle)>,
+}
+
+/// Which of the host's egui contexts (one per surface) `ctx` is: a number
+/// kept in it, since an output's name outlives its surface.
+fn context_key(ctx: &egui::Context) -> u64 {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    let id = egui::Id::new("patina-wallpaper-context");
+    ctx.data_mut(|d| {
+        *d.get_temp_mut_or_insert_with(id, || {
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        })
+    })
 }
 
 impl Wallpaper {
@@ -162,7 +177,12 @@ impl Wallpaper {
         size: [usize; 2],
     ) -> Option<&TextureHandle> {
         let image = self.image.as_ref()?;
-        if self.scaled.get(output).is_none_or(|(s, _)| *s != size) {
+        let key = context_key(ctx);
+        if self
+            .scaled
+            .get(output)
+            .is_none_or(|(c, s, _)| *c != key || *s != size)
+        {
             let screen = [size[0] as u32, size[1] as u32];
             let ([x, y, w, h], [dw, dh]) = self.fit.layout([image.width(), image.height()], screen);
             let mut laid = image.crop_imm(x, y, w, h);
@@ -179,9 +199,9 @@ impl Wallpaper {
                 pixels,
                 TextureOptions::LINEAR,
             );
-            self.scaled.insert(output.to_string(), (size, texture));
+            self.scaled.insert(output.to_string(), (key, size, texture));
         }
-        self.scaled.get(output).map(|(_, t)| t)
+        self.scaled.get(output).map(|(_, _, t)| t)
     }
 
     /// The default wallpaper: the flask, and "Sector F Labs" under it, a
@@ -205,15 +225,19 @@ impl Wallpaper {
         let flask = accent(v.selection.bg_fill, v.panel_fill).unwrap_or(ink.gamma_multiply(0.55));
 
         let pixels = (side * ui.ctx().pixels_per_point()).round().max(1.0) as u32;
-        if self.logos.get(output).is_none_or(|(p, _)| *p != pixels)
+        let key = context_key(ui.ctx());
+        if self
+            .logos
+            .get(output)
+            .is_none_or(|(c, p, _)| *c != key || *p != pixels)
             && let Some(image) = patina_system::logo::rasterise(pixels)
         {
             let texture =
                 ui.ctx()
                     .load_texture(format!("logo-{output}"), image, TextureOptions::LINEAR);
-            self.logos.insert(output.to_string(), (pixels, texture));
+            self.logos.insert(output.to_string(), (key, pixels, texture));
         }
-        if let Some((_, texture)) = self.logos.get(output) {
+        if let Some((_, _, texture)) = self.logos.get(output) {
             let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
             painter.image(texture.id(), logo, uv, flask);
         }
@@ -303,6 +327,44 @@ impl Shell for Wallpaper {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn wallpaper_with_image() -> Wallpaper {
+        Wallpaper {
+            skin: Skin::default_skin(),
+            path: None,
+            image: Some(DynamicImage::new_rgba8(4, 4)),
+            fit: Fit::Fill,
+            background: None,
+            scaled: HashMap::new(),
+            logos: HashMap::new(),
+        }
+    }
+
+    /// The name of the texture `id` is in `ctx`, if it's there.
+    fn named_in(ctx: &egui::Context, id: egui::TextureId) -> Option<String> {
+        ctx.tex_manager().read().meta(id).map(|m| m.name.clone())
+    }
+
+    #[test]
+    fn an_output_with_a_new_surface_gets_its_texture_again() {
+        let mut wallpaper = wallpaper_with_image();
+        let before = egui::Context::default();
+        wallpaper.texture(&before, "DP-3", [8, 8]).unwrap();
+        // The output was switched off and on: the same name and size, and a
+        // new context that has none of the old one's textures.
+        let after = egui::Context::default();
+        let id = wallpaper.texture(&after, "DP-3", [8, 8]).unwrap().id();
+        assert_eq!(named_in(&after, id).as_deref(), Some("wallpaper-DP-3"));
+    }
+
+    #[test]
+    fn an_output_keeps_its_texture_while_its_surface_does() {
+        let mut wallpaper = wallpaper_with_image();
+        let ctx = egui::Context::default();
+        let first = wallpaper.texture(&ctx, "DP-3", [8, 8]).unwrap().id();
+        let again = wallpaper.texture(&ctx, "DP-3", [8, 8]).unwrap().id();
+        assert_eq!(first, again);
+    }
 
     /// Draws the default in every built-in skin, as PNGs in the folder
     /// PATINA_WALLPAPER_PREVIEW names, to look at.
