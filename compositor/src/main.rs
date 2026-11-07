@@ -21,6 +21,7 @@ mod idle;
 mod input;
 mod keyboard;
 mod keys;
+mod layout;
 mod lock;
 mod maximize;
 mod media;
@@ -122,7 +123,9 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
             config,
             auto_scale,
         )?;
+        let extra = udev.extra_outputs();
         state.udev = Some(udev);
+        state.add_outputs(extra);
         state.set_shm_formats(formats);
         state.centre_pointer();
         // Lock before the machine sleeps, so waking never shows the desktop.

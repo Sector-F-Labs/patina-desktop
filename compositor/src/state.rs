@@ -78,6 +78,8 @@ pub struct State {
     pub space: Space<Window>,
     pub popups: PopupManager,
     pub output: Output,
+    /// Every monitor, the primary (`output`) first (ADR-0121).
+    pub outputs: Vec<Output>,
     /// Something changed on screen since the last frame.
     pub needs_redraw: bool,
     /// Quitting so patina-session starts the compositor again.
@@ -247,6 +249,7 @@ impl State {
             loop_handle: event_loop.handle(),
             space,
             popups: PopupManager::default(),
+            outputs: vec![output.clone()],
             output,
             needs_redraw: true,
             restart: false,
@@ -348,13 +351,21 @@ impl State {
                 .lock_surface()
                 .map(|s| (s.clone(), Point::from((0.0, 0.0))));
         }
-        let map = layer_map_for_output(&self.output);
+        // A layer map is in its output's own coordinates.
+        let output = self.output_under(pos);
+        let shift = self
+            .space
+            .output_geometry(output)
+            .map(|g| g.loc)
+            .unwrap_or_default();
+        let map = layer_map_for_output(output);
         let layer_under = |layer: Layer| {
-            let surface = map.layer_under(layer, pos)?;
+            let local = pos - shift.to_f64();
+            let surface = map.layer_under(layer, local)?;
             let origin = map.layer_geometry(surface)?.loc;
             surface
-                .surface_under(pos - origin.to_f64(), WindowSurfaceType::ALL)
-                .map(|(s, p)| (s, (p + origin).to_f64()))
+                .surface_under(local - origin.to_f64(), WindowSurfaceType::ALL)
+                .map(|(s, p)| (s, (p + origin + shift).to_f64()))
         };
         layer_under(Layer::Overlay)
             .or_else(|| self.fullscreen_under(pos))
@@ -526,9 +537,108 @@ impl State {
 
     /// Gives `window` the keyboard and raises it; `None` clears focus.
     pub(crate) fn layer_for(&self, surface: &WlSurface) -> Option<LayerSurface> {
-        layer_map_for_output(&self.output)
-            .layer_for_surface(surface, WindowSurfaceType::ALL)
-            .cloned()
+        self.outputs.iter().find_map(|output| {
+            layer_map_for_output(output)
+                .layer_for_surface(surface, WindowSurfaceType::ALL)
+                .cloned()
+        })
+    }
+
+    /// Adds the monitors after the primary (ADR-0121), each to the right of
+    /// the one before until it's placed otherwise.
+    pub fn add_outputs(&mut self, extra: Vec<Output>) {
+        use crate::layout::{Entry, rects};
+        for output in &extra {
+            output.create_global::<State>(&self.display_handle);
+        }
+        let mut all = vec![self.output.clone()];
+        all.extend(extra);
+        let entries: Vec<Entry> = all
+            .iter()
+            .map(|o| Entry {
+                id: o.name(),
+                size: o
+                    .current_mode()
+                    .map(|m| {
+                        m.size
+                            .to_f64()
+                            .to_logical(o.current_scale().fractional_scale())
+                            .to_i32_round()
+                    })
+                    .unwrap_or_default(),
+                place: None,
+            })
+            .collect();
+        for (output, rect) in all.iter().zip(rects(&entries)) {
+            self.space.map_output(output, rect.loc);
+            output.change_current_state(None, None, None, Some(rect.loc));
+            eprintln!(
+                "patina-compositor: {} at {},{} ({}x{} points)",
+                output.name(),
+                rect.loc.x,
+                rect.loc.y,
+                rect.size.w,
+                rect.size.h
+            );
+        }
+        self.outputs = all;
+    }
+
+    /// What `output` shows.
+    pub fn view_of(&self, output: &Output) -> crate::layout::View {
+        crate::layout::View {
+            area: self.space.output_geometry(output).unwrap_or_default(),
+            scale: output.current_scale().fractional_scale(),
+        }
+    }
+
+    /// The primary's view, for the backends that have one monitor.
+    pub fn primary_view(&self) -> crate::layout::View {
+        self.view_of(&self.output)
+    }
+
+    /// The monitor under `pos`, else the primary.
+    pub fn output_under(&self, pos: Point<f64, Logical>) -> &Output {
+        self.outputs
+            .iter()
+            .find(|o| {
+                self.space
+                    .output_geometry(o)
+                    .is_some_and(|g| g.to_f64().contains(pos))
+            })
+            .unwrap_or(&self.output)
+    }
+
+    /// The monitor `window`'s middle is on, else the pointer's.
+    pub fn output_of(&self, window: &Window) -> Output {
+        self.space
+            .element_geometry(window)
+            .map(|g| self.output_under(g.loc.to_f64() + g.size.to_f64().downscale(2.0).to_point()))
+            .unwrap_or_else(|| self.pointer_output())
+            .clone()
+    }
+
+    /// The monitor the pointer is on.
+    pub fn pointer_output(&self) -> &Output {
+        let pos = self
+            .seat
+            .get_pointer()
+            .map(|p| p.current_location())
+            .unwrap_or_default();
+        self.output_under(pos)
+    }
+
+    /// Whether `pos` is under a menu or the bar: an overlay or top layer.
+    pub fn over_layer(&self, pos: Point<f64, Logical>) -> bool {
+        use smithay::wayland::shell::wlr_layer::Layer;
+        let output = self.output_under(pos);
+        let Some(geo) = self.space.output_geometry(output) else {
+            return false;
+        };
+        let local = pos - geo.loc.to_f64();
+        let map = layer_map_for_output(output);
+        map.layer_under(Layer::Overlay, local).is_some()
+            || map.layer_under(Layer::Top, local).is_some()
     }
 
     /// Gives the keyboard back to the window on top, as when a launcher
@@ -592,7 +702,11 @@ impl State {
     /// Where the next new window goes: down and right of the last, in the
     /// area the bar leaves free.
     pub fn cascade(&mut self) -> Point<i32, Logical> {
-        let zone = layer_map_for_output(&self.output).non_exclusive_zone();
+        let output = self.pointer_output();
+        let mut zone = layer_map_for_output(output).non_exclusive_zone();
+        if let Some(geo) = self.space.output_geometry(output) {
+            zone.loc += geo.loc;
+        }
         let step = CASCADE_START + CASCADE_STEP * (self.placed % 8);
         self.placed += 1;
         (zone.loc.x + step, zone.loc.y + step).into()
@@ -758,7 +872,9 @@ impl State {
             return;
         };
         let (Some(output_geo), Some(window_geo)) = (
-            self.space.output_geometry(&self.output),
+            self.space
+                .element_geometry(&window)
+                .and_then(|g| self.space.output_geometry(self.output_under(g.loc.to_f64()))),
             self.space.element_geometry(&window),
         ) else {
             return;
@@ -840,11 +956,17 @@ impl CompositorHandler for State {
 
         // Layer surfaces: arrange, which may resize them, then send the
         // first configure.
-        let mut map = layer_map_for_output(&self.output);
-        if map
-            .layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
-            .is_some()
-        {
+        let layer_output = self
+            .outputs
+            .iter()
+            .find(|o| {
+                layer_map_for_output(o)
+                    .layer_for_surface(surface, WindowSurfaceType::TOPLEVEL)
+                    .is_some()
+            })
+            .cloned();
+        if let Some(output) = layer_output {
+            let mut map = layer_map_for_output(&output);
             let sent = with_states(surface, |states| {
                 states
                     .data_map
@@ -909,7 +1031,11 @@ impl XdgShellHandler for State {
             self.fullscreen(&window);
         } else {
             // Not shown yet: it opens covering the screen.
-            let size = self.screen().size;
+            let size = self
+                .space
+                .output_geometry(self.pointer_output())
+                .unwrap_or_else(|| self.screen())
+                .size;
             surface.with_pending_state(|s| {
                 s.states
                     .set(smithay::reexports::wayland_protocols::xdg::shell::server::xdg_toplevel::State::Fullscreen);
@@ -1011,27 +1137,37 @@ impl WlrLayerShellHandler for State {
     fn new_layer_surface(
         &mut self,
         surface: WlrLayerSurface,
-        _: Option<wl_output::WlOutput>,
+        wanted: Option<wl_output::WlOutput>,
         _: Layer,
         namespace: String,
     ) {
-        // There is one output, so every layer surface goes on it.
-        let mut map = layer_map_for_output(&self.output);
+        // The output it asked for (the bar and wallpaper ask for each), else
+        // the one the pointer is on.
+        let output = wanted
+            .as_ref()
+            .and_then(Output::from_resource)
+            .unwrap_or_else(|| self.pointer_output().clone());
+        let mut map = layer_map_for_output(&output);
         if let Err(e) = map.map_layer(&LayerSurface::new(surface, namespace)) {
             eprintln!("patina-compositor: layer surface refused: {e}");
         }
+        drop(map);
+        // Its monitor's scale, which may not be the primary's.
+        self.update_preferred_scale();
     }
 
     fn layer_destroyed(&mut self, surface: WlrLayerSurface) {
-        let mut map = layer_map_for_output(&self.output);
-        let layer = map
-            .layers()
-            .find(|l| l.layer_surface() == &surface)
-            .cloned();
-        if let Some(layer) = &layer {
-            map.unmap_layer(layer);
+        for output in &self.outputs {
+            let mut map = layer_map_for_output(output);
+            let layer = map
+                .layers()
+                .find(|l| l.layer_surface() == &surface)
+                .cloned();
+            if let Some(layer) = &layer {
+                map.unmap_layer(layer);
+                break;
+            }
         }
-        drop(map);
         self.relayout_maximized();
         // Its client may be gone already, taking the focus with it, so
         // also refocus when the keyboard is on nothing or a dead surface.

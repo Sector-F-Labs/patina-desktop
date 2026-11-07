@@ -16,6 +16,7 @@ use smithay::{
 };
 
 use crate::state::State;
+use crate::layout::View;
 
 /// Premultiplied: black over what isn't taken, and the selection's edge.
 const DIM: [f32; 4] = [0.0, 0.0, 0.0, 0.35];
@@ -150,11 +151,8 @@ impl State {
     }
 
     /// The dim and the edge for this frame, while selecting.
-    pub fn selection_elements(&mut self) -> Vec<SolidColorRenderElement> {
-        let Some(screen) = self.space.output_geometry(&self.output) else {
-            return Vec::new();
-        };
-        let scale = self.output.current_scale().fractional_scale();
+    pub fn selection_elements(&mut self, view: View) -> Vec<SolidColorRenderElement> {
+        let (screen, scale) = (view.area, view.scale);
         let Some(selecting) = self.shots.selecting.as_mut() else {
             return Vec::new();
         };

@@ -160,11 +160,12 @@ pub fn render(state: &mut State) {
     state.needs_redraw = false;
     // A screenshot's flash, where a drop would tile (ADR-0049), and a
     // selection being made (ADR-0091).
+    let view = state.primary_view();
     let flash: Vec<_> = state
-        .flash_element()
+        .flash_element(view)
         .into_iter()
-        .chain(state.preview_element())
-        .chain(state.selection_elements())
+        .chain(state.preview_element(view))
+        .chain(state.selection_elements(view))
         .collect();
     let dnd_icon = state.dnd_icon_at();
     let fullscreen = state.fullscreen_drawn();

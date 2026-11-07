@@ -22,7 +22,8 @@ use smithay::{
     utils::{Logical, Point, Rectangle},
 };
 
-use crate::maximize::{Placement, Snap, placement};
+use crate::maximize::{Placement, Snap, inset, placement};
+use crate::layout::View;
 use crate::state::State;
 use dbus::{Event, Rect, Request, WindowRow};
 
@@ -101,12 +102,12 @@ impl State {
     }
 
     /// The preview for this frame, while a drop would tile.
-    pub fn preview_element(&self) -> Option<SolidColorRenderElement> {
+    pub fn preview_element(&self, view: View) -> Option<SolidColorRenderElement> {
         let (area, buffer) = self.tiling.preview.as_ref()?;
-        let scale = self.output.current_scale().fractional_scale();
+        let scale = view.scale;
         Some(SolidColorRenderElement::from_buffer(
             buffer,
-            area.loc.to_physical_precise_round(scale),
+            (area.loc - view.area.loc).to_physical_precise_round(scale),
             scale,
             1.0,
             Kind::Unspecified,
@@ -128,6 +129,11 @@ impl State {
 
     /// The pointer moved to `pointer`, dragging `window`.
     pub fn drag_moved(&mut self, window: &Window, pointer: Point<f64, Logical>) {
+        // The tiler works on the monitor the pointer is on. `pointer` is
+        // passed in: this runs inside the pointer's grab, which holds its
+        // lock, so the location can't be read from the handle here.
+        let area = self.work_area_on(&self.output_under(pointer).clone());
+        self.announce_work_area(inset(area, self.config.gap()));
         self.tiling
             .emit(Event::DragMotion(id(window), pointer.x, pointer.y));
     }
@@ -138,6 +144,8 @@ impl State {
         self.tiling
             .emit(Event::DragEnded(id(window), pointer.x, pointer.y));
         self.show_preview(None);
+        // It may have come to rest on a monitor with another scale.
+        self.update_preferred_scale();
     }
 
     /// Tells tilers tiled `window` is now at `rect`, after the line beside
@@ -145,6 +153,48 @@ impl State {
     pub fn window_resized(&mut self, window: &Window, rect: Rectangle<i32, Logical>) {
         self.tiling
             .emit(Event::Resized(id(window), self::rect(rect)));
+    }
+
+    /// The screen a tiler draws its drop zones on: the pointer's monitor,
+    /// pushed out past the edges another monitor touches, so the pointer
+    /// can pass to it without tiling at the seam.
+    pub fn tiler_screen(&self) -> Rectangle<i32, Logical> {
+        const EDGE: i32 = 8;
+        let mut screen = self
+            .space
+            .output_geometry(self.pointer_output())
+            .unwrap_or_else(|| self.screen());
+        let others: Vec<_> = self
+            .outputs
+            .iter()
+            .filter_map(|o| self.space.output_geometry(o))
+            .filter(|g| *g != screen)
+            .collect();
+        let touches = |a: i32, b: i32, c: i32, d: i32| a < d && c < b;
+        let (l, t, r, b) = (
+            screen.loc.x,
+            screen.loc.y,
+            screen.loc.x + screen.size.w,
+            screen.loc.y + screen.size.h,
+        );
+        let (mut dl, mut dt, mut dr) = (0, 0, 0);
+        for g in &others {
+            let (gl, gt, gr, gb) = (g.loc.x, g.loc.y, g.loc.x + g.size.w, g.loc.y + g.size.h);
+            if gr == l && touches(t, b, gt, gb) {
+                dl = EDGE;
+            }
+            if gl == r && touches(t, b, gt, gb) {
+                dr = EDGE;
+            }
+            if gb == t && touches(l, r, gl, gr) {
+                dt = EDGE;
+            }
+        }
+        screen.loc.x -= dl;
+        screen.loc.y -= dt;
+        screen.size.w += dl + dr;
+        screen.size.h += dt;
+        screen
     }
 
     /// Tells tilers the work area changed, if it did.
@@ -263,7 +313,7 @@ impl State {
                 let _ = reply.send(self.config.gap());
             }
             Request::Screen(reply) => {
-                let _ = reply.send(rect(self.screen()));
+                let _ = reply.send(rect(self.tiler_screen()));
             }
             Request::Place { id, area, reply } => {
                 let result = match self.window_by_id(id) {
@@ -276,12 +326,16 @@ impl State {
                     )),
                     Some(window) => {
                         let area = rectangle(area);
-                        let placement = if area == self.tiling_area() {
+                        // The monitor the area is on.
+                        let centre = area.loc.to_f64() + area.size.to_f64().downscale(2.0).to_point();
+                        let on = self.output_under(centre).clone();
+                        let work = self.work_area_on(&on);
+                        let placement = if area == inset(work, self.config.gap()) {
                             Placement::Fill
                         } else {
                             Placement::Rect(area)
                         };
-                        self.place_as(&window, placement);
+                        self.place_as_on(&window, placement, centre);
                         Ok(())
                     }
                 };

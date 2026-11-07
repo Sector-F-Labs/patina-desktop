@@ -2,8 +2,10 @@
 //! the GPU through DRM/KMS and GBM, rendered with GLES, input through
 //! libinput, and devices from the login session through libseat (ADR-0016).
 //!
-//! One GPU and one monitor for now: the internal panel if there is one,
-//! otherwise the first connected monitor.
+//! One GPU, and every monitor connected to it at start-up (ADR-0121): the
+//! internal panel first, if there is one, is the primary. Each monitor is a
+//! [`Head`] with its own DRM compositor; the desktop is drawn on each,
+//! offset by where its output sits in the space.
 
 use std::time::Duration;
 
@@ -80,7 +82,8 @@ pub struct UdevData {
     libinput: Libinput,
     drm: DrmDevice,
     pub(crate) renderer: GlesRenderer,
-    compositor: Compositor,
+    /// The monitors, the primary first.
+    heads: Vec<Head>,
     pub(crate) dmabuf_state: DmabufState,
     /// linux-drm-syncobj, where the device supports it (`sync.rs`).
     pub(crate) syncobj_state: Option<DrmSyncobjState>,
@@ -91,14 +94,23 @@ pub struct UdevData {
     loop_handle: LoopHandle<'static, State>,
     /// The session has the devices (we're the active console).
     active: bool,
+    /// The monitors are powered off for want of input (ADR-0047); nothing
+    /// is drawn until they're on again.
+    off: bool,
+}
+
+/// One monitor being driven.
+struct Head {
+    output: Output,
+    crtc: crtc::Handle,
+    compositor: Compositor,
     /// A frame is queued, or held back, and the next must wait.
     frame_pending: bool,
+    /// Something changed since this monitor was last drawn.
+    dirty: bool,
     /// The monitor's gamma ramp, for Night Light (ADR-0039); `None` when
     /// its CRTC has none.
     gamma: Option<Gamma>,
-    /// The monitor is powered off for want of input (ADR-0047); nothing is
-    /// drawn until it's on again.
-    off: bool,
 }
 
 /// A CRTC's gamma ramp: as it was when we came, and the temperature it's
@@ -185,30 +197,72 @@ pub fn init(
     // SAFETY: the context is current only on this thread.
     let renderer = unsafe { GlesRenderer::new(context) }.map_err(|e| format!("gles: {e}"))?;
 
-    let monitor = choose_monitor(&drm).ok_or("no monitor is connected")?;
-    let gamma = Gamma::read(&drm, monitor.crtc);
-    let (output, auto_scale) = make_output(&monitor, config);
-    let surface = drm
-        .create_surface(monitor.crtc, monitor.mode, &[monitor.connector.handle()])
-        .map_err(|e| format!("can't drive {}: {e}", output.name()))?;
+    let monitors = choose_monitors(&drm);
+    if monitors.is_empty() {
+        return Err("no monitor is connected".into());
+    }
     let render_node = DrmNode::from_path(&path)
         .ok()
         .and_then(|n| n.node_with_type(NodeType::Render).and_then(Result::ok));
-    let compositor = Compositor::new(
-        &output,
-        surface,
-        None,
-        GbmAllocator::new(
-            gbm.clone(),
-            GbmBufferFlags::RENDERING | GbmBufferFlags::SCANOUT,
-        ),
-        GbmFramebufferExporter::new(gbm.clone(), render_node),
-        COLOR_FORMATS,
-        renderer.egl_context().dmabuf_render_formats().clone(),
-        drm.cursor_size(),
-        Some(gbm.clone()),
-    )
-    .map_err(|e| format!("can't drive {}: {e:?}", output.name()))?;
+    let mut heads = Vec::new();
+    let mut auto_scale = 1.0;
+    for (i, monitor) in monitors.iter().enumerate() {
+        let gamma = Gamma::read(&drm, monitor.crtc);
+        let (output, automatic) = make_output(monitor, config, i == 0);
+        let surface = match drm.create_surface(
+            monitor.crtc,
+            monitor.mode,
+            &[monitor.connector.handle()],
+        ) {
+            Ok(surface) => surface,
+            Err(e) if i > 0 => {
+                eprintln!("patina-compositor: can't drive {}: {e}", output.name());
+                continue;
+            }
+            Err(e) => return Err(format!("can't drive {}: {e}", output.name())),
+        };
+        let compositor = Compositor::new(
+            &output,
+            surface,
+            None,
+            GbmAllocator::new(
+                gbm.clone(),
+                GbmBufferFlags::RENDERING | GbmBufferFlags::SCANOUT,
+            ),
+            GbmFramebufferExporter::new(gbm.clone(), render_node),
+            COLOR_FORMATS,
+            renderer.egl_context().dmabuf_render_formats().clone(),
+            drm.cursor_size(),
+            Some(gbm.clone()),
+        );
+        let compositor = match compositor {
+            Ok(c) => c,
+            Err(e) if i > 0 => {
+                eprintln!("patina-compositor: can't drive {}: {e:?}", output.name());
+                continue;
+            }
+            Err(e) => return Err(format!("can't drive {}: {e:?}", output.name())),
+        };
+        if i == 0 {
+            auto_scale = automatic;
+        }
+        eprintln!(
+            "patina-compositor: on {} at {}x{}, scale {}",
+            output.name(),
+            monitor.mode.size().0,
+            monitor.mode.size().1,
+            output.current_scale().fractional_scale()
+        );
+        heads.push(Head {
+            output,
+            crtc: monitor.crtc,
+            compositor,
+            frame_pending: false,
+            dirty: true,
+            gamma,
+        });
+    }
+    let output = heads[0].output.clone();
 
     let formats = renderer.dmabuf_formats();
     let mut dmabuf_state = DmabufState::new();
@@ -243,18 +297,11 @@ pub fn init(
         .map_err(|e| e.to_string())?;
     handle
         .insert_source(drm_notifier, |event, _, state| match event {
-            DrmEvent::VBlank(_) => vblank(state),
+            DrmEvent::VBlank(crtc) => vblank(state, crtc),
             DrmEvent::Error(e) => eprintln!("patina-compositor: drm: {e}"),
         })
         .map_err(|e| e.to_string())?;
 
-    eprintln!(
-        "patina-compositor: on {} at {}x{}, scale {}",
-        output.name(),
-        monitor.mode.size().0,
-        monitor.mode.size().1,
-        output.current_scale().fractional_scale()
-    );
     let cursors = crate::cursor::Cursors::new(
         &config.cursor.theme,
         config.cursor.size,
@@ -266,7 +313,7 @@ pub fn init(
             libinput,
             drm,
             renderer,
-            compositor,
+            heads,
             dmabuf_state,
             syncobj_state,
             _dmabuf_global: dmabuf_global,
@@ -274,8 +321,6 @@ pub fn init(
             touchpads: Vec::new(),
             loop_handle: handle,
             active: true,
-            frame_pending: false,
-            gamma,
             off: false,
         },
         output,
@@ -291,50 +336,61 @@ impl UdevData {
         }
     }
 
-    /// Whether Night Light can warm this monitor.
+    /// Whether Night Light can warm a monitor.
     pub fn has_gamma(&self) -> bool {
-        self.gamma.is_some()
+        self.heads.iter().any(|h| h.gamma.is_some())
     }
 
-    /// Warms the monitor to `kelvin` (6500 for neutral), now if the session
+    /// The outputs of the monitors after the primary.
+    pub fn extra_outputs(&self) -> Vec<Output> {
+        self.heads.iter().skip(1).map(|h| h.output.clone()).collect()
+    }
+
+    /// Warms the monitors to `kelvin` (6500 for neutral), now if the session
     /// has the GPU, otherwise when it comes back.
     pub fn set_temperature(&mut self, kelvin: f64) {
-        let Some(gamma) = self.gamma.as_mut() else {
-            return;
-        };
         let kelvin = kelvin.round() as u32;
-        if kelvin == gamma.shown {
-            return;
+        let mut changed = false;
+        for gamma in self.heads.iter_mut().filter_map(|h| h.gamma.as_mut()) {
+            if kelvin != gamma.shown {
+                gamma.shown = kelvin;
+                changed = true;
+            }
         }
-        gamma.shown = kelvin;
-        if self.active {
+        if changed && self.active {
             self.apply_gamma();
         }
     }
 
-    /// Sets the ramp for the temperature wanted.
+    /// Sets each ramp for the temperature wanted.
     fn apply_gamma(&mut self) {
-        let Some(gamma) = &self.gamma else { return };
-        if let Err(e) = gamma.set(&self.drm, gamma.shown) {
-            eprintln!("patina-compositor: can't set the gamma ramp: {e}");
+        for gamma in self.heads.iter().filter_map(|h| h.gamma.as_ref()) {
+            if let Err(e) = gamma.set(&self.drm, gamma.shown) {
+                eprintln!("patina-compositor: can't set the gamma ramp: {e}");
+            }
         }
     }
 
-    /// Powers the monitor off (DPMS): its planes are cleared, and nothing
+    /// Powers the monitors off (DPMS): their planes are cleared, and nothing
     /// is drawn until [`power_on`](Self::power_on).
     pub fn power_off(&mut self) {
         self.off = true;
-        if self.active
-            && let Err(e) = self.compositor.clear()
-        {
-            eprintln!("patina-compositor: can't turn the screen off: {e}");
+        if self.active {
+            for head in &mut self.heads {
+                if let Err(e) = head.compositor.clear() {
+                    eprintln!("patina-compositor: can't turn {} off: {e}", head.output.name());
+                }
+            }
         }
     }
 
-    /// Powers the monitor on again: the next frame lights it.
+    /// Powers the monitors on again: the next frame lights them.
     pub fn power_on(&mut self) {
         self.off = false;
-        self.frame_pending = false;
+        for head in &mut self.heads {
+            head.frame_pending = false;
+            head.dirty = true;
+        }
         // As after another console had it.
         if self.active {
             self.apply_gamma();
@@ -348,13 +404,15 @@ impl UdevData {
 }
 
 impl Drop for UdevData {
-    /// Leaves the ramp as we found it.
+    /// Leaves the ramps as we found them.
     fn drop(&mut self) {
-        if let Some(gamma) = &self.gamma
-            && self.active
-            && gamma.shown != crate::night_light::NEUTRAL
-        {
-            let _ = gamma.set(&self.drm, crate::night_light::NEUTRAL);
+        if !self.active {
+            return;
+        }
+        for gamma in self.heads.iter().filter_map(|h| h.gamma.as_ref()) {
+            if gamma.shown != crate::night_light::NEUTRAL {
+                let _ = gamma.set(&self.drm, crate::night_light::NEUTRAL);
+            }
         }
     }
 }
@@ -368,10 +426,12 @@ fn configure_touchpad(
     let _ = device.config_accel_set_speed(settings.speed);
 }
 
-/// The internal panel if it's connected (a laptop), otherwise the first
-/// connected monitor; its preferred mode, and a CRTC that can drive it.
-fn choose_monitor(drm: &DrmDevice) -> Option<Monitor> {
-    let resources = drm.resource_handles().ok()?;
+/// Every connected monitor, the internal panel first (a laptop's), each with
+/// its preferred mode and a CRTC of its own that can drive it.
+fn choose_monitors(drm: &DrmDevice) -> Vec<Monitor> {
+    let Ok(resources) = drm.resource_handles() else {
+        return Vec::new();
+    };
     let mut connected: Vec<connector::Info> = resources
         .connectors()
         .iter()
@@ -379,27 +439,62 @@ fn choose_monitor(drm: &DrmDevice) -> Option<Monitor> {
         .filter(|c| c.state() == connector::State::Connected && !c.modes().is_empty())
         .collect();
     connected.sort_by_key(|c| !is_internal(c.interface()));
+    let mut taken: Vec<crtc::Handle> = Vec::new();
+    let mut monitors = Vec::new();
     for connector in connected {
         let crtc = connector
             .encoders()
             .iter()
             .filter_map(|e| drm.get_encoder(*e).ok())
             .flat_map(|e| resources.filter_crtcs(e.possible_crtcs()))
-            .next();
+            .find(|c| !taken.contains(c));
         let Some(crtc) = crtc else { continue };
-        let mode = connector
-            .modes()
-            .iter()
-            .find(|m| m.mode_type().contains(ModeTypeFlags::PREFERRED))
-            .copied()
-            .unwrap_or(connector.modes()[0]);
-        return Some(Monitor {
+        taken.push(crtc);
+        let mode = pick_mode(connector.modes(), connector.size());
+        monitors.push(Monitor {
             connector,
             crtc,
             mode,
         });
     }
-    None
+    monitors
+}
+
+/// The mode to run a monitor in: among those whose shape matches the
+/// panel's (its size in millimetres), the one it prefers, else the largest;
+/// a monitor that takes modes of another shape (a 21:9 panel that accepts
+/// 4K) squashes them, and often prefers one. Without a size, or if none
+/// match, the preferred mode, else the first.
+fn pick_mode(
+    modes: &[smithay::reexports::drm::control::Mode],
+    size_mm: Option<(u32, u32)>,
+) -> smithay::reexports::drm::control::Mode {
+    let preferred = |m: &&smithay::reexports::drm::control::Mode| {
+        m.mode_type().contains(ModeTypeFlags::PREFERRED)
+    };
+    let fits = |m: &&smithay::reexports::drm::control::Mode| {
+        let (w, h) = m.size();
+        match size_mm {
+            Some((mw, mh)) if mw > 0 && mh > 0 && h > 0 => {
+                let shape = w as f64 / h as f64;
+                let panel = mw as f64 / mh as f64;
+                (shape / panel - 1.0).abs() < 0.06
+            }
+            _ => true,
+        }
+    };
+    let size = |m: &&smithay::reexports::drm::control::Mode| {
+        let (w, h) = m.size();
+        (w as u32 * h as u32, m.vrefresh())
+    };
+    modes
+        .iter()
+        .filter(fits)
+        .find(preferred)
+        .or_else(|| modes.iter().filter(fits).max_by_key(size))
+        .or_else(|| modes.iter().find(preferred))
+        .unwrap_or(&modes[0])
+        .to_owned()
 }
 
 fn is_internal(interface: connector::Interface) -> bool {
@@ -414,7 +509,9 @@ fn is_internal(interface: connector::Interface) -> bool {
 /// The output for `monitor`, named as the kernel names connectors (eDP-1,
 /// DP-3), at its mode and scale, and the scale its density alone would
 /// give.
-fn make_output(monitor: &Monitor, config: &crate::config::Config) -> (Output, f64) {
+///
+/// `[screen] scale` is the primary's; another monitor goes by its density.
+fn make_output(monitor: &Monitor, config: &crate::config::Config, primary: bool) -> (Output, f64) {
     let c = &monitor.connector;
     let name = format!("{}-{}", c.interface().as_str(), c.interface_id());
     let (mm_w, mm_h) = c.size().unwrap_or((0, 0));
@@ -430,7 +527,11 @@ fn make_output(monitor: &Monitor, config: &crate::config::Config) -> (Output, f6
     let (w, h) = monitor.mode.size();
     let mode = Mode::from(monitor.mode);
     let automatic = default_scale(w as u32, h as u32, mm_w);
-    let scale = crate::config::scale(config, automatic);
+    let scale = if primary {
+        crate::config::scale(config, automatic)
+    } else {
+        automatic
+    };
     output.change_current_state(
         Some(mode),
         Some(Transform::Normal),
@@ -533,11 +634,14 @@ fn session_event(state: &mut State, event: SessionEvent) {
             if let Err(e) = u.drm.activate(false) {
                 eprintln!("patina-compositor: drm didn't resume: {e}");
             }
-            if let Err(e) = u.compositor.reset_state() {
-                eprintln!("patina-compositor: {e}");
+            for head in &mut u.heads {
+                if let Err(e) = head.compositor.reset_state() {
+                    eprintln!("patina-compositor: {e}");
+                }
+                head.frame_pending = false;
+                head.dirty = true;
             }
             u.active = true;
-            u.frame_pending = false;
             // Gamma doesn't survive another session having the GPU.
             u.apply_gamma();
             state.needs_redraw = true;
@@ -548,27 +652,36 @@ fn session_event(state: &mut State, event: SessionEvent) {
     }
 }
 
-fn vblank(state: &mut State) {
+fn vblank(state: &mut State, crtc: crtc::Handle) {
     let Some(u) = state.udev.as_mut() else { return };
-    if let Err(e) = u.compositor.frame_submitted() {
+    let Some(head) = u.heads.iter_mut().find(|h| h.crtc == crtc) else {
+        return;
+    };
+    if let Err(e) = head.compositor.frame_submitted() {
         eprintln!("patina-compositor: {e:?}");
     }
-    u.frame_pending = false;
+    head.frame_pending = false;
 }
 
-/// Draws a frame if something changed and the monitor is ready for one.
+/// Draws the monitors that changed and are ready for a frame.
 pub fn schedule(state: &mut State) {
-    if state.udev.as_ref().is_some_and(|u| u.off) {
+    let Some(u) = state.udev.as_mut() else { return };
+    if u.off {
         // Nothing's shown, so a lock is as good as on screen, and sleep
         // needn't wait for it.
         state.lock_drawn();
         return;
     }
-    let ready = state
-        .udev
-        .as_ref()
-        .is_some_and(|u| u.active && !u.frame_pending);
-    if ready && state.needs_redraw {
+    if !u.active {
+        return;
+    }
+    if state.needs_redraw {
+        state.needs_redraw = false;
+        for head in &mut u.heads {
+            head.dirty = true;
+        }
+    }
+    if u.heads.iter().any(|h| h.dirty && !h.frame_pending) {
         render(state);
     }
 }
@@ -576,22 +689,19 @@ pub fn schedule(state: &mut State) {
 fn render(state: &mut State) {
     let locked = state.locked();
     let lock_surface = state.lock_surface().cloned();
-    state.needs_redraw = false;
-    // A screenshot's flash, where a drop would tile (ADR-0049), and a
-    // selection being made (ADR-0091).
-    let flash: Vec<_> = state
-        .flash_element()
-        .into_iter()
-        .chain(state.preview_element())
-        .chain(state.selection_elements())
-        .collect();
     let dnd_icon = state.dnd_icon_at();
     let fullscreen = state.fullscreen_drawn();
     state.paint_frames();
-    let Some(u) = state.udev.as_mut() else { return };
-    let scale = state.output.current_scale().fractional_scale();
-
-    let mut elements: Vec<OutputElement> = Vec::new();
+    let ready: Vec<(usize, Output)> = match state.udev.as_ref() {
+        Some(u) => u
+            .heads
+            .iter()
+            .enumerate()
+            .filter(|(_, h)| h.dirty && !h.frame_pending)
+            .map(|(i, h)| (i, h.output.clone()))
+            .collect(),
+        None => return,
+    };
     let pointer = state
         .seat
         .get_pointer()
@@ -602,52 +712,78 @@ fn render(state: &mut State) {
         Some(icon) => CursorImageStatus::Named(icon),
         None => state.cursor.clone(),
     };
-    elements.extend(crate::cursor::elements(
-        &mut u.renderer,
-        &mut u.cursors,
-        &shown,
-        pointer,
-        scale,
-    ));
-    elements.extend(
-        crate::dnd::elements(&mut u.renderer, dnd_icon.as_ref(), scale)
-            .into_iter()
-            .map(OutputElement::Surface),
-    );
-    elements.extend(flash.into_iter().map(OutputElement::Flash));
-    if locked {
-        // Only the locker, over black.
-        elements.extend(
-            crate::lock::elements(&mut u.renderer, lock_surface.as_ref(), scale)
-                .into_iter()
-                .map(OutputElement::Surface),
-        );
-    } else {
-        // A fullscreen window over the bar.
-        elements.extend(
-            crate::fullscreen::elements(&mut u.renderer, fullscreen.as_ref(), scale)
-                .into_iter()
-                .map(OutputElement::Surface),
-        );
-        elements.extend(
-            crate::frames::desktop_elements(
-                &mut u.renderer,
-                &state.space,
-                &state.output,
-                state.fullscreen.as_ref(),
-                false,
-            )
-            .into_iter()
-            .map(OutputElement::Desktop),
-        );
-    }
+    let time = state.start.elapsed();
 
-    let queued =
-        match u
-            .compositor
-            .render_frame(&mut u.renderer, &elements, BACKGROUND, FrameFlags::DEFAULT)
-        {
-            Ok(frame) if !frame.is_empty => match u.compositor.queue_frame(()) {
+    for (index, output) in ready {
+        let view = state.view_of(&output);
+        let (origin, scale) = (view.area.loc, view.scale);
+        // A screenshot's flash, where a drop would tile (ADR-0049), and a
+        // selection being made (ADR-0091).
+        let flash: Vec<_> = state
+            .flash_element(view)
+            .into_iter()
+            .chain(state.preview_element(view))
+            .chain(state.selection_elements(view))
+            .collect();
+        let Some(u) = state.udev.as_mut() else { return };
+
+        let mut elements: Vec<OutputElement> = Vec::new();
+        elements.extend(crate::cursor::elements(
+            &mut u.renderer,
+            &mut u.cursors,
+            &shown,
+            pointer - origin.to_f64(),
+            scale,
+        ));
+        let dnd_here = dnd_icon.as_ref().map(|(s, at)| (s.clone(), *at - origin.to_f64()));
+        elements.extend(
+            crate::dnd::elements(&mut u.renderer, dnd_here.as_ref(), scale)
+                .into_iter()
+                .map(OutputElement::Surface),
+        );
+        elements.extend(flash.into_iter().map(OutputElement::Flash));
+        if locked {
+            // Only the locker, over black, on the primary: the locker is
+            // sized to it, and the others stay black.
+            if index == 0 {
+                elements.extend(
+                    crate::lock::elements(&mut u.renderer, lock_surface.as_ref(), scale)
+                        .into_iter()
+                        .map(OutputElement::Surface),
+                );
+            }
+        } else {
+            // A fullscreen window over the bar, on the monitor it covers.
+            let fullscreen_here = fullscreen
+                .as_ref()
+                .filter(|(_, at)| view.area.contains(*at))
+                .map(|(w, at)| (w.clone(), *at - origin));
+            elements.extend(
+                crate::fullscreen::elements(&mut u.renderer, fullscreen_here.as_ref(), scale)
+                    .into_iter()
+                    .map(OutputElement::Surface),
+            );
+            elements.extend(
+                crate::frames::desktop_elements(
+                    &mut u.renderer,
+                    &state.space,
+                    &output,
+                    state.fullscreen.as_ref(),
+                    false,
+                )
+                .into_iter()
+                .map(OutputElement::Desktop),
+            );
+        }
+
+        let head = &mut u.heads[index];
+        let queued = match head.compositor.render_frame(
+            &mut u.renderer,
+            &elements,
+            BACKGROUND,
+            FrameFlags::DEFAULT,
+        ) {
+            Ok(frame) if !frame.is_empty => match head.compositor.queue_frame(()) {
                 Ok(()) => true,
                 Err(e) => {
                     eprintln!("patina-compositor: {e:?}");
@@ -660,38 +796,51 @@ fn render(state: &mut State) {
                 false
             }
         };
-    u.frame_pending = true;
-    if !queued {
-        // No vblank is coming; hold the next frame back a little instead.
-        let _ = u
-            .loop_handle
-            .insert_source(Timer::from_duration(IDLE_FRAME), |_, _, state| {
-                if let Some(u) = state.udev.as_mut() {
-                    u.frame_pending = false;
-                }
-                TimeoutAction::Drop
-            });
-    }
+        head.frame_pending = true;
+        head.dirty = false;
+        if !queued {
+            // No vblank is coming; hold the next frame back a little instead.
+            let crtc = head.crtc;
+            let _ = u
+                .loop_handle
+                .insert_source(Timer::from_duration(IDLE_FRAME), move |_, _, state| {
+                    if let Some(h) = state
+                        .udev
+                        .as_mut()
+                        .and_then(|u| u.heads.iter_mut().find(|h| h.crtc == crtc))
+                    {
+                        h.frame_pending = false;
+                    }
+                    TimeoutAction::Drop
+                });
+        }
 
-    let time = state.start.elapsed();
-    let output = state.output.clone();
-    for window in state.space.elements() {
-        window.send_frame(&output, time, Some(Duration::ZERO), |_, _| {
-            Some(output.clone())
-        });
+        for window in state.space.elements() {
+            let on_it = state
+                .space
+                .element_bbox(window)
+                .is_some_and(|b| b.overlaps(view.area));
+            if on_it {
+                window.send_frame(&output, time, Some(Duration::ZERO), |_, _| {
+                    Some(output.clone())
+                });
+            }
+        }
+        for layer in layer_map_for_output(&output).layers() {
+            layer.send_frame(&output, time, Some(Duration::ZERO), |_, _| {
+                Some(output.clone())
+            });
+        }
+        if index == 0 {
+            if let CursorImageStatus::Surface(surface) = &state.cursor {
+                send_frames_surface_tree(surface, &output, time, Some(Duration::ZERO), |_, _| {
+                    Some(output.clone())
+                });
+            }
+            crate::lock::send_frames(lock_surface.as_ref(), &output, time);
+            crate::dnd::send_frames(dnd_icon.as_ref(), &output, time);
+        }
     }
-    for layer in layer_map_for_output(&output).layers() {
-        layer.send_frame(&output, time, Some(Duration::ZERO), |_, _| {
-            Some(output.clone())
-        });
-    }
-    if let CursorImageStatus::Surface(surface) = &state.cursor {
-        send_frames_surface_tree(surface, &output, time, Some(Duration::ZERO), |_, _| {
-            Some(output.clone())
-        });
-    }
-    crate::lock::send_frames(lock_surface.as_ref(), &output, time);
-    crate::dnd::send_frames(dnd_icon.as_ref(), &output, time);
     state.lock_drawn();
     state.space.refresh();
     state.popups.cleanup();
