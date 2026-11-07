@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 800" width="960" height="800" role="img" aria-labelledby="t d">
+<title id="t">Plugging in a monitor, choosing Extend and placing it</title><desc id="d">The monitor is plugged in and left idle. A moment later the compositor starts patina-displays, which asks for the list. Choosing Extend sends SetMode, and the compositor drives the monitor. Because it was never placed, the popup opens Settings' Displays page, where dragging the monitor sends SetPlace and the compositor saves it in displays.toml and answers Changed. Next time the same monitor, on any port, is known.</desc>
+<style>:root{--bg:#fdf6e3;--group:#f4f0d9;--gstroke:#e0dcc7;--box:#fffbef;--bstroke:#a6b0a0;--text:#5c6a72;--muted:#708089;--blue:#3a94c5;--green:#8da101;--purple:#df69ba;--tblue:#2d7fa8;--tgreen:#677800;--tpurple:#b54f93;--busfill:#f3ecc2;--busstroke:#dfa000;--red:#f85552;--line:#829181;--note:#e4efe9;}@media (prefers-color-scheme: dark){:root{--bg:#2d353b;--group:#343f44;--gstroke:#475258;--box:#2d353b;--bstroke:#7a8478;--text:#d3c6aa;--muted:#9da9a0;--blue:#7fbbb3;--green:#a7c080;--purple:#d699b6;--tblue:#7fbbb3;--tgreen:#a7c080;--tpurple:#d699b6;--busfill:#4d4c43;--busstroke:#dbbc7f;--red:#e67e80;--line:#859289;--note:#384b55;}}
+text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:12.5px;fill:var(--text)}
+.b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.mu{fill:var(--muted);font-size:12px}.s{font-size:11.5px}.e{text-anchor:end}.c{text-anchor:middle}
+.h{font-size:14px;font-weight:600}
+.bg{fill:var(--bg)}
+.grp{fill:var(--group);stroke:var(--gstroke);stroke-width:1.2}
+.box{fill:var(--box);stroke:var(--bstroke);stroke-width:1.2}
+.bl{stroke:var(--blue);stroke-width:1.6}.gr{stroke:var(--green);stroke-width:1.6}.pu{stroke:var(--purple);stroke-width:1.6}
+.tb{fill:var(--tblue)}.tg{fill:var(--tgreen)}.tp{fill:var(--tpurple)}
+.bus{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}
+.ln{stroke:var(--line);stroke-width:1.5;fill:none}
+.dash{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5;fill:none}
+.ah{fill:var(--line)}
+.note{fill:var(--note);stroke:var(--blue);stroke-width:1}
+.red{fill:var(--red)}.bar{fill:var(--purple)}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect class="bg" width="960" height="800" rx="10"/>
+<rect x="44" y="20" width="132" height="40" rx="8" class="box "/><text x="110" y="45" class="b c">You</text>
+<line x1="110" y1="60" x2="110" y2="780" class="dash"/>
+<rect x="284" y="20" width="132" height="40" rx="8" class="box bl"/><text x="350" y="45" class="b c">Compositor</text>
+<line x1="350" y1="60" x2="350" y2="780" class="dash"/>
+<rect x="524" y="20" width="132" height="40" rx="8" class="box gr"/><text x="590" y="45" class="b c">patina-displays</text>
+<line x1="590" y1="60" x2="590" y2="780" class="dash"/>
+<rect x="764" y="20" width="132" height="40" rx="8" class="box gr"/><text x="830" y="45" class="b c">Settings</text>
+<line x1="830" y1="60" x2="830" y2="780" class="dash"/>
+<line x1="110" y1="100" x2="349" y2="100" class="ln" marker-end="url(#a)"/>
+<text x="230" y="93" class="s c">plug the monitor in</text>
+<rect x="364" y="116" width="300" height="28" rx="6" class="note"/>
+<text x="514" y="134" class="s c">udev: a connector changed; rescan leaves it idle, off</text>
+<line x1="350" y1="190" x2="589" y2="190" class="ln" marker-end="url(#a)"/>
+<text x="470" y="183" class="s c">1.5 s later: starts it, on the primary</text>
+<line x1="590" y1="230" x2="351" y2="230" class="ln" marker-end="url(#a)"/>
+<text x="470" y="223" class="s c">List() &#8212; asked again for a few seconds</text>
+<rect x="570" y="246" width="300" height="28" rx="6" class="note"/>
+<text x="720" y="264" class="s c">the new monitor is listed with active = false</text>
+<line x1="110" y1="320" x2="589" y2="320" class="ln" marker-end="url(#a)"/>
+<text x="250" y="313" class="s c">choose Extend</text>
+<line x1="590" y1="360" x2="351" y2="360" class="ln" marker-end="url(#a)"/>
+<text x="470" y="353" class="s c">SetMode(extend)</text>
+<rect x="220" y="376" width="300" height="28" rx="6" class="note"/>
+<text x="370" y="394" class="s c">drives the monitor, lays them out, saves the mode</text>
+<line x1="590" y1="440" x2="829" y2="440" class="ln" marker-end="url(#a)"/>
+<text x="710" y="433" class="s c">never placed: opens the Displays page</text>
+<line x1="110" y1="490" x2="829" y2="490" class="ln" marker-end="url(#a)"/>
+<text x="330" y="483" class="s c">drag it above the laptop</text>
+<line x1="830" y1="530" x2="351" y2="530" class="ln" marker-end="url(#a)"/>
+<text x="650" y="523" class="s c">SetPlace(id, laptop, above, 0)</text>
+<rect x="170" y="546" width="360" height="28" rx="6" class="note"/>
+<text x="350" y="564" class="s c">saved in displays.toml; windows move with their monitor</text>
+<line x1="350" y1="620" x2="829" y2="620" class="ln" marker-end="url(#a)"/>
+<text x="630" y="613" class="s c">Changed()</text>
+<rect x="710" y="636" width="240" height="28" rx="6" class="note"/>
+<text x="830" y="654" class="s c">the canvas redraws</text>
+<line x1="110" y1="700" x2="349" y2="700" class="ln" marker-end="url(#a)"/>
+<text x="230" y="693" class="s c">next time: the same monitor, on any port</text>
+<rect x="364" y="716" width="300" height="28" rx="6" class="note"/>
+<text x="514" y="734" class="s c">known: placed where it was, once chosen for</text>
+
+</svg>

@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 810" width="960" height="810" role="img" aria-labelledby="t d">
+<title id="t">How several monitors are split between the compositor, the popup and Settings</title><desc id="d">The compositor keeps the monitors, who each is, the extend, mirror or off choice and where each sits, saved in displays.toml, and serves them on the session bus as com.sectorflabs.Patina.Displays. patina-displays and Settings' Displays page are clients of the bus. A monitor is known by its EDID's maker, model and serial, so it keeps its place on another port.</desc>
+<style>:root{--bg:#fdf6e3;--group:#f4f0d9;--gstroke:#e0dcc7;--box:#fffbef;--bstroke:#a6b0a0;--text:#5c6a72;--muted:#708089;--blue:#3a94c5;--green:#8da101;--purple:#df69ba;--tblue:#2d7fa8;--tgreen:#677800;--tpurple:#b54f93;--busfill:#f3ecc2;--busstroke:#dfa000;--red:#f85552;--line:#829181;--note:#e4efe9;}@media (prefers-color-scheme: dark){:root{--bg:#2d353b;--group:#343f44;--gstroke:#475258;--box:#2d353b;--bstroke:#7a8478;--text:#d3c6aa;--muted:#9da9a0;--blue:#7fbbb3;--green:#a7c080;--purple:#d699b6;--tblue:#7fbbb3;--tgreen:#a7c080;--tpurple:#d699b6;--busfill:#4d4c43;--busstroke:#dbbc7f;--red:#e67e80;--line:#859289;--note:#384b55;}}
+text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:12.5px;fill:var(--text)}
+.b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.mu{fill:var(--muted);font-size:12px}.s{font-size:11.5px}.e{text-anchor:end}.c{text-anchor:middle}
+.h{font-size:14px;font-weight:600}
+.bg{fill:var(--bg)}
+.grp{fill:var(--group);stroke:var(--gstroke);stroke-width:1.2}
+.box{fill:var(--box);stroke:var(--bstroke);stroke-width:1.2}
+.bl{stroke:var(--blue);stroke-width:1.6}.gr{stroke:var(--green);stroke-width:1.6}.pu{stroke:var(--purple);stroke-width:1.6}
+.tb{fill:var(--tblue)}.tg{fill:var(--tgreen)}.tp{fill:var(--tpurple)}
+.bus{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}
+.ln{stroke:var(--line);stroke-width:1.5;fill:none}
+.dash{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5;fill:none}
+.ah{fill:var(--line)}
+.note{fill:var(--note);stroke:var(--blue);stroke-width:1}
+.red{fill:var(--red)}.bar{fill:var(--purple)}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect class="bg" width="960" height="810" rx="10"/>
+<rect x="30" y="30" width="290" height="560" rx="12" class="grp"/>
+<text x="46" y="54" class="h tb">patina-compositor</text>
+<text x="46" y="72" class="s mu">keeps the monitors and the choice</text>
+<rect x="46" y="90" width="258" height="62" rx="8" class="box bl"/>
+<text x="175" y="114" class="b c">udev.rs</text>
+<text x="175" y="133" class="s c mu">a Head per driven monitor; the rest idle</text>
+<rect x="46" y="176" width="258" height="62" rx="8" class="box bl"/>
+<text x="175" y="200" class="b c">edid.rs</text>
+<text x="175" y="219" class="s c mu">maker, model, serial: who a monitor is</text>
+<rect x="46" y="262" width="258" height="62" rx="8" class="box bl"/>
+<text x="175" y="286" class="b c">displays.rs</text>
+<text x="175" y="305" class="s c mu">extend, mirror or off; the saved places</text>
+<rect x="46" y="348" width="258" height="62" rx="8" class="box bl"/>
+<text x="175" y="372" class="b c">layout.rs</text>
+<text x="175" y="391" class="s c mu">places to positions; the pointer's clamp</text>
+<rect x="46" y="434" width="258" height="62" rx="8" class="box bl"/>
+<text x="175" y="458" class="b c">displays/dbus.rs</text>
+<text x="175" y="477" class="s c mu">serves the bus</text>
+<line x1="175" y1="152" x2="175" y2="175" class="ln" marker-end="url(#a)"/>
+<line x1="175" y1="238" x2="175" y2="261" class="ln" marker-end="url(#a)"/>
+<line x1="175" y1="324" x2="175" y2="347" class="ln" marker-end="url(#a)"/>
+<rect x="46" y="520" width="258" height="56" rx="8" class="box"/>
+<text x="175" y="543" class="b c">displays.toml</text>
+<text x="175" y="562" class="s c mu">~/.config/patina-compositor/</text>
+<line x1="175" y1="324" x2="175" y2="347" class="ln" marker-end="url(#a)"/>
+<line x1="175" y1="410" x2="175" y2="433" class="ln" marker-end="url(#a)"/>
+<line x1="175" y1="496" x2="175" y2="519" class="dash"/>
+<rect x="350" y="30" width="260" height="560" rx="12" class="bus"/>
+<text x="480" y="54" class="h c">session D-Bus</text>
+<text x="480" y="72" class="s c mu">com.sectorflabs.Patina.Displays</text>
+<text x="480" y="106" class="b c">methods, in</text>
+<text x="480" y="132" class="m c">List · Mode</text>
+<text x="480" y="152" class="m c">SetMode(extend|mirror|off)</text>
+<text x="480" y="172" class="m c">SetPlace(id, to, side, offset)</text>
+<line x1="380" y1="196" x2="580" y2="196" class="dash"/>
+<text x="480" y="226" class="b c">signals, out</text>
+<text x="480" y="252" class="m c">Changed</text>
+<text x="480" y="272" class="m c">MonitorAdded(id, name, known)</text>
+<text x="480" y="330" class="s c mu">a monitor plugged in is listed</text>
+<text x="480" y="348" class="s c mu">with active = false: it stays off</text>
+<text x="480" y="366" class="s c mu">until SetMode extends or mirrors</text>
+<path d="M349,152 H332 V455 H305" class="ln" marker-end="url(#a)"/>
+<path d="M304,484 H322 V272 H349" class="ln" marker-end="url(#a)"/>
+<rect x="640" y="30" width="290" height="560" rx="12" class="grp"/>
+<text x="656" y="54" class="h tg">the clients</text>
+<text x="656" y="72" class="s mu">they ask and tell; they never draw a monitor</text>
+<rect x="656" y="90" width="258" height="82" rx="8" class="box gr"/>
+<text x="785" y="114" class="b c">patina-displays</text>
+<text x="785" y="133" class="s c mu">Ctrl+Super+P, and after a plug-in:</text>
+<text x="785" y="150" class="s c mu">Extend, Mirror, Do nothing</text>
+<rect x="656" y="196" width="258" height="82" rx="8" class="box gr"/>
+<text x="785" y="220" class="b c">Settings, Displays page</text>
+<text x="785" y="239" class="s c mu">the monitors to scale, dragged to a side;</text>
+<text x="785" y="256" class="s c mu">modes; monitors waiting</text>
+<rect x="656" y="302" width="258" height="62" rx="8" class="box gr"/>
+<text x="785" y="326" class="b c">display_layout.rs</text>
+<text x="785" y="345" class="s c mu">where a drag lands: pure, tested</text>
+<rect x="656" y="388" width="258" height="62" rx="8" class="box gr"/>
+<text x="785" y="412" class="b c">patina_system::displays</text>
+<text x="785" y="431" class="s c mu">the shared client of the bus</text>
+<line x1="785" y1="278" x2="785" y2="301" class="ln" marker-end="url(#a)"/>
+<line x1="785" y1="364" x2="785" y2="387" class="ln" marker-end="url(#a)"/>
+<path d="M656,419 H628 V152 H611" class="ln" marker-end="url(#a)"/>
+<path d="M611,262 H620 V237 H655" class="ln" marker-end="url(#a)"/>
+<text x="785" y="480" class="s c mu">extending onto a monitor never placed</text>
+<text x="785" y="498" class="s c mu">opens Settings at the Displays page</text>
+<rect x="30" y="620" width="900" height="170" rx="12" class="grp"/>
+<text x="46" y="644" class="h">Who a monitor is</text>
+<text x="914" y="644" class="mu e s">by what it says about itself, so a port change keeps its place</text>
+<rect x="56" y="680" width="250" height="70" rx="8" class="box bl"/>
+<text x="181" y="704" class="b c">its EDID</text>
+<text x="181" y="723" class="s c mu">maker · model · serial</text>
+<rect x="355" y="680" width="250" height="70" rx="8" class="bus"/>
+<text x="480" y="712" class="b c">GSM-772E-0005F79F</text>
+<text x="480" y="732" class="s c mu">its id, the same on DP-2 or DP-3</text>
+<rect x="654" y="680" width="250" height="70" rx="8" class="box gr"/>
+<text x="779" y="704" class="b c">known</text>
+<text x="779" y="723" class="s c mu">its id is in displays.toml</text>
+<line x1="306" y1="715" x2="354" y2="715" class="ln" marker-end="url(#a)"/>
+<line x1="606" y1="715" x2="653" y2="715" class="ln" marker-end="url(#a)"/>
+<text x="480" y="778" class="s c mu">no serial: the port is added, so two of one model are told apart</text>
+
+</svg>
