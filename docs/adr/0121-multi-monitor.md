@@ -4,7 +4,7 @@ Date: 2026-11-07
 
 ## Status
 
-Proposed. Extending works on the hardware backend for the monitors connected at start-up (tested on nifl with a 21:9 monitor); hotplug, mirror, the interface, the popup and Settings are not in.
+Proposed. Extending and hotplug work on the hardware backend (tested on nifl with a 21:9 monitor, unplugged and replugged); mirror, the interface, the popup and Settings are not in.
 
 ## Context
 
@@ -32,6 +32,11 @@ goes straight to Settings, to say where it sits (above, below, left or right of 
 - **The tiler follows the pointer's monitor.** The compositor announces that monitor's tiling
   area and a screen pushed out past the edges another monitor touches, so the seam never tiles.
   Maximise, fill, snap and fullscreen use the window's own monitor.
+- **Plug and unplug are udev connector changes.** The connectors are probed again, a monitor
+  that came is driven and appended after the others (so the primary stays), one that went is
+  dropped with its global and its layer surfaces closed. Windows on a removed monitor go to the
+  primary, kept inside its work area; those on a monitor that shifted go with it; a fullscreen
+  window on a removed monitor leaves fullscreen. The last monitor is never dropped.
 - **Placement is `layout::Place`**: a side of another monitor plus an offset along the edge,
   saved by monitor id (EDID make, model and serial, else the connector name) in the compositor's
   config. A monitor not in the file is *new*, and lands right of the one before it until placed.
