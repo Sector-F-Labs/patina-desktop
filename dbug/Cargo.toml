@@ -1,0 +1,17 @@
+[package]
+name = "patina-dbug"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "Dbug: a live viewer for the D-Bus messages on the session bus, a Patina app"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+eframe = "0.35"
+egui = "0.35"
+egui_extras = "0.35"
+patina-ui = { workspace = true }
+zbus = "5"
+serde = "1"
+futures-util = "0.3"
+async-io = "2"

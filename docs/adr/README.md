@@ -156,6 +156,7 @@ mechanics of adding one.
 | [0112](0112-windows-ask-for-their-shadow-through-the-kde-shadow-protocol.md) | Windows ask for their shadow through KDE's shadow protocol, and the compositor draws it | Accepted |
 | [0113](0113-the-huds-parts-ask-for-shadows.md) | The HUD's parts ask the compositor for shadows, and `shadows` in the HUD config turns them off | Accepted |
 | [0114](0114-the-compositor-keeps-the-clipboard-history.md) | The compositor keeps the clipboard history and serves it on the session bus; a tray icon opens an applet | Proposed |
+| [0115](0115-dbug-watches-the-bus-as-a-monitor.md) | Dbug watches the session bus as a monitor, and sends from a connection of its own | Proposed |
 
 ## Decision Relationship
 
