@@ -25,8 +25,7 @@ already writes it for gaps and shadows (ADR-0051, ADR-0112).
 ## Decision
 
 Built: the compositor side (the `[clipboard]` config, the history cleared when turned off,
-screenshots on the clipboard, the HUD icon hidden while it's off) and the Settings page. Not yet:
-expiry.
+screenshots on the clipboard, the HUD icon hidden while it's off) and the Settings page, with expiry.
 
 - **Every screenshot goes to the clipboard as well as to its file.** It is the whole desktop,
   the window or the selection, from Super+Shift+3, 4 or 5 and the Print key. There is no
@@ -40,15 +39,19 @@ expiry.
   key optional:
   - `enabled` (default true): keep a history.
   - `screenshots` (default true): put screenshots on the clipboard.
-  - `max_entries` (default 50, as now), and later `expire`.
+  - `max_entries` (default 50, as now).
+  - `expire_after` (default a week), in seconds: a copy is dropped that long after it was made
+    or last copied again; 0 keeps it until newer ones push it out. A copy that expires while the
+    compositor is serving it as the clipboard (after a pick, a put-back or a screenshot) is
+    cleared too, so it stops pasting. An app's own selection is left alone.
 - **Turning the history off clears it**, entries and thumbnails, instead of leaving them. Someone
   who turns it off is likely doing it for privacy. The compositor then says nothing is kept, and
   the bar's icon goes.
 - **The bus properties stay runtime switches.** `Paused` from the tray menu lasts for the
   session. A config change sets `Enabled` again when it is read.
 - **A Clipboard page in Settings**, written to that config: Keep a history, Copy screenshots to
-  the clipboard, and a Clear history button, which calls `Clear`. Entry count and expiry go on
-  the same page when they exist.
+  the clipboard, and a Clear history button, which calls `Clear`. Entry count and how long a copy is
+  kept are on the same page.
 
 ## Consequences
 

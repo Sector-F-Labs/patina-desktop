@@ -8,6 +8,30 @@ use egui::{DragValue, RichText, Ui};
 use crate::app::Message;
 use crate::compositor_config::{self as config, CLIPBOARD_ENTRIES, Clipboard};
 
+/// How long a copy is kept: what the page offers, in seconds; 0 is never.
+const KEEP: [(u64, &str); 6] = [
+    (0, "Until it's pushed out by newer ones"),
+    (3600, "1 hour"),
+    (6 * 3600, "6 hours"),
+    (24 * 3600, "1 day"),
+    (7 * 24 * 3600, "1 week"),
+    (30 * 24 * 3600, "1 month"),
+];
+
+/// What `seconds` is called: from `KEEP`, or in the biggest whole unit it is.
+fn keep_name(seconds: u64) -> String {
+    if let Some((_, name)) = KEEP.iter().find(|(s, _)| *s == seconds) {
+        return (*name).to_string();
+    }
+    let (n, unit) = match seconds {
+        s if s % 86400 == 0 => (s / 86400, "day"),
+        s if s % 3600 == 0 => (s / 3600, "hour"),
+        s if s % 60 == 0 => (s / 60, "minute"),
+        s => (s, "second"),
+    };
+    format!("{n} {unit}{}", if n == 1 { "" } else { "s" })
+}
+
 pub struct ClipboardPage {
     clipboard: Clipboard,
 }
@@ -48,6 +72,40 @@ impl ClipboardPage {
             });
         });
 
+        ui.add_enabled_ui(self.clipboard.enabled, |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Keep a copy for");
+                egui::ComboBox::from_id_salt("clipboard-expire")
+                    .selected_text(keep_name(self.clipboard.expire_after))
+                    .show_ui(ui, |ui| {
+                        // A value the file has that the list doesn't, kept as the first.
+                        let mut choices = KEEP.map(|(s, n)| (s, n.to_string())).to_vec();
+                        if !KEEP.iter().any(|(s, _)| *s == self.clipboard.expire_after) {
+                            choices.insert(
+                                0,
+                                (
+                                    self.clipboard.expire_after,
+                                    keep_name(self.clipboard.expire_after),
+                                ),
+                            );
+                        }
+                        for (seconds, name) in choices {
+                            changed |= ui
+                                .selectable_value(&mut self.clipboard.expire_after, seconds, name)
+                                .changed();
+                        }
+                    });
+            });
+        });
+        ui.label(
+            RichText::new(
+                "Older copies are dropped, so something that slipped past the password \
+                 check doesn't stay. One the desktop is holding as the clipboard stops pasting too; an app still holding its own isn't touched.",
+            )
+            .small()
+            .weak(),
+        );
+
         ui.add_space(12.0);
         changed |= ui
             .checkbox(
@@ -79,5 +137,20 @@ impl ClipboardPage {
         if changed && let Err(e) = config::write_clipboard(&self.clipboard) {
             *message = Some(Message::error(format!("Couldn't save the clipboard: {e}")));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn times_are_named_in_words() {
+        assert_eq!(keep_name(0), "Until it's pushed out by newer ones");
+        assert_eq!(keep_name(3600), "1 hour");
+        assert_eq!(keep_name(2 * 86400), "2 days");
+        assert_eq!(keep_name(5 * 3600), "5 hours");
+        assert_eq!(keep_name(90), "90 seconds");
+        assert_eq!(keep_name(120), "2 minutes");
     }
 }

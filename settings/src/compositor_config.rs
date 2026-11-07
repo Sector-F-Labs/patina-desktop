@@ -278,6 +278,8 @@ pub struct Clipboard {
     pub enabled: bool,
     pub screenshots: bool,
     pub max_entries: u32,
+    /// Seconds a copy is kept for; 0 for as long as there's room.
+    pub expire_after: u64,
 }
 
 /// The compositor's limits on `max_entries`.
@@ -289,6 +291,7 @@ impl Default for Clipboard {
             enabled: true,
             screenshots: true,
             max_entries: 50,
+            expire_after: 7 * 24 * 3600,
         }
     }
 }
@@ -314,6 +317,13 @@ pub fn parse_clipboard(text: &str) -> Clipboard {
     {
         clipboard.max_entries = n;
     }
+    if let Some(n) = table
+        .get("expire_after")
+        .and_then(|v| v.as_integer())
+        .and_then(|n| u64::try_from(n).ok())
+    {
+        clipboard.expire_after = n;
+    }
     clipboard
 }
 
@@ -328,6 +338,7 @@ pub fn with_clipboard(text: &str, clipboard: &Clipboard) -> Result<String, Strin
     table["enabled"] = value(clipboard.enabled);
     table["screenshots"] = value(clipboard.screenshots);
     table["max_entries"] = value(i64::from(clipboard.max_entries));
+    table["expire_after"] = value(i64::try_from(clipboard.expire_after).unwrap_or(i64::MAX));
     Ok(doc.to_string())
 }
 
@@ -582,6 +593,7 @@ mod tests {
             enabled: false,
             screenshots: true,
             max_entries: 20,
+            expire_after: 3600,
         };
         let text = with_clipboard(STARTER, &set).unwrap();
         assert!(text.contains("[clipboard]\nenabled = false"), "{text}");
@@ -592,7 +604,7 @@ mod tests {
         assert_eq!(parse_clipboard(&text), Clipboard::default());
         // What the compositor would refuse falls back to its defaults.
         assert_eq!(
-            parse_clipboard("[clipboard]\nmax_entries = 900\nenabled = 3\n"),
+            parse_clipboard("[clipboard]\nmax_entries = 900\nenabled = 3\nexpire_after = -5\n"),
             Clipboard::default()
         );
     }

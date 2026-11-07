@@ -367,6 +367,9 @@ true, the default, keeps what is copied; false keeps nothing and drops what was 
 true, the default, puts every screenshot on the clipboard, whether or not a history is kept.
 .Ic max_entries
 is how many copies are kept, 50 by default, up to 200.
+.Ic expire_after
+is how many seconds a copy is kept for, a week by default; 0 keeps it until newer ones push it out.
+A copy that expires while the compositor is serving it as the clipboard stops pasting too; an app's own is left alone.
 .It Ic [bindings]
 Keys that run commands, such as
 .Dl \(dqAlt+T\(dq = \(dqfoot\(dq

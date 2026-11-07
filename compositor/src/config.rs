@@ -248,6 +248,9 @@ pub struct Clipboard {
     pub screenshots: bool,
     /// The most copies kept.
     pub max_entries: usize,
+    /// Seconds after a copy is made (or last copied again) that it's dropped; 0 keeps it
+    /// until it's pushed out.
+    pub expire_after: u64,
 }
 
 /// The most `max_entries` takes.
@@ -259,6 +262,7 @@ impl Default for Clipboard {
             enabled: true,
             screenshots: true,
             max_entries: 50,
+            expire_after: 7 * 24 * 3600,
         }
     }
 }
@@ -946,6 +950,9 @@ mod tests {
             "{w:?}"
         );
         assert_eq!(c.clipboard.max_entries, 50);
+        assert_eq!(c.clipboard.expire_after, 604800, "a week");
+        let (c, _) = parse("[clipboard]\nexpire_after = 0\n").unwrap();
+        assert_eq!(c.clipboard.expire_after, 0);
         let (c, _) = parse("[clipboard]\nenabled = false\nmax_entries = 10\n").unwrap();
         assert!(!c.clipboard.enabled && c.clipboard.screenshots);
         assert_eq!(c.clipboard.max_entries, 10);

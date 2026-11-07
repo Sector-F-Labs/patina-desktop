@@ -8,8 +8,8 @@ Accepted. The user asked whether a clipboard manager is possible on Wayland, and
 icon that opens a small applet to pick or delete items, with images shown. They agreed the
 compositor should own the history, and that the interface would be D-Bus. They signed off.
 Built so far: the history with text and images, in memory, with PNG thumbnails; the bus
-interface; patina-clipboard and the tray icon. Not yet: saving to disk, expiry, and a config
-entry for `Enabled` and `Paused`.
+interface; patina-clipboard and the tray icon. Not yet: saving to disk. Expiry and the
+config (`enabled`) came with ADR-0116; `Paused` still resets on a restart.
 
 ## Context
 
