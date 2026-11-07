@@ -152,6 +152,9 @@ Save a screenshot of the desktop in
 .Pa ~/Pictures/Screenshots .
 .It Super+Shift+4
 Save a screenshot of the focused window.
+Every screenshot is also put on the clipboard, unless
+.Ic [clipboard]
+turns that off.
 .It Print , Super+Shift+5
 Offer the desktop, the focused window or a selection dragged out with the
 pointer, or recording the desktop or a selection, with
@@ -356,6 +359,14 @@ true, the default, the compositor draws the shadow a window asks for through
 KDE's shadow protocol, as Patina apps and the HUD's parts do, lighter while a
 window isn't focused.
 Windows that draw their own, as Firefox does, keep it.
+.It Ic [clipboard]
+The clipboard history.
+.Ic enabled
+true, the default, keeps what is copied; false keeps nothing and drops what was kept.
+.Ic screenshots
+true, the default, puts every screenshot on the clipboard, whether or not a history is kept.
+.Ic max_entries
+is how many copies are kept, 50 by default, up to 200.
 .It Ic [bindings]
 Keys that run commands, such as
 .Dl \(dqAlt+T\(dq = \(dqfoot\(dq

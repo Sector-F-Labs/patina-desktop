@@ -24,6 +24,8 @@ pub struct Config {
     pub gaps: Gaps,
     /// The shadows drawn for windows that ask for one (ADR-0112).
     pub shadows: Shadows,
+    /// The clipboard history, and screenshots on the clipboard (ADR-0114, ADR-0116).
+    pub clipboard: Clipboard,
     /// What tapping Super on its own opens, as the HUD's launcher button
     /// would (`patina-hud --open launcher` runs this command, from the
     /// button's place); "" for nothing.
@@ -236,6 +238,31 @@ impl Default for Shadows {
     }
 }
 
+/// The clipboard history (ADR-0114) and screenshots on the clipboard (ADR-0116).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(default)]
+pub struct Clipboard {
+    /// Keep a history; turned off, nothing is kept and what was is dropped.
+    pub enabled: bool,
+    /// Put every screenshot on the clipboard, whether or not a history is kept.
+    pub screenshots: bool,
+    /// The most copies kept.
+    pub max_entries: usize,
+}
+
+/// The most `max_entries` takes.
+pub const MOST_CLIPBOARD_ENTRIES: usize = 200;
+
+impl Default for Clipboard {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            screenshots: true,
+            max_entries: 50,
+        }
+    }
+}
+
 impl Config {
     /// The gap around tiled windows: 0 when gaps are off.
     pub fn gap(&self) -> i32 {
@@ -382,6 +409,7 @@ impl Default for Config {
             night_light: NightLight::default(),
             gaps: Gaps::default(),
             shadows: Shadows::default(),
+            clipboard: Clipboard::default(),
             launcher: "patina-launcher".into(),
             launcher_spotlight: "patina-launcher --position center --search top".into(),
             desktop_menu: "patina-menu".into(),
@@ -490,6 +518,13 @@ pub fn parse(text: &str) -> Result<(Config, Vec<String>), String> {
         warnings.push(format!("unknown key `{path}`, ignored"))
     })
     .map_err(|e| e.to_string())?;
+    if !(1..=MOST_CLIPBOARD_ENTRIES).contains(&config.clipboard.max_entries) {
+        warnings.push(format!(
+            "clipboard max_entries {} is outside 1 to {MOST_CLIPBOARD_ENTRIES}; using 50",
+            config.clipboard.max_entries
+        ));
+        config.clipboard.max_entries = Clipboard::default().max_entries;
+    }
     if let Some(scale) = config.scale
         && !(0.5..=4.0).contains(&scale)
     {
@@ -699,7 +734,9 @@ impl crate::state::State {
         self.keys = crate::keys::Keys::new(&config.keys, &config.remap).0;
         let gaps_changed = config.gap() != self.config.gap();
         crate::shadow::set_enabled(config.shadows.enabled);
-        self.config = config;
+        let clipboard = config.clipboard.clone();
+        let before = std::mem::replace(&mut self.config, config).clipboard;
+        self.clipboard_configure(&clipboard, Some(&before));
         if gaps_changed {
             self.relayout_maximized();
         }
@@ -752,7 +789,11 @@ mod tests {
         )
         .unwrap();
         assert_eq!(w.len(), 3, "{w:?}");
-        assert_eq!(c.caps_layer(keysyms::KEY_h), None, "a key with modifiers isn't one");
+        assert_eq!(
+            c.caps_layer(keysyms::KEY_h),
+            None,
+            "a key with modifiers isn't one"
+        );
         assert_eq!(Config::default().keyboard.caps_hold, CapsHold::None);
         assert!(parse("[keyboard]\ncaps_tap = \"hyper\"\n").is_err());
     }
@@ -895,6 +936,22 @@ mod tests {
         assert_eq!(c.night_light, NightLight::default());
         assert_eq!(w.len(), 2, "{w:?}");
         assert!(parse("[night_light]\nmode = \"sometimes\"\n").is_err());
+    }
+
+    #[test]
+    fn the_clipboard_is_kept_and_screenshots_copied_unless_the_config_says_not() {
+        let (c, w) = parse("").unwrap();
+        assert!(
+            c.clipboard.enabled && c.clipboard.screenshots && w.is_empty(),
+            "{w:?}"
+        );
+        assert_eq!(c.clipboard.max_entries, 50);
+        let (c, _) = parse("[clipboard]\nenabled = false\nmax_entries = 10\n").unwrap();
+        assert!(!c.clipboard.enabled && c.clipboard.screenshots);
+        assert_eq!(c.clipboard.max_entries, 10);
+        let (c, w) = parse("[clipboard]\nmax_entries = 0\n").unwrap();
+        assert_eq!(c.clipboard.max_entries, 50);
+        assert_eq!(w.len(), 1, "{w:?}");
     }
 
     #[test]

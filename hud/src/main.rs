@@ -506,7 +506,8 @@ fn run(
             .map_err(|e| e.to_string())?;
     }
 
-    // The tray's clipboard icon, there while the compositor keeps a history (ADR-0114).
+    // The tray's clipboard icon, there while the compositor keeps a history (ADR-0114,
+    // ADR-0116).
     if uses_tray {
         let (served, clipboard) = channel::channel::<bool>();
         std::thread::Builder::new()
@@ -514,7 +515,7 @@ fn run(
             .spawn(move || {
                 let mut last = None;
                 patina_system::clipboard::watch(|s| {
-                    let now = s.is_some();
+                    let now = s.is_some_and(|s| s.enabled);
                     // Each copy is a change; the icon only follows whether it's served.
                     if last == Some(now) {
                         return true;

@@ -25,6 +25,7 @@ use smithay::wayland::selection::data_device::{
     request_data_device_client_selection, set_data_device_selection,
 };
 
+use crate::config;
 use crate::state::State;
 use crate::typing::Served;
 
@@ -108,6 +109,8 @@ pub struct History {
     pub enabled: bool,
     /// Paused, nothing new is recorded and what's there stays.
     pub paused: bool,
+    /// The most entries kept.
+    pub most: usize,
 }
 
 impl Default for History {
@@ -117,6 +120,7 @@ impl Default for History {
             next: 1,
             enabled: true,
             paused: false,
+            most: MOST_ENTRIES,
         }
     }
 }
@@ -157,7 +161,7 @@ impl History {
 
     /// Over the limits, the oldest go: images and the like before text.
     fn trim(&mut self) {
-        self.entries.truncate(MOST_ENTRIES);
+        self.entries.truncate(self.most);
         let mut total: usize = self.entries.iter().map(Entry::bytes).sum();
         while total > MOST_TOTAL {
             let heavy = self.entries.iter().rposition(|e| e.kind != Kind::Text);
@@ -185,6 +189,11 @@ impl History {
             entry.at = now;
             self.entries.push_front(entry);
         }
+    }
+
+    /// Drops the oldest entries beyond `most`.
+    pub fn shrink(&mut self) {
+        self.entries.truncate(self.most);
     }
 
     pub fn delete(&mut self, id: u64) -> bool {
@@ -324,7 +333,17 @@ type Copied = Vec<(String, Vec<u8>)>;
 /// What reaches the loop from the threads: a copy's data, or a thumbnail written.
 enum Message {
     Copied(Copied),
+    Picture(Vec<u8>),
     Thumbnail(u64),
+}
+
+/// Where a screenshot's PNG is handed to the loop, to go on the clipboard.
+pub struct Pictures(channel::Sender<Message>);
+
+impl Pictures {
+    pub fn send(&self, png: Vec<u8>) {
+        let _ = self.0.send(Message::Picture(png));
+    }
 }
 
 /// The history and what serves it, kept by the state.
@@ -346,11 +365,13 @@ impl State {
     pub fn start_clipboard(&mut self) {
         // Thumbnails left by an earlier run belong to a history that's gone.
         forget_thumbnails(&[]);
+        let wanted = self.config.clipboard.clone();
         let (reads, incoming) = channel::channel::<Message>();
         let inserted = self
             .loop_handle
             .insert_source(incoming, |event, _, state| match event {
                 channel::Event::Msg(Message::Copied(read)) => state.clipboard_read(read),
+                channel::Event::Msg(Message::Picture(png)) => state.clipboard_picture(png),
                 channel::Event::Msg(Message::Thumbnail(id)) => state.clipboard_thumbnailed(id),
                 channel::Event::Closed => {}
             });
@@ -368,6 +389,7 @@ impl State {
             Ok(service) => self.clipboard.service = Some(service),
             Err(e) => eprintln!("patina-compositor: the clipboard history isn't on D-Bus: {e}"),
         }
+        self.clipboard_configure(&wanted, None);
     }
 
     /// The clipboard's owner changed: an app copied (`Some`, the types it offers) or went
@@ -578,9 +600,54 @@ impl State {
         }
     }
 
+    /// Turns the history on or off. Off, what's kept is dropped.
     pub fn clipboard_enable(&mut self, enabled: bool) {
         self.clipboard.history.enabled = enabled;
+        if !enabled {
+            self.clipboard_clear();
+            return;
+        }
         self.clipboard_changed();
+    }
+
+    /// Applies `[clipboard]`: at start (`before` is `None`) and on a reload, where only what
+    /// changed is set, so a save of something else doesn't undo a switch made on the bus.
+    pub fn clipboard_configure(
+        &mut self,
+        now: &config::Clipboard,
+        before: Option<&config::Clipboard>,
+    ) {
+        if before.is_none_or(|b| b.max_entries != now.max_entries) {
+            self.clipboard.history.most = now.max_entries;
+            self.clipboard.history.shrink();
+        }
+        if before.is_none_or(|b| b.enabled != now.enabled) {
+            self.clipboard_enable(now.enabled);
+        } else {
+            self.clipboard_changed();
+        }
+    }
+
+    /// A screenshot's PNG goes on the clipboard, and into the history when one is kept.
+    fn clipboard_picture(&mut self, png: Vec<u8>) {
+        let types = vec![("image/png".to_string(), png)];
+        let kept = self.clipboard.history.add(types.clone(), now());
+        let served = match kept.and_then(|id| self.clipboard.history.get(id)) {
+            Some(entry) => Served::Saved(entry.types.clone()),
+            None => Served::Saved(Arc::new(types)),
+        };
+        self.clipboard.clearing = false;
+        self.clipboard.owner = None;
+        set_data_device_selection(&self.display_handle, &self.seat, served.types(), served);
+        if let Some(id) = kept {
+            self.clipboard_thumbnail(id);
+        }
+        self.clipboard_changed();
+    }
+
+    /// Where a thread hands over a screenshot's PNG, or `None` before the clipboard starts.
+    pub fn clipboard_pictures(&self) -> Option<Pictures> {
+        self.clipboard.reads.clone().map(Pictures)
     }
 
     pub fn clipboard_pause(&mut self, paused: bool) {
@@ -762,6 +829,21 @@ mod tests {
             .unwrap();
         assert_eq!((r.info().width, r.info().height), (20, 10));
         assert!(thumbnail(b"not a png").is_none());
+    }
+
+    #[test]
+    fn the_most_kept_can_be_lowered() {
+        let mut h = History::default();
+        for i in 0..5 {
+            h.add(text(&format!("copy {i}")), i);
+        }
+        h.most = 2;
+        h.shrink();
+        let rows = h.rows();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].2, "copy 4", "the newest stay");
+        h.add(text("another"), 9);
+        assert_eq!(h.rows().len(), 2);
     }
 
     #[test]

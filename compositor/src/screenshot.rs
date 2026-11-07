@@ -150,11 +150,27 @@ impl State {
                     self.flash = Some(Flash::new(area));
                     self.needs_redraw = true;
                 }
+                // On the clipboard too, whether or not a history is kept (ADR-0116).
+                let pictures = self
+                    .config
+                    .clipboard
+                    .screenshots
+                    .then(|| self.clipboard_pictures())
+                    .flatten();
                 let _ = std::thread::Builder::new()
                     .name("screenshot".into())
-                    .spawn(move || match save(&picture) {
-                        Ok(path) => eprintln!("patina-compositor: saved {}", path.display()),
-                        Err(e) => eprintln!("patina-compositor: screenshot: {e}"),
+                    .spawn(move || {
+                        let png = match encode_png(&picture) {
+                            Ok(png) => png,
+                            Err(e) => return eprintln!("patina-compositor: screenshot: {e}"),
+                        };
+                        match save(&png) {
+                            Ok(path) => eprintln!("patina-compositor: saved {}", path.display()),
+                            Err(e) => eprintln!("patina-compositor: screenshot: {e}"),
+                        }
+                        if let Some(pictures) = pictures {
+                            pictures.send(png);
+                        }
                     });
             }
             Err(e) => eprintln!("patina-compositor: screenshot: {e}"),
@@ -433,12 +449,12 @@ fn unpremultiply(rgba: &mut [u8]) {
     }
 }
 
-/// Writes `picture` into the screenshots folder; returns where.
-fn save(picture: &Picture) -> Result<PathBuf, String> {
+/// Writes the PNG `png` into the screenshots folder; returns where.
+fn save(png: &[u8]) -> Result<PathBuf, String> {
     let folder = folder().ok_or("no home folder")?;
     std::fs::create_dir_all(&folder).map_err(|e| format!("{}: {e}", folder.display()))?;
     let path = free_name(&folder, &name(chrono::Local::now()));
-    write_png(&path, picture).map_err(|e| format!("{}: {e}", path.display()))?;
+    std::fs::write(&path, png).map_err(|e| format!("{}: {e}", path.display()))?;
     Ok(path)
 }
 
@@ -465,17 +481,18 @@ fn free_name(folder: &Path, name: &str) -> PathBuf {
     path
 }
 
-fn write_png(path: &Path, picture: &Picture) -> Result<(), String> {
-    let file = std::fs::File::create(path).map_err(|e| e.to_string())?;
-    let mut encoder =
-        png::Encoder::new(std::io::BufWriter::new(file), picture.width, picture.height);
+/// `picture` as PNG bytes.
+fn encode_png(picture: &Picture) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    let mut encoder = png::Encoder::new(&mut bytes, picture.width, picture.height);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
     writer
         .write_image_data(&picture.rgba)
         .map_err(|e| e.to_string())?;
-    writer.finish().map_err(|e| e.to_string())
+    writer.finish().map_err(|e| e.to_string())?;
+    Ok(bytes)
 }
 
 #[cfg(test)]
