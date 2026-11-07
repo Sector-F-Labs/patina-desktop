@@ -2,6 +2,7 @@
 //! `com.sectorflabs.Patina.Displays` at `/com/sectorflabs/Patina/Displays`.
 //!
 //! Methods: `List()` the monitors, each a dictionary (see [`Monitor`]);
+//! `Saved()` the displays remembered, each a dictionary, and `Forget(id)`;
 //! `Mode()` and `SetMode(mode)`: `extend` or `mirror` drive every connected
 //! monitor that way, `off` drives the primary alone; `SetPlace(id, to,
 //! side, offset)` puts monitor `id` on `side` (`above`, `below`, `left` or
@@ -83,12 +84,46 @@ impl Monitor {
     }
 }
 
+/// A saved display, for the Displays page (ADR-0124).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SavedDisplay {
+    pub id: String,
+    /// What it was called when it was saved.
+    pub name: String,
+    /// A connected monitor goes by it.
+    pub in_use: bool,
+    /// The monitor it's next to, by id and by name; empty for none.
+    pub to: String,
+    pub to_name: String,
+    pub side: String,
+    pub offset: i32,
+}
+
+impl SavedDisplay {
+    fn dictionary(&self) -> HashMap<String, OwnedValue> {
+        fn v<'a>(v: impl Into<Value<'a>>) -> OwnedValue {
+            OwnedValue::try_from(v.into()).expect("plain values have no file descriptors")
+        }
+        HashMap::from([
+            ("id".into(), v(self.id.as_str())),
+            ("name".into(), v(self.name.as_str())),
+            ("in-use".into(), v(self.in_use)),
+            ("to".into(), v(self.to.as_str())),
+            ("to-name".into(), v(self.to_name.as_str())),
+            ("side".into(), v(self.side.as_str())),
+            ("offset".into(), v(self.offset)),
+        ])
+    }
+}
+
 type Reply<T> = mpsc::Sender<T>;
 
 /// What the bus asks of the compositor.
 #[derive(Debug)]
 pub enum Request {
     List(Reply<Vec<Monitor>>),
+    Saved(Reply<Vec<SavedDisplay>>),
+    Forget(String, Reply<Result<(), String>>),
     Mode(Reply<String>),
     SetMode(String, Reply<Result<(), String>>),
     SetPlace {
@@ -176,6 +211,23 @@ impl Interface {
             .iter()
             .map(Monitor::dictionary)
             .collect())
+    }
+
+    /// The saved displays, the one saved last at the end; each a dictionary:
+    /// `id`, `name`, `in-use` (a connected monitor goes by it), and where it
+    /// was put: `to`, `to-name`, `side`, `offset`.
+    fn saved(&self) -> zbus::fdo::Result<Vec<HashMap<String, OwnedValue>>> {
+        Ok(self
+            .ask(Request::Saved)?
+            .iter()
+            .map(SavedDisplay::dictionary)
+            .collect())
+    }
+
+    /// Forgets the saved display `id`.
+    fn forget(&self, id: String) -> zbus::fdo::Result<()> {
+        self.ask(|reply| Request::Forget(id, reply))?
+            .map_err(zbus::fdo::Error::InvalidArgs)
     }
 
     /// `extend`, `mirror` or `off`.

@@ -108,7 +108,8 @@ puts them in `$(PREFIX)/share/man`.
   grab (it holds the pointer's lock): use what the grab is given.
 - `compositor/src/displays.rs` (ADR-0121): extend or mirror and where each monitor goes, kept in
   `displays.toml` by monitor id (`edid.rs` reads the maker, model and serial; `MonitorId` is in each
-  output's user data), a monitor in it being one placed before. `displays/dbus.rs` serves
+  output's user data), a monitor going by an entry of its own id, else of its model (ADR-0124:
+  `Displays::resolve`, `places`), being known. `displays/dbus.rs` serves
   `com.sectorflabs.Patina.Displays` (List, Mode, SetMode, SetPlace; Changed, MonitorAdded), client
   `system/src/displays.rs`. `displays/` (patina-displays) is the popup on Ctrl+Super+P, which the
   compositor also starts when a monitor is plugged in; extending onto a new monitor opens Settings'

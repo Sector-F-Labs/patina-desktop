@@ -11,7 +11,7 @@ use egui::{
     Align2, CornerRadius, Pos2, Rect, RichText, Sense, Shape, Stroke, StrokeKind, TextStyle, Ui,
     Vec2, pos2, vec2,
 };
-use patina_system::displays::{self, Mode, Monitor, Side};
+use patina_system::displays::{self, Mode, Monitor, Saved, Side};
 
 use crate::app::Message;
 use crate::display_layout::{R, Snap, snap};
@@ -28,6 +28,8 @@ const ROOM: f64 = 0.3;
 pub struct Snapshot {
     monitors: Vec<Monitor>,
     mode: Mode,
+    /// The displays remembered, connected or not (ADR-0124).
+    saved: Vec<Saved>,
 }
 
 /// A monitor being dragged on the canvas.
@@ -151,6 +153,8 @@ impl DisplaysPage {
                 .weak(),
             );
         }
+        ui.add_space(14.0);
+        saved_list(ui, &snapshot.saved, message);
     }
 
     /// The monitors to scale, the others dragged to a side of one.
@@ -322,6 +326,50 @@ impl DisplaysPage {
     }
 }
 
+/// The displays remembered: where each was put, whether or not it's
+/// connected. A monitor of the same model plugged in later goes where one of
+/// them was, so a hot desk's monitors are where they should be; one no
+/// monitor goes by is grayed, and can be forgotten.
+fn saved_list(ui: &mut Ui, saved: &[Saved], message: &mut Option<Message>) {
+    ui.heading("Saved displays");
+    ui.label(
+        RichText::new(
+            "Displays you place are remembered. A display of the same model plugged \
+             in later goes where one was put.",
+        )
+        .weak(),
+    );
+    ui.add_space(6.0);
+    if saved.is_empty() {
+        ui.label(RichText::new("None yet: drag a display to a side of another.").weak());
+        return;
+    }
+    // Newest first: the one a new monitor of its model would go by is on top.
+    for s in saved.iter().rev() {
+        let mut forget = false;
+        ui.horizontal(|ui| {
+            let name = RichText::new(&s.name);
+            ui.label(if s.in_use { name.strong() } else { name.weak() });
+            let where_ = match (s.side, s.to_name.is_empty()) {
+                (Some(side), false) => format!("{} {}", side_label(side), s.to_name),
+                _ => "not placed".to_string(),
+            };
+            let note = if s.in_use {
+                format!("{where_}, in use")
+            } else {
+                where_
+            };
+            ui.label(RichText::new(note).small().weak());
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                forget = ui.small_button("Forget").clicked();
+            });
+        });
+        if forget && let Err(e) = displays::forget(&s.id) {
+            *message = Some(Message::error(format!("Couldn't forget the display: {e}")));
+        }
+    }
+}
+
 fn side_label(side: Side) -> &'static str {
     match side {
         Side::Above => "above",
@@ -393,6 +441,7 @@ fn watch(ctx: egui::Context) -> mpsc::Receiver<Result<Snapshot, String>> {
                     Ok(Snapshot {
                         monitors,
                         mode: displays::mode()?,
+                        saved: displays::saved()?,
                     })
                 });
                 if last.as_ref() != Some(&now) {
@@ -434,6 +483,45 @@ mod tests {
         }
     }
 
+    fn saved(id: &str, name: &str, in_use: bool, to: &str, side: Side) -> Saved {
+        Saved {
+            id: id.into(),
+            name: name.into(),
+            in_use,
+            to: String::new(),
+            to_name: to.into(),
+            side: Some(side),
+            offset: 0,
+        }
+    }
+
+    /// Displays remembered: one in use, and two from other desks.
+    fn saved_fixture() -> Vec<Saved> {
+        vec![
+            saved(
+                "DEL-A0D3-HOME",
+                "DELL U2720Q",
+                false,
+                "Built-in display",
+                Side::Left,
+            ),
+            saved(
+                "DEL-A0D3-WORK",
+                "DELL U2720Q",
+                false,
+                "Built-in display",
+                Side::Right,
+            ),
+            saved(
+                "GSM-772E-AAA",
+                "LG HDR WQHD",
+                true,
+                "Built-in display",
+                Side::Above,
+            ),
+        ]
+    }
+
     /// Draws the page in software with two monitors, a new one above the
     /// primary and a third waiting, as PNGs in the folder
     /// PATINA_SETTINGS_PREVIEW names, to look at.
@@ -463,7 +551,11 @@ mod tests {
             let ctx = egui::Context::default();
             let (_, updates) = mpsc::channel();
             let mut page = DisplaysPage {
-                state: Some(Ok(Snapshot { monitors, mode })),
+                state: Some(Ok(Snapshot {
+                    monitors,
+                    mode,
+                    saved: saved_fixture(),
+                })),
                 updates,
                 drag: None,
             };

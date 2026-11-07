@@ -165,6 +165,7 @@ mechanics of adding one.
 | [0121](0121-multi-monitor.md) | Several monitors: extend or mirror, chosen in a popup, placed in Settings | Proposed |
 | [0122](0122-one-install-the-repositorys-make-install.md) | The repository's make install is the only install | Accepted |
 | [0123](0123-minimised-windows-get-slow-frame-callbacks.md) | Minimised windows still get frame callbacks, slowly | Accepted |
+| [0124](0124-displays-are-remembered-by-model.md) | Displays are remembered by model, and listed in Settings | Accepted |
 
 ## Decision Relationship
 

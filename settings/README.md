@@ -39,7 +39,8 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   compositor's config (`clipboard.rs`); Clear history asks the compositor over the session bus.
 - **Displays** (ADR-0121): the monitors drawn to scale (`displays.rs`), the others dragged to a
   side of one (`display_layout.rs` is the snapping, tested), or chosen from menus; extend, mirror
-  or primary only; and monitors connected but off, to extend or mirror onto. It all goes through
+  or primary only; monitors connected but off, to extend or mirror onto; and the saved displays,
+  grayed when none is connected, each with Forget (ADR-0124). It all goes through
   the compositor's `com.sectorflabs.Patina.Displays` (`patina_system::displays`), which keeps the
   places by monitor in `displays.toml`. The popup sends a monitor never placed here.
 - **Night Light** (ADR-0039): off, always on, or on a schedule, and the warmth. It also shows

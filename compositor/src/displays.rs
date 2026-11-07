@@ -97,10 +97,58 @@ pub fn auto_scale_of(output: &Output) -> f64 {
         .map_or(1.0, |scale| scale.0)
 }
 
+/// A monitor's model: its id without the serial ("GSM-772E" for
+/// "GSM-772E-0005F79F"), which every monitor of the model has the same. An
+/// id that isn't maker, product and serial (a connector's name, for a
+/// monitor that gave no EDID) is its own model.
+pub fn model_key(id: &str) -> &str {
+    let mut parts = id.splitn(3, '-');
+    match (parts.next(), parts.next(), parts.next()) {
+        (Some(make), Some(product), Some(_))
+            if make.len() == 3
+                && make.bytes().all(|b| b.is_ascii_uppercase())
+                && product.len() == 4
+                && product.bytes().all(|b| b.is_ascii_hexdigit()) =>
+        {
+            &id[..8]
+        }
+        _ => id,
+    }
+}
+
+/// What to call `output`: "Built-in display" for the machine's own panel,
+/// else its model, else its connector.
+pub fn label_of(output: &Output) -> String {
+    let name = output.name();
+    let model = output.physical_properties().model;
+    if ["eDP", "LVDS", "DSI"].iter().any(|p| name.starts_with(p)) {
+        "Built-in display".into()
+    } else if model.is_empty() || model == "Unknown" {
+        name
+    } else {
+        model
+    }
+}
+
+/// What to call a listed monitor: as [`label_of`] says for its output.
+fn monitor_label(m: &dbus::Monitor) -> String {
+    if ["eDP", "LVDS", "DSI"].iter().any(|p| m.name.starts_with(p)) {
+        "Built-in display".into()
+    } else if m.model.is_empty() || m.model == "Unknown" {
+        m.name.clone()
+    } else {
+        m.model.clone()
+    }
+}
+
 /// One monitor in `displays.toml`: where it goes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Saved {
     pub id: String,
+    /// What it was called when it was saved, to show it when it isn't
+    /// connected.
+    #[serde(default)]
+    pub name: String,
     /// The monitor it's next to, by id; empty for the primary or when it
     /// goes after the one before.
     #[serde(default)]
@@ -172,33 +220,88 @@ impl Displays {
         }
     }
 
-    /// Whether this monitor was placed before.
-    pub fn known(&self, id: &str) -> bool {
-        self.saved.iter().any(|s| s.id == id)
-    }
-
-    /// Where `id` was put, if it was and it's next to some monitor.
-    pub fn place(&self, id: &str) -> Option<Place> {
-        let saved = self.saved.iter().find(|s| s.id == id)?;
-        Some(Place {
-            to: saved.to.clone(),
-            side: Side::from_name(&saved.side)?,
-            offset: saved.offset,
-        })
-    }
-
-    /// Remembers `id` as seen, and put at `place` (or after the one before).
-    pub fn set(&mut self, id: &str, place: Option<Place>) {
-        let saved = Saved {
-            id: id.into(),
-            to: place.as_ref().map(|p| p.to.clone()).unwrap_or_default(),
-            side: place.as_ref().map(|p| p.side.name().into()).unwrap_or_default(),
-            offset: place.map_or(0, |p| p.offset),
-        };
-        match self.saved.iter_mut().find(|s| s.id == id) {
-            Some(existing) => *existing = saved,
-            None => self.saved.push(saved),
+    /// For each of `ids` (the monitors connected, driven or not), the saved
+    /// entry it goes by (ADR-0124). A monitor goes by its own entry, kept
+    /// by its id (maker, model and serial). One with none goes by an entry
+    /// of the same model, the one saved last first, each entry by one
+    /// monitor at most: a hot desk's Dells go where a Dell was put, and
+    /// two of them take the two places two were given.
+    pub fn resolve(&self, ids: &[String]) -> Vec<Option<usize>> {
+        let mut claimed = vec![false; self.saved.len()];
+        let mut by = vec![None; ids.len()];
+        for (i, id) in ids.iter().enumerate() {
+            if let Some(e) = self.saved.iter().position(|s| s.id == *id) {
+                claimed[e] = true;
+                by[i] = Some(e);
+            }
         }
+        for (i, id) in ids.iter().enumerate() {
+            if by[i].is_some() {
+                continue;
+            }
+            let model = model_key(id);
+            let like = (0..self.saved.len())
+                .rev()
+                .find(|&e| !claimed[e] && model_key(&self.saved[e].id) == model);
+            if let Some(e) = like {
+                claimed[e] = true;
+                by[i] = Some(e);
+            }
+        }
+        by
+    }
+
+    /// Where each of `ids` goes, as the entry it goes by says, with the
+    /// monitor it's next to being the connected one that entry's monitor
+    /// is: the same id, or the one that goes by that monitor's entry. A
+    /// monitor with no entry, or whose neighbour isn't connected, has no
+    /// place (after the one before).
+    pub fn places(&self, ids: &[String]) -> Vec<Option<Place>> {
+        let by = self.resolve(ids);
+        (0..ids.len())
+            .map(|i| {
+                let saved = &self.saved[by[i]?];
+                let side = Side::from_name(&saved.side)?;
+                let anchor = ids.iter().position(|id| *id == saved.to).or_else(|| {
+                    let entry = self.saved.iter().position(|s| s.id == saved.to)?;
+                    by.iter().position(|b| *b == Some(entry))
+                })?;
+                (anchor != i).then(|| Place {
+                    to: ids[anchor].clone(),
+                    side,
+                    offset: saved.offset,
+                })
+            })
+            .collect()
+    }
+
+    /// Remembers `id`, called `name`, as put at `place` (or after the one
+    /// before). It becomes the last saved, so a monitor of its model that
+    /// isn't known goes where it was put before any other of the model.
+    pub fn set(&mut self, id: &str, name: &str, place: Option<Place>) {
+        self.saved.retain(|s| s.id != id);
+        self.saved.push(Saved {
+            id: id.into(),
+            name: name.into(),
+            to: place.as_ref().map(|p| p.to.clone()).unwrap_or_default(),
+            side: place
+                .as_ref()
+                .map(|p| p.side.name().into())
+                .unwrap_or_default(),
+            offset: place.map_or(0, |p| p.offset),
+        });
+    }
+
+    /// Forgets the entry `id`; whether there was one.
+    pub fn forget(&mut self, id: &str) -> bool {
+        let before = self.saved.len();
+        self.saved.retain(|s| s.id != id);
+        self.saved.len() != before
+    }
+
+    /// The entries, the one saved last at the end.
+    pub fn entries(&self) -> &[Saved] {
+        &self.saved
     }
 }
 
@@ -211,24 +314,56 @@ impl State {
         }
     }
 
-    /// The monitors, the primary first.
-    pub fn monitors(&self) -> Vec<dbus::Monitor> {
+    /// The ids of the monitors connected: those driven, then those idle.
+    pub fn monitor_ids(&self) -> Vec<String> {
+        let idle = self.udev.as_ref().map(|u| u.idle_monitors()).unwrap_or_default();
         self.outputs
             .iter()
-            .map(|o| {
-                let id = id_of(o);
+            .map(id_of)
+            .chain(idle.into_iter().map(|m| m.id))
+            .collect()
+    }
+
+    /// Whether each of `monitor_ids` goes by a saved entry (ADR-0124):
+    /// its own or one of its model's.
+    fn known_flags(&self) -> Vec<bool> {
+        self.displays
+            .resolve(&self.monitor_ids())
+            .into_iter()
+            .map(|e| e.is_some())
+            .collect()
+    }
+
+    /// Whether the monitor `id`, connected, goes by a saved entry.
+    pub fn is_known(&self, id: &str) -> bool {
+        let ids = self.monitor_ids();
+        ids.iter()
+            .position(|i| i == id)
+            .is_some_and(|at| self.displays.resolve(&ids)[at].is_some())
+    }
+
+    /// The monitors: those driven, the primary first, then those idle.
+    pub fn monitors(&self) -> Vec<dbus::Monitor> {
+        let ids = self.monitor_ids();
+        let places = self.displays.places(&ids);
+        let known = self.known_flags();
+        let mut list: Vec<dbus::Monitor> = self
+            .outputs
+            .iter()
+            .enumerate()
+            .map(|(i, o)| {
                 let area = self.space.output_geometry(o).unwrap_or_default();
-                let place = self.displays.place(&id);
+                let place = places[i].as_ref();
                 let props = o.physical_properties();
                 let size = o.current_mode().map(|m| m.size).unwrap_or_default();
                 dbus::Monitor {
                     name: o.name(),
-                    known: self.displays.known(&id),
+                    known: known[i],
                     active: true,
-                    to: place.as_ref().map(|p| p.to.clone()).unwrap_or_default(),
-                    side: place.as_ref().map(|p| p.side.name().into()).unwrap_or_default(),
+                    to: place.map(|p| p.to.clone()).unwrap_or_default(),
+                    side: place.map(|p| p.side.name().into()).unwrap_or_default(),
                     offset: place.map_or(0, |p| p.offset),
-                    id,
+                    id: ids[i].clone(),
                     make: props.make,
                     model: props.model,
                     width: size.w,
@@ -241,18 +376,12 @@ impl State {
                     primary: *o == self.output,
                 }
             })
-            .collect()
-    }
-
-    /// The monitors connected but not driven, listed after the others.
-    fn idle_monitors(&self) -> Vec<dbus::Monitor> {
-        let Some(u) = self.udev.as_ref() else {
-            return Vec::new();
-        };
-        u.idle_monitors()
-            .into_iter()
-            .map(|m| dbus::Monitor {
-                known: self.displays.known(&m.id),
+            .collect();
+        let idle = self.udev.as_ref().map(|u| u.idle_monitors()).unwrap_or_default();
+        for (j, m) in idle.into_iter().enumerate() {
+            let i = self.outputs.len() + j;
+            list.push(dbus::Monitor {
+                known: known[i],
                 name: m.name,
                 id: m.id,
                 make: m.make,
@@ -269,6 +398,50 @@ impl State {
                 to: String::new(),
                 side: String::new(),
                 offset: 0,
+            });
+        }
+        list
+    }
+
+    /// The saved entries, for the Displays page: each with whether a
+    /// connected monitor goes by it, and the name of the monitor it's next
+    /// to, as far as that's known.
+    pub fn saved_displays(&self) -> Vec<dbus::SavedDisplay> {
+        let ids = self.monitor_ids();
+        let by = self.displays.resolve(&ids);
+        let monitors = self.monitors();
+        let entries = self.displays.entries();
+        entries
+            .iter()
+            .enumerate()
+            .map(|(e, s)| {
+                // What the neighbour is called: a connected monitor's, else
+                // its own entry's, else what its id says.
+                let to_name = monitors
+                    .iter()
+                    .find(|m| m.id == s.to)
+                    .map(|m| monitor_label(m))
+                    .or_else(|| {
+                        entries
+                            .iter()
+                            .find(|o| o.id == s.to)
+                            .map(|o| o.name.clone())
+                            .filter(|n| !n.is_empty())
+                    })
+                    .unwrap_or_else(|| model_key(&s.to).to_string());
+                dbus::SavedDisplay {
+                    id: s.id.clone(),
+                    name: if s.name.is_empty() {
+                        model_key(&s.id).to_string()
+                    } else {
+                        s.name.clone()
+                    },
+                    in_use: by.contains(&Some(e)),
+                    to: s.to.clone(),
+                    to_name: if s.to.is_empty() { String::new() } else { to_name },
+                    side: s.side.clone(),
+                    offset: s.offset,
+                }
             })
             .collect()
     }
@@ -278,9 +451,19 @@ impl State {
         use dbus::Request;
         match request {
             Request::List(reply) => {
-                let mut all = self.monitors();
-                all.extend(self.idle_monitors());
-                let _ = reply.send(all);
+                let _ = reply.send(self.monitors());
+            }
+            Request::Saved(reply) => {
+                let _ = reply.send(self.saved_displays());
+            }
+            Request::Forget(id, reply) => {
+                let _ = reply.send(if self.displays.forget(&id) {
+                    self.displays.save();
+                    self.monitors_changed();
+                    Ok(())
+                } else {
+                    Err(format!("no saved display {id}"))
+                });
             }
             Request::Mode(reply) => {
                 let _ = reply.send(self.displays.mode.name().into());
@@ -363,7 +546,13 @@ impl State {
                 offset,
             })
         };
-        self.displays.set(id, place);
+        let name = self
+            .outputs
+            .iter()
+            .find(|o| id_of(o) == id)
+            .map(label_of)
+            .unwrap_or_default();
+        self.displays.set(id, &name, place);
         self.displays.save();
         self.monitors_changed();
         Ok(())
@@ -381,6 +570,12 @@ impl State {
     /// off: the popup asks what to do, and the bus says which, and whether
     /// they're known.
     pub fn monitors_plugged(&mut self, added: &[(String, String)]) {
+        // Known: it goes by a saved entry, its own or its model's.
+        let known: Vec<String> = added
+            .iter()
+            .map(|(id, _)| id.clone())
+            .filter(|id| self.is_known(id))
+            .collect();
         // A monitor to choose for: the popup asks (not over a lock). A
         // moment later: bringing the monitor up keeps the loop busy, and the
         // popup's first question to it would time out.
@@ -398,7 +593,7 @@ impl State {
         if let Some(service) = &self.displays.service {
             service.changed();
             for (id, name) in added {
-                service.added(id, name, self.displays.known(id));
+                service.added(id, name, known.contains(id));
             }
         }
     }
@@ -408,26 +603,119 @@ impl State {
 mod tests {
     use super::*;
 
+    const LAPTOP: &str = "IVO-8C44-00000000-eDP-1";
+
+    fn ids(list: &[&str]) -> Vec<String> {
+        list.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn place(to: &str, side: Side, offset: i32) -> Option<Place> {
+        Some(Place {
+            to: to.into(),
+            side,
+            offset,
+        })
+    }
+
     #[test]
-    fn a_monitor_is_new_until_it_is_set() {
+    fn a_model_is_an_id_without_its_serial() {
+        assert_eq!(model_key("GSM-772E-0005F79F"), "GSM-772E");
+        assert_eq!(model_key("DEL-A0D3-7HK3B93"), "DEL-A0D3");
+        assert_eq!(model_key(LAPTOP), "IVO-8C44");
+        // Not maker, product and serial: its own model.
+        assert_eq!(model_key("DP-3"), "DP-3");
+        assert_eq!(model_key("eDP-1"), "eDP-1");
+    }
+
+    #[test]
+    fn a_monitor_is_new_until_it_is_placed() {
         let mut d = Displays::default();
-        assert!(!d.known("GSM-5BBF-1"));
-        assert_eq!(d.place("GSM-5BBF-1"), None);
-        d.set(
-            "GSM-5BBF-1",
-            Some(Place {
-                to: "BOE-0A1B-2".into(),
-                side: Side::Above,
-                offset: 40,
-            }),
-        );
-        assert!(d.known("GSM-5BBF-1"));
-        let place = d.place("GSM-5BBF-1").unwrap();
-        assert_eq!((place.side, place.offset), (Side::Above, 40));
-        // Seen, but with nowhere in particular: after the one before.
-        d.set("X-1-1", None);
-        assert!(d.known("X-1-1"));
-        assert_eq!(d.place("X-1-1"), None);
+        let now = ids(&[LAPTOP, "GSM-772E-AAA"]);
+        assert_eq!(d.resolve(&now), vec![None, None]);
+        assert_eq!(d.places(&now), vec![None, None]);
+        d.set("GSM-772E-AAA", "LG HDR WQHD", place(LAPTOP, Side::Above, 40));
+        assert_eq!(d.resolve(&now), vec![None, Some(0)]);
+        let places = d.places(&now);
+        assert_eq!(places[0], None);
+        let p = places[1].clone().unwrap();
+        assert_eq!((p.to.as_str(), p.side, p.offset), (LAPTOP, Side::Above, 40));
+    }
+
+    #[test]
+    fn another_of_the_model_goes_where_one_was_put() {
+        // A hot desk: a Dell with a serial never seen goes where a Dell went.
+        let mut d = Displays::default();
+        d.set("DEL-A0D3-HOME1", "DELL U2720Q", place(LAPTOP, Side::RightOf, 0));
+        let desk = ids(&[LAPTOP, "DEL-A0D3-DESK9"]);
+        assert_eq!(d.resolve(&desk), vec![None, Some(0)]);
+        let p = d.places(&desk)[1].clone().unwrap();
+        assert_eq!((p.to.as_str(), p.side), (LAPTOP, Side::RightOf));
+        // A different model doesn't.
+        assert_eq!(d.resolve(&ids(&[LAPTOP, "GSM-772E-AAA"])), vec![None, None]);
+    }
+
+    #[test]
+    fn a_monitor_goes_by_its_own_entry_before_its_models() {
+        let mut d = Displays::default();
+        d.set("DEL-A0D3-HOME1", "DELL", place(LAPTOP, Side::LeftOf, 0));
+        d.set("DEL-A0D3-HOME2", "DELL", place(LAPTOP, Side::RightOf, 0));
+        // HOME1 is the older entry and is connected: it keeps its own, and
+        // the newer one doesn't take it just for being newer.
+        let both = ids(&[LAPTOP, "DEL-A0D3-HOME1"]);
+        assert_eq!(d.resolve(&both), vec![None, Some(0)]);
+        assert_eq!(d.places(&both)[1].clone().unwrap().side, Side::LeftOf);
+    }
+
+    #[test]
+    fn two_of_a_model_take_two_places_the_one_saved_last_first() {
+        let mut d = Displays::default();
+        d.set("DEL-A0D3-HOME1", "DELL", place(LAPTOP, Side::LeftOf, 0));
+        d.set("DEL-A0D3-HOME2", "DELL", place(LAPTOP, Side::RightOf, 0));
+        let desk = ids(&[LAPTOP, "DEL-A0D3-X", "DEL-A0D3-Y", "DEL-A0D3-Z"]);
+        // X takes the last saved, Y the one before, and Z has none left.
+        assert_eq!(d.resolve(&desk), vec![None, Some(1), Some(0), None]);
+        let places = d.places(&desk);
+        assert_eq!(places[1].clone().unwrap().side, Side::RightOf);
+        assert_eq!(places[2].clone().unwrap().side, Side::LeftOf);
+        assert_eq!(places[3], None);
+    }
+
+    #[test]
+    fn a_neighbour_is_the_monitor_that_goes_by_its_entry() {
+        // At home: Dell B is right of Dell A, which is right of the laptop.
+        let mut d = Displays::default();
+        d.set("DEL-A0D3-A", "DELL", place(LAPTOP, Side::RightOf, 0));
+        d.set("DEL-A0D3-B", "DELL", place("DEL-A0D3-A", Side::RightOf, 0));
+        // At a desk, two Dells never seen: B' goes by B's entry (saved last)
+        // and A' by A's, and B' is next to A'.
+        let desk = ids(&[LAPTOP, "DEL-A0D3-P", "DEL-A0D3-Q"]);
+        let places = d.places(&desk);
+        let p = places[1].clone().unwrap();
+        assert_eq!((p.to.as_str(), p.side), ("DEL-A0D3-Q", Side::RightOf));
+        let q = places[2].clone().unwrap();
+        assert_eq!((q.to.as_str(), q.side), (LAPTOP, Side::RightOf));
+    }
+
+    #[test]
+    fn a_neighbour_that_isnt_connected_leaves_it_with_no_place() {
+        let mut d = Displays::default();
+        d.set("DEL-A0D3-B", "DELL", place("GSM-772E-GONE", Side::RightOf, 0));
+        let now = ids(&[LAPTOP, "DEL-A0D3-B"]);
+        assert_eq!(d.resolve(&now)[1], Some(0));
+        assert_eq!(d.places(&now)[1], None);
+    }
+
+    #[test]
+    fn setting_again_moves_it_to_the_end_and_forgetting_removes_it() {
+        let mut d = Displays::default();
+        d.set("A-1", "a", None);
+        d.set("B-1", "b", None);
+        d.set("A-1", "a", place(LAPTOP, Side::Below, 0));
+        let order: Vec<_> = d.entries().iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(order, ["B-1", "A-1"]);
+        assert!(d.forget("B-1"));
+        assert!(!d.forget("B-1"));
+        assert_eq!(d.entries().len(), 1);
     }
 
     #[test]
@@ -436,18 +724,15 @@ mod tests {
             mode: Mode::Mirror,
             ..Displays::default()
         };
-        d.set(
-            "GSM-5BBF-1",
-            Some(Place {
-                to: "a".into(),
-                side: Side::LeftOf,
-                offset: -8,
-            }),
-        );
-        let text = d.file();
-        let back: File = toml::from_str(&text).unwrap();
+        d.set("GSM-772E-AAA", "LG HDR WQHD", place(LAPTOP, Side::LeftOf, -8));
+        let back: File = toml::from_str(&d.file()).unwrap();
         assert_eq!(Mode::from_name(&back.mode), Some(Mode::Mirror));
         assert_eq!(back.monitor, d.saved);
+        assert_eq!(back.monitor[0].name, "LG HDR WQHD");
+        // A file from before names were kept still reads.
+        let old: File =
+            toml::from_str("[[monitor]]\nid = \"GSM-772E-AAA\"\nside = \"above\"\n").unwrap();
+        assert_eq!(old.monitor[0].name, "");
     }
 
     #[test]
