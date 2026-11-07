@@ -157,6 +157,7 @@ mechanics of adding one.
 | [0113](0113-the-huds-parts-ask-for-shadows.md) | The HUD's parts ask the compositor for shadows, and `shadows` in the HUD config turns them off | Accepted |
 | [0114](0114-the-compositor-keeps-the-clipboard-history.md) | The compositor keeps the clipboard history and serves it on the session bus; a tray icon opens an applet | Accepted |
 | [0115](0115-dbug-watches-the-bus-as-a-monitor.md) | Dbug watches the session bus as a monitor, and sends from a connection of its own | Proposed |
+| [0116](0116-screenshots-go-to-the-clipboard-and-clipboard-settings.md) | Screenshots always go to the clipboard, and `[clipboard]` in the compositor config with a Settings page | Accepted; builds on [0114](0114-the-compositor-keeps-the-clipboard-history.md) |
 
 ## Decision Relationship
 
