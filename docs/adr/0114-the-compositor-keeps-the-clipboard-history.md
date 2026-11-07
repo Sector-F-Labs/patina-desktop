@@ -4,9 +4,10 @@ Date: 2026-11-07
 
 ## Status
 
-Proposed. The user asked whether a clipboard manager is possible on Wayland, and wanted a tray
+Accepted. The user asked whether a clipboard manager is possible on Wayland, and wanted a tray
 icon that opens a small applet to pick or delete items, with images shown. They agreed the
-compositor should own the history, and that the interface would be D-Bus.
+compositor should own the history, and that the interface would be D-Bus. They signed off and work began with the compositor's half: text
+history, images kept in memory, served on the bus.
 
 ## Context
 

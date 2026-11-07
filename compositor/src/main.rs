@@ -5,6 +5,7 @@
 mod caps;
 mod capture;
 mod clients;
+mod clipboard;
 mod cmd;
 mod config;
 mod constraints;
@@ -153,6 +154,7 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     }
     state.start_night_light();
     state.start_keyboard();
+    state.start_clipboard();
     state.start_idle();
     state.start_tiling(&event_loop.handle());
     state.start_typing();

@@ -134,6 +134,7 @@ pub struct State {
     pub frames: crate::frames::Frames,
     /// Text typed into the focused window for dictation (ADR-0071).
     pub typing: crate::typing::Typing,
+    pub clipboard: crate::clipboard::Clipboard,
     /// A three-finger drag, holding the left button (ADR-0031).
     pub drag: crate::drag::Drag,
     /// The scale the backend would choose by itself: the panel's density on
@@ -301,6 +302,7 @@ impl State {
             caps: Default::default(),
             frames: Default::default(),
             typing: Default::default(),
+            clipboard: Default::default(),
             drag: Default::default(),
             auto_scale,
             _fractional_scale: smithay::wayland::fractional_scale::FractionalScaleManagerState::new::<
@@ -1079,7 +1081,9 @@ impl SelectionHandler for State {
         _seat: Seat<Self>,
     ) {
         if ty == smithay::wayland::selection::SelectionTarget::Clipboard {
-            self.clipboard_offered(source.map(|s| s.mime_types()).unwrap_or_default());
+            let types = source.map(|s| s.mime_types());
+            self.clipboard_offered(types.clone().unwrap_or_default());
+            self.clipboard_selected(types);
         }
     }
 

@@ -117,6 +117,14 @@ puts them in `$(PREFIX)/share/man`.
   Settings' Keyboard page edits `[keyboard]`, four layouts at most (`MOST_LAYOUTS`: xkb drops the
   rest silently). Super+Space opens the launcher, Ctrl+Space switches.
   `dbus-run-session -- cargo test -p patina-compositor keyboard -- --ignored` tests the service.
+- `compositor/src/clipboard.rs`: the clipboard's history (ADR-0114): `SelectionHandler::new_selection`
+  reads each copy out of its app (every type, within size limits, as typing saves the clipboard),
+  `History` keeps them newest first (dedupe, 50 entries, 128 MB, images go before text), picking
+  one sets it as the compositor's own selection (`Served::Saved`), and when the app that owned the
+  clipboard quits the latest copy is put back (`Clipboard::clearing` marks the compositor's own
+  clears). `clipboard/dbus.rs` serves `com.sectorflabs.Patina.Clipboard`; `dbus-run-session --
+  cargo test -p patina-compositor clipboard -- --ignored` tests it. Text only so far: no
+  thumbnails, no disk, no applet.
 - `compositor/src/keys.rs`: the desktop's own keys (ADR-0069, ADR-0075): `compositor/keys.toml`,
   built in, gives each action its default keys (`action` maps names to `KeyAction`s), and also
   fills the starter config's `[keys]`; `[keys]` in the config replaces an action's, `Keys::new` builds them on every config load
