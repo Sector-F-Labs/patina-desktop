@@ -17,7 +17,9 @@ use patina_shell::calloop::channel::{self, Event};
 use patina_shell::piece::{self, Single};
 use patina_shell::{Anchor, Host, KeyboardInteractivity, Layer, Options};
 
-use crate::ui::{Change, Mode, Showing, VolumeMenu};
+use patina_system::mpris::{self, Command, Player};
+
+use crate::ui::{Change, Mode, Showing, VolumeMenu, height};
 
 const USAGE: &str = "usage: patina-volume [--flash | --brightness]
 
@@ -28,7 +30,8 @@ screen's brightness, as after a brightness key. PATINA_SKIN and
 PATINA_HUD_EDGE, as patina-hud sets them, choose the skin and which edge it
 opens from.";
 
-const SIZE: (u32, u32) = (320, 56);
+/// Its width; the height is the slider's, and a card for each player in the menu (ADR-0117).
+const WIDTH: u32 = 320;
 /// Its distance from the bar and the screen's right edge.
 const GAP: i32 = 4;
 /// How often the levels are read while it's shown, for changes made
@@ -38,6 +41,8 @@ const POLL: Duration = Duration::from_millis(400);
 enum Message {
     Volume(patina_system::audio::Volume),
     Brightness(Option<f32>),
+    /// The players with something to control, playing first.
+    Players(Vec<Player>),
     Toggle,
     Flash(Showing),
 }
@@ -97,7 +102,17 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
     std::thread::Builder::new()
         .name("poll".into())
         .spawn(move || {
+            let mut bus = None;
             loop {
+                if bus.is_none() {
+                    bus = mpris::connect().ok();
+                }
+                if let Some(b) = &bus {
+                    let all = mpris::players(b).map(mpris::active).unwrap_or_default();
+                    if send.send(Message::Players(all)).is_err() {
+                        return;
+                    }
+                }
                 if let Some(volume) = patina_system::audio::get()
                     && send.send(Message::Volume(volume)).is_err()
                 {
@@ -137,14 +152,49 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
         })
         .map_err(|e| e.to_string())?;
 
-    let menu = VolumeMenu::new(mode, showing, piece::skin("patina-volume"), changes);
+    // What the cards ask of the players, in order, off the UI thread: they may take a moment.
+    let (player_commands, player_received) = mpsc::channel::<(String, Command)>();
+    std::thread::Builder::new()
+        .name("players".into())
+        .spawn(move || {
+            while let Ok((name, command)) = player_received.recv() {
+                let sent = mpris::connect().and_then(|bus| mpris::send(&bus, &name, command));
+                if let Err(e) = sent {
+                    eprintln!("patina-volume: {name}: {e}");
+                }
+            }
+        })
+        .map_err(|e| e.to_string())?;
+
+    let mut menu = VolumeMenu::new(
+        mode,
+        showing,
+        piece::skin("patina-volume"),
+        changes,
+        player_commands,
+    );
+    // Read once now, so the menu opens as tall as it'll be, not growing a moment later.
+    if mode == Mode::Menu {
+        menu.players = mpris::connect()
+            .and_then(|bus| mpris::players(&bus))
+            .map(mpris::active)
+            .unwrap_or_default();
+    }
+    let size = (WIDTH, height(menu.players.len()));
     // At the button that opened it, or on the bar's edge (ADR-0063).
-    let (anchor, margin, exclusive_zone) = piece::opening(SIZE, GAP, Anchor::RIGHT);
+    let (anchor, margin, exclusive_zone) = piece::opening(size, GAP, Anchor::RIGHT);
     let options = Options {
         namespace: "patina-volume".into(),
         layer: Layer::Overlay,
         anchor,
-        size: SIZE,
+        size: (
+            WIDTH,
+            if mode == Mode::Menu {
+                size.1
+            } else {
+                height(0)
+            },
+        ),
         exclusive_zone,
         margin,
         keyboard: keyboard_for(mode),
@@ -173,6 +223,17 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
                     }
                     return;
                 }
+                Event::Msg(Message::Players(players)) => {
+                    if host.shell.players != players {
+                        host.shell.players = players;
+                        // Only the menu lists them; a flash is the slider alone.
+                        if host.shell.mode() == Mode::Menu {
+                            host.set_size((WIDTH, height(host.shell.players.len())));
+                        }
+                        host.redraw_all();
+                    }
+                    return;
+                }
                 Event::Msg(Message::Flash(showing)) => {
                     host.shell.flash(showing);
                     let _ = poke.send(());
@@ -181,6 +242,7 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
                     Mode::Menu => host.shell.close(),
                     Mode::Flash => {
                         host.shell.open();
+                        host.set_size((WIDTH, height(host.shell.players.len())));
                         host.set_keyboard(keyboard_for(Mode::Menu));
                     }
                 },

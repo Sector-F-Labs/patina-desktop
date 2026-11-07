@@ -423,7 +423,7 @@ fn run(
     // The media controls follow the player playing (ADR-0101), asked of the
     // session bus twice a second so a click shows at once.
     if uses_media {
-        let (players, media) = channel::channel::<Option<patina_system::mpris::Player>>();
+        let (players, media) = channel::channel::<(Option<patina_system::mpris::Player>, usize)>();
         std::thread::Builder::new()
             .name("media".into())
             .spawn(move || {
@@ -433,8 +433,10 @@ fn run(
                         bus = patina_system::mpris::connect().ok();
                     }
                     if let Some(b) = &bus {
-                        let current = patina_system::mpris::current(b).unwrap_or(None);
-                        if players.send(current).is_err() {
+                        let all = patina_system::mpris::players(b).unwrap_or_default();
+                        let count = patina_system::mpris::active(all.clone()).len();
+                        let current = patina_system::mpris::pick(all);
+                        if players.send((current, count)).is_err() {
                             return;
                         }
                     }
@@ -444,10 +446,11 @@ fn run(
             .map_err(|e| e.to_string())?;
         handle
             .insert_source(media, |event, _, host| {
-                if let Event::Msg(p) = event
-                    && host.shell.media != p
+                if let Event::Msg((p, count)) = event
+                    && (host.shell.media != p || host.shell.players != count)
                 {
                     host.shell.media = p;
+                    host.shell.players = count;
                     host.redraw_all();
                 }
             })
