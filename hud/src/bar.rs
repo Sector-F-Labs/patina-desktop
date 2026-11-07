@@ -108,6 +108,9 @@ pub struct Bar {
     /// The media player playing, or paused, for the media controls
     /// (ADR-0101); `None` when there's none.
     pub media: Option<patina_system::mpris::Player>,
+    /// How many players have something to control (ADR-0117): whether the media controls are one
+    /// button, with their number, for the volume menu.
+    pub players: usize,
     /// Apps' status icons (ADR-0064), and the tray that serves them.
     pub tray_items: Vec<patina_system::sni::Item>,
     pub tray: Option<patina_system::sni::Tray>,
@@ -174,6 +177,7 @@ impl Bar {
                 battery: None,
                 keyboard: None,
                 media: None,
+                players: 0,
                 tray_items: Vec::new(),
                 tray: None,
                 named_icons: RefCell::new(HashMap::new()),
@@ -500,6 +504,22 @@ impl Bar {
             }
             "media" => {
                 let Some(player) = &self.media else { return };
+                if self.players > 1 {
+                    let ctx = ui.ctx().clone();
+                    let opening = |rect| self.opening(&ctx, rect);
+                    ui.scope(|ui| {
+                        ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
+                        crate::tray::media_many(
+                            ui,
+                            player,
+                            self.players,
+                            &self.config.volume,
+                            &self.skin.name,
+                            &opening,
+                        );
+                    });
+                    return;
+                }
                 let command = ui
                     .scope(|ui| {
                         ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
@@ -1415,6 +1435,7 @@ mod tests {
             battery: None,
             keyboard: None,
             media: None,
+            players: 0,
             tray_items: Vec::new(),
             tray: None,
             named_icons: RefCell::new(HashMap::new()),

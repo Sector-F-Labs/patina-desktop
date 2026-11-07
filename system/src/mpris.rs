@@ -95,6 +95,22 @@ pub fn pick(players: Vec<Player>) -> Option<Player> {
     paused
 }
 
+/// The players with something to control, for the volume menu and the bar's count (ADR-0117):
+/// the ones playing first, then the paused, each in the order given. A stopped one (a browser
+/// with nothing open) is left out.
+pub fn active(players: Vec<Player>) -> Vec<Player> {
+    let (mut playing, mut paused) = (Vec::new(), Vec::new());
+    for p in players {
+        match p.status {
+            Status::Playing => playing.push(p),
+            Status::Paused => paused.push(p),
+            Status::Stopped => {}
+        }
+    }
+    playing.extend(paused);
+    playing
+}
+
 /// The text of a metadata entry: a string, or the first of a list of them
 /// (`xesam:artist` is a list, though some players send a string).
 fn text(metadata: &HashMap<String, OwnedValue>, key: &str) -> String {
@@ -216,6 +232,21 @@ mod tests {
             player("c", Status::Paused),
         ]);
         assert_eq!(picked.unwrap().identity, "b");
+    }
+
+    #[test]
+    fn active_players_are_the_playing_then_the_paused() {
+        let names: Vec<String> = active(vec![
+            player("a", Status::Paused),
+            player("b", Status::Stopped),
+            player("c", Status::Playing),
+            player("d", Status::Paused),
+            player("e", Status::Playing),
+        ])
+        .into_iter()
+        .map(|p| p.identity)
+        .collect();
+        assert_eq!(names, ["c", "e", "a", "d"]);
     }
 
     #[test]

@@ -6,7 +6,8 @@ are used (ADR-0021, ADR-0033).
 ## On the desktop
 
 - **As a menu**, from the bar's speaker: a mute button, a slider and the level, at the bar's
-  right end. It stays until Escape, a click elsewhere or the speaker again.
+  right end, with a card for each media player playing or paused: its track and previous, play or
+  pause and next (ADR-0117). It stays until Escape, a click elsewhere or the speaker again.
 - **As a flash**, after a volume or brightness key: it fades in without taking the keyboard,
   shows what the key changed, holds while the keys keep coming, and fades out on its own.
 

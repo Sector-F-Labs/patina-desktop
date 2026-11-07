@@ -101,6 +101,71 @@ fn icon_button(
     response
 }
 
+/// A small count in the corner of `rect`, in `colour` with the number cut out of it in
+/// `ink`: how many players there are (ADR-0117). Ten or more show as 9+.
+fn badge(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    count: usize,
+    colour: egui::Color32,
+    ink: egui::Color32,
+) {
+    let radius = (rect.width().min(rect.height()) * 0.24).clamp(5.0, 9.0);
+    let centre = egui::pos2(rect.right() - radius * 0.6, rect.bottom() - radius * 0.6);
+    painter.circle_filled(centre, radius, colour);
+    let text = if count > 9 {
+        "9+".to_string()
+    } else {
+        count.to_string()
+    };
+    painter.text(
+        centre,
+        egui::Align2::CENTER_CENTER,
+        text,
+        egui::FontId::proportional(radius * 1.35),
+        ink,
+    );
+}
+
+/// With more than one player the controls are one button, for the one shown, with their
+/// count; it opens the volume menu, which has a row of controls for each (ADR-0117).
+pub fn media_many(
+    ui: &mut Ui,
+    player: &patina_system::mpris::Player,
+    count: usize,
+    command: &str,
+    skin: &str,
+    opening: &dyn Fn(egui::Rect) -> crate::launcher::Opening,
+) {
+    use patina_system::icons;
+    use patina_system::mpris::Status;
+    let playing = player.status == Status::Playing;
+    let tip = format!("{count} players\n{}", player.describe());
+    let side = side(ui);
+    let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
+    let v = ui.visuals();
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
+    }
+    let colour = if response.hovered() {
+        v.strong_text_color()
+    } else {
+        v.text_color()
+    };
+    let icon = rect.shrink(padding(rect.width()) + 2.0);
+    if playing {
+        icons::pause(ui.painter(), icon, colour);
+    } else {
+        icons::play(ui.painter(), icon, colour);
+    }
+    badge(ui.painter(), rect, count, colour, v.panel_fill);
+    crate::tooltip::hover(ui, &response, tip);
+    if response.clicked() {
+        crate::launcher::run(command, skin, &opening(rect));
+    }
+}
+
 /// The media controls (ADR-0101): previous, play or pause, and next, in a
 /// row or a column as the bar is, with the track on hover. Returns what
 /// was clicked.

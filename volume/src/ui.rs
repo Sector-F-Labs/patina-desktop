@@ -4,17 +4,26 @@
 //! fades in, holds and fades out on its own, showing what the key changed
 //! (ADR-0033). Keys pressed again keep it up, without fading again.
 
-use egui::{Align, Layout, Sense, Slider, StrokeKind, Ui, UiBuilder, vec2};
+use egui::{Align, Layout, Sense, Slider, StrokeKind, Ui, UiBuilder, pos2, vec2};
 use patina::skin::Skin;
 use patina_shell::Shell;
 
 use patina_system::audio::Volume;
+use patina_system::mpris::{Command, Player, Status};
 
 /// Fade in, hold, fade out, in seconds, for a flash.
 const FADE_IN: f64 = 0.12;
 const HOLD: f64 = 1.5;
 const FADE_OUT: f64 = 0.3;
 const MARGIN: f32 = 12.0;
+/// The slider's part of the menu, and each player's card under it (ADR-0117).
+const TOP: f32 = 56.0;
+const CARD: f32 = 48.0;
+const CARD_GAP: f32 = 6.0;
+/// Players shown before the list scrolls.
+const MAX_CARDS: usize = 4;
+/// A card's control buttons.
+const BUTTON: f32 = 28.0;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Mode {
@@ -40,8 +49,21 @@ pub enum Change {
     Brightness(f32),
 }
 
+/// How tall the menu is with `players` of them listed: the slider, and a card each.
+pub fn height(players: usize) -> u32 {
+    let shown = players.min(MAX_CARDS) as f32;
+    if shown == 0.0 {
+        return TOP as u32;
+    }
+    (TOP - 2.0 + shown * CARD + (shown - 1.0) * CARD_GAP + MARGIN).round() as u32
+}
+
 pub struct VolumeMenu {
     pub volume: Option<Volume>,
+    /// The players with something to control, playing first; listed in the menu, not the flash.
+    pub players: Vec<Player>,
+    /// What the cards ask of a player, to the thread that sends it.
+    commands: std::sync::mpsc::Sender<(String, Command)>,
     /// The backlight, 0 to 1; `None` without one.
     pub brightness: Option<f32>,
     mode: Mode,
@@ -63,9 +85,12 @@ impl VolumeMenu {
         showing: Showing,
         skin: Skin,
         changes: std::sync::mpsc::Sender<Change>,
+        commands: std::sync::mpsc::Sender<(String, Command)>,
     ) -> Self {
         Self {
             volume: None,
+            players: Vec::new(),
+            commands,
             brightness: None,
             mode,
             showing,
@@ -122,6 +147,97 @@ impl VolumeMenu {
     /// made every press blink.
     pub fn held_again(t: f64) -> f64 {
         t.min(FADE_IN)
+    }
+
+    /// A card for `player`: what it's playing, and its controls.
+    fn card(&mut self, ui: &mut Ui, index: usize) {
+        let v = ui.visuals().clone();
+        let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), CARD), Sense::hover());
+        ui.painter().rect_filled(
+            rect,
+            v.widgets.noninteractive.corner_radius,
+            v.faint_bg_color,
+        );
+        let player = self.players[index].clone();
+        // The buttons at the right, the text in what's left.
+        let mut right = rect.right() - 6.0;
+        let mut clicked = None;
+        let buttons = [
+            (Command::Next, player.can_next),
+            (Command::PlayPause, true),
+            (Command::Previous, player.can_previous),
+        ];
+        for (command, enabled) in buttons {
+            let at = egui::Rect::from_center_size(
+                pos2(right - BUTTON / 2.0, rect.center().y),
+                vec2(BUTTON, BUTTON),
+            );
+            right -= BUTTON;
+            if !enabled {
+                continue;
+            }
+            let response = ui.interact(
+                at,
+                ui.id().with((index, command_name(command))),
+                Sense::click(),
+            );
+            if response.hovered() {
+                ui.painter().rect_filled(
+                    at,
+                    v.widgets.hovered.corner_radius,
+                    v.widgets.hovered.weak_bg_fill,
+                );
+            }
+            let colour = if response.hovered() {
+                v.strong_text_color()
+            } else {
+                v.text_color()
+            };
+            let glyph = at.shrink(7.0);
+            match command {
+                Command::Previous => patina_system::icons::skip(ui.painter(), glyph, false, colour),
+                Command::Next => patina_system::icons::skip(ui.painter(), glyph, true, colour),
+                Command::PlayPause if player.status == Status::Playing => {
+                    patina_system::icons::pause(ui.painter(), glyph, colour)
+                }
+                Command::PlayPause => patina_system::icons::play(ui.painter(), glyph, colour),
+            }
+            if response.clicked() {
+                clicked = Some(command);
+            }
+        }
+        let text = egui::Rect::from_min_max(
+            pos2(rect.left() + 10.0, rect.top()),
+            pos2(right - 4.0, rect.bottom()),
+        );
+        let by = if player.artist.is_empty() {
+            player.identity.clone()
+        } else {
+            format!("{} · {}", player.artist, player.identity)
+        };
+        ui.scope_builder(
+            UiBuilder::new()
+                .max_rect(text)
+                .layout(Layout::top_down(Align::Min)),
+            |ui| {
+                ui.add_space(7.0);
+                ui.add(egui::Label::new(egui::RichText::new(&player.title).strong()).truncate());
+                ui.add(egui::Label::new(egui::RichText::new(by).weak().small()).truncate());
+            },
+        );
+        if let Some(command) = clicked {
+            let _ = self.commands.send((player.bus_name.clone(), command));
+            // Show it at once; the next read of the players confirms it.
+            if command == Command::PlayPause
+                && let Some(p) = self.players.get_mut(index)
+            {
+                p.status = if p.status == Status::Playing {
+                    Status::Paused
+                } else {
+                    Status::Playing
+                };
+            }
+        }
     }
 
     /// A speaker or a sun, the slider and the percentage, for `level`.
@@ -238,22 +354,44 @@ impl Shell for VolumeMenu {
                 None => (0.0, false, Some("No backlight")),
             },
         };
+        // The slider's part; under it, in the menu, a card for each player (ADR-0117).
+        let top = egui::Rect::from_min_size(rect.min, vec2(rect.width(), TOP.min(rect.height())));
         if let Some(missing) = missing {
             ui.painter().text(
-                rect.center(),
+                top.center(),
                 egui::Align2::CENTER_CENTER,
                 missing,
                 egui::TextStyle::Body.resolve(ui.style()),
                 v.weak_text_color(),
             );
+        } else {
+            let mut row = ui.new_child(
+                UiBuilder::new()
+                    .max_rect(top.shrink(MARGIN))
+                    .layout(Layout::left_to_right(Align::Center)),
+            );
+            self.level_row(&mut row, level, muted);
+        }
+        if self.mode != Mode::Menu || self.players.is_empty() {
             return;
         }
-        let mut ui = ui.new_child(
-            UiBuilder::new()
-                .max_rect(rect.shrink(MARGIN))
-                .layout(Layout::left_to_right(Align::Center)),
+        let cards = egui::Rect::from_min_max(
+            pos2(rect.left() + MARGIN, top.bottom() - 2.0),
+            pos2(rect.right() - MARGIN, rect.bottom() - MARGIN),
         );
-        self.level_row(&mut ui, level, muted);
+        let mut list = ui.new_child(
+            UiBuilder::new()
+                .max_rect(cards)
+                .layout(Layout::top_down(Align::Min)),
+        );
+        list.spacing_mut().item_spacing.y = CARD_GAP;
+        egui::ScrollArea::vertical()
+            .auto_shrink([false, false])
+            .show(&mut list, |ui| {
+                for index in 0..self.players.len() {
+                    self.card(ui, index);
+                }
+            });
     }
 
     fn finished(&self) -> bool {
@@ -261,9 +399,25 @@ impl Shell for VolumeMenu {
     }
 }
 
+fn command_name(command: Command) -> &'static str {
+    match command {
+        Command::PlayPause => "play",
+        Command::Next => "next",
+        Command::Previous => "previous",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_menu_grows_with_its_players_up_to_a_few() {
+        assert_eq!(height(0), 56, "no players: just the slider, as before");
+        assert!(height(1) > height(0));
+        assert!(height(2) > height(1));
+        assert_eq!(height(MAX_CARDS + 3), height(MAX_CARDS), "then it scrolls");
+    }
 
     #[test]
     fn a_flash_fades_in_holds_and_fades_out() {
