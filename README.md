@@ -54,7 +54,8 @@ text console, `patina-session --session` starts it. Super opens the launcher, Al
 Ctrl+Shift+Escape the process manager. Ctrl+Alt+Shift+Backspace restarts the desktop without
 logging out, and Ctrl+Alt+Backspace quits it, back to the login screen.
 [docs/running-as-a-session.md](docs/running-as-a-session.md) has how to get back if something
-goes wrong.
+goes wrong, and [docs/troubleshooting.md](docs/troubleshooting.md) has things that went wrong
+and how they were put right (a Save dialog that never appears, for one).
 
 Two things differ off Ubuntu: the keyboard layout comes from `/etc/default/keyboard` (Debian's and
 Ubuntu's), so elsewhere set `layout` under `[keyboard]` in the compositor's config; and the lock
