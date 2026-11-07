@@ -149,6 +149,10 @@ pub struct Saved {
     /// connected.
     #[serde(default)]
     pub name: String,
+    /// Ask what to do each time it's plugged in (ADR-0126); otherwise a
+    /// known monitor is switched on as the desktop was last used.
+    #[serde(default)]
+    pub ask: bool,
     /// The monitor it's next to, by id; empty for the primary or when it
     /// goes after the one before.
     #[serde(default)]
@@ -279,10 +283,13 @@ impl Displays {
     /// before). It becomes the last saved, so a monitor of its model that
     /// isn't known goes where it was put before any other of the model.
     pub fn set(&mut self, id: &str, name: &str, place: Option<Place>) {
+        // Placing it again keeps whether it asks.
+        let ask = self.saved.iter().find(|s| s.id == id).is_some_and(|s| s.ask);
         self.saved.retain(|s| s.id != id);
         self.saved.push(Saved {
             id: id.into(),
             name: name.into(),
+            ask,
             to: place.as_ref().map(|p| p.to.clone()).unwrap_or_default(),
             side: place
                 .as_ref()
@@ -290,6 +297,18 @@ impl Displays {
                 .unwrap_or_default(),
             offset: place.map_or(0, |p| p.offset),
         });
+    }
+
+    /// Whether the entry `id` asks each time its monitor is plugged in;
+    /// whether there is one.
+    pub fn set_ask(&mut self, id: &str, ask: bool) -> bool {
+        match self.saved.iter_mut().find(|s| s.id == id) {
+            Some(entry) => {
+                entry.ask = ask;
+                true
+            }
+            None => false,
+        }
     }
 
     /// Forgets the entry `id`; whether there was one.
@@ -332,14 +351,6 @@ impl State {
             .into_iter()
             .map(|e| e.is_some())
             .collect()
-    }
-
-    /// Whether the monitor `id`, connected, goes by a saved entry.
-    pub fn is_known(&self, id: &str) -> bool {
-        let ids = self.monitor_ids();
-        ids.iter()
-            .position(|i| i == id)
-            .is_some_and(|at| self.displays.resolve(&ids)[at].is_some())
     }
 
     /// The monitors: those driven, the primary first, then those idle.
@@ -437,6 +448,7 @@ impl State {
                         s.name.clone()
                     },
                     in_use: by.contains(&Some(e)),
+                    ask: s.ask,
                     to: s.to.clone(),
                     to_name: if s.to.is_empty() { String::new() } else { to_name },
                     side: s.side.clone(),
@@ -455,6 +467,17 @@ impl State {
             }
             Request::Saved(reply) => {
                 let _ = reply.send(self.saved_displays());
+            }
+            Request::SetAsk(id, ask, reply) => {
+                let _ = reply.send(if self.displays.set_ask(&id, ask) {
+                    self.displays.save();
+                    if let Some(service) = &self.displays.service {
+                        service.changed();
+                    }
+                    Ok(())
+                } else {
+                    Err(format!("no saved display {id}"))
+                });
             }
             Request::Forget(id, reply) => {
                 let _ = reply.send(if self.displays.forget(&id) {
@@ -567,19 +590,38 @@ impl State {
     }
 
     /// Monitors were plugged in (each an id and a connector name) and left
-    /// off: the popup asks what to do, and the bus says which, and whether
-    /// they're known.
+    /// off. A known monitor, one that goes by a saved entry, is switched on
+    /// as the desktop was last used, without asking (ADR-0126); a new one,
+    /// one whose entry asks, or any while the primary is alone, gets the
+    /// popup. The bus says which came, and whether they're known.
     pub fn monitors_plugged(&mut self, added: &[(String, String)]) {
-        // Known: it goes by a saved entry, its own or its model's.
-        let known: Vec<String> = added
-            .iter()
-            .map(|(id, _)| id.clone())
-            .filter(|id| self.is_known(id))
-            .collect();
-        // A monitor to choose for: the popup asks (not over a lock). A
-        // moment later: bringing the monitor up keeps the loop busy, and the
-        // popup's first question to it would time out.
-        if !added.is_empty() {
+        let ids = self.monitor_ids();
+        let by = self.displays.resolve(&ids);
+        let mut switch_on = Vec::new();
+        let mut ask = false;
+        let mut known = Vec::new();
+        for (id, _) in added {
+            let entry = ids
+                .iter()
+                .position(|i| i == id)
+                .and_then(|at| by[at])
+                .map(|e| self.displays.entries()[e].ask);
+            if entry.is_some() {
+                known.push(id.clone());
+            }
+            match entry {
+                Some(false) if self.displays.mode != Mode::Off => switch_on.push(id.clone()),
+                _ => ask = true,
+            }
+        }
+        // Only those that came: another left off earlier stays off.
+        if !switch_on.is_empty() {
+            self.activate_known(&switch_on);
+        }
+        // The popup asks (not over a lock). A moment later: bringing a
+        // monitor up keeps the loop busy, and the popup's first question to
+        // it would time out.
+        if ask {
             let _ = self.loop_handle.insert_source(
                 Timer::from_duration(std::time::Duration::from_millis(1500)),
                 |_, _, state| {
@@ -595,6 +637,16 @@ impl State {
             for (id, name) in added {
                 service.added(id, name, known.contains(id));
             }
+        }
+    }
+
+    /// Drives the idle monitors `ids`, laying out all of them again.
+    fn activate_known(&mut self, ids: &[String]) {
+        let config = self.config.clone();
+        let Some(u) = self.udev.as_mut() else { return };
+        if !u.activate_only(&config, ids).is_empty() {
+            let all = u.outputs();
+            self.outputs_changed(all, &[]);
         }
     }
 }
@@ -716,6 +768,24 @@ mod tests {
         assert!(d.forget("B-1"));
         assert!(!d.forget("B-1"));
         assert_eq!(d.entries().len(), 1);
+    }
+
+    #[test]
+    fn an_entry_asks_only_when_told_to_and_placing_again_keeps_it() {
+        let mut d = Displays::default();
+        d.set("DEL-A0D3-HOME1", "DELL", place(LAPTOP, Side::LeftOf, 0));
+        assert!(!d.entries()[0].ask, "it doesn't, to begin with");
+        assert!(d.set_ask("DEL-A0D3-HOME1", true));
+        assert!(!d.set_ask("DEL-A0D3-NOPE", true), "no such entry");
+        // Moved: it still asks.
+        d.set("DEL-A0D3-HOME1", "DELL", place(LAPTOP, Side::RightOf, 0));
+        assert!(d.entries()[0].ask);
+        assert!(d.set_ask("DEL-A0D3-HOME1", false));
+        assert!(!d.entries()[0].ask);
+        // A file from before the flag was kept reads as not asking.
+        let old: File =
+            toml::from_str("[[monitor]]\nid = \"GSM-772E-AAA\"\nside = \"above\"\n").unwrap();
+        assert!(!old.monitor[0].ask);
     }
 
     #[test]

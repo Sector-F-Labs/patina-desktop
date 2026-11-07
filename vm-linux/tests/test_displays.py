@@ -143,8 +143,8 @@ def test_a_hot_desks_monitor_goes_where_one_of_its_model_was(vm):
     _, desk = settle(vm, 2, "the desk's Dell to be listed")
     assert desk["id"] != dell["id"]
     assert desk["known"], "a monitor of a model that was placed is known"
-    the_popup_closed(vm)
-    call(vm, "SetMode", "s", "extend")
+    # Known, so it's switched on without a word.
+    wait_for(lambda: active_count(vm) == 2, timeout=30, what="the desk's Dell to be switched on")
     first = primary(vm)
     [desk] = [m for m in monitors(vm) if not m["primary"]]
     assert desk["active"]
@@ -169,6 +169,105 @@ def test_forgetting_makes_the_model_new_again(vm):
     vm.display("plug", "1", "dell-desk")
     _, desk = settle(vm, 2, "the desk's Dell to be listed")
     assert not desk["known"]
+
+
+def popup_open(vm):
+    return vm.ssh(f"pgrep -f '{pattern('patina-displays')}'", check=False) != ""
+
+
+def popup_stays_away(vm, seconds=5):
+    """True if no popup opens within `seconds`: it comes about a second and a half after a plug-in."""
+    import time
+
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if popup_open(vm):
+            return False
+        time.sleep(0.5)
+    return True
+
+
+def placed_dell(vm, side="above"):
+    """A Dell plugged in as monitor 1 and placed, then unplugged: a known monitor."""
+    vm.display("plug", "1", "dell-home")
+    settle(vm, 2, "the Dell to be listed")
+    the_popup_closed(vm)
+    call(vm, "SetMode", "s", "extend")
+    first = primary(vm)
+    dell = next(m for m in monitors(vm) if not m["primary"])
+    call(vm, "SetPlace", "sssi", dell["id"], first["id"], side, "0")
+    vm.display("unplug", "1")
+    settle(vm, 1, "the Dell to go")
+    return dell["id"]
+
+
+def active_count(vm):
+    return sum(m["active"] for m in monitors(vm))
+
+
+def test_a_known_monitor_is_switched_on_without_asking(vm):
+    placed_dell(vm)
+    the_popup_closed(vm)
+    vm.display("plug", "1", "dell-home")
+    wait_for(lambda: active_count(vm) == 2, timeout=30, what="the known monitor to be switched on")
+    assert popup_stays_away(vm), "a known monitor isn't asked about"
+    first = primary(vm)
+    [dell] = [m for m in monitors(vm) if not m["primary"]]
+    assert dell["y"] < first["y"], "and it's where it was put"
+
+
+def test_a_monitor_that_asks_brings_the_popup_back(vm):
+    dell = placed_dell(vm)
+    call(vm, "SetAsk", "sb", dell, "true")
+    assert next(e for e in saved(vm) if e["id"] == dell)["ask"]
+    vm.display("plug", "1", "dell-home")
+    wait_for(lambda: popup_open(vm), timeout=20, what="the popup to open")
+    the_popup_closed(vm)
+    assert active_count(vm) == 1, "it stays off until chosen for"
+    # Not asking again: back as it was.
+    call(vm, "SetAsk", "sb", dell, "false")
+    vm.display("unplug", "1")
+    settle(vm, 1, "the Dell to go")
+    vm.display("plug", "1", "dell-home")
+    wait_for(lambda: active_count(vm) == 2, timeout=30, what="the Dell to be switched on")
+
+
+def test_asking_is_kept_when_a_monitor_is_placed_again(vm):
+    dell = placed_dell(vm)
+    call(vm, "SetAsk", "sb", dell, "true")
+    vm.display("plug", "1", "dell-home")
+    settle(vm, 2, "the Dell to be listed")
+    the_popup_closed(vm)
+    call(vm, "SetMode", "s", "extend")
+    first = primary(vm)
+    call(vm, "SetPlace", "sssi", dell, first["id"], "left", "0")
+    assert next(e for e in saved(vm) if e["id"] == dell)["ask"]
+
+
+def test_a_monitor_left_off_stays_off_when_a_known_one_is_switched_on(vm):
+    placed_dell(vm)
+    # A new monitor in the other slot: the popup comes, and "do nothing" leaves it off.
+    vm.display("plug", "2", "full-hd")
+    settle(vm, 2, "the new monitor to be listed")
+    the_popup_closed(vm)
+    assert active_count(vm) == 1
+    # The known one comes: it's switched on, and the one left off is still off.
+    vm.display("plug", "1", "dell-home")
+    wait_for(lambda: active_count(vm) == 2, timeout=30, what="the known monitor to be switched on")
+    listed = monitors(vm)
+    assert len(listed) == 3
+    off = [m for m in listed if not m["active"]]
+    assert [m["id"] for m in off] == ["ACR-0A55-KG7"]
+
+
+def test_any_monitor_asks_while_the_primary_is_alone(vm):
+    placed_dell(vm)
+    call(vm, "SetMode", "s", "off")
+    the_popup_closed(vm)
+    vm.display("plug", "1", "dell-home")
+    wait_for(lambda: popup_open(vm), timeout=20, what="the popup to open")
+    the_popup_closed(vm)
+    assert active_count(vm) == 1
 
 
 def test_the_primary_alone_turns_the_others_off(vm):

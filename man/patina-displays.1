@@ -17,7 +17,7 @@ the desktop across them, each showing its own part, to
 .Em Mirror
 it, each showing the same, or to leave it be.
 The one in use is marked.
-A monitor plugged in stays off until it's chosen for, and the third tile,
+A monitor that is asked about stays off until it's chosen for, and the third tile,
 .Em Do nothing ,
 leaves it off; with no monitor waiting the third is
 .Em Primary only ,
@@ -26,7 +26,12 @@ The compositor opens it on Ctrl+Super+P or the display key, the
 .Ic displays
 key in
 .Ic [keys] ,
-and when a monitor is plugged in.
+and when a monitor is plugged in that it has to ask about: one the desktop
+hasn't seen, or one whose saved display has
+.Dq Ask when plugged in
+ticked in Settings.
+A monitor it knows is switched on as the desktop was last used, without a
+popup.
 .Pp
 A click or Enter chooses, the arrow keys and Tab move between the three, 1 to
 3 choose, and Escape, or switching to another window, closes with nothing
