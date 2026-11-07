@@ -43,6 +43,8 @@ pub enum KeyAction {
     Spotlight,
     /// The emoji picker (Ctrl+Super+Space, as macOS).
     Emoji,
+    /// The popup for several monitors (Ctrl+Super+P).
+    Displays,
     /// Hide the HUD, or bring it back (Super+H): `patina-hud --toggle`.
     Hud,
     /// Read config.toml again (Super+Shift+R).
@@ -306,6 +308,10 @@ impl State {
                 }
                 None
             }
+            Some(KeyAction::Displays) => {
+                self.spawn_client("patina-displays");
+                None
+            }
             Some(KeyAction::Emoji) => {
                 self.spawn_client("patina-emoji");
                 None
@@ -440,12 +446,7 @@ impl State {
             .get_pointer()
             .map(|p| p.current_location())
             .unwrap_or_default();
-        let monitors: Vec<_> = self
-            .outputs
-            .iter()
-            .filter_map(|o| self.space.output_geometry(o))
-            .collect();
-        crate::layout::clamp(&monitors, current + delta)
+        crate::layout::clamp(&self.pointer_areas(), current + delta)
     }
 }
 

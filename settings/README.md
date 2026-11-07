@@ -37,6 +37,11 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
 - **Clipboard** (ADR-0114, ADR-0116): whether the compositor keeps a history of what's copied,
   how many copies, for how long, and whether screenshots go on the clipboard, written to `[clipboard]` in the
   compositor's config (`clipboard.rs`); Clear history asks the compositor over the session bus.
+- **Displays** (ADR-0121): the monitors drawn to scale (`displays.rs`), the others dragged to a
+  side of one (`display_layout.rs` is the snapping, tested), or chosen from menus; extend, mirror
+  or primary only; and monitors connected but off, to extend or mirror onto. It all goes through
+  the compositor's `com.sectorflabs.Patina.Displays` (`patina_system::displays`), which keeps the
+  places by monitor in `displays.toml`. The popup sends a monitor never placed here.
 - **Night Light** (ADR-0039): off, always on, or on a schedule, and the warmth. It also shows
   what the compositor says: whether this screen can be warmed, whether it's on now (with a button
   to turn it off until the schedule changes, or back), and which apps are holding it off.
@@ -57,7 +62,7 @@ It wears the shell's skin and follows it when the desktop's menu changes it.
 ## How it fits in
 
 - **Started by** patina-menu: its Wallpaper… item runs `patina-settings --page wallpaper`, and
-  Settings… runs it at Appearance; and by the bar's battery, at Power and Battery (its `battery` command). `--page appearance|bar|wallpaper|defaults|keyboard|dictation|clipboard|night-light|power|processes`.
+  Settings… runs it at Appearance; and by the bar's battery, at Power and Battery (its `battery` command). `--page appearance|bar|wallpaper|defaults|keyboard|dictation|clipboard|displays|night-light|power|processes`.
 - **Writes the files the settings live in**, keeping the rest of each: the bar's config
   (`skin`, `wallpaper`) through patina-shell, and `[night_light]` in the compositor's config with
   `toml_edit`. The bar, patina-wallpaper and the compositor watch those files and change at once.

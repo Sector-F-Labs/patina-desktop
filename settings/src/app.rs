@@ -34,13 +34,14 @@ pub enum Page {
     Keyboard,
     Dictation,
     Clipboard,
+    Displays,
     NightLight,
     Power,
     Processes,
 }
 
 impl Page {
-    const ALL: [Page; 11] = [
+    const ALL: [Page; 12] = [
         Page::Appearance,
         Page::Bar,
         Page::Wallpaper,
@@ -49,6 +50,7 @@ impl Page {
         Page::Keyboard,
         Page::Dictation,
         Page::Clipboard,
+        Page::Displays,
         Page::NightLight,
         Page::Power,
         Page::Processes,
@@ -64,6 +66,7 @@ impl Page {
             "keyboard" => Some(Page::Keyboard),
             "dictation" => Some(Page::Dictation),
             "clipboard" => Some(Page::Clipboard),
+            "displays" => Some(Page::Displays),
             "night-light" => Some(Page::NightLight),
             "power" => Some(Page::Power),
             "processes" => Some(Page::Processes),
@@ -81,6 +84,7 @@ impl Page {
             Page::Keyboard => "Keyboard",
             Page::Dictation => "Dictation",
             Page::Clipboard => "Clipboard",
+            Page::Displays => "Displays",
             Page::NightLight => "Night Light",
             Page::Power => "Power and Battery",
             Page::Processes => "Processes",
@@ -142,6 +146,7 @@ pub struct App {
     keyboard: crate::keyboard::KeyboardPage,
     dictation: crate::dictation::DictationPage,
     clipboard: crate::clipboard::ClipboardPage,
+    displays: crate::displays::DisplaysPage,
     night_light: NightLightPage,
     power: crate::power::PowerPage,
     processes: crate::processes::ProcessesPage,
@@ -177,6 +182,7 @@ impl App {
             keyboard: crate::keyboard::KeyboardPage::new(ctx),
             dictation: crate::dictation::DictationPage::new(),
             clipboard: crate::clipboard::ClipboardPage::new(),
+            displays: crate::displays::DisplaysPage::new(ctx),
             night_light: NightLightPage::new(ctx),
             power: crate::power::PowerPage::new(ctx),
             processes: crate::processes::ProcessesPage::new(ctx),
@@ -679,6 +685,10 @@ impl App {
                 Page::Clipboard => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.clipboard.ui(ui, &mut self.message));
+                }
+                Page::Displays => {
+                    egui::ScrollArea::vertical()
+                        .show(ui, |ui| self.displays.ui(ui, &mut self.message));
                 }
                 Page::NightLight => {
                     egui::ScrollArea::vertical()

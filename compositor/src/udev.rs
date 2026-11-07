@@ -86,6 +86,9 @@ pub struct UdevData {
     pub(crate) renderer: GlesRenderer,
     /// The monitors, the primary first.
     heads: Vec<Head>,
+    /// Connected monitors that aren't driven: plugged in while running and
+    /// waiting to be told to extend or mirror (ADR-0121), or switched off.
+    idle: Vec<Monitor>,
     pub(crate) dmabuf_state: DmabufState,
     /// linux-drm-syncobj, where the device supports it (`sync.rs`).
     pub(crate) syncobj_state: Option<DrmSyncobjState>,
@@ -116,6 +119,19 @@ struct Head {
     gamma: Option<Gamma>,
 }
 
+/// Whether the ramps are about the straight line: each entry within 6% of
+/// where a straight ramp has it. Night Light's warmest is far from it, and a
+/// ramp of zeros is too.
+fn is_straight(ramps: &[Vec<u16>; 3]) -> bool {
+    ramps.iter().all(|ramp| {
+        let last = ramp.len().saturating_sub(1).max(1);
+        ramp.iter().enumerate().all(|(i, &v)| {
+            let straight = (i * 0xffff / last) as i64;
+            (v as i64 - straight).abs() < 0x1000
+        })
+    })
+}
+
 /// A CRTC's gamma ramp: as it was when we came, and the temperature it's
 /// warmed to now.
 struct Gamma {
@@ -139,13 +155,18 @@ impl Gamma {
             eprintln!("patina-compositor: can't read the gamma ramp, so no night light: {e}");
             return None;
         }
-        // A ramp left all zeros by whoever was here before would blank
-        // the screen; start from a straight one instead.
-        if ramps.iter().all(|c| c.iter().all(|&v| v == 0)) {
+        // A ramp left all zeros, or warmed and never put back (the
+        // compositor was killed mid-evening), by whoever was here before
+        // would blank or tint the screen for good, as "the original"; start
+        // from a straight one instead, and set it now.
+        if !is_straight(&ramps) {
             let straight: Vec<u16> = (0..size)
                 .map(|i| (i * 0xffff / (size - 1).max(1)) as u16)
                 .collect();
             ramps = [straight.clone(), straight.clone(), straight];
+            if let Err(e) = drm.set_gamma(crtc, &ramps[0], &ramps[1], &ramps[2]) {
+                eprintln!("patina-compositor: can't reset the gamma ramp: {e}");
+            }
         }
         Some(Self {
             crtc,
@@ -161,7 +182,9 @@ impl Gamma {
 }
 
 /// A monitor to drive: its connector, a CRTC for it, and its mode.
+#[derive(Clone)]
 struct Monitor {
+    edid: Option<crate::edid::Edid>,
     connector: connector::Info,
     crtc: crtc::Handle,
     mode: smithay::reexports::drm::control::Mode,
@@ -208,8 +231,16 @@ pub fn init(
         .ok()
         .and_then(|n| n.node_with_type(NodeType::Render).and_then(Result::ok));
     let mut heads = Vec::new();
+    let mut idle = Vec::new();
     let mut auto_scale = 1.0;
+    // The primary is always driven; the others unless the last choice was
+    // the primary alone.
+    let secondaries = crate::displays::Displays::load().mode != crate::displays::Mode::Off;
     for (i, monitor) in monitors.iter().enumerate() {
+        if i > 0 && !secondaries {
+            idle.push(monitor.clone());
+            continue;
+        }
         match make_head(&mut drm, &gbm, render_node, &renderer, monitor, config, i == 0) {
             Ok((head, automatic)) => {
                 if i == 0 {
@@ -287,6 +318,7 @@ pub fn init(
             render_node,
             renderer,
             heads,
+            idle,
             dmabuf_state,
             syncobj_state,
             _dmabuf_global: dmabuf_global,
@@ -299,6 +331,26 @@ pub fn init(
         output,
         auto_scale,
     ))
+}
+
+/// What a rescan of the connectors found.
+#[derive(Default)]
+struct Rescan {
+    /// Outputs now driven that weren't (a monitor when none was).
+    added: Vec<Output>,
+    removed: Vec<Output>,
+    /// Monitors plugged in and left idle: (id, connector name).
+    appeared: Vec<(String, String)>,
+}
+
+/// A monitor that's connected but not driven.
+pub struct IdleMonitor {
+    pub name: String,
+    pub id: String,
+    pub make: String,
+    pub model: String,
+    pub width: i32,
+    pub height: i32,
 }
 
 impl UdevData {
@@ -314,58 +366,148 @@ impl UdevData {
         self.heads.iter().any(|h| h.gamma.is_some())
     }
 
-    /// Looks at the connectors again: drives the monitors that came, stops
-    /// driving those that went. Returns the outputs added and removed.
-    fn rescan(&mut self, config: &crate::config::Config) -> (Vec<Output>, Vec<Output>) {
-        let keep: Vec<_> = self.heads.iter().map(|h| (h.connector, h.crtc)).collect();
+    /// Looks at the connectors again. A monitor that went is dropped; one
+    /// that came is left idle, to be told what to do (unless there's no
+    /// monitor driven, when it's the primary).
+    fn rescan(&mut self, config: &crate::config::Config) -> Rescan {
+        let keep: Vec<_> = self
+            .heads
+            .iter()
+            .map(|h| (h.connector, h.crtc))
+            .chain(self.idle.iter().map(|m| (m.connector.handle(), m.crtc)))
+            .collect();
         let monitors = choose_monitors(&self.drm, true, &keep);
+        let mut change = Rescan::default();
         // Never none: the last monitor stays driven, so there's an output.
         if monitors.is_empty() {
-            return (Vec::new(), Vec::new());
+            return change;
         }
-        let mut removed = Vec::new();
+        let is = |m: &Monitor, h: connector::Handle| m.connector.handle() == h;
         self.heads.retain(|h| {
-            let there = monitors.iter().any(|m| m.connector.handle() == h.connector);
+            let there = monitors.iter().any(|m| is(m, h.connector));
             if !there {
-                removed.push(h.output.clone());
+                change.removed.push(h.output.clone());
             }
             there
         });
-        let mut added = Vec::new();
-        for monitor in &monitors {
-            if self.heads.iter().any(|h| h.connector == monitor.connector.handle()) {
+        self.idle
+            .retain(|i| monitors.iter().any(|m| is(m, i.connector.handle())));
+        for monitor in monitors {
+            let handle = monitor.connector.handle();
+            let known = self.heads.iter().any(|h| h.connector == handle)
+                || self.idle.iter().any(|i| is(i, handle));
+            if known {
                 continue;
             }
-            let primary = self.heads.is_empty();
-            match make_head(
-                &mut self.drm,
-                &self.gbm,
-                self.render_node,
-                &self.renderer,
-                monitor,
-                config,
-                primary,
-            ) {
-                Ok((mut head, _)) => {
-                    // Warmed as the others are.
-                    let shown = self.heads.iter().find_map(|h| h.gamma.as_ref()).map(|g| g.shown);
-                    if let (Some(gamma), Some(shown)) = (head.gamma.as_mut(), shown) {
-                        gamma.shown = shown;
-                    }
-                    added.push(head.output.clone());
-                    self.heads.push(head);
-                }
-                Err(e) => eprintln!("patina-compositor: {e}"),
+            let (name, _, _, id) = identity(&monitor);
+            change.appeared.push((id, name));
+            self.idle.push(monitor);
+        }
+        if self.heads.is_empty() && !self.idle.is_empty() {
+            let monitor = self.idle.remove(0);
+            change.appeared.retain(|(_, name)| *name != identity(&monitor).0);
+            if let Some(output) = self.drive(&monitor, config, true) {
+                change.added.push(output);
             }
         }
-        if !added.is_empty() {
-            self.apply_gamma();
+        change
+    }
+
+    /// Starts driving `monitor`, warmed as the others are.
+    fn drive(
+        &mut self,
+        monitor: &Monitor,
+        config: &crate::config::Config,
+        primary: bool,
+    ) -> Option<Output> {
+        match make_head(
+            &mut self.drm,
+            &self.gbm,
+            self.render_node,
+            &self.renderer,
+            monitor,
+            config,
+            primary,
+        ) {
+            Ok((mut head, _)) => {
+                let shown = self
+                    .heads
+                    .iter()
+                    .find_map(|h| h.gamma.as_ref())
+                    .map(|g| g.shown);
+                if let (Some(gamma), Some(shown)) = (head.gamma.as_mut(), shown) {
+                    gamma.shown = shown;
+                }
+                let output = head.output.clone();
+                self.heads.push(head);
+                self.apply_gamma();
+                Some(output)
+            }
+            Err(e) => {
+                eprintln!("patina-compositor: {e}");
+                None
+            }
         }
-        (added, removed)
+    }
+
+    /// Starts driving every idle monitor; the outputs added.
+    pub fn activate_idle(&mut self, config: &crate::config::Config) -> Vec<Output> {
+        let idle = std::mem::take(&mut self.idle);
+        let mut added = Vec::new();
+        for monitor in idle {
+            match self.drive(&monitor, config, false) {
+                Some(output) => added.push(output),
+                None => self.idle.push(monitor),
+            }
+        }
+        added
+    }
+
+    /// Stops driving every monitor but the primary, leaving them idle; the
+    /// outputs removed.
+    pub fn deactivate_secondaries(&mut self) -> Vec<Output> {
+        let mut removed = Vec::new();
+        // Their monitors again, from what's connected, for the idle list.
+        let monitors = choose_monitors(&self.drm, false, &self.keep());
+        let secondary: Vec<Head> = self.heads.drain(1.min(self.heads.len())..).collect();
+        for head in secondary {
+            removed.push(head.output.clone());
+            if let Some(m) = monitors.iter().find(|m| m.connector.handle() == head.connector) {
+                self.idle.push(m.clone());
+            }
+        }
+        removed
+    }
+
+    fn keep(&self) -> Vec<(connector::Handle, crtc::Handle)> {
+        self.heads
+            .iter()
+            .map(|h| (h.connector, h.crtc))
+            .chain(self.idle.iter().map(|m| (m.connector.handle(), m.crtc)))
+            .collect()
+    }
+
+    /// The monitors connected but not driven.
+    pub fn idle_monitors(&self) -> Vec<IdleMonitor> {
+        self.idle
+            .iter()
+            .map(|m| {
+                let (name, make, model, id) = identity(m);
+                let (width, height) = m.mode.size();
+                IdleMonitor {
+                    name,
+                    id,
+                    make,
+                    model,
+                    width: width as i32,
+                    height: height as i32,
+                }
+            })
+            .collect()
     }
 
     /// Every monitor's output, the primary first.
-    fn outputs(&self) -> Vec<Output> {
+    pub fn outputs(&self) -> Vec<Output> {
         self.heads.iter().map(|h| h.output.clone()).collect()
     }
 
@@ -548,6 +690,7 @@ fn choose_monitors(
         }
         let mode = pick_mode(connector.modes(), connector.size());
         monitors.push(Monitor {
+            edid: read_edid(drm, connector.handle()),
             connector,
             crtc,
             mode,
@@ -593,6 +736,20 @@ fn pick_mode(
         .to_owned()
 }
 
+/// The EDID the monitor on `connector` gave the kernel.
+fn read_edid(drm: &DrmDevice, connector: connector::Handle) -> Option<crate::edid::Edid> {
+    let properties = drm.get_properties(connector).ok()?;
+    let (handles, values) = properties.as_props_and_values();
+    for (handle, value) in handles.iter().zip(values) {
+        let info = drm.get_property(*handle).ok()?;
+        if info.name().to_bytes() == b"EDID" {
+            let blob = drm.get_property_blob(*value).ok()?;
+            return crate::edid::parse(&blob);
+        }
+    }
+    None
+}
+
 fn is_internal(interface: connector::Interface) -> bool {
     matches!(
         interface,
@@ -607,19 +764,46 @@ fn is_internal(interface: connector::Interface) -> bool {
 /// give.
 ///
 /// `[screen] scale` is the primary's; another monitor goes by its density.
-fn make_output(monitor: &Monitor, config: &crate::config::Config, primary: bool) -> (Output, f64) {
+/// A monitor's connector name, maker, model and identity (its EDID's, which
+/// stays when it moves to another port).
+fn identity(monitor: &Monitor) -> (String, String, String, String) {
     let c = &monitor.connector;
     let name = format!("{}-{}", c.interface().as_str(), c.interface_id());
+    match &monitor.edid {
+        Some(edid) => (
+            name.clone(),
+            edid.make.clone(),
+            edid.name
+                .clone()
+                .unwrap_or_else(|| format!("{:04X}", edid.product)),
+            // Without a serial, two of the same model are told apart by
+            // their port.
+            if edid.has_serial() {
+                edid.id()
+            } else {
+                format!("{}-{name}", edid.id())
+            },
+        ),
+        None => (name.clone(), "Unknown".into(), "Unknown".into(), name),
+    }
+}
+
+fn make_output(monitor: &Monitor, config: &crate::config::Config, primary: bool) -> (Output, f64) {
+    let c = &monitor.connector;
+    let (name, make, model, id) = identity(monitor);
     let (mm_w, mm_h) = c.size().unwrap_or((0, 0));
     let output = Output::new(
         name,
         PhysicalProperties {
             size: (mm_w as i32, mm_h as i32).into(),
             subpixel: Subpixel::Unknown,
-            make: "Unknown".into(),
-            model: "Unknown".into(),
+            make,
+            model,
         },
     );
+    output
+        .user_data()
+        .insert_if_missing(|| crate::displays::MonitorId(id));
     let (w, h) = monitor.mode.size();
     let mode = Mode::from(monitor.mode);
     let automatic = default_scale(w as u32, h as u32, mm_w);
@@ -635,6 +819,9 @@ fn make_output(monitor: &Monitor, config: &crate::config::Config, primary: bool)
         Some((0, 0).into()),
     );
     output.set_preferred(mode);
+    output
+        .user_data()
+        .insert_if_missing(|| crate::displays::AutoScale(automatic));
     (output, automatic)
 }
 
@@ -690,6 +877,7 @@ fn libinput_event(state: &mut State, event: InputEvent<LibinputInputBackend>) {
             | KeyAction::Hud
             | KeyAction::Spotlight
             | KeyAction::Emoji
+            | KeyAction::Displays
             | KeyAction::Reload
             | KeyAction::Restart
             | KeyAction::Media(_)
@@ -758,18 +946,27 @@ fn hotplug(state: &mut State) {
     if !u.active {
         return;
     }
-    let (added, removed) = u.rescan(&config);
-    if added.is_empty() && removed.is_empty() {
-        return;
-    }
+    let Rescan {
+        added,
+        removed,
+        appeared,
+    } = u.rescan(&config);
     let all = u.outputs();
     for output in &removed {
         eprintln!("patina-compositor: {} was unplugged", output.name());
     }
     for output in &added {
-        eprintln!("patina-compositor: {} was plugged in", output.name());
+        eprintln!("patina-compositor: {} was plugged in and is the primary", output.name());
     }
-    state.outputs_changed(all, &removed);
+    for (_, name) in &appeared {
+        eprintln!("patina-compositor: {name} was plugged in; it stays off until chosen");
+    }
+    if !added.is_empty() || !removed.is_empty() {
+        state.outputs_changed(all, &removed);
+    }
+    if !appeared.is_empty() {
+        state.monitors_plugged(&appeared);
+    }
 }
 
 fn vblank(state: &mut State, crtc: crtc::Handle) {
@@ -976,6 +1173,15 @@ pub fn shm_formats(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_warmed_ramp_is_not_straight() {
+        let straight: Vec<u16> = (0..256).map(|i| (i * 0xffff / 255) as u16).collect();
+        let warm_blue: Vec<u16> = straight.iter().map(|&v| (v as f64 * 0.4) as u16).collect();
+        assert!(is_straight(&[straight.clone(), straight.clone(), straight.clone()]));
+        assert!(!is_straight(&[straight.clone(), straight.clone(), warm_blue]));
+        assert!(!is_straight(&[vec![0; 256], vec![0; 256], vec![0; 256]]));
+    }
 
     #[test]
     fn scale_follows_density() {

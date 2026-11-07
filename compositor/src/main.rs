@@ -10,9 +10,11 @@ mod cmd;
 mod config;
 mod constraints;
 mod cursor;
+mod displays;
 mod dmabuf;
 mod dnd;
 mod drag;
+mod edid;
 mod focus;
 mod frames;
 mod fullscreen;
@@ -155,6 +157,7 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     if session || !nested {
         export_to_session(&state);
     }
+    state.start_displays();
     state.start_night_light();
     state.start_keyboard();
     state.start_clipboard();

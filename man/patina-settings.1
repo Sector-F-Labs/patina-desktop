@@ -85,6 +85,15 @@ Whether the desktop keeps a history of what's copied, how many copies, for how l
 screenshots are put on the clipboard, in the compositor's
 .Ic [clipboard] ;
 and Clear history.
+.It Displays
+The connected monitors drawn to scale, to drag to the side of another they sit
+on (or choose from menus), whether the desktop extends across them, mirrors, or
+runs on the primary alone, and any monitor connected but off, with buttons to
+extend or mirror onto it.
+A monitor never placed before is marked.
+It's the compositor's
+.Ql com.sectorflabs.Patina.Displays ,
+so it works on the hardware only.
 .It Night Light
 Off, always on, or on a schedule, and how warm.
 It shows whether this screen can be warmed, whether it's on now, with a
@@ -121,7 +130,7 @@ and
 .Ic [keyboard]
 in the compositor's.
 Those watching them change at once.
-Night Light's state, the layout in use and the processes come from the
+The monitors, Night Light's state, the layout in use and the processes come from the
 compositor over the session bus; nested in another desktop, the pages say what isn't there.
 .Sh OPTIONS
 .Bl -tag -width Ds
@@ -136,6 +145,7 @@ Open at
 .Cm keyboard ,
 .Cm dictation ,
 .Cm clipboard ,
+.Cm displays ,
 .Cm night-light ,
 .Cm power
 or
