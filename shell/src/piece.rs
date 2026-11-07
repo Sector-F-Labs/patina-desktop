@@ -86,7 +86,7 @@ pub fn opening(size: (u32, u32), gap: i32, side: Anchor) -> Place {
         .unwrap_or((bar_edge() | side, (gap, gap, gap, gap), 0))
 }
 
-/// `PATINA_OPEN_AT`, `edge,x,y[,far]` (as patina-menu's `--at` and
+/// `PATINA_OPEN_AT`, `edge,x,y[,far[,keep_near,keep_far]]` (as patina-menu's `--at` and
 /// `--edge` take them, and how far the button is from the screen's far
 /// side along the edge), as a place for a piece `size` big.
 fn place(at: &str, (w, h): (u32, u32), gap: i32) -> Option<Place> {
@@ -94,19 +94,25 @@ fn place(at: &str, (w, h): (u32, u32), gap: i32) -> Option<Place> {
     let edge = parts.next()?;
     let mut number = || parts.next().and_then(|n| n.trim().parse::<f32>().ok());
     let (x, y, far) = (number()?, number()?, number());
+    // What the bar's other parts keep at the two ends of the edge, so a tall piece stops
+    // short of them instead of covering them.
+    let (keep_near, keep_far) = (number(), number());
     // Centred on the button, but never off the screen: measured from the
-    // nearer end, kept the gap in from it.
-    let along = |from: f32, half: f32| ((from - half).round() as i32).max(gap);
+    // nearer end, kept the gap in from it, and clear of what's kept there.
+    let along = |from: f32, half: f32, keep: Option<f32>| {
+        let least = (keep.unwrap_or(0.0).round() as i32).max(gap);
+        ((from - half).round() as i32).max(least)
+    };
     let (mut margin, mut anchor) = ((0, 0, 0, 0), Anchor::empty());
     match edge {
         "top" | "bottom" => {
             let half = w as f32 / 2.0;
             if let Some(far) = far.filter(|&f| f < x) {
                 anchor |= Anchor::RIGHT;
-                margin.1 = along(far, half);
+                margin.1 = along(far, half, keep_far);
             } else {
                 anchor |= Anchor::LEFT;
-                margin.3 = along(x, half);
+                margin.3 = along(x, half, keep_near);
             }
             if edge == "top" {
                 anchor |= Anchor::TOP;
@@ -120,10 +126,10 @@ fn place(at: &str, (w, h): (u32, u32), gap: i32) -> Option<Place> {
             let half = h as f32 / 2.0;
             if let Some(far) = far.filter(|&f| f < y) {
                 anchor |= Anchor::BOTTOM;
-                margin.2 = along(far, half);
+                margin.2 = along(far, half, keep_far);
             } else {
                 anchor |= Anchor::TOP;
-                margin.0 = along(y, half);
+                margin.0 = along(y, half, keep_near);
             }
             if edge == "left" {
                 anchor |= Anchor::LEFT;
@@ -180,6 +186,18 @@ mod tests {
         assert_eq!(
             place("left,53,500,580", (300, 400), 8),
             Some((Anchor::LEFT | Anchor::TOP, (300, 0, 0, 53), -1))
+        );
+        // A dock along the bottom keeps 60 pixels: a tall piece beside a left column stops
+        // above it, and one near the top stops below what the top keeps.
+        assert_eq!(
+            place("left,53,700,100,10,60", (300, 400), 8),
+            Some((Anchor::LEFT | Anchor::BOTTOM, (0, 0, 60, 53), -1)),
+            "its far end kept off the dock"
+        );
+        assert_eq!(
+            place("left,53,100,700,40,10", (300, 400), 8),
+            Some((Anchor::LEFT | Anchor::TOP, (40, 0, 0, 53), -1)),
+            "its near end kept off what the top keeps"
         );
         assert_eq!(place("sideways,1,2", (300, 400), 8), None);
         assert_eq!(place("bottom,x,2", (300, 400), 8), None);
