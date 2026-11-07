@@ -63,8 +63,9 @@ host.run(event_loop)?;
 - **`piece`**: one running copy per Wayland display. A second run tells the first a word (to
   close, to flash) over a socket in `XDG_RUNTIME_DIR` and exits, so one key or button toggles a
   menu. `opening` places a piece at the bar's button that opened it (`PATINA_OPEN_AT`,
-  `edge,x,y[,far]`), turned towards the side of the screen with more room, or on the bar's
-  edge without it.
+  `edge,x,y[,far[,keep_near,keep_far]]`), turned towards the side of the screen with more room
+  and stopping short of what the bar's other parts keep at the edge's two ends, plus the gap, or
+  on the bar's edge without it.
 - **`bar`**: the Patina bar's conventions every piece follows: its skin and edge from
   `PATINA_SKIN` and `PATINA_HUD_EDGE`, or from `~/.config/patina-hud/config.toml`, and writing
   `skin` and `wallpaper` there.

@@ -174,6 +174,18 @@ fn kept(config: &Config, side: Side) -> Option<u32> {
     Some(most)
 }
 
+/// What the bar keeps at the two ends of the edge a piece opens from (the top and bottom
+/// beside a column, the left and right beside a row), with the gap, as the compositor keeps
+/// windows from them: where a piece opened past the edge stops short of the other parts.
+pub fn keeps(config: &Config, gaps: Gaps, edge: &str) -> (i32, i32) {
+    let (near, far) = match edge {
+        "left" | "right" => (Side::Top, Side::Bottom),
+        _ => (Side::Left, Side::Right),
+    };
+    let keep = |side| kept(config, side).map_or(0, |t| t as i32 + gaps.gap);
+    (keep(near), keep(far))
+}
+
 /// The edges the parts keep, each once.
 pub fn reserved(config: &Config) -> Vec<Side> {
     let mut sides = Vec::new();
@@ -219,7 +231,7 @@ pub struct Popup {
 }
 
 impl Popup {
-    /// As `PATINA_OPEN_AT` has it: `edge,x,y[,far]`.
+    /// As `PATINA_OPEN_AT` has it: `edge,x,y[,far[,keep_near,keep_far]]`.
     pub fn env(&self) -> String {
         match self.far {
             Some(far) => format!("{},{:.0},{:.0},{:.0}", self.edge, self.x, self.y, far),
