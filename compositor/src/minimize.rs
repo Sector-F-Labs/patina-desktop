@@ -4,12 +4,22 @@
 //! focusing it in any way (its tab, Alt+Tab, Super+N, patina-raise) puts it
 //! back where it was, on top.
 
+use std::time::Duration;
+
 use smithay::{
     desktop::Window,
+    reexports::calloop::timer::{TimeoutAction, Timer},
     utils::{Logical, Point},
 };
 
 use crate::state::State;
+
+/// How often a minimised window is told it may draw a frame (ADR-0123). It
+/// isn't drawn, so nothing would: and a toolkit like winit holds back every
+/// redraw until the last frame callback arrives, so an app whose window is
+/// minimised would never run again, and media controls, a track ending or
+/// a download finishing would wait for it to come back.
+const FRAME_EVERY: Duration = Duration::from_millis(500);
 
 /// The minimised windows, and where each was.
 #[derive(Default)]
@@ -37,6 +47,30 @@ impl Minimized {
 }
 
 impl State {
+    /// Starts telling minimised windows to draw, slowly; called once.
+    pub fn start_minimized_frames(&mut self) {
+        let _ = self
+            .loop_handle
+            .insert_source(Timer::from_duration(FRAME_EVERY), |_, _, state| {
+                state.minimized_frames();
+                TimeoutAction::ToDuration(FRAME_EVERY)
+            });
+    }
+
+    /// A frame callback for each minimised window.
+    fn minimized_frames(&mut self) {
+        if self.minimized.0.is_empty() {
+            return;
+        }
+        let time = self.start.elapsed();
+        let output = self.output.clone();
+        for window in self.minimized.windows() {
+            window.send_frame(&output, time, Some(Duration::ZERO), |_, _| {
+                Some(output.clone())
+            });
+        }
+    }
+
     pub fn is_minimized(&self, window: &Window) -> bool {
         self.minimized.contains(window)
     }

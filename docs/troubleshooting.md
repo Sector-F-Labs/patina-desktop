@@ -4,6 +4,7 @@ Things that went wrong on the Patina desktop, how to tell, and how to put them r
 says what you see, why, how to check, and the fix; add new ones at the end.
 
 - [Save and Open dialogs never appear](#save-and-open-dialogs-never-appear)
+- [A minimised app ignores its controls](#a-minimised-app-ignores-its-controls)
 
 ## Save and Open dialogs never appear
 
@@ -133,3 +134,54 @@ reaches a home directory. Launcher's own `make install` is the one per-user inst
   `pgrep -x files`, or by pid.
 - zsh stops a command line at a glob that matches nothing (`ls ~/.local/share/dbus-1/services/*patina*`
   with no such file) before running any of it. Use `find`.
+
+## A minimised app ignores its controls
+
+### What you see
+
+An app is minimised and keeps doing what it was doing (UnAmp keeps playing), but the bar's media
+buttons do nothing. Bring the window back and the button you pressed takes effect at once, as if it
+had been waiting. The same goes for anything else the app does from its window's loop: a track
+ending and the next one starting, a download finishing.
+
+### Why
+
+Wayland has no "minimised" for a client. A minimised window is only a window the compositor stopped
+drawing, and a compositor that doesn't draw it doesn't send it frame callbacks. winit (under egui,
+eframe and most Rust GUI apps) asks for a callback every time it presents a frame and holds back
+every redraw until it arrives. With none coming, the app's UI loop never runs again, and a message
+waiting for it (a media command from D-Bus, handed over on a channel and read in the loop) waits too.
+The app's other threads carry on, which is why the audio doesn't stop.
+
+This is not the media code and not the app: UnAmp's D-Bus thread wakes its loop with
+`request_repaint()` on every command, and its loop would act on it. It is the compositor withholding
+the callbacks, and was fixed there (ADR-0123): minimised windows get one every 500 ms.
+
+### How to check
+
+With a build from before the fix, the main thread is idle, not stuck:
+
+```sh
+doas gdb -p $(pgrep -x unamp) -batch -ex "thread 1" -ex "bt 8"
+# #0 polling::Poller::wait_impl  ...  calloop ... winit::...::EventLoop::pump_events
+```
+
+and a command sent while minimised is ignored until the window returns:
+
+```sh
+wlrctl toplevel minimize app_id:unamp
+busctl --user call org.mpris.MediaPlayer2.unamp /org/mpris/MediaPlayer2 \
+    org.mpris.MediaPlayer2.Player Pause
+busctl --user get-property org.mpris.MediaPlayer2.unamp /org/mpris/MediaPlayer2 \
+    org.mpris.MediaPlayer2.Player PlaybackStatus     # still "Playing"
+```
+
+With the fix it says `Paused` within about half a second. A reply that always takes close to 0.5 s
+for a minimised app, and 0.02 s for a visible one, is the callback's tick.
+
+### The fix, and what it costs
+
+`State::start_minimized_frames` (compositor `minimize.rs`) sends each minimised window a frame
+callback every 500 ms. An app that is minimised now wakes twice a second and draws a frame nobody
+sees. If an app should do nothing at all while hidden, that is a thing for the app to decide, since a
+compositor can't tell a media player that wants to hear its buttons from a game that doesn't.
