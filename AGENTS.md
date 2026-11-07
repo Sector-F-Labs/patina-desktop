@@ -194,7 +194,9 @@ puts them in `$(PREFIX)/share/man`.
   kept in `State::minimized` with its place; `window_for`, the foreign toplevels and `quit_app`
   still see it, and `State::focus` restores it, so its tab, Alt+Tab and Super+N bring it back.
   Super+M, xdg and foreign-toplevel `set_minimized`, X11 requests (Wine's games) and frames'
-  button minimise.
+  button minimise. A minimised window is sent a frame callback every 500 ms (ADR-0123): winit
+  holds every redraw until the last callback, so without them an egui app never runs again while
+  minimised, and a command waiting on its UI loop (the bar's Pause) waits until it's restored.
 - `compositor/src/fullscreen.rs`: fullscreen (ADR-0041): `State::fullscreen`, sized to the output,
   drawn over the layers by every backend and first under the pointer while it has the keyboard.
 - `compositor/src/dnd.rs`: drag and drop between clients is Smithay's; this draws the icon a
