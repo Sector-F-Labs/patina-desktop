@@ -155,6 +155,7 @@ mechanics of adding one.
 | [0111](0111-hud-elements-and-hiding.md) | HUD elements hide at their edge, and Super+H hides them all | Accepted |
 | [0112](0112-windows-ask-for-their-shadow-through-the-kde-shadow-protocol.md) | Windows ask for their shadow through KDE's shadow protocol, and the compositor draws it | Accepted |
 | [0113](0113-the-huds-parts-ask-for-shadows.md) | The HUD's parts ask the compositor for shadows, and `shadows` in the HUD config turns them off | Accepted |
+| [0114](0114-the-compositor-keeps-the-clipboard-history.md) | The compositor keeps the clipboard history and serves it on the session bus; a tray icon opens an applet | Proposed |
 
 ## Decision Relationship
 
