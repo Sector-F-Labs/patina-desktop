@@ -623,10 +623,23 @@ impl State {
                 );
             }
         }
+        // Where each goes: by its own saved entry, or its model's (ADR-0124),
+        // with the monitors idle counted so none claims what another does.
+        let mut ids: Vec<String> = all.iter().map(crate::displays::id_of).collect();
+        ids.extend(
+            self.udev
+                .as_ref()
+                .map(|u| u.idle_monitors())
+                .unwrap_or_default()
+                .into_iter()
+                .map(|m| m.id),
+        );
+        let places = self.displays.places(&ids);
         let entries: Vec<Entry> = all
             .iter()
-            .map(|o| Entry {
-                id: crate::displays::id_of(o),
+            .enumerate()
+            .map(|(i, o)| Entry {
+                id: ids[i].clone(),
                 size: o
                     .current_mode()
                     .map(|m| {
@@ -636,7 +649,7 @@ impl State {
                             .to_i32_round()
                     })
                     .unwrap_or_default(),
-                place: self.displays.place(&crate::displays::id_of(o)),
+                place: places[i].clone(),
             })
             .collect();
         let mut placed = rects(&entries);

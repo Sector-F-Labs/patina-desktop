@@ -42,7 +42,8 @@ same way at that moment and recovers on its own.
 | Extend or Mirror chosen | `set_display_mode` drives every idle monitor, `outputs_changed` lays them all out, the mode is saved. |
 | Do nothing (a monitor waiting) | The popup closes without calling anything; the monitor stays off and nothing else changes. |
 | Primary only (nothing waiting) | `Mode::Off`: every monitor but the primary stops being driven and goes idle. |
-| `SetPlace(id, to, side, offset)` | The place is saved by `id` and the monitors are laid out again; windows move with their monitor. |
+| `SetPlace(id, to, side, offset)` | The place is saved as `id`'s own entry (the last saved), and the monitors are laid out again; windows move with their monitor. |
+| `Forget(id)` | The saved entry goes; a monitor that went by it is new again, or goes by another of its model. |
 | Extend onto a monitor never placed | The popup opens Settings at the Displays page (`--page displays`). |
 | A monitor unplugged | Its output and its bar and wallpaper go. Windows on it move to the primary, kept inside its work area; a fullscreen one leaves fullscreen. |
 
@@ -50,10 +51,24 @@ same way at that moment and recovers on its own.
 
 Ports change: the same monitor is DP-3 on one day and DP-2 on the next. So a monitor is known by
 what it says about itself, the maker, model and serial in its EDID (`edid.rs`), as
-`GSM-772E-0005F79F`. That id is what `displays.toml` is keyed by, and a monitor whose id is in it
-is **known**: it has been placed before. A monitor whose EDID has no serial gets its connector
-added, so two of one model are told apart. The panel inside a laptop has no model name at all,
-only a product code, so it is shown as "Built-in display".
+`GSM-772E-0005F79F`. A monitor whose EDID has no serial gets its connector added, so two of one
+model are told apart. The panel inside a laptop has no model name at all, only a product code, so
+it is shown as "Built-in display".
+
+`displays.toml` keeps an entry for each monitor you place, by that id. Hot desks are why a monitor
+is also known by its **model**: the id without the serial, `GSM-772E`. A monitor goes by its own
+entry if it has one; otherwise by an entry of its model, the one saved last first, each entry by one
+monitor at most (`Displays::resolve`, ADR-0124). A monitor that goes by an entry is **known**. So a
+Dell with a serial the compositor has never seen goes where a Dell was put, two of them go where two
+were, and a third is new.
+
+What an entry is *next to* is resolved the same way: the connected monitor with that id, or the one
+that goes by that monitor's entry (`Displays::places`). "Right of the other Dell" is right of
+whichever Dell that is, at any desk.
+
+Placing a monitor saves an entry for it, and nothing else does, so desks don't pile up entries.
+Settings lists them (`Saved()`), grayed when no connected monitor goes by one, and `Forget(id)`
+removes one.
 
 The compositor never reads the id back out of the file as a layout: `displays.toml` holds the
 *choice* (this monitor is above that one, 0 points along the edge); where that puts it, in
@@ -74,7 +89,7 @@ points, is `layout.rs`, from the monitors' current sizes and scales.
 | Drive the monitors (`udev.rs`) | Only the process that owns the GPU can. Each driven monitor is a `Head` with its own DRM compositor, vblank and gamma ramp. |
 | Choose each monitor's mode | A monitor that takes modes of another shape squashes them and often prefers one: `pick_mode` keeps those whose shape matches the panel's size in millimetres. |
 | Place windows when monitors change | It owns the windows, and a removed monitor's must move before the next frame. |
-| Keep the choice (`displays.toml`) | So it is applied at login, before any client runs. |
+| Keep the choice (`displays.toml`) and say which monitor goes by which entry | So it is applied at login, before any client runs, and so every client sees the same answer. |
 | Tell the tiler which monitor it is working on | The tiler asks `WorkArea()` and `Screen()`; the answers follow the pointer, with its edge zones pushed out past edges another monitor touches, so dragging across the seam never tiles. |
 
 ## What the clients keep
@@ -84,6 +99,7 @@ points, is `layout.rs`, from the monitors' current sizes and scales.
 | Offer the choice | `patina-displays`: the third tile is **Do nothing** when a monitor is waiting and **Primary only** when none is. |
 | Draw the monitors to scale, and where a drag lands | Settings' `displays.rs`, with the snapping in `display_layout.rs`: the nearest side of another monitor that touches along its edge and overlaps none, with the edges lined up at the start, middle or end when close. Pure arithmetic, with tests. |
 | Say what is new | A monitor not known is marked, and the page says to drag it to where it sits. |
+| List what is remembered | The page's Saved displays, newest first, grayed when no monitor goes by one, each with Forget. |
 
 ## When it's not running
 
@@ -134,6 +150,8 @@ The diagrams in `images/` are hand-drawn SVG, and follow the viewer's light or d
 - Screenshots, screen capture, touch and the lock are the primary's: the lock leaves the other
   screens black.
 - Mirror and Primary only apply to every monitor together, not one at a time.
+- Two monitors of one model at a desk you haven't placed them at take their places in the order
+  they're found, which can swap them; moving one is remembered by its serial.
 - No per-monitor scale or resolution, and the primary can't be chosen.
 - Mirroring a monitor of another shape crops it rather than letterboxing.
 - Monitors are only found on the GPU the compositor drives.

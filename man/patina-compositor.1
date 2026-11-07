@@ -487,8 +487,9 @@ and LogOut, which quits cleanly; for
 Night Light's state, overrides and inhibitors, on the hardware; see
 .Xr patina-night-light 1 .
 .It com.sectorflabs.Patina.Displays
-The monitors: List, Mode and SetMode (extend or mirror), SetPlace (which side
-of which monitor each sits on), and the signals Changed and MonitorAdded; for
+The monitors: List, Mode and SetMode (extend, mirror or off), SetPlace (which side
+of which monitor each sits on), Saved and Forget (the displays remembered), and
+the signals Changed and MonitorAdded; for
 .Xr patina-displays 1
 and
 .Xr patina-settings 1 .
@@ -557,7 +558,8 @@ into
 The settings above.
 .It Pa ~/.config/patina-compositor/displays.toml
 Whether the desktop extends across several monitors or mirrors, and where each
-monitor sits, by monitor: a monitor in it has been placed before.
+monitor sits, by monitor: one placed before goes where it was, and one of the
+same model plugged in later goes where a monitor of that model was put.
 The compositor writes it; the Displays page and
 .Xr patina-displays 1
 change it through the bus.

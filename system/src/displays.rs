@@ -144,6 +144,44 @@ impl Monitor {
     }
 }
 
+/// A display the compositor remembers (ADR-0124): where it was put, kept
+/// whether or not it's connected.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Saved {
+    pub id: String,
+    /// What it was called when it was saved.
+    pub name: String,
+    /// A connected monitor goes by it: its own, or one of its model's.
+    pub in_use: bool,
+    /// The monitor it's next to, by id and by name; empty for none.
+    pub to: String,
+    pub to_name: String,
+    pub side: Option<Side>,
+    pub offset: i32,
+}
+
+impl Saved {
+    fn from_dictionary(d: &HashMap<String, OwnedValue>) -> Self {
+        let text = |k: &str| {
+            d.get(k)
+                .and_then(|v| String::try_from(v.try_clone().ok()?).ok())
+                .unwrap_or_default()
+        };
+        Self {
+            id: text("id"),
+            name: text("name"),
+            in_use: d
+                .get("in-use")
+                .and_then(|v| bool::try_from(v).ok())
+                .unwrap_or(false),
+            to: text("to"),
+            to_name: text("to-name"),
+            side: Side::from_name(&text("side")),
+            offset: d.get("offset").and_then(|v| i32::try_from(v).ok()).unwrap_or(0),
+        }
+    }
+}
+
 fn proxy(bus: &Connection) -> Result<Proxy<'_>, String> {
     Proxy::new(bus, NAME, PATH, NAME).map_err(|e| e.to_string())
 }
@@ -159,6 +197,23 @@ pub fn list() -> Result<Vec<Monitor>, String> {
     let rows: Vec<HashMap<String, OwnedValue>> =
         proxy(&bus)?.call("List", &()).map_err(|e| e.to_string())?;
     Ok(rows.iter().map(Monitor::from_dictionary).collect())
+}
+
+/// The displays the compositor remembers, the one saved last at the end.
+pub fn saved() -> Result<Vec<Saved>, String> {
+    let bus = session()?;
+    let rows: Vec<HashMap<String, OwnedValue>> =
+        proxy(&bus)?.call("Saved", &()).map_err(|e| e.to_string())?;
+    Ok(rows.iter().map(Saved::from_dictionary).collect())
+}
+
+/// Forgets the saved display `id`: a monitor of that model plugged in later
+/// is new again.
+pub fn forget(id: &str) -> Result<(), String> {
+    let bus = session()?;
+    proxy(&bus)?
+        .call::<_, _, ()>("Forget", &(id,))
+        .map_err(|e| e.to_string())
 }
 
 /// Whether the desktop extends or mirrors.
@@ -193,6 +248,21 @@ pub fn set_place(id: &str, place: Option<(&str, Side, i32)>) -> Result<(), Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_saved_display_reads_from_its_dictionary() {
+        let v = |v: zbus::zvariant::Value<'_>| OwnedValue::try_from(v).unwrap();
+        let d = HashMap::from([
+            ("id".to_string(), v("DEL-A0D3-HOME1".into())),
+            ("name".to_string(), v("DELL U2720Q".into())),
+            ("in-use".to_string(), v(false.into())),
+            ("to-name".to_string(), v("Built-in display".into())),
+            ("side".to_string(), v("right".into())),
+        ]);
+        let s = Saved::from_dictionary(&d);
+        assert_eq!((s.name.as_str(), s.in_use, s.side), ("DELL U2720Q", false, Some(Side::Right)));
+        assert_eq!(s.to_name, "Built-in display");
+    }
 
     #[test]
     fn a_monitor_reads_from_its_dictionary() {
