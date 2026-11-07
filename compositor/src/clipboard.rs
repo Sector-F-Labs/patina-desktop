@@ -36,6 +36,8 @@ const MOST_TYPE: u64 = 16 << 20;
 const MOST_ENTRY: usize = 16 << 20;
 /// The most bytes of all the entries together; the oldest images go first.
 const MOST_TOTAL: usize = 128 << 20;
+/// How often entries are looked at for being too old.
+const EXPIRY_CHECK: Duration = Duration::from_secs(30);
 /// How long a copy's owner has to hand over what it copied.
 const READING: Duration = Duration::from_millis(500);
 /// The characters of a text a preview shows.
@@ -111,6 +113,8 @@ pub struct History {
     pub paused: bool,
     /// The most entries kept.
     pub most: usize,
+    /// Seconds an entry is kept for; 0 for as long as there's room.
+    pub expire_after: u64,
 }
 
 impl Default for History {
@@ -121,6 +125,7 @@ impl Default for History {
             enabled: true,
             paused: false,
             most: MOST_ENTRIES,
+            expire_after: 0,
         }
     }
 }
@@ -189,6 +194,24 @@ impl History {
             entry.at = now;
             self.entries.push_front(entry);
         }
+    }
+
+    /// Drops the entries copied `expire_after` seconds or more before `now`; gives what they
+    /// held, so the clipboard can be emptied if it's one of them.
+    pub fn expire(&mut self, now: u64) -> Vec<Arc<Vec<(String, Vec<u8>)>>> {
+        if self.expire_after == 0 {
+            return Vec::new();
+        }
+        let after = self.expire_after;
+        let mut gone = Vec::new();
+        self.entries.retain(|e| {
+            let keep = now.saturating_sub(e.at) < after;
+            if !keep {
+                gone.push(e.types.clone());
+            }
+            keep
+        });
+        gone
     }
 
     /// Drops the oldest entries beyond `most`.
@@ -380,6 +403,11 @@ impl State {
             return;
         }
         self.clipboard.reads = Some(reads);
+        let aging = Timer::from_duration(EXPIRY_CHECK);
+        let _ = self.loop_handle.insert_source(aging, |_, _, state| {
+            state.clipboard_expire();
+            TimeoutAction::ToDuration(EXPIRY_CHECK)
+        });
         let watch = Timer::from_duration(Duration::from_millis(500));
         let _ = self.loop_handle.insert_source(watch, |_, _, state| {
             state.clipboard_watch_owner();
@@ -621,11 +649,33 @@ impl State {
             self.clipboard.history.most = now.max_entries;
             self.clipboard.history.shrink();
         }
+        if before.is_none_or(|b| b.expire_after != now.expire_after) {
+            self.clipboard.history.expire_after = now.expire_after;
+            self.clipboard_expire();
+        }
         if before.is_none_or(|b| b.enabled != now.enabled) {
             self.clipboard_enable(now.enabled);
         } else {
             self.clipboard_changed();
         }
+    }
+
+    /// Drops what's too old. If the clipboard holds one of those copies, from the compositor,
+    /// it's emptied too: an expired copy mustn't still paste.
+    fn clipboard_expire(&mut self) {
+        let gone = self.clipboard.history.expire(now());
+        if gone.is_empty() {
+            return;
+        }
+        let held = match current_data_device_selection_userdata(&self.seat).as_deref() {
+            Some(Served::Saved(types)) => Some(types.clone()),
+            _ => None,
+        };
+        if held.is_some_and(|held| gone.iter().any(|g| Arc::ptr_eq(g, &held))) {
+            self.clipboard.clearing = true;
+            clear_data_device_selection(&self.display_handle, &self.seat);
+        }
+        self.clipboard_changed();
     }
 
     /// A screenshot's PNG goes on the clipboard, and into the history when one is kept.
@@ -829,6 +879,24 @@ mod tests {
             .unwrap();
         assert_eq!((r.info().width, r.info().height), (20, 10));
         assert!(thumbnail(b"not a png").is_none());
+    }
+
+    #[test]
+    fn old_entries_expire_and_hand_back_what_they_held() {
+        let mut h = History::default();
+        let old = h.add(text("old"), 100).unwrap();
+        h.add(text("newer"), 900);
+        let held = h.get(old).unwrap().types.clone();
+        assert!(h.expire(2000).is_empty(), "never, by default");
+        h.expire_after = 1000;
+        let gone = h.expire(1100);
+        assert_eq!(gone.len(), 1);
+        assert!(Arc::ptr_eq(&gone[0], &held));
+        assert_eq!(h.rows().len(), 1);
+        // Copying it again starts its time over.
+        h.add(text("newer"), 1800);
+        assert!(h.expire(2500).is_empty());
+        assert_eq!(h.expire(2800).len(), 1);
     }
 
     #[test]

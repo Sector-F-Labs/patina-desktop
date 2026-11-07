@@ -34,7 +34,7 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   config, and whether the overlay shows at the bottom or top, written as `overlay` into
   patina-dictate's config (`dictation.rs`).
 - **Clipboard** (ADR-0114, ADR-0116): whether the compositor keeps a history of what's copied,
-  how many copies, and whether screenshots go on the clipboard, written to `[clipboard]` in the
+  how many copies, for how long, and whether screenshots go on the clipboard, written to `[clipboard]` in the
   compositor's config (`clipboard.rs`); Clear history asks the compositor over the session bus.
 - **Night Light** (ADR-0039): off, always on, or on a schedule, and the warmth. It also shows
   what the compositor says: whether this screen can be warmed, whether it's on now (with a button
