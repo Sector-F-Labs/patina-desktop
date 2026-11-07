@@ -1,0 +1,14 @@
+[package]
+name = "patina-skin-builder"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "Skin Builder: make Patina skins, and apply them to the apps in ~/.config"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+dirs = "6"
+eframe = "0.35"
+egui = "0.35"
+patina-ui = { workspace = true }
+toml_edit = "0.25"

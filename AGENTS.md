@@ -280,6 +280,10 @@ puts them in `$(PREFIX)/share/man`.
   `problems.rs` for the Overview's Problems.
   `PATINA_PROCESSES_PREVIEW=dir cargo test -p patina-processes preview -- --ignored` draws each
   view and a process window.
+- `skin-builder/`: patina-skin-builder (ADR-0118), an eframe Patina app: edits skins kept in
+  `~/.config/patina-skin-builder/skins` (`doc.rs`, a `toml_edit` document so unknown keys and
+  comments survive) with a live preview, and force-applies one to the folders of `~/.config`
+  (`targets.rs`: writes `<folder>/skins/<file>` and sets `skin` in its `config.toml`).
 - `wallpaper/`: patina-wallpaper (ADR-0030), a click-through background-layer surface: the image,
   or the default flask (`system/src/logo.rs`, with Ubuntu Mono) in the skin's colours. `cargo test
   -p patina-wallpaper -- --ignored` with PATINA_WALLPAPER_PREVIEW=dir renders the default per skin.

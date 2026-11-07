@@ -1,0 +1,14 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Skin Builder
+GenericName=Skin Editor
+Comment=Make Patina skins, and apply them to the apps in ~/.config
+Exec=patina-skin-builder
+Icon=com.sectorflabs.SkinBuilder
+Terminal=false
+Categories=Settings;Graphics;
+Keywords=skin;theme;colours;colors;appearance;patina;
+OnlyShowIn=Patina;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.SkinBuilder
