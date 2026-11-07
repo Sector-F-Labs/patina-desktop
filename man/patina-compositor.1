@@ -470,6 +470,13 @@ for the layout in
 .Xr patina-hud 1 Ns 's
 tray and
 .Xr patina-settings 1 .
+.It com.sectorflabs.Patina.Clipboard
+The clipboard's history: List (each copy's id, kind, a short preview,
+thumbnail and time, newest first), Pick, Delete and Clear, Changed
+signalled when it changes, and Enabled and Paused, which can be set.
+Copies are read out of the app that made them and kept, so one survives
+its app quitting; those a password manager marks private are left out.
+Wayland windows only.
 .It com.sectorflabs.Patina.Input
 Commit, which types a text into the focused window: through the
 clipboard, with Ctrl+V, or Ctrl+Shift+V in a terminal, once modifiers

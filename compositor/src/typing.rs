@@ -66,7 +66,7 @@ pub enum Served {
 }
 
 impl Served {
-    fn types(&self) -> Vec<String> {
+    pub(crate) fn types(&self) -> Vec<String> {
         match self {
             Served::Text(_) => TEXT_TYPES.iter().map(|t| t.to_string()).collect(),
             Served::Saved(saved) => saved.iter().map(|(t, _)| t.clone()).collect(),
@@ -306,7 +306,11 @@ impl State {
             Some(served) => {
                 set_data_device_selection(&self.display_handle, &self.seat, served.types(), served)
             }
-            None => clear_data_device_selection(&self.display_handle, &self.seat),
+            None => {
+                // Our own clear, not an app quitting: history mustn't put a copy back.
+                self.clipboard.clearing = true;
+                clear_data_device_selection(&self.display_handle, &self.seat)
+            }
         }
     }
 
