@@ -96,6 +96,12 @@ puts them in `$(PREFIX)/share/man`.
   `capture/record.rs` is the desktop's own recording (Record Screen/Selection in the Print
   pill): frames piped to `ffmpeg`, `patina-screenshot --recording` showing it. `cargo run -p
   patina-compositor --example capture -- out.png [--window APP] [--frames N]` checks capture.
+- `compositor/src/layout.rs` (ADR-0121): where monitors sit (`Place`, `arrange`), the pointer's
+  clamp to their union, and `View` (what one monitor shows). `udev.rs` drives every monitor
+  connected at start-up as a `Head`, `State::outputs` lists them (`output` is the primary),
+  `State::output_under`/`output_of`/`work_area_on` find the one a point or window is on. A
+  layer map is in its output's own coordinates. Don't read the pointer's location inside a
+  grab (it holds the pointer's lock): use what the grab is given.
 - `compositor/src/cmd.rs`: Super is Cmd (ADR-0067): a Super key the compositor doesn't keep is sent
   to the focused client as Ctrl+key (Ctrl+Shift to a terminal, by its desktop entry's category, and
   Super+Shift+key there as Ctrl+Alt+Shift+key),

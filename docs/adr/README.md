@@ -162,6 +162,7 @@ mechanics of adding one.
 | [0118](0118-skin-builder.md) | Skin Builder makes skins and applies them to the apps in ~/.config | Accepted; builds on Patina's ADR-0004 |
 | [0119](0119-dictation-settings-and-models.md) | Dictation's model, language and accuracy are settings, and models download from Settings | Accepted |
 | [0120](0120-the-emoji-picker.md) | The emoji picker is a popup that types the pick like dictation | Accepted |
+| [0121](0121-multi-monitor.md) | Several monitors: extend or mirror, chosen in a popup, placed in Settings | Proposed |
 
 ## Decision Relationship
 

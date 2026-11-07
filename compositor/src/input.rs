@@ -435,23 +435,17 @@ impl State {
 
     /// Where the pointer would be moved by `delta`, kept on screen.
     pub fn pointer_target(&self, delta: Point<f64, Logical>) -> Point<f64, Logical> {
-        let screen = self.screen();
         let current = self
             .seat
             .get_pointer()
             .map(|p| p.current_location())
             .unwrap_or_default();
-        let moved = current + delta;
-        Point::from((
-            moved.x.clamp(
-                screen.loc.x as f64,
-                (screen.loc.x + screen.size.w - 1) as f64,
-            ),
-            moved.y.clamp(
-                screen.loc.y as f64,
-                (screen.loc.y + screen.size.h - 1) as f64,
-            ),
-        ))
+        let monitors: Vec<_> = self
+            .outputs
+            .iter()
+            .filter_map(|o| self.space.output_geometry(o))
+            .collect();
+        crate::layout::clamp(&monitors, current + delta)
     }
 }
 

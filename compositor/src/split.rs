@@ -220,11 +220,7 @@ impl State {
         if self.locked() || self.fullscreen.is_some() {
             return None;
         }
-        let map = smithay::desktop::layer_map_for_output(&self.output);
-        use smithay::wayland::shell::wlr_layer::Layer;
-        if map.layer_under(Layer::Overlay, pointer).is_some()
-            || map.layer_under(Layer::Top, pointer).is_some()
-        {
+        if self.over_layer(pointer) {
             return None;
         }
         let tiled = self.tiled_windows();

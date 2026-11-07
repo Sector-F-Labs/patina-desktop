@@ -9,6 +9,7 @@ pub mod menu;
 pub mod select;
 
 use std::path::{Path, PathBuf};
+use crate::layout::View;
 
 use smithay::{
     backend::{
@@ -275,7 +276,7 @@ where
 impl State {
     /// The flash for this frame, if one is fading; asks for the next frame
     /// while it lasts. Call once a frame, after `needs_redraw` is cleared.
-    pub fn flash_element(&mut self) -> Option<SolidColorRenderElement> {
+    pub fn flash_element(&mut self, view: View) -> Option<SolidColorRenderElement> {
         let flash = self.flash.as_mut()?;
         let t = flash.started.elapsed();
         if t >= FLASH {
@@ -285,11 +286,11 @@ impl State {
         let a = Flash::opacity(t);
         // Premultiplied white.
         flash.buffer.update(flash.area.size, [a; 4]);
-        let scale = self.output.current_scale().fractional_scale();
+        let scale = view.scale;
         self.needs_redraw = true;
         Some(SolidColorRenderElement::from_buffer(
             &flash.buffer,
-            flash.area.loc.to_physical_precise_round(scale),
+            (flash.area.loc - view.area.loc).to_physical_precise_round(scale),
             scale,
             1.0,
             Kind::Unspecified,

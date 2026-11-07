@@ -588,10 +588,7 @@ impl State {
         if self.locked() || self.fullscreen_on_top().is_some() {
             return None;
         }
-        let map = layer_map_for_output(&self.output);
-        if map.layer_under(Layer::Overlay, pos).is_some()
-            || map.layer_under(Layer::Top, pos).is_some()
-        {
+        if self.over_layer(pos) {
             return None;
         }
         for window in self.space.elements().rev() {

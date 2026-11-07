@@ -273,8 +273,23 @@ fn configure_placed(
 
 impl State {
     /// The area a maximised window fills.
+    /// On the monitor the pointer is on: where tilers and new windows look.
     pub fn work_area(&self) -> Rectangle<i32, Logical> {
-        layer_map_for_output(&self.output).non_exclusive_zone()
+        self.work_area_on(self.pointer_output())
+    }
+
+    /// What `output`'s bar and menus leave free, in the space's points.
+    pub fn work_area_on(&self, output: &smithay::output::Output) -> Rectangle<i32, Logical> {
+        let mut zone = layer_map_for_output(output).non_exclusive_zone();
+        if let Some(geo) = self.space.output_geometry(output) {
+            zone.loc += geo.loc;
+        }
+        zone
+    }
+
+    /// The work area of the monitor `window` is on.
+    pub fn work_area_of(&self, window: &Window) -> Rectangle<i32, Logical> {
+        self.work_area_on(&self.output_of(window))
     }
 
     /// The area tiled windows fill: the work area less the gaps, if
@@ -283,16 +298,33 @@ impl State {
         inset(self.work_area(), self.config.gap())
     }
 
-    /// Where `placement` puts a window now.
-    pub fn placed_rect(&self, placement: Placement) -> Rectangle<i32, Logical> {
-        rect_for(placement, self.work_area(), self.tiling_area())
+    /// Where `placement` puts `window` now, on its own monitor.
+    pub fn placed_rect_of(&self, window: &Window, placement: Placement) -> Rectangle<i32, Logical> {
+        let area = self.work_area_of(window);
+        rect_for(placement, area, inset(area, self.config.gap()))
     }
 
     /// Places `window` as `placement`, remembering where it was the first
     /// time.
     pub fn place_as(&mut self, window: &Window, placement: Placement) {
-        let area = self.work_area();
-        let rect = self.placed_rect(placement);
+        let centre = self
+            .space
+            .element_geometry(window)
+            .map(|g| g.loc.to_f64() + g.size.to_f64().downscale(2.0).to_point())
+            .unwrap_or_default();
+        self.place_as_on(window, placement, centre);
+    }
+
+    /// As `place_as`, filling the monitor at `at` if it fills.
+    pub fn place_as_on(
+        &mut self,
+        window: &Window,
+        placement: Placement,
+        at: Point<f64, Logical>,
+    ) {
+        let on = self.output_under(at).clone();
+        let area = self.work_area_on(&on);
+        let rect = rect_for(placement, area, inset(area, self.config.gap()));
         let slot = placed(window);
         let before = match *slot.0.borrow() {
             Some((_, before)) => before,
@@ -322,7 +354,7 @@ impl State {
         set_states(
             toplevel,
             Some((Placement::Rect(rect), rect)),
-            self.work_area(),
+            self.work_area_of(window),
         );
         crate::split::set_resizing(window, resizing);
         // `rect` is with its frame, if it has one (ADR-0085).
@@ -388,7 +420,7 @@ impl State {
             return;
         }
         float(&window);
-        let area = self.work_area();
+        let area = self.work_area_of(&window);
         let Some(location) = self.space.element_location(&window) else {
             return;
         };
@@ -433,7 +465,7 @@ impl State {
             return;
         }
         float(&window);
-        let area = self.work_area();
+        let area = self.work_area_of(&window);
         let Some(location) = self.space.element_location(&window) else {
             return;
         };
@@ -481,7 +513,6 @@ impl State {
     /// changed: the output resized or rescaled, or the bar came or went.
     pub fn relayout_maximized(&mut self) {
         self.announce_work_area(self.tiling_area());
-        let work_area = self.work_area();
         let placed: Vec<(Window, Placement)> = self
             .space
             .elements()
@@ -491,7 +522,8 @@ impl State {
             // Called on every commit of a layer surface (the bar redraws
             // each second), so only a real change is sent: a new size, or
             // new tiled sides after the gaps changed.
-            let rect = self.placed_rect(placement);
+            let work_area = self.work_area_of(&window);
+            let rect = self.placed_rect_of(&window, placement);
             let location = configure_placed(&window, Some(placement), rect, work_area);
             self.place(&window, location);
         }
@@ -508,7 +540,7 @@ impl State {
     ) {
         let was = *placed(&window).0.borrow();
         if let Some((placement, before)) = was {
-            let rect = self.placed_rect(placement);
+            let rect = self.placed_rect_of(&window, placement);
             let at = restored_under_pointer(
                 rect,
                 (before.size.w, before.size.h),

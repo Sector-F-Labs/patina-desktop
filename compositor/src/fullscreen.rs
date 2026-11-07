@@ -44,12 +44,21 @@ impl State {
     /// Whether `rect` is the whole screen: what a game that sizes itself
     /// asks for instead of saying "fullscreen".
     pub fn is_screen(&self, rect: Rectangle<i32, Logical>) -> bool {
-        rect == self.screen()
+        self.outputs
+            .iter()
+            .any(|o| self.space.output_geometry(o) == Some(rect))
+    }
+
+    /// The screen `window` is on, in the space's points.
+    pub fn screen_of(&self, window: &Window) -> Rectangle<i32, Logical> {
+        self.space
+            .output_geometry(&self.output_of(window))
+            .unwrap_or_else(|| self.screen())
     }
 
     /// Makes `window` cover the screen, remembering where it was.
     pub fn fullscreen(&mut self, window: &Window) {
-        let screen = self.screen();
+        let screen = self.screen_of(window);
         if self.fullscreen.as_ref() != Some(window) {
             if let Some(other) = self.fullscreen.take() {
                 self.unfullscreen(&other);
