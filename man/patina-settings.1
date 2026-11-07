@@ -76,6 +76,11 @@ The key held to dictate, from the compositor's
 and whether the overlay shows at the bottom or the top of the screen, in
 .Xr patina-dictate 1 Ns 's
 config.
+.It Clipboard
+Whether the desktop keeps a history of what's copied, how many copies, and whether
+screenshots are put on the clipboard, in the compositor's
+.Ic [clipboard] ;
+and Clear history.
 .It Night Light
 Off, always on, or on a schedule, and how warm.
 It shows whether this screen can be warmed, whether it's on now, with a
@@ -126,6 +131,7 @@ Open at
 .Cm defaults ,
 .Cm keyboard ,
 .Cm dictation ,
+.Cm clipboard ,
 .Cm night-light ,
 .Cm power
 or

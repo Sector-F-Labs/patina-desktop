@@ -33,13 +33,14 @@ pub enum Page {
     Defaults,
     Keyboard,
     Dictation,
+    Clipboard,
     NightLight,
     Power,
     Processes,
 }
 
 impl Page {
-    const ALL: [Page; 10] = [
+    const ALL: [Page; 11] = [
         Page::Appearance,
         Page::Bar,
         Page::Wallpaper,
@@ -47,6 +48,7 @@ impl Page {
         Page::Defaults,
         Page::Keyboard,
         Page::Dictation,
+        Page::Clipboard,
         Page::NightLight,
         Page::Power,
         Page::Processes,
@@ -61,6 +63,7 @@ impl Page {
             "defaults" => Some(Page::Defaults),
             "keyboard" => Some(Page::Keyboard),
             "dictation" => Some(Page::Dictation),
+            "clipboard" => Some(Page::Clipboard),
             "night-light" => Some(Page::NightLight),
             "power" => Some(Page::Power),
             "processes" => Some(Page::Processes),
@@ -77,6 +80,7 @@ impl Page {
             Page::Defaults => "Defaults",
             Page::Keyboard => "Keyboard",
             Page::Dictation => "Dictation",
+            Page::Clipboard => "Clipboard",
             Page::NightLight => "Night Light",
             Page::Power => "Power and Battery",
             Page::Processes => "Processes",
@@ -135,6 +139,7 @@ pub struct App {
     icons: crate::icons::IconsSection,
     keyboard: crate::keyboard::KeyboardPage,
     dictation: crate::dictation::DictationPage,
+    clipboard: crate::clipboard::ClipboardPage,
     night_light: NightLightPage,
     power: crate::power::PowerPage,
     processes: crate::processes::ProcessesPage,
@@ -168,6 +173,7 @@ impl App {
             icons: crate::icons::IconsSection::new(),
             keyboard: crate::keyboard::KeyboardPage::new(ctx),
             dictation: crate::dictation::DictationPage::new(),
+            clipboard: crate::clipboard::ClipboardPage::new(),
             night_light: NightLightPage::new(ctx),
             power: crate::power::PowerPage::new(ctx),
             processes: crate::processes::ProcessesPage::new(ctx),
@@ -630,6 +636,10 @@ impl App {
                 Page::Dictation => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.dictation.ui(ui, &mut self.message));
+                }
+                Page::Clipboard => {
+                    egui::ScrollArea::vertical()
+                        .show(ui, |ui| self.clipboard.ui(ui, &mut self.message));
                 }
                 Page::NightLight => {
                     egui::ScrollArea::vertical()
