@@ -1,18 +1,18 @@
 //! The picker's surface: a search box over the emoji in a grid, with the
 //! categories along the top, in the active Patina skin. Emoji are drawn as
-//! Twemoji images, since egui's own fonts have no colour ones.
+//! images from Patina's emoji (Noto Color Emoji, shared with Teleprinter), since
+//! egui's own fonts have no colour ones.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use egui::{
-    Align2, FontId, Key, Modifiers, Rect, Sense, StrokeKind, TextEdit, TextStyle, TextureHandle,
-    TextureOptions, Ui, UiBuilder, vec2,
+    Align2, FontId, Key, Modifiers, Rect, Sense, StrokeKind, TextEdit, TextStyle, Ui, UiBuilder,
+    vec2,
 };
 use emojis::Emoji;
 use patina::skin::Skin;
 use patina_shell::Shell;
-use twemoji_assets::png::PngTwemojiAsset;
 
 use crate::data::{self, GROUPS};
 
@@ -35,8 +35,8 @@ pub struct Picker {
     category: Category,
     query: String,
     selected: usize,
-    /// Decoded images, made when a cell first shows.
-    textures: HashMap<&'static str, Option<TextureHandle>>,
+    /// Each emoji's glyph in Patina's emoji font, looked up when it first shows.
+    glyphs: HashMap<&'static str, Option<patina::emoji::Glyph>>,
     had_focus: bool,
     done: bool,
     picked: Arc<Mutex<Option<String>>>,
@@ -60,7 +60,7 @@ impl Picker {
             category,
             query: String::new(),
             selected: 0,
-            textures: HashMap::new(),
+            glyphs: HashMap::new(),
             had_focus: false,
             done: false,
             picked,
@@ -97,20 +97,6 @@ impl Picker {
         }
     }
 
-    /// The image of `emoji`, decoded the first time.
-    fn texture(&mut self, ctx: &egui::Context, emoji: &'static Emoji) -> Option<TextureHandle> {
-        self.textures
-            .entry(emoji.as_str())
-            .or_insert_with(|| {
-                let png = PngTwemojiAsset::from_emoji(emoji.as_str())?;
-                let image = image::load_from_memory(png).ok()?.to_rgba8();
-                let size = [image.width() as usize, image.height() as usize];
-                let image = egui::ColorImage::from_rgba_unmultiplied(size, image.as_raw());
-                Some(ctx.load_texture(emoji.as_str(), image, TextureOptions::LINEAR))
-            })
-            .clone()
-    }
-
     fn category_name(&self, category: Category) -> &'static str {
         match category {
             Category::Recent => "Recent",
@@ -138,7 +124,6 @@ impl Shell for Picker {
     }
 
     fn ui(&mut self, ui: &mut Ui, _: &str) {
-        let ctx = ui.ctx().clone();
         // Clicking another window takes the keyboard away: close.
         if ui.input(|i| i.focused) {
             self.had_focus = true;
@@ -224,7 +209,7 @@ impl Shell for Picker {
                         );
                     }
                     if let Some(emoji) = self.category_emoji(category) {
-                        self.draw(&ctx, ui, emoji, rect, 20.0);
+                        self.draw(ui, emoji, rect, 20.0);
                     }
                     if response
                         .on_hover_text(self.category_name(category))
@@ -315,7 +300,7 @@ impl Shell for Picker {
                                 }
                             }
                             if ui.is_rect_visible(rect) {
-                                self.draw(&ctx, ui, emoji, rect, GLYPH);
+                                self.draw(ui, emoji, rect, GLYPH);
                             }
                             if response.clicked() {
                                 clicked = Some(*emoji);
@@ -335,16 +320,16 @@ impl Shell for Picker {
 }
 
 impl Picker {
-    /// `emoji` as its image, `size` points, centred in `rect`; as text if it
-    /// has none.
-    fn draw(&mut self, ctx: &egui::Context, ui: &Ui, emoji: &'static Emoji, rect: Rect, size: f32) {
+    /// `emoji` as its image (Patina's, as Teleprinter's), `size` points,
+    /// centred in `rect`; as text if it has none.
+    fn draw(&mut self, ui: &Ui, emoji: &'static Emoji, rect: Rect, size: f32) {
         let image = Rect::from_center_size(rect.center(), vec2(size, size));
-        match self.texture(ctx, emoji) {
-            Some(texture) => {
-                let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
-                ui.painter()
-                    .image(texture.id(), image, uv, egui::Color32::WHITE);
-            }
+        let glyph = *self
+            .glyphs
+            .entry(emoji.as_str())
+            .or_insert_with(|| patina::emoji::glyph(emoji.as_str()));
+        match glyph {
+            Some(glyph) => patina::emoji::paint(ui.painter(), glyph, image),
             None => {
                 ui.painter().text(
                     rect.center(),

@@ -9,8 +9,6 @@ repository = "https://github.com/Sector-F-Labs/patina-desktop"
 [dependencies]
 egui = "0.35"
 emojis = "0.9"
-image = { version = "0.25", default-features = false, features = ["png"] }
 patina-shell = { workspace = true }
-patina-ui = { workspace = true }
-twemoji-assets = { version = "1.5", default-features = false, features = ["png"] }
+patina-ui = { workspace = true, features = ["emoji"] }
 zbus = "5"
