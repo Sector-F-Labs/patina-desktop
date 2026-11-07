@@ -3751,6 +3751,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-displays"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "image",
+ "patina-shell",
+ "patina-system",
+ "patina-ui",
+]
+
+[[package]]
 name = "patina-emoji"
 version = "0.1.0"
 dependencies = [

@@ -62,6 +62,7 @@ fn action(name: &str) -> Option<KeyAction> {
         "launcher" => KeyAction::Launcher,
         "launcher_spotlight" => KeyAction::Spotlight,
         "emoji" => KeyAction::Emoji,
+        "displays" => KeyAction::Displays,
         "hud" => KeyAction::Hud,
         "next_layout" => KeyAction::NextLayout,
         "quit_app" => KeyAction::QuitApp,

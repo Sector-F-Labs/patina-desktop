@@ -1,0 +1,50 @@
+.Dd November 7, 2026
+.Dt PATINA-DISPLAYS 1
+.Os
+.Sh NAME
+.Nm patina-displays
+.Nd extend the desktop across several monitors, or mirror it
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+shows a pill at the bottom of the primary screen, like the screenshot's,
+naming the connected monitors and offering to
+.Em Extend
+the desktop across them, each showing its own part, to
+.Em Mirror
+it, each showing the same, or to leave it be.
+The one in use is marked.
+A monitor plugged in stays off until it's chosen for, and the third tile,
+.Em Do nothing ,
+leaves it off; with no monitor waiting the third is
+.Em Primary only ,
+which turns the others off.
+The compositor opens it on Ctrl+Super+P or the display key, the
+.Ic displays
+key in
+.Ic [keys] ,
+and when a monitor is plugged in.
+.Pp
+A click or Enter chooses, the arrow keys and Tab move between the three, 1 to
+3 choose, and Escape, or switching to another window, closes with nothing
+changed.
+Choosing extend with a monitor that has never been placed opens
+.Xr patina-settings 1
+at its Displays page, to say which side of another monitor it sits on.
+.Pp
+The choice is made through the compositor's
+.Ql com.sectorflabs.Patina.Displays
+on the session bus, so it only works under the Patina compositor on real
+hardware.
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN
+The skin, by name.
+.El
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-settings 1 ,
+.Xr patina-desktop 7

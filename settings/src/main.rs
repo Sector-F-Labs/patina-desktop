@@ -13,6 +13,8 @@ mod compositor_config;
 mod defaults;
 mod dictation;
 mod dictation_models;
+mod display_layout;
+mod displays;
 mod gaps;
 mod icons;
 mod keyboard;
@@ -27,7 +29,7 @@ use std::process::ExitCode;
 use crate::app::Page;
 
 const USAGE: &str =
-    "usage: patina-settings [--page appearance|bar|wallpaper|defaults|keyboard|dictation|clipboard|night-light|power|processes]
+    "usage: patina-settings [--page appearance|bar|wallpaper|defaults|keyboard|dictation|clipboard|displays|night-light|power|processes]
 
 Opens the Patina desktop's Settings, at the page given (Appearance without
 one). The desktop's menu opens it at the wallpaper page, the bar's battery

@@ -22,9 +22,16 @@ goes straight to Settings, to say where it sits (above, below, left or right of 
   stays as the primary (the internal panel, else the first), so the code that wants one screen
   keeps working. Each monitor has its own `DrmCompositor`, gamma ramp and frame state, and each
   is drawn with the desktop offset by its place in the space.
-- **Extend and mirror are the two modes.** Extend maps each output at its place in the space.
-  Mirror maps them all at the origin, at the primary's size, so windows show on all of them.
-  Only one monitor can be "off" besides: a monitor turned off is unmapped and its CRTC cleared.
+- **Extend, mirror, or off.** Extend maps each output at its place in the space. Mirror maps
+  them all at the origin, a monitor's scale making it as wide in points as the primary, so
+  windows show on all of them (a monitor of another shape is cropped). Off drives the primary
+  alone. The primary is the internal panel, else the first monitor connected, and the popup is
+  always on it.
+- **A monitor plugged in stays off until chosen for.** It is detected and listed (`active:
+  false`) but not driven: no modeset, no output. The popup offers Extend, Mirror or Do nothing,
+  which leaves it off and changes nothing else. Extend and Mirror switch on every monitor
+  waiting. Monitors connected at login are driven as the last choice was, unless that was off.
+  Opened with no monitor waiting (Ctrl+Super+P), the third tile is Primary only.
 - **A monitor runs in the mode that matches its shape.** Among the modes whose aspect ratio is
   within 6% of the panel's size in millimetres, the preferred one, else the largest. A 21:9 panel
   that accepts 4K flags it as preferred and squashes the picture. Without a size, or with no
@@ -50,7 +57,10 @@ goes straight to Settings, to say where it sits (above, below, left or right of 
   once; Extend with a new monitor then opens Settings' Displays page on it. A monitor seen
   before gets its saved place back with no further question.
 - **Settings gets a Displays page** with the monitors drawn to scale, dragged to a side of
-  another, with scale and primary.
+  another (snapping to the nearest side that touches and doesn't overlap, with the edges lining
+  up at the start, middle or end when close), the same choice from menus, the mode, and the
+  monitors waiting. It talks to the compositor only through the bus. Scale and primary aren't
+  settable yet.
 
 ## Consequences
 

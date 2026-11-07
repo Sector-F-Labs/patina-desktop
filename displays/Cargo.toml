@@ -1,0 +1,16 @@
+[package]
+name = "patina-displays"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's popup for several monitors: extend the desktop across them or mirror it"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+egui = "0.35"
+patina-shell = { workspace = true }
+patina-system = { path = "../system" }
+patina-ui = { workspace = true }
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }

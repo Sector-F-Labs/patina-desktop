@@ -124,6 +124,7 @@ ADR-0069; the defaults are in [compositor/keys.toml](compositor/keys.toml)):
 |---|---|
 | **Super** | the launcher, opened from its button in the HUD |
 | **Super+Space** | the launcher as a search box at the top of the screen's middle, as Spotlight |
+| **Ctrl+Super+P** | several monitors: extend the desktop across them or mirror it; also opens when one is plugged in (ADR-0121) |
 | **Ctrl+Super+Space**, **Super+period** | the emoji picker: search, pick, and it's typed where you were (ADR-0120) |
 | **Super+H** | hide the HUD, or bring it back (`patina-hud --toggle`; ADR-0111) |
 | **Alt+T**, **Alt+B** | Teleprinter; Firefox, or its window if it's open |
@@ -165,6 +166,7 @@ keys work, with an on-screen flash.
 - **[patina-lock](lock/README.md)** (`lock/`): the lock screen, in the bar's skin, with the password checked through PAM. The compositor runs it on Ctrl+Super+Q, Super+Escape, when the screen turns off and before sleep.
 - **[patina-screenshot](screenshot/README.md)** (`screenshot/`): what the Print key opens: the screen, a window or a selection, or recording the screen or a selection to `~/Videos/Screen Recordings`. Also what an app asking to share the screen may see, through xdg-desktop-portal-wlr.
 - **[patina-dictate](dictate/README.md)** (`dictate/`): speech to text on the machine, with Whisper (ADR-0070): hold Ctrl+Super+Alt and speak, and what was said is typed into the focused window.
+- **[patina-displays](displays/README.md)** (`displays/`): the popup for several monitors: extend the desktop across them or mirror it, opened by Ctrl+Super+P and by plugging one in (ADR-0121).
 - **[patina-emoji](emoji/README.md)** (`emoji/`): the emoji picker, as Ctrl+Cmd+Space on a Mac: a popup with search and categories, the pick typed into the focused window the way dictation is (ADR-0120).
 - **[patina-settings](settings/README.md)** (`settings/`): the skin, wallpaper, default apps, Night Light, power modes, gaps, the bar's layout, and the desktop's processes.
 - **[patina-processes](processes/README.md)** (`processes/`): the process manager, on Ctrl+Shift+Escape, a key no config can take: the apps with their windows, and every process, with what each costs the CPU, memory and disks; ending, killing and pausing them; and graphs over the last minute.

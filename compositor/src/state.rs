@@ -80,6 +80,8 @@ pub struct State {
     pub output: Output,
     /// Every monitor, the primary (`output`) first (ADR-0121).
     pub outputs: Vec<Output>,
+    /// Extend or mirror, and where each monitor goes (ADR-0121).
+    pub displays: crate::displays::Displays,
     /// The globals advertising `outputs`, to take back when one goes.
     output_globals: Vec<(Output, smithay::reexports::wayland_server::backend::GlobalId)>,
     /// Something changed on screen since the last frame.
@@ -252,6 +254,7 @@ impl State {
             space,
             popups: PopupManager::default(),
             outputs: vec![output.clone()],
+            displays: crate::displays::Displays::load(),
             output_globals: vec![(output.clone(), output_global)],
             output,
             needs_redraw: true,
@@ -560,6 +563,7 @@ impl State {
     /// the windows (those on a removed monitor go to the primary, those on
     /// one that shifted go with it).
     pub fn outputs_changed(&mut self, all: Vec<Output>, removed: &[Output]) {
+        use crate::displays::Mode;
         use crate::layout::{Entry, rects};
         let old: Vec<(Output, smithay::utils::Rectangle<i32, Logical>)> = self
             .outputs
@@ -595,10 +599,34 @@ impl State {
             }
         }
 
+        // Mirrored, a monitor's scale makes it as many points wide as the
+        // primary; extended, it's the one its density gives.
+        let primary_points = all[0].current_mode().map(|m| {
+            m.size
+                .to_f64()
+                .to_logical(all[0].current_scale().fractional_scale())
+                .w
+        });
+        for output in all.iter().skip(1) {
+            let scale = match (self.displays.mode, primary_points, output.current_mode()) {
+                (Mode::Mirror, Some(points), Some(mode)) if points > 0.0 => {
+                    (mode.size.w as f64 / points).max(0.5)
+                }
+                _ => crate::displays::auto_scale_of(output),
+            };
+            if output.current_scale().fractional_scale() != scale {
+                output.change_current_state(
+                    None,
+                    None,
+                    Some(smithay::output::Scale::Fractional(scale)),
+                    None,
+                );
+            }
+        }
         let entries: Vec<Entry> = all
             .iter()
             .map(|o| Entry {
-                id: o.name(),
+                id: crate::displays::id_of(o),
                 size: o
                     .current_mode()
                     .map(|m| {
@@ -608,10 +636,16 @@ impl State {
                             .to_i32_round()
                     })
                     .unwrap_or_default(),
-                place: None,
+                place: self.displays.place(&crate::displays::id_of(o)),
             })
             .collect();
-        for (output, rect) in all.iter().zip(rects(&entries)) {
+        let mut placed = rects(&entries);
+        if self.displays.mode == Mode::Mirror {
+            for rect in &mut placed {
+                rect.loc = (0, 0).into();
+            }
+        }
+        for (output, rect) in all.iter().zip(placed) {
             self.space.map_output(output, rect.loc);
             output.change_current_state(None, None, None, Some(rect.loc));
             eprintln!(
@@ -668,16 +702,24 @@ impl State {
             .get_pointer()
             .map(|p| p.current_location())
             .unwrap_or_default();
-        let monitors: Vec<_> = self
-            .outputs
-            .iter()
-            .filter_map(|o| self.space.output_geometry(o))
-            .collect();
-        let inside = crate::layout::clamp(&monitors, pointer);
+        let inside = crate::layout::clamp(&self.pointer_areas(), pointer);
         if inside != pointer {
             self.pointer_motion(inside, 0);
         }
         self.needs_redraw = true;
+    }
+
+    /// Where the pointer may go: every monitor, or the primary alone while
+    /// mirroring.
+    pub fn pointer_areas(&self) -> Vec<smithay::utils::Rectangle<i32, Logical>> {
+        let outputs = match self.displays.mode {
+            crate::displays::Mode::Mirror => &self.outputs[..1],
+            crate::displays::Mode::Extend | crate::displays::Mode::Off => &self.outputs[..],
+        };
+        outputs
+            .iter()
+            .filter_map(|o| self.space.output_geometry(o))
+            .collect()
     }
 
     /// What `output` shows.
@@ -1242,6 +1284,8 @@ impl WlrLayerShellHandler for State {
         let output = wanted
             .as_ref()
             .and_then(Output::from_resource)
+            // The monitors' popup is the primary's, whatever the pointer is on.
+            .or_else(|| (namespace == "patina-displays").then(|| self.output.clone()))
             .unwrap_or_else(|| self.pointer_output().clone());
         let mut map = layer_map_for_output(&output);
         if let Err(e) = map.map_layer(&LayerSurface::new(surface, namespace)) {

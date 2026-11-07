@@ -103,6 +103,16 @@ puts them in `$(PREFIX)/share/man`.
   `State::output_under`/`output_of`/`work_area_on` find the one a point or window is on. A
   layer map is in its output's own coordinates. Don't read the pointer's location inside a
   grab (it holds the pointer's lock): use what the grab is given.
+- `compositor/src/displays.rs` (ADR-0121): extend or mirror and where each monitor goes, kept in
+  `displays.toml` by monitor id (`edid.rs` reads the maker, model and serial; `MonitorId` is in each
+  output's user data), a monitor in it being one placed before. `displays/dbus.rs` serves
+  `com.sectorflabs.Patina.Displays` (List, Mode, SetMode, SetPlace; Changed, MonitorAdded), client
+  `system/src/displays.rs`. `displays/` (patina-displays) is the popup on Ctrl+Super+P, which the
+  compositor also starts when a monitor is plugged in; extending onto a new monitor opens Settings'
+  Displays page. Mirroring maps every output at the origin, a monitor's scale making it as wide in
+  points as the primary; the pointer stays on the primary. A monitor plugged in while running is
+  idle (`UdevData::idle`, listed `active: false`), driven only when `set_display_mode` extends or
+  mirrors; `Mode::Off` drives the primary alone.
 - `compositor/src/cmd.rs`: Super is Cmd (ADR-0067): a Super key the compositor doesn't keep is sent
   to the focused client as Ctrl+key (Ctrl+Shift to a terminal, by its desktop entry's category, and
   Super+Shift+key there as Ctrl+Alt+Shift+key),
