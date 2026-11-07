@@ -688,9 +688,10 @@ fn choose_monitors(
         if kept.is_none() {
             taken.push(crtc);
         }
-        let mode = pick_mode(connector.modes(), connector.size());
+        let edid = read_edid(drm, &connector);
+        let mode = pick_mode(connector.modes(), size_mm(&connector, edid.as_ref()));
         monitors.push(Monitor {
-            edid: read_edid(drm, connector.handle()),
+            edid,
             connector,
             crtc,
             mode,
@@ -736,9 +737,35 @@ fn pick_mode(
         .to_owned()
 }
 
+/// The connector's name, as the kernel names it: eDP-1, DP-3.
+fn connector_name(connector: &connector::Info) -> String {
+    format!("{}-{}", connector.interface().as_str(), connector.interface_id())
+}
+
+/// The panel's size in millimetres: what the connector says, else the EDID's
+/// (a virtual connector says none), else none.
+fn size_mm(
+    connector: &connector::Info,
+    edid: Option<&crate::edid::Edid>,
+) -> Option<(u32, u32)> {
+    connector
+        .size()
+        .filter(|(w, h)| *w > 0 && *h > 0)
+        .or_else(|| edid.map(|e| e.size_mm).filter(|(w, h)| *w > 0 && *h > 0))
+}
+
 /// The EDID the monitor on `connector` gave the kernel.
-fn read_edid(drm: &DrmDevice, connector: connector::Handle) -> Option<crate::edid::Edid> {
-    let properties = drm.get_properties(connector).ok()?;
+///
+/// With `PATINA_FAKE_EDID_DIR` set it is the file `<connector name>.bin` in
+/// that folder instead, and none if there isn't one: the test VM's virtual
+/// monitors (ADR-0125) have no EDID of their own, and this is how one is made
+/// to look like a particular model. Nothing else sets it.
+fn read_edid(drm: &DrmDevice, connector: &connector::Info) -> Option<crate::edid::Edid> {
+    if let Some(dir) = std::env::var_os("PATINA_FAKE_EDID_DIR") {
+        let file = std::path::Path::new(&dir).join(format!("{}.bin", connector_name(connector)));
+        return crate::edid::parse(&std::fs::read(file).ok()?);
+    }
+    let properties = drm.get_properties(connector.handle()).ok()?;
     let (handles, values) = properties.as_props_and_values();
     for (handle, value) in handles.iter().zip(values) {
         let info = drm.get_property(*handle).ok()?;
@@ -791,7 +818,7 @@ fn identity(monitor: &Monitor) -> (String, String, String, String) {
 fn make_output(monitor: &Monitor, config: &crate::config::Config, primary: bool) -> (Output, f64) {
     let c = &monitor.connector;
     let (name, make, model, id) = identity(monitor);
-    let (mm_w, mm_h) = c.size().unwrap_or((0, 0));
+    let (mm_w, mm_h) = size_mm(c, monitor.edid.as_ref()).unwrap_or((0, 0));
     let output = Output::new(
         name,
         PhysicalProperties {

@@ -84,6 +84,16 @@ class Vm:
     def fake(self, *args: str) -> None:
         self.run("fake", *args)
 
+    def display(self, *args: str) -> str:
+        """Plugs or unplugs a virtual monitor (`display plug 1 lg-ultrawide`); the
+        multi-monitor guest only (PATINA_VM_INSTANCE=displays)."""
+        return self.run("display", *args)
+
+    def session(self, command: str, check=True, timeout=60) -> str:
+        """`command` run in the Patina session's environment: its session bus,
+        runtime folder and Wayland display."""
+        return self.run("session", command, check=check, timeout=timeout)
+
     def session_up(self) -> bool:
         return self.alive("release/patina-compositor")
 

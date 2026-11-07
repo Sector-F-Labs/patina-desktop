@@ -420,7 +420,7 @@ impl State {
                 let to_name = monitors
                     .iter()
                     .find(|m| m.id == s.to)
-                    .map(|m| monitor_label(m))
+                    .map(monitor_label)
                     .or_else(|| {
                         entries
                             .iter()

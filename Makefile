@@ -51,7 +51,7 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps run run-hud build test check install stage deploy deb install-full uninstall-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-screenshot vm-linux-gui test-vm test-vm-rc vm-linux-stop clean
+.PHONY: help deps run run-hud build test check install stage deploy deb install-full uninstall-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-screenshot vm-linux-gui test-vm test-vm-rc vm-displays test-vm-displays vm-linux-stop clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -246,6 +246,14 @@ vm-linux-gui: ## Open the Linux VM's screen in a VNC viewer
 
 test-vm: build ## Regression tests against the Linux VM: the session, the bar's battery and Wi-Fi, the apps (needs uv; boots the VM)
 	uv run --project vm-linux/tests pytest vm-linux/tests
+
+vm-displays: build ## The multi-monitor Linux VM: vkms virtual monitors that can be plugged and unplugged (ADR-0125)
+	cargo build --release -p patina-compositor --example capture
+	PATINA_VM_INSTANCE=displays vm-linux/vm.sh start
+
+test-vm-displays: build ## Tests of several monitors against the multi-monitor VM: plug, unplug, extend, saved places (needs uv; boots it)
+	cargo build --release -p patina-compositor --example capture
+	PATINA_VM_INSTANCE=displays uv run --project vm-linux/tests pytest vm-linux/tests/test_displays.py
 
 test-vm-rc: ## Regression tests against the clean rc VM that runs the installed .deb (needs uv; no build)
 	PATINA_VM_INSTANCE=rc uv run --project vm-linux/tests pytest vm-linux/tests
