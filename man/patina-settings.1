@@ -73,9 +73,13 @@ Changing the list goes back to the first layout.
 .It Dictation
 The key held to dictate, from the compositor's
 .Ic [keys] ,
-and whether the overlay shows at the bottom or the top of the screen, in
+then, in
 .Xr patina-dictate 1 Ns 's
-config.
+config: the speech model, chosen from a short list and downloaded here (with
+.Xr curl 1 ) ,
+the language, the accuracy settings (search width, silence threshold, retrying
+unsure passages, threads, and words to expect), and whether the overlay shows at
+the bottom or the top of the screen.
 .It Clipboard
 Whether the desktop keeps a history of what's copied, how many copies, for how long, and whether
 screenshots are put on the clipboard, in the compositor's

@@ -31,8 +31,9 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   and added from xkb's by search, and key repeat, written to `[keyboard]` in the compositor's
   config; while it has none, the system's are shown, and the first change copies them in.
 - **Dictation** (ADR-0073): the key held to dictate, read from `[keys]` in the compositor's
-  config, and whether the overlay shows at the bottom or top, written as `overlay` into
-  patina-dictate's config (`dictation.rs`).
+  config; and patina-dictate's config (`dictation.rs`, ADR-0119): the speech model, chosen from a
+  short list and downloaded with curl (`dictation_models.rs`), the language, the accuracy
+  settings, and whether the overlay shows at the bottom or top.
 - **Clipboard** (ADR-0114, ADR-0116): whether the compositor keeps a history of what's copied,
   how many copies, for how long, and whether screenshots go on the clipboard, written to `[clipboard]` in the
   compositor's config (`clipboard.rs`); Clear history asks the compositor over the session bus.

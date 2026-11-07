@@ -33,10 +33,41 @@ pub fn model_url(path: &Path) -> String {
     format!("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{file}")
 }
 
+/// What the user can tune in how a recording is turned into text.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Tuning {
+    pub beam_size: u32,
+    pub no_speech: f32,
+    pub prompt: String,
+    pub threads: u32,
+    pub fallback: bool,
+}
+
+impl Default for Tuning {
+    fn default() -> Self {
+        let c = crate::config::Config::default();
+        Self::from(&c)
+    }
+}
+
+impl From<&crate::config::Config> for Tuning {
+    fn from(c: &crate::config::Config) -> Self {
+        Self {
+            beam_size: c.beam_size,
+            no_speech: c.no_speech,
+            prompt: c.prompt.clone(),
+            threads: c.threads,
+            fallback: c.fallback,
+        }
+    }
+}
+
 pub struct Transcriber {
     context: WhisperContext,
     /// The spoken language as a code (`en`, `sv`), or `auto` to detect it.
     language: String,
+    /// Read again at each recording, so a change is used at once.
+    pub tuning: Tuning,
 }
 
 impl Transcriber {
@@ -61,7 +92,11 @@ impl Transcriber {
             None if context.is_multilingual() => "auto".to_string(),
             None => "en".to_string(),
         };
-        Ok(Self { context, language })
+        Ok(Self {
+            context,
+            language,
+            tuning: Tuning::default(),
+        })
     }
 
     /// The text spoken in `samples`, 16 kHz mono.
@@ -77,9 +112,28 @@ impl Transcriber {
             samples
         };
         let mut state = self.context.create_state().map_err(|e| e.to_string())?;
-        let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+        let t = &self.tuning;
+        let strategy = if t.beam_size > 1 {
+            SamplingStrategy::BeamSearch {
+                beam_size: t.beam_size as i32,
+                patience: -1.0,
+            }
+        } else {
+            SamplingStrategy::Greedy { best_of: 1 }
+        };
+        let mut params = FullParams::new(strategy);
         params.set_language(Some(&self.language));
-        params.set_n_threads(threads());
+        params.set_n_threads(if t.threads == 0 {
+            threads()
+        } else {
+            t.threads as i32
+        });
+        if !t.prompt.trim().is_empty() {
+            params.set_initial_prompt(t.prompt.trim());
+        }
+        if !t.fallback {
+            params.set_temperature_inc(0.0);
+        }
         // Each dictation stands alone.
         params.set_no_context(true);
         params.set_suppress_blank(true);
@@ -92,15 +146,12 @@ impl Transcriber {
         // you."), but it knows: those segments are likely no speech.
         let text: String = state
             .as_iter()
-            .filter(|segment| segment.no_speech_probability() < NO_SPEECH)
+            .filter(|segment| segment.no_speech_probability() < t.no_speech)
             .filter_map(|segment| segment.to_str_lossy().ok().map(|s| s.into_owned()))
             .collect();
         Ok(text.trim().to_string())
     }
 }
-
-/// Segments likelier than this to be no speech are dropped.
-const NO_SPEECH: f32 = 0.6;
 
 /// whisper.cpp gains little past eight threads.
 fn threads() -> i32 {

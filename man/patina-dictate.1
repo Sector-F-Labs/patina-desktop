@@ -61,7 +61,8 @@ Dictation behind the compositor's
 key, signalled on the session bus
 .Pq com.sectorflabs.Patina.Input ;
 the text is typed by its Commit.
-The model is loaded at the start, and again at each press until it loads.
+The settings in the config file are read at each press: a changed model or language
+is loaded then, and a model that wouldn't load is tried again.
 It ends when the compositor leaves the bus, and won't start without it.
 .It Fl -overlay Cm bottom | top
 The overlay alone, at that edge, which
@@ -77,7 +78,9 @@ The model, by whisper.cpp's name for it
 kept in the models folder as
 .Pa ggml- Ns Ar model Ns Pa .bin ;
 or a path to the file.
-The default is base.en.
+Over
+.Ic model
+in the config file; the default is base.en.
 .It Fl l , -language Ar code
 What's spoken
 .Pq Ql en , Ql sv ,
@@ -88,6 +91,9 @@ English for an English-only model
 .Pq Ql *.en ,
 else
 .Ql auto .
+Over
+.Ic language
+in the config file.
 .It Fl v , -verbose
 whisper.cpp's log, with the GPU it found, if any, the sound's length, rate and loudness, and how long
 each step took, on standard error.
@@ -102,10 +108,31 @@ Print the version and exit.
 The models, downloaded from
 .Lk https://huggingface.co/ggerganov/whisper.cpp .
 .It Pa $XDG_CONFIG_HOME/patina-dictate/config.toml
-.Ql overlay = \(dqbottom\(dq
+Read at each press:
+.Bl -tag -width Ds -compact
+.It Ic overlay
+.Ql \(dqbottom\(dq
 or
 .Ql \(dqtop\(dq :
-where the overlay shows, read at each press.
+where the overlay shows.
+.It Ic model , language
+As
+.Fl m
+and
+.Fl l .
+.It Ic beam_size
+1 to 8: candidates the decoder weighs; 1 is the fastest, more is steadier on accents and mumbling.
+Default 1.
+.It Ic no_speech
+0 to 1: segments likelier than this to be no speech are dropped.
+Default 0.6.
+.It Ic prompt
+Words Whisper is told came before, to lean it towards names and spellings.
+.It Ic threads
+Decoder threads; 0, the default, for as many as there are, up to eight.
+.It Ic fallback
+Retry unsure passages with some randomness; default true.
+.El
 .Xr patina-settings 1 Ns 's
 Dictation page writes it.
 .El

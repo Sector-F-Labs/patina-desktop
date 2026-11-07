@@ -40,7 +40,7 @@ line, then \"transcribing\", from its input, and fades out at its end.
 
 Models are kept in $XDG_DATA_HOME/patina-dictate/models.";
 
-const DEFAULT_MODEL: &str = "base.en";
+pub const DEFAULT_MODEL: &str = "base.en";
 
 #[derive(Debug, Default, PartialEq, Eq)]
 struct Options {
@@ -111,8 +111,11 @@ fn main() -> ExitCode {
         }
     };
     if options.daemon {
-        let model = model_path(options.model.as_deref().unwrap_or(DEFAULT_MODEL));
-        let ended = daemon::run(&model, options.language.as_deref(), options.verbose);
+        let ended = daemon::run(
+            options.model.as_deref(),
+            options.language.as_deref(),
+            options.verbose,
+        );
         if let Err(e) = ended {
             eprintln!("patina-dictate: {e}");
         }
@@ -133,8 +136,17 @@ fn main() -> ExitCode {
 fn dictate(options: &Options) -> Result<String, String> {
     let verbose = options.verbose;
     let started = Instant::now();
-    let model = model_path(options.model.as_deref().unwrap_or(DEFAULT_MODEL));
-    let transcriber = Transcriber::new(&model, options.language.as_deref(), !verbose)?;
+    let config = config::load();
+    let model = model_path(
+        options
+            .model
+            .as_deref()
+            .or(config.model.as_deref())
+            .unwrap_or(DEFAULT_MODEL),
+    );
+    let language = options.language.as_deref().or(config.language.as_deref());
+    let mut transcriber = Transcriber::new(&model, language, !verbose)?;
+    transcriber.tuning = transcribe::Tuning::from(&config);
     if verbose {
         eprintln!("loaded {} in {:.2?}", model.display(), started.elapsed());
     }
