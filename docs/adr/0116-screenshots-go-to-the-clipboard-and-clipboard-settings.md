@@ -24,6 +24,9 @@ already writes it for gaps and shadows (ADR-0051, ADR-0112).
 
 ## Decision
 
+Built: the compositor side (the `[clipboard]` config, the history cleared when turned off,
+screenshots on the clipboard, the HUD icon hidden while it's off). Not yet: the Settings page.
+
 - **Every screenshot goes to the clipboard as well as to its file.** It is the whole desktop,
   the window or the selection, from Super+Shift+3, 4 or 5 and the Print key. There is no
   Ctrl variant. The picture is put on the selection as `image/png`, as a pick of a history entry
