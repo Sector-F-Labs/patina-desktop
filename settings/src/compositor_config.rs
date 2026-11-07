@@ -272,6 +272,65 @@ pub fn with_shadows(text: &str, shadows: &Shadows) -> Result<String, String> {
     Ok(doc.to_string())
 }
 
+/// The clipboard history and screenshots on the clipboard (ADR-0114, ADR-0116).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Clipboard {
+    pub enabled: bool,
+    pub screenshots: bool,
+    pub max_entries: u32,
+}
+
+/// The compositor's limits on `max_entries`.
+pub const CLIPBOARD_ENTRIES: std::ops::RangeInclusive<u32> = 1..=200;
+
+impl Default for Clipboard {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            screenshots: true,
+            max_entries: 50,
+        }
+    }
+}
+
+/// `[clipboard]` from the config's text; the defaults for what's missing or wrong.
+pub fn parse_clipboard(text: &str) -> Clipboard {
+    let mut clipboard = Clipboard::default();
+    let Some(table) = text
+        .parse::<DocumentMut>()
+        .ok()
+        .and_then(|d| d.get("clipboard").cloned())
+    else {
+        return clipboard;
+    };
+    let flag = |key: &str| table.get(key).and_then(|v| v.as_bool());
+    clipboard.enabled = flag("enabled").unwrap_or(clipboard.enabled);
+    clipboard.screenshots = flag("screenshots").unwrap_or(clipboard.screenshots);
+    if let Some(n) = table
+        .get("max_entries")
+        .and_then(|v| v.as_integer())
+        .and_then(|n| u32::try_from(n).ok())
+        .filter(|n| CLIPBOARD_ENTRIES.contains(n))
+    {
+        clipboard.max_entries = n;
+    }
+    clipboard
+}
+
+/// `text` with `[clipboard]` set to `clipboard`, everything else kept.
+pub fn with_clipboard(text: &str, clipboard: &Clipboard) -> Result<String, String> {
+    let mut doc = text.parse::<DocumentMut>().map_err(|e| e.to_string())?;
+    let table = doc
+        .entry("clipboard")
+        .or_insert_with(toml_edit::table)
+        .as_table_mut()
+        .ok_or("clipboard in the compositor's config isn't a section")?;
+    table["enabled"] = value(clipboard.enabled);
+    table["screenshots"] = value(clipboard.screenshots);
+    table["max_entries"] = value(i64::from(clipboard.max_entries));
+    Ok(doc.to_string())
+}
+
 /// `[keyboard]`'s layouts and key repeat, as the compositor has them.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Keyboard {
@@ -380,6 +439,16 @@ pub fn read_gaps() -> Gaps {
 /// The shadows setting from the compositor's config.
 pub fn read_shadows() -> Shadows {
     read_text().map(|t| parse_shadows(&t)).unwrap_or_default()
+}
+
+/// The clipboard's settings from the compositor's config.
+pub fn read_clipboard() -> Clipboard {
+    read_text().map(|t| parse_clipboard(&t)).unwrap_or_default()
+}
+
+/// Writes the clipboard's settings into the compositor's config.
+pub fn write_clipboard(clipboard: &Clipboard) -> Result<(), String> {
+    update(|text| with_clipboard(text, clipboard))
 }
 
 /// The keyboard's settings from the compositor's config.
@@ -507,6 +576,28 @@ mod tests {
     }
 
     #[test]
+    fn the_clipboard_is_written_keeping_the_rest() {
+        assert_eq!(parse_clipboard(STARTER), Clipboard::default());
+        let set = Clipboard {
+            enabled: false,
+            screenshots: true,
+            max_entries: 20,
+        };
+        let text = with_clipboard(STARTER, &set).unwrap();
+        assert!(text.contains("[clipboard]\nenabled = false"), "{text}");
+        assert!(text.contains("scale = 1.5"), "{text}");
+        assert_eq!(parse_clipboard(&text), set);
+        let text = with_clipboard(&text, &Clipboard::default()).unwrap();
+        assert_eq!(text.matches("[clipboard]").count(), 1);
+        assert_eq!(parse_clipboard(&text), Clipboard::default());
+        // What the compositor would refuse falls back to its defaults.
+        assert_eq!(
+            parse_clipboard("[clipboard]\nmax_entries = 900\nenabled = 3\n"),
+            Clipboard::default()
+        );
+    }
+
+    #[test]
     fn shadows_are_written_keeping_the_rest() {
         assert_eq!(parse_shadows(STARTER), Shadows { enabled: true });
         let off = Shadows { enabled: false };
@@ -517,7 +608,10 @@ mod tests {
         let text = with_shadows(&text, &Shadows::default()).unwrap();
         assert_eq!(text.matches("[shadows]").count(), 1);
         assert_eq!(parse_shadows(&text), Shadows::default());
-        assert_eq!(parse_shadows("[shadows]\nenabled = 3\n"), Shadows::default());
+        assert_eq!(
+            parse_shadows("[shadows]\nenabled = 3\n"),
+            Shadows::default()
+        );
     }
 
     #[test]
