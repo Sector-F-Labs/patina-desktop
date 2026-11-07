@@ -104,6 +104,8 @@ struct Wallpaper {
     path: Option<PathBuf>,
     image: Option<DynamicImage>,
     fit: Fit,
+    /// The colour around the image; `None` for the skin's.
+    background: Option<[u8; 3]>,
     /// The image laid on each output, by output name: the output's size in
     /// pixels, and the texture, in that output's egui context.
     scaled: HashMap<String, ([usize; 2], TextureHandle)>,
@@ -118,6 +120,7 @@ impl Wallpaper {
             path: None,
             image: None,
             fit: Fit::Fill,
+            background: None,
             scaled: HashMap::new(),
             logos: HashMap::new(),
         };
@@ -130,8 +133,13 @@ impl Wallpaper {
     fn reload(&mut self) -> bool {
         let path = patina_shell::hud::wallpaper();
         let fit = configured_fit();
+        let background = configured_background();
         let skin = piece::skin("patina-wallpaper");
-        let changed = path != self.path || fit != self.fit || skin.name != self.skin.name;
+        let changed = path != self.path
+            || fit != self.fit
+            || background != self.background
+            || skin.name != self.skin.name;
+        self.background = background;
         if path != self.path {
             self.image = path.as_deref().and_then(load);
             self.path = path;
@@ -233,6 +241,13 @@ fn configured_fit() -> Fit {
     Fit::from_name(name.as_deref())
 }
 
+/// `wallpaper_background` in the bar's config.
+fn configured_background() -> Option<[u8; 3]> {
+    let text = patina_shell::hud::config_path().and_then(|p| std::fs::read_to_string(p).ok());
+    let colour = text.and_then(|t| patina_shell::hud::top_level(&t, "wallpaper_background"));
+    patina_system::wallpaper::parse_background(colour.as_deref())
+}
+
 /// Decodes the image at `path`, saying why not if it can't.
 fn load(path: &Path) -> Option<DynamicImage> {
     image::open(path)
@@ -266,10 +281,15 @@ impl Shell for Wallpaper {
             (rect.height() * ppp).round().max(1.0) as usize,
         ];
         let ctx = ui.ctx().clone();
+        let background = self.background;
         match self.texture(&ctx, output, size) {
             Some(texture) => {
-                // Fitted or centred, the skin's colour shows around it.
-                ui.painter().rect_filled(rect, 0.0, ui.visuals().panel_fill);
+                // Fitted or centred, the chosen colour, or the skin's, shows
+                // around it.
+                let around = background.map_or(ui.visuals().panel_fill, |[r, g, b]| {
+                    Color32::from_rgb(r, g, b)
+                });
+                ui.painter().rect_filled(rect, 0.0, around);
                 let [w, h] = texture.size().map(|v| v as f32 / ppp);
                 let at = Rect::from_center_size(rect.center(), egui::vec2(w, h));
                 let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
@@ -298,6 +318,7 @@ mod tests {
                 path: None,
                 image: None,
                 fit: Fit::Fill,
+                background: None,
                 scaled: HashMap::new(),
                 logos: HashMap::new(),
             };

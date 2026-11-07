@@ -250,7 +250,7 @@ puts them in `$(PREFIX)/share/man`.
   through gsettings' `color-scheme`, `color_scheme.rs`, ADR-0087, gaps, icon theme
   through gsettings' `icon-theme` for now, `icons.rs`), Bar (`window_tabs` and
   `position` in the bar's config, which the bar follows live, ADR-0050), Wallpaper (sets
-  `wallpaper` and `wallpaper_fit`, `system/src/wallpaper.rs`) and Night Light (writes `[night_light]` into the compositor's config with
+  `wallpaper`, `wallpaper_fit` and `wallpaper_background` (the colour around the image), `system/src/wallpaper.rs`) and Night Light (writes `[night_light]` into the compositor's config with
   `toml_edit`; state over D-Bus through `system/src/night_light.rs`), Power (the screen's
   `[screen] off_after`, and power-profiles-daemon through `system/src/power_profiles.rs`),
   Defaults (`defaults.rs`, ADR-0079: an app per role in `~/.config/patina/defaults.toml`,

@@ -22,6 +22,13 @@ pub fn configured_fit() -> Fit {
     Fit::from_name(name.as_deref())
 }
 
+/// `wallpaper_background` in the bar's config.
+pub fn configured_background() -> Option<[u8; 3]> {
+    let text = patina_shell::hud::config_path().and_then(|p| std::fs::read_to_string(p).ok());
+    let colour = text.and_then(|t| patina_shell::hud::top_level(&t, "wallpaper_background"));
+    patina_system::wallpaper::parse_background(colour.as_deref())
+}
+
 /// A wallpaper: its name to show and its file.
 pub struct Wallpaper {
     pub name: String,

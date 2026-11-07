@@ -137,8 +137,13 @@ pub fn top_level(text: &str, key: &str) -> Option<String> {
             continue;
         };
         if k.trim() == key {
-            let v = v.split('#').next()?.trim();
-            return Some(v.trim_matches('"').to_string());
+            let v = v.trim();
+            // A quoted value may hold a `#`; otherwise one starts a comment.
+            let v = match v.strip_prefix('"').and_then(|r| r.split_once('"')) {
+                Some((quoted, _)) => quoted,
+                None => v.split('#').next()?.trim(),
+            };
+            return Some(v.to_string());
         }
     }
     None
@@ -153,6 +158,14 @@ fn dirs_config() -> Option<std::path::PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_quoted_value_may_hold_a_hash() {
+        let text = "a = \"#1a2b3c\" # a colour\nb = 2 # two\nc = \"x\"\n";
+        assert_eq!(top_level(text, "a").as_deref(), Some("#1a2b3c"));
+        assert_eq!(top_level(text, "b").as_deref(), Some("2"));
+        assert_eq!(top_level(text, "c").as_deref(), Some("x"));
+    }
 
     #[test]
     fn the_default_skin_is_built_in() {
