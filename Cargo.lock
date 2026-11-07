@@ -3700,6 +3700,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-dbug"
+version = "0.1.0"
+dependencies = [
+ "async-io",
+ "eframe",
+ "egui",
+ "egui_extras",
+ "futures-util",
+ "patina-ui",
+ "serde",
+ "zbus",
+]
+
+[[package]]
 name = "patina-dictate"
 version = "0.1.0"
 dependencies = [
