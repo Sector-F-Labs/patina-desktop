@@ -7,7 +7,8 @@ add one.
 ## Commands
 
 - `make check` (tests + clippy -D warnings) before committing.
-- `make run` reads this repository; `make install` installs per user.
+- `make run` reads this repository. There is no `make install` here: the root one installs Reader
+  (ADR-0122).
 - Never run test instances against the user's config: set `XDG_CONFIG_HOME` to a scratch folder
   (`make screenshot` does). `READER_SCREENSHOT=file.png reader PATH` saves the window and quits;
   on a headless sway it needs no input.

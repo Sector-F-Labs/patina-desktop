@@ -8,6 +8,8 @@ Accepted
 
 Changes how [0099](0099-one-deb-of-the-desktop-and-its-apps.md) gets Files.
 
+Partly superseded by [0122](0122-one-install-the-repositorys-make-install.md): Files has no `make install` of its own.
+
 ## Context
 
 Files was a repository of its own, which the `.deb` and `make install-full` built from a commit

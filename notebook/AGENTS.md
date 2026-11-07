@@ -16,7 +16,6 @@ make check         # tests + clippy -D warnings
 make run           # run on a copy of examples/notes (target/demo-notes)
 make screenshot    # docs/screenshot-*.png, in a throwaway config dir
 make icons         # assets/notebook-icon-128.png from packaging/linux/notebook.svg (via resvg)
-make install       # per-user install to ~/.local (ADR-0008); test with PREFIX=<scratch dir>
 ```
 
 The user may be running Notebook (this one or the GTK one) while you work. Never touch their

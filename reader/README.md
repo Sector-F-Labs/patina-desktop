@@ -55,9 +55,8 @@ isn't changed. Given a folder, it opens its README.
 
 ## Install
 
-```sh
-make install      # ~/.local/bin/reader, its launcher and icon
-```
+Reader has no install of its own: it is installed with the rest of the desktop, by `make install`
+at the root of the repository (ADR-0122).
 
 It depends on Patina's develop branch from GitHub, for its markdown widget.
 

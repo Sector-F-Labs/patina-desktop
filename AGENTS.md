@@ -24,6 +24,9 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 ## Commands
 
 - `make` lists targets; `make check` (workspace tests + clippy -D warnings) before committing.
+- There is one install, the root `make install` (ADR-0122): Files, Reader and Notebook have none
+  of their own, since a per-user copy shadows the installed one (a stale D-Bus service file in
+  `~/.local/share/dbus-1/services` broke the file chooser). Launcher still has one.
 - `make install` (ADR-0078) builds as you, then runs itself again through doas (else sudo) to
   install for every user: `/usr/local`, the session entry in `/usr/share/wayland-sessions`
   (FreeBSD: under PREFIX) and `/etc/pam.d/patina-lock`. As root it never builds. `make deploy
