@@ -98,7 +98,8 @@ puts them in `$(PREFIX)/share/man`.
   patina-compositor --example capture -- out.png [--window APP] [--frames N]` checks capture.
 - `compositor/src/layout.rs` (ADR-0121): where monitors sit (`Place`, `arrange`), the pointer's
   clamp to their union, and `View` (what one monitor shows). `udev.rs` drives every monitor
-  connected at start-up as a `Head`, `State::outputs` lists them (`output` is the primary),
+  connected as a `Head`, starting and stopping them on udev connector changes (`hotplug`,
+  `State::outputs_changed` re-lays out and moves windows), `State::outputs` lists them (`output` is the primary),
   `State::output_under`/`output_of`/`work_area_on` find the one a point or window is on. A
   layer map is in its output's own coordinates. Don't read the pointer's location inside a
   grab (it holds the pointer's lock): use what the grab is given.

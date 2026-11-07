@@ -32,7 +32,7 @@ use smithay::{
             gles::GlesRenderer,
         },
         session::{Event as SessionEvent, Session, libseat::LibSeatSession},
-        udev::{all_gpus, primary_gpu},
+        udev::{UdevBackend, UdevEvent, all_gpus, primary_gpu},
     },
     desktop::{layer_map_for_output, utils::send_frames_surface_tree},
     input::pointer::CursorImageStatus,
@@ -81,6 +81,8 @@ pub struct UdevData {
     session: LibSeatSession,
     libinput: Libinput,
     drm: DrmDevice,
+    gbm: GbmDevice<DrmDeviceFd>,
+    render_node: Option<DrmNode>,
     pub(crate) renderer: GlesRenderer,
     /// The monitors, the primary first.
     heads: Vec<Head>,
@@ -102,6 +104,7 @@ pub struct UdevData {
 /// One monitor being driven.
 struct Head {
     output: Output,
+    connector: connector::Handle,
     crtc: crtc::Handle,
     compositor: Compositor,
     /// A frame is queued, or held back, and the next must wait.
@@ -197,7 +200,7 @@ pub fn init(
     // SAFETY: the context is current only on this thread.
     let renderer = unsafe { GlesRenderer::new(context) }.map_err(|e| format!("gles: {e}"))?;
 
-    let monitors = choose_monitors(&drm);
+    let monitors = choose_monitors(&drm, false, &[]);
     if monitors.is_empty() {
         return Err("no monitor is connected".into());
     }
@@ -207,60 +210,16 @@ pub fn init(
     let mut heads = Vec::new();
     let mut auto_scale = 1.0;
     for (i, monitor) in monitors.iter().enumerate() {
-        let gamma = Gamma::read(&drm, monitor.crtc);
-        let (output, automatic) = make_output(monitor, config, i == 0);
-        let surface = match drm.create_surface(
-            monitor.crtc,
-            monitor.mode,
-            &[monitor.connector.handle()],
-        ) {
-            Ok(surface) => surface,
-            Err(e) if i > 0 => {
-                eprintln!("patina-compositor: can't drive {}: {e}", output.name());
-                continue;
+        match make_head(&mut drm, &gbm, render_node, &renderer, monitor, config, i == 0) {
+            Ok((head, automatic)) => {
+                if i == 0 {
+                    auto_scale = automatic;
+                }
+                heads.push(head);
             }
-            Err(e) => return Err(format!("can't drive {}: {e}", output.name())),
-        };
-        let compositor = Compositor::new(
-            &output,
-            surface,
-            None,
-            GbmAllocator::new(
-                gbm.clone(),
-                GbmBufferFlags::RENDERING | GbmBufferFlags::SCANOUT,
-            ),
-            GbmFramebufferExporter::new(gbm.clone(), render_node),
-            COLOR_FORMATS,
-            renderer.egl_context().dmabuf_render_formats().clone(),
-            drm.cursor_size(),
-            Some(gbm.clone()),
-        );
-        let compositor = match compositor {
-            Ok(c) => c,
-            Err(e) if i > 0 => {
-                eprintln!("patina-compositor: can't drive {}: {e:?}", output.name());
-                continue;
-            }
-            Err(e) => return Err(format!("can't drive {}: {e:?}", output.name())),
-        };
-        if i == 0 {
-            auto_scale = automatic;
+            Err(e) if i > 0 => eprintln!("patina-compositor: {e}"),
+            Err(e) => return Err(e),
         }
-        eprintln!(
-            "patina-compositor: on {} at {}x{}, scale {}",
-            output.name(),
-            monitor.mode.size().0,
-            monitor.mode.size().1,
-            output.current_scale().fractional_scale()
-        );
-        heads.push(Head {
-            output,
-            crtc: monitor.crtc,
-            compositor,
-            frame_pending: false,
-            dirty: true,
-            gamma,
-        });
     }
     let output = heads[0].output.clone();
 
@@ -302,6 +261,18 @@ pub fn init(
         })
         .map_err(|e| e.to_string())?;
 
+    // A monitor plugged in or out (ADR-0121).
+    let dev_id = drm.device_id();
+    let udev_events = UdevBackend::new(&seat).map_err(|e| format!("udev: {e}"))?;
+    handle
+        .insert_source(udev_events, move |event, _, state| {
+            if let UdevEvent::Changed { device_id } = event
+                && device_id == dev_id
+            {
+                hotplug(state);
+            }
+        })
+        .map_err(|e| e.to_string())?;
     let cursors = crate::cursor::Cursors::new(
         &config.cursor.theme,
         config.cursor.size,
@@ -312,6 +283,8 @@ pub fn init(
             session,
             libinput,
             drm,
+            gbm,
+            render_node,
             renderer,
             heads,
             dmabuf_state,
@@ -339,6 +312,61 @@ impl UdevData {
     /// Whether Night Light can warm a monitor.
     pub fn has_gamma(&self) -> bool {
         self.heads.iter().any(|h| h.gamma.is_some())
+    }
+
+    /// Looks at the connectors again: drives the monitors that came, stops
+    /// driving those that went. Returns the outputs added and removed.
+    fn rescan(&mut self, config: &crate::config::Config) -> (Vec<Output>, Vec<Output>) {
+        let keep: Vec<_> = self.heads.iter().map(|h| (h.connector, h.crtc)).collect();
+        let monitors = choose_monitors(&self.drm, true, &keep);
+        // Never none: the last monitor stays driven, so there's an output.
+        if monitors.is_empty() {
+            return (Vec::new(), Vec::new());
+        }
+        let mut removed = Vec::new();
+        self.heads.retain(|h| {
+            let there = monitors.iter().any(|m| m.connector.handle() == h.connector);
+            if !there {
+                removed.push(h.output.clone());
+            }
+            there
+        });
+        let mut added = Vec::new();
+        for monitor in &monitors {
+            if self.heads.iter().any(|h| h.connector == monitor.connector.handle()) {
+                continue;
+            }
+            let primary = self.heads.is_empty();
+            match make_head(
+                &mut self.drm,
+                &self.gbm,
+                self.render_node,
+                &self.renderer,
+                monitor,
+                config,
+                primary,
+            ) {
+                Ok((mut head, _)) => {
+                    // Warmed as the others are.
+                    let shown = self.heads.iter().find_map(|h| h.gamma.as_ref()).map(|g| g.shown);
+                    if let (Some(gamma), Some(shown)) = (head.gamma.as_mut(), shown) {
+                        gamma.shown = shown;
+                    }
+                    added.push(head.output.clone());
+                    self.heads.push(head);
+                }
+                Err(e) => eprintln!("patina-compositor: {e}"),
+            }
+        }
+        if !added.is_empty() {
+            self.apply_gamma();
+        }
+        (added, removed)
+    }
+
+    /// Every monitor's output, the primary first.
+    fn outputs(&self) -> Vec<Output> {
+        self.heads.iter().map(|h| h.output.clone()).collect()
     }
 
     /// The outputs of the monitors after the primary.
@@ -426,30 +454,98 @@ fn configure_touchpad(
     let _ = device.config_accel_set_speed(settings.speed);
 }
 
+/// Starts driving `monitor`: its output, DRM surface and compositor, and the
+/// scale its density alone would give.
+fn make_head(
+    drm: &mut DrmDevice,
+    gbm: &GbmDevice<DrmDeviceFd>,
+    render_node: Option<DrmNode>,
+    renderer: &GlesRenderer,
+    monitor: &Monitor,
+    config: &crate::config::Config,
+    primary: bool,
+) -> Result<(Head, f64), String> {
+    let gamma = Gamma::read(drm, monitor.crtc);
+    let (output, automatic) = make_output(monitor, config, primary);
+    let surface = drm
+        .create_surface(monitor.crtc, monitor.mode, &[monitor.connector.handle()])
+        .map_err(|e| format!("can't drive {}: {e}", output.name()))?;
+    let compositor = Compositor::new(
+        &output,
+        surface,
+        None,
+        GbmAllocator::new(
+            gbm.clone(),
+            GbmBufferFlags::RENDERING | GbmBufferFlags::SCANOUT,
+        ),
+        GbmFramebufferExporter::new(gbm.clone(), render_node),
+        COLOR_FORMATS,
+        renderer.egl_context().dmabuf_render_formats().clone(),
+        drm.cursor_size(),
+        Some(gbm.clone()),
+    )
+    .map_err(|e| format!("can't drive {}: {e:?}", output.name()))?;
+    eprintln!(
+        "patina-compositor: on {} at {}x{}, scale {}",
+        output.name(),
+        monitor.mode.size().0,
+        monitor.mode.size().1,
+        output.current_scale().fractional_scale()
+    );
+    Ok((
+        Head {
+            output,
+            connector: monitor.connector.handle(),
+            crtc: monitor.crtc,
+            compositor,
+            frame_pending: false,
+            dirty: true,
+            gamma,
+        },
+        automatic,
+    ))
+}
+
 /// Every connected monitor, the internal panel first (a laptop's), each with
 /// its preferred mode and a CRTC of its own that can drive it.
-fn choose_monitors(drm: &DrmDevice) -> Vec<Monitor> {
+///
+/// `probe` asks the kernel to look again (after a hotplug event) instead of
+/// using what it last read; `keep` are the connectors already driven, which
+/// keep their CRTCs.
+fn choose_monitors(
+    drm: &DrmDevice,
+    probe: bool,
+    keep: &[(connector::Handle, crtc::Handle)],
+) -> Vec<Monitor> {
     let Ok(resources) = drm.resource_handles() else {
         return Vec::new();
     };
     let mut connected: Vec<connector::Info> = resources
         .connectors()
         .iter()
-        .filter_map(|c| drm.get_connector(*c, false).ok())
+        .filter_map(|c| drm.get_connector(*c, probe).ok())
         .filter(|c| c.state() == connector::State::Connected && !c.modes().is_empty())
         .collect();
     connected.sort_by_key(|c| !is_internal(c.interface()));
-    let mut taken: Vec<crtc::Handle> = Vec::new();
+    let mut taken: Vec<crtc::Handle> = keep.iter().map(|(_, c)| *c).collect();
     let mut monitors = Vec::new();
     for connector in connected {
-        let crtc = connector
-            .encoders()
+        let kept = keep
             .iter()
-            .filter_map(|e| drm.get_encoder(*e).ok())
-            .flat_map(|e| resources.filter_crtcs(e.possible_crtcs()))
-            .find(|c| !taken.contains(c));
+            .find(|(h, _)| *h == connector.handle())
+            .map(|(_, c)| *c);
+        let crtc = kept.or_else(|| {
+            connector
+                .encoders()
+                .iter()
+                .filter_map(|e| drm.get_encoder(*e).ok())
+                .flat_map(|e| resources.filter_crtcs(e.possible_crtcs()))
+                .find(|c| !taken.contains(c))
+        });
         let Some(crtc) = crtc else { continue };
-        taken.push(crtc);
+        if kept.is_none() {
+            taken.push(crtc);
+        }
         let mode = pick_mode(connector.modes(), connector.size());
         monitors.push(Monitor {
             connector,
@@ -648,8 +744,32 @@ fn session_event(state: &mut State, event: SessionEvent) {
             // Coming back took a key on another console, which we never
             // saw: that's input, and the screen comes on.
             state.input_activity();
+            // Monitors may have come or gone while another console had it.
+            hotplug(state);
         }
     }
+}
+
+/// The connectors changed: a monitor was plugged in or out.
+fn hotplug(state: &mut State) {
+    let config = state.config.clone();
+    let Some(u) = state.udev.as_mut() else { return };
+    // Another console has the GPU; `session_event` looks again when we do.
+    if !u.active {
+        return;
+    }
+    let (added, removed) = u.rescan(&config);
+    if added.is_empty() && removed.is_empty() {
+        return;
+    }
+    let all = u.outputs();
+    for output in &removed {
+        eprintln!("patina-compositor: {} was unplugged", output.name());
+    }
+    for output in &added {
+        eprintln!("patina-compositor: {} was plugged in", output.name());
+    }
+    state.outputs_changed(all, &removed);
 }
 
 fn vblank(state: &mut State, crtc: crtc::Handle) {

@@ -80,6 +80,8 @@ pub struct State {
     pub output: Output,
     /// Every monitor, the primary (`output`) first (ADR-0121).
     pub outputs: Vec<Output>,
+    /// The globals advertising `outputs`, to take back when one goes.
+    output_globals: Vec<(Output, smithay::reexports::wayland_server::backend::GlobalId)>,
     /// Something changed on screen since the last frame.
     pub needs_redraw: bool,
     /// Quitting so patina-session starts the compositor again.
@@ -206,7 +208,7 @@ impl State {
         // Whether or not there's a touchscreen: apps only look for touch
         // where the seat has it (ADR-0094).
         seat.add_touch();
-        output.create_global::<State>(&dh);
+        let output_global = output.create_global::<State>(&dh);
         crate::shadow::init(&dh);
         crate::shadow::set_enabled(config.shadows.enabled);
         let mut space = Space::default();
@@ -250,6 +252,7 @@ impl State {
             space,
             popups: PopupManager::default(),
             outputs: vec![output.clone()],
+            output_globals: vec![(output.clone(), output_global)],
             output,
             needs_redraw: true,
             restart: false,
@@ -547,12 +550,51 @@ impl State {
     /// Adds the monitors after the primary (ADR-0121), each to the right of
     /// the one before until it's placed otherwise.
     pub fn add_outputs(&mut self, extra: Vec<Output>) {
-        use crate::layout::{Entry, rects};
-        for output in &extra {
-            output.create_global::<State>(&self.display_handle);
-        }
         let mut all = vec![self.output.clone()];
         all.extend(extra);
+        self.outputs_changed(all, &[]);
+    }
+
+    /// The monitors are now `all`, the primary first, after some came and
+    /// `removed` went: advertises the new ones, places them all, and moves
+    /// the windows (those on a removed monitor go to the primary, those on
+    /// one that shifted go with it).
+    pub fn outputs_changed(&mut self, all: Vec<Output>, removed: &[Output]) {
+        use crate::layout::{Entry, rects};
+        let old: Vec<(Output, smithay::utils::Rectangle<i32, Logical>)> = self
+            .outputs
+            .iter()
+            .filter_map(|o| Some((o.clone(), self.space.output_geometry(o)?)))
+            .collect();
+        let homes: Vec<(Window, Output)> = self
+            .space
+            .elements()
+            .filter_map(|w| {
+                let g = self.space.element_geometry(w)?;
+                let middle = g.loc.to_f64() + g.size.to_f64().downscale(2.0).to_point();
+                let (home, _) = old.iter().find(|(_, r)| r.to_f64().contains(middle))?;
+                Some((w.clone(), home.clone()))
+            })
+            .collect();
+
+        for output in removed {
+            // Its bar and wallpaper go with it.
+            for layer in layer_map_for_output(output).layers() {
+                layer.layer_surface().send_close();
+            }
+            self.space.unmap_output(output);
+            if let Some(i) = self.output_globals.iter().position(|(o, _)| o == output) {
+                let (_, id) = self.output_globals.remove(i);
+                self.display_handle.remove_global::<State>(id);
+            }
+        }
+        for output in &all {
+            if !self.output_globals.iter().any(|(o, _)| o == output) {
+                let id = output.create_global::<State>(&self.display_handle);
+                self.output_globals.push((output.clone(), id));
+            }
+        }
+
         let entries: Vec<Entry> = all
             .iter()
             .map(|o| Entry {
@@ -581,7 +623,61 @@ impl State {
                 rect.size.h
             );
         }
+        self.output = all[0].clone();
         self.outputs = all;
+        for output in &self.outputs {
+            layer_map_for_output(output).arrange();
+        }
+
+        let fullscreen_lost = self.fullscreen.clone().filter(|f| {
+            homes
+                .iter()
+                .any(|(w, home)| w == f && removed.contains(home))
+        });
+
+        // Windows follow their monitor, or leave a removed one for the
+        // primary, kept inside its work area.
+        let primary = self.work_area_on(&self.output.clone());
+        for (window, home) in homes {
+            let Some(at) = self.space.element_location(&window) else {
+                continue;
+            };
+            let old_home = old.iter().find(|(o, _)| *o == home).map(|(_, r)| r.loc);
+            let new_home = self.space.output_geometry(&home).map(|r| r.loc);
+            let to = match (old_home, new_home) {
+                (Some(was), Some(now)) => at + (now - was),
+                (Some(was), None) => {
+                    let size = window.geometry().size;
+                    let offset = at - was;
+                    let x = offset.x.clamp(0, (primary.size.w - size.w).max(0));
+                    let y = offset.y.clamp(0, (primary.size.h - size.h).max(0));
+                    primary.loc + Point::from((x, y))
+                }
+                _ => continue,
+            };
+            self.place(&window, to);
+        }
+        if let Some(window) = fullscreen_lost {
+            self.unfullscreen(&window);
+        }
+        self.relayout_maximized();
+        self.update_preferred_scale();
+        // The pointer may have been on a monitor that's gone.
+        let pointer = self
+            .seat
+            .get_pointer()
+            .map(|p| p.current_location())
+            .unwrap_or_default();
+        let monitors: Vec<_> = self
+            .outputs
+            .iter()
+            .filter_map(|o| self.space.output_geometry(o))
+            .collect();
+        let inside = crate::layout::clamp(&monitors, pointer);
+        if inside != pointer {
+            self.pointer_motion(inside, 0);
+        }
+        self.needs_redraw = true;
     }
 
     /// What `output` shows.
