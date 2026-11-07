@@ -1,0 +1,16 @@
+[package]
+name = "patina-emoji"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The emoji picker: a popup to search and insert an emoji into the focused window, as macOS's Ctrl+Cmd+Space does"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+egui = "0.35"
+emojis = "0.9"
+image = { version = "0.25", default-features = false, features = ["png"] }
+patina-shell = { workspace = true }
+patina-ui = { workspace = true }
+twemoji-assets = { version = "1.5", default-features = false, features = ["png"] }
+zbus = "5"

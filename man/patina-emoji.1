@@ -1,0 +1,54 @@
+.Dd November 7, 2026
+.Dt PATINA-EMOJI 1
+.Os
+.Sh NAME
+.Nm patina-emoji
+.Nd the emoji picker
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+opens a popup in the middle of the screen with a search box and the emoji by
+category.
+Picking one types it into the window that had the focus, by
+.Ql Commit
+on
+.Pq com.sectorflabs.Patina.Input ,
+the way dictation does:
+through the clipboard, which is given back afterwards.
+The compositor opens it on Ctrl+Super+Space or Super+period, the
+.Ic emoji
+key in
+.Ic [keys] ;
+running it while it's open closes it.
+.Pp
+Typing searches by name, so
+.Dq thumbs
+and
+.Dq red heart
+find theirs.
+The arrow keys move over the emoji, Enter or a click picks, Tab and Shift+Tab
+move between categories, and Escape, or switching to another window, closes.
+The emoji picked last are kept first, under Recent.
+.Pp
+The emoji are drawn as Twemoji, graphics by Twitter and other contributors,
+licensed CC-BY 4.0.
+It needs the Patina compositor, which has the
+.Ql Commit
+call.
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN
+The skin, by name.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa $XDG_DATA_HOME/patina-emoji/recent
+The emoji picked last, a line each, newest first.
+.El
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-dictate 1 ,
+.Xr patina-desktop 7

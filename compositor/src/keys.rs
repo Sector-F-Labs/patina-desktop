@@ -61,6 +61,7 @@ fn action(name: &str) -> Option<KeyAction> {
     Some(match name {
         "launcher" => KeyAction::Launcher,
         "launcher_spotlight" => KeyAction::Spotlight,
+        "emoji" => KeyAction::Emoji,
         "hud" => KeyAction::Hud,
         "next_layout" => KeyAction::NextLayout,
         "quit_app" => KeyAction::QuitApp,
@@ -378,7 +379,7 @@ mod tests {
         assert_eq!(k.tap(), Some(&KeyAction::Launcher));
         assert_eq!(at("Super", keysyms::KEY_space), Some(KeyAction::Spotlight));
         assert_eq!(at("Ctrl", keysyms::KEY_space), Some(KeyAction::NextLayout));
-        assert_eq!(at("Ctrl+Super", keysyms::KEY_space), None);
+        assert_eq!(at("Ctrl+Super", keysyms::KEY_space), Some(KeyAction::Emoji));
         assert_eq!(at("Super", keysyms::KEY_q), Some(KeyAction::QuitApp));
         assert_eq!(at("Ctrl+Super", keysyms::KEY_q), Some(KeyAction::Lock));
         assert_eq!(at("Super", keysyms::KEY_Escape), Some(KeyAction::Lock));

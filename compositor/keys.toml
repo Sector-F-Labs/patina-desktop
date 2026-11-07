@@ -26,6 +26,8 @@
 [keys]
 launcher = "Super"
 launcher_spotlight = "Super+Space"
+# The emoji picker, as macOS has it; what you pick is typed where you were.
+emoji = ["Ctrl+Super+Space", "Super+period"]
 hud = "Super+H"
 next_layout = "Ctrl+Space"
 quit_app = "Super+Q"
