@@ -56,14 +56,13 @@ make test       # tests
 make check      # tests and clippy
 ```
 
-`make install` installs Notebook for your user: the binary in `~/.local/bin`, plus its icon and a
-launcher in the app grid (set `PREFIX` to change where). `make uninstall` removes them. Installing
-replaces the GTK Notebook's `notebook` binary. Run `make uninstall` in that repo first, so only one
-launcher remains.
+Notebook has no install of its own: it is installed with the rest of the desktop, by `make install`
+at the root of the repository (ADR-0122), binary, icon and launcher. It replaces the GTK Notebook's
+`notebook` binary; remove that one's install first, so only one launcher remains.
 
 On Wayland, the window's icon comes from the installed launcher, which GNOME matches by the
-window's app id, `com.sectorflabs.Notebook`. So even `cargo run` only shows the icon once
-`make install` has put the launcher in place, and only for windows opened after that.
+window's app id, `com.sectorflabs.Notebook`. So even `cargo run` only shows the icon once the
+desktop's `make install` has put the launcher in place, and only for windows opened after that.
 
 `cargo run -- <folder or note>` opens a folder as the workspace, or a single note.
 

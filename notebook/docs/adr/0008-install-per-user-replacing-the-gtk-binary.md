@@ -4,7 +4,7 @@ Date: 2026-10-11
 
 ## Status
 
-Proposed. The user asked for an icon and a `make install`. Installing per user, and taking over the
+Superseded by [ADR-0122](../../../docs/adr/0122-one-install-the-repositorys-make-install.md): Notebook has no install of its own now. Was proposed: the user asked for an icon and a `make install`. Installing per user, and taking over the
 `notebook` binary name, are my choices.
 
 ## Context

@@ -79,15 +79,15 @@ The ZFS panel has no key: click the dataset in the status bar, or its ✕.
 
 ## Install
 
+Files has no install of its own: it is installed with the rest of the desktop, by `make install`
+at the root of the repository (ADR-0122), which also makes it the session's file chooser.
+
 ```sh
-make install      # ~/.local/bin/files, its .desktop file and icon
 make default      # optional: open folders in Files instead of Nautilus
-make install-portal   # be the file chooser in the Patina session (root; SUDO=doas)
 make app          # or target/Files.app, to copy into ~/Apps
 ```
 
 It depends on [patina-apps](https://github.com/Sector-F-Labs/patina-apps) and Patina from GitHub.
-On the Patina desktop it is installed with the rest of the desktop (`make install-full`).
 
 ## Develop
 

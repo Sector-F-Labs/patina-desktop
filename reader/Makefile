@@ -3,16 +3,10 @@
 # The workspace builds into the repository's target/, not the crate's.
 TARGET ?= ../target
 
-APP_ID := com.sectorflabs.Reader
-PREFIX ?= $(HOME)/.local
-BINDIR := $(PREFIX)/bin
-APPSDIR := $(PREFIX)/share/applications
-ICONDIR := $(PREFIX)/share/icons/hicolor
-
 # Throwaway config, so test runs never touch yours.
 SCRATCH := target/scratch
 
-.PHONY: help run build test check install uninstall screenshot icon clean
+.PHONY: help run build test check screenshot icon clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -37,20 +31,6 @@ screenshot: build ## docs/screenshot-markdown.png: this README, in a scratch con
 
 icon: ## docs/icon.png: the app icon at 120 px, for the README
 	scripts/icon.sh
-
-# For the current user; no sudo.
-install: build ## Install Reader and its launcher for the current user (PREFIX=~/.local)
-	install -Dm755 $(TARGET)/release/reader $(BINDIR)/reader
-	install -Dm644 packaging/linux/reader.svg $(ICONDIR)/scalable/apps/$(APP_ID).svg
-	install -d $(APPSDIR)
-	sed 's|^Exec=reader|Exec=$(BINDIR)/reader|' packaging/linux/$(APP_ID).desktop > $(APPSDIR)/$(APP_ID).desktop
-	-update-desktop-database -q $(APPSDIR)
-	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
-	@echo "Installed $(BINDIR)/reader and the $(APP_ID) launcher"
-
-uninstall: ## Remove what make install put in place
-	rm -f $(BINDIR)/reader $(APPSDIR)/$(APP_ID).desktop $(ICONDIR)/scalable/apps/$(APP_ID).svg
-	-update-desktop-database -q $(APPSDIR)
 
 clean: ## Remove build output
 	cargo clean

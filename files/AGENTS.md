@@ -7,7 +7,9 @@ use the `adr` skill to add one.
 ## Commands
 
 - `make check` (tests + clippy -D warnings) before committing.
-- `make install` installs per user; test with `PREFIX=<scratch dir>`.
+- There is no `make install` here: the root `make install` installs Files (ADR-0122). A per-user
+  copy would shadow it, and a D-Bus service file in `~/.local/share/dbus-1/services` takes
+  precedence over the system one, which silently breaks the chooser if its binary goes.
 - `cargo run` opens a window on the current desktop; the user can try it there. For driving it
   yourself, a headless sway needs a virtual pointer that stays connected (wlrctl's goes away
   after each command, so clicks never arrive).

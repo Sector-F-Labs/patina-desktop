@@ -3,16 +3,10 @@
 # The workspace builds into the repository's target/, not the crate's.
 TARGET ?= ../target
 
-APP_ID := com.sectorflabs.Notebook
-PREFIX ?= $(HOME)/.local
-BINDIR := $(PREFIX)/bin
-APPSDIR := $(PREFIX)/share/applications
-ICONDIR := $(PREFIX)/share/icons/hicolor
-
 # A throwaway config dir, so screenshots never touch your settings.
 SCREENSHOT_ENV := XDG_CONFIG_HOME=$(CURDIR)/target/screenshot-config XDG_DATA_HOME=$(CURDIR)/target/screenshot-data
 
-.PHONY: help demo-notes run dev build test check icons install uninstall screenshot clean icon
+.PHONY: help demo-notes run dev build test check icons screenshot clean icon
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -46,26 +40,6 @@ icons: ## Render assets/notebook-icon-128.png from packaging/linux/notebook.svg
 
 icon: ## docs/icon.png: the app icon at 120 px, for the README
 	scripts/icon.sh
-
-# For the current user, as the GTK Notebook did; no sudo. The launcher's
-# Exec gets the absolute path, so it works even if $(BINDIR) isn't on the
-# GNOME session's PATH.
-install: build ## Install Notebook and its launcher for the current user (PREFIX=~/.local)
-	install -Dm755 $(TARGET)/release/notebook $(BINDIR)/notebook
-	install -Dm644 packaging/linux/notebook.svg $(ICONDIR)/scalable/apps/$(APP_ID).svg
-	install -Dm644 assets/notebook-icon-128.png $(ICONDIR)/128x128/apps/$(APP_ID).png
-	install -d $(APPSDIR)
-	sed 's|^Exec=notebook|Exec=$(BINDIR)/notebook|' packaging/linux/$(APP_ID).desktop > $(APPSDIR)/$(APP_ID).desktop
-	-update-desktop-database -q $(APPSDIR)
-	@# GTK trusts an icon cache over the folder, so refresh one if it's there.
-	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
-	@echo "Installed $(BINDIR)/notebook and the $(APP_ID) launcher"
-
-uninstall: ## Remove what make install put in place
-	rm -f $(BINDIR)/notebook $(APPSDIR)/$(APP_ID).desktop
-	rm -f $(ICONDIR)/scalable/apps/$(APP_ID).svg $(ICONDIR)/128x128/apps/$(APP_ID).png
-	-update-desktop-database -q $(APPSDIR)
-	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
 
 screenshot: ## Regenerate docs/screenshot-*.png from the example notes
 	@rm -rf target/screenshot-config target/screenshot-data
