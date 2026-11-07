@@ -62,6 +62,40 @@ pub fn split_of(tile: Tile, (_, _, w, _): Rect, area: Rect, gap: i32) -> Option<
     .map(|s| s.clamp(0.0, 1.0))
 }
 
+/// How many pixels off an edge still counts as on it.
+const SLACK: i32 = 2;
+
+/// The split a window tiled as `tile` should take, when `others` (the other
+/// windows' rectangles) hold a window that is as tall as the tiling area,
+/// against the opposite side and wider than a half: a half tile that was
+/// stretched sideways. `tile` then takes what is left of the area beside
+/// it, not a half over the top of it. `None` if no window does that.
+pub fn split_beside(tile: Tile, area: Rect, gap: i32, others: &[Rect]) -> Option<f64> {
+    let (ax, ay, aw, ah) = area;
+    let room = (aw - gap).max(1) as f64;
+    let near = |a: i32, b: i32| (a - b).abs() <= SLACK;
+    let widest = others
+        .iter()
+        .filter(|&&(x, y, w, h)| {
+            near(y, ay)
+                && near(h, ah)
+                && match tile {
+                    Tile::Right => near(x, ax),
+                    Tile::Left => near(x + w, ax + aw),
+                    Tile::Fill => false,
+                }
+                && w as f64 > room / 2.0
+                && (w as f64) < room
+        })
+        .map(|r| r.2)
+        .max()?;
+    let taken = widest as f64 / room;
+    Some(match tile {
+        Tile::Right => taken,
+        _ => 1.0 - taken,
+    })
+}
+
 /// A Super+arrow's direction, as the compositor names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Snap {
@@ -187,6 +221,32 @@ mod tests {
         assert_eq!(right, (816, 8, 457, 743), "the rest, past the gap");
         assert_eq!(split_of(Tile::Right, right, area, 8), Some(split));
         assert_eq!(split_of(Tile::Fill, area, area, 8), None);
+    }
+
+    #[test]
+    fn a_stretched_half_leaves_only_the_rest() {
+        let area = (8, 8, 1265, 743);
+        // A window as tall as a half, pulled out to 800 wide on the left.
+        let wide = (8, 8, 800, 743);
+        let split = split_beside(Tile::Right, area, 8, &[wide]).unwrap();
+        assert_eq!(rect_for(Tile::Right, area, 8, split), (816, 8, 457, 743));
+        // The same, from the right: the new left tile takes the rest.
+        let wide = (473, 8, 800, 743);
+        let split = split_beside(Tile::Left, area, 8, &[wide]).unwrap();
+        assert_eq!(rect_for(Tile::Left, area, 8, split), (8, 8, 457, 743));
+    }
+
+    #[test]
+    fn only_a_stretched_half_counts() {
+        let area = (8, 8, 1265, 743);
+        let none = |tile, r| split_beside(tile, area, 8, &[r]);
+        // A half or less, shorter, on the same side, or all of the area.
+        assert_eq!(none(Tile::Right, (8, 8, 600, 743)), None);
+        assert_eq!(none(Tile::Right, (8, 8, 800, 500)), None);
+        assert_eq!(none(Tile::Right, (8, 100, 800, 643)), None);
+        assert_eq!(none(Tile::Left, (8, 8, 800, 743)), None);
+        assert_eq!(none(Tile::Right, area), None);
+        assert_eq!(none(Tile::Fill, (8, 8, 800, 743)), None);
     }
 
     #[test]
