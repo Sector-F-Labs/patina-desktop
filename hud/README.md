@@ -24,7 +24,7 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
 - `tray`: apps' status icons first (ADR-0064): the bar is the system tray apps such as Steam
   register with (`patina_system::sni`, StatusNotifierItem on the session bus); a click
   activates the app, a right click opens its menu in patina-menu. Then, with more than one
-  keyboard layout, the one in use ("US"; a click lists them to switch, ADR-0068), Wi-Fi (opens patina-wifi), the speaker (opens patina-volume) and the battery
+  keyboard layout, the one in use ("US"; a click lists them to switch, ADR-0068), Wi-Fi (opens patina-wifi), the clipboard, while the compositor keeps a history (opens patina-clipboard, ADR-0114), the speaker (opens patina-volume) and the battery
   (opens Settings' Power and Battery page; ADR-0021, ADR-0022, ADR-0024).
 - `media` (ADR-0101): previous, play or pause and next for the media player playing (any MPRIS
   player: a browser tab, UnAmp), with the track on hover; nothing while none is. It's next to `tray`
@@ -43,7 +43,7 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
 - **Learns about windows** through wlr-foreign-toplevel-management (patina-shell's
   `toplevels.rs`), and asks the compositor to activate or close them.
 - **Opens the other pieces** by running their commands through `sh`, with `PATINA_SKIN` and
-  `PATINA_HUD_EDGE` set so they match it and open from its edge: `launcher`, `volume`, `wifi`,
+  `PATINA_HUD_EDGE` set so they match it and open from its edge: `launcher`, `volume`, `wifi`, `clipboard`,
   `battery`, `calendar` and `power` in its config. Under patina-compositor it asks the compositor to start them (`Spawn` on the
   session bus), so they're listed in Settings' Processes page with their output (ADR-0045);
   anywhere else, or without a session bus, it starts them itself.

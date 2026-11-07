@@ -86,6 +86,8 @@ pub struct Entry {
     /// A line saying what it is: the start of a text, "Image (png, 40 KB)".
     pub preview: String,
     pub types: Arc<Vec<(String, Vec<u8>)>>,
+    /// Whether its thumbnail file is written (images only).
+    pub thumbnail: bool,
 }
 
 impl Entry {
@@ -147,6 +149,7 @@ impl History {
             kind,
             preview,
             types: Arc::new(types),
+            thumbnail: false,
         });
         self.trim();
         Some(id)
@@ -194,6 +197,21 @@ impl History {
         self.entries.clear();
     }
 
+    /// Notes that entry `id`'s thumbnail is written; false if the entry is gone.
+    pub fn set_thumbnail(&mut self, id: u64) -> bool {
+        match self.entries.iter_mut().find(|e| e.id == id) {
+            Some(entry) => {
+                entry.thumbnail = true;
+                true
+            }
+            None => false,
+        }
+    }
+
+    pub fn ids(&self) -> Vec<u64> {
+        self.entries.iter().map(|e| e.id).collect()
+    }
+
     pub fn rows(&self) -> Vec<Row> {
         self.entries
             .iter()
@@ -202,7 +220,11 @@ impl History {
                     e.id,
                     e.kind.name().to_string(),
                     e.preview.clone(),
-                    String::new(),
+                    if e.thumbnail {
+                        thumbnail_path(e.id).to_string_lossy().into_owned()
+                    } else {
+                        String::new()
+                    },
                     u32::try_from(e.at).unwrap_or(u32::MAX),
                 )
             })
@@ -299,12 +321,18 @@ fn now() -> u64 {
 /// What a read of a copy brings back, from its thread to the loop.
 type Copied = Vec<(String, Vec<u8>)>;
 
+/// What reaches the loop from the threads: a copy's data, or a thumbnail written.
+enum Message {
+    Copied(Copied),
+    Thumbnail(u64),
+}
+
 /// The history and what serves it, kept by the state.
 #[derive(Default)]
 pub struct Clipboard {
     pub history: History,
     service: Option<dbus::Service>,
-    reads: Option<channel::Sender<Copied>>,
+    reads: Option<channel::Sender<Message>>,
     /// Set by whoever clears the selection on purpose, so the clear isn't taken for an app
     /// quitting, and the latest copy put back.
     pub clearing: bool,
@@ -316,12 +344,16 @@ impl State {
     /// Serves the history on the bus and takes the copies as they're read; called once at
     /// start-up.
     pub fn start_clipboard(&mut self) {
-        let (reads, incoming) = channel::channel::<Copied>();
-        let inserted = self.loop_handle.insert_source(incoming, |event, _, state| {
-            if let channel::Event::Msg(read) = event {
-                state.clipboard_read(read);
-            }
-        });
+        // Thumbnails left by an earlier run belong to a history that's gone.
+        forget_thumbnails(&[]);
+        let (reads, incoming) = channel::channel::<Message>();
+        let inserted = self
+            .loop_handle
+            .insert_source(incoming, |event, _, state| match event {
+                channel::Event::Msg(Message::Copied(read)) => state.clipboard_read(read),
+                channel::Event::Msg(Message::Thumbnail(id)) => state.clipboard_thumbnailed(id),
+                channel::Event::Closed => {}
+            });
         if let Err(e) = inserted {
             eprintln!("patina-compositor: clipboard: {e}");
             return;
@@ -394,13 +426,54 @@ impl State {
         // The requests wait in the clients' buffers until the loop next flushes them.
         let _ = self.display_handle.flush_clients();
         std::thread::spawn(move || {
-            let _ = reads.send(read_all(pipes, Instant::now() + READING));
+            let _ = reads.send(Message::Copied(read_all(pipes, Instant::now() + READING)));
         });
     }
 
     /// A copy's data arrived.
     fn clipboard_read(&mut self, read: Copied) {
-        if self.clipboard.history.add(read, now()).is_some() {
+        if let Some(id) = self.clipboard.history.add(read, now()) {
+            self.clipboard_thumbnail(id);
+            self.clipboard_changed();
+        }
+    }
+
+    /// Makes entry `id`'s thumbnail, if it's a PNG image and has none, on a thread.
+    fn clipboard_thumbnail(&mut self, id: u64) {
+        let Some(entry) = self.clipboard.history.get(id) else {
+            return;
+        };
+        if entry.thumbnail || entry.kind != Kind::Image {
+            return;
+        }
+        let Some(bytes) = entry
+            .types
+            .iter()
+            .find(|(t, _)| t == "image/png")
+            .map(|(_, b)| b.clone())
+        else {
+            return;
+        };
+        let Some(reads) = self.clipboard.reads.clone() else {
+            return;
+        };
+        std::thread::spawn(move || {
+            let Some(small) = thumbnail(&bytes) else {
+                return;
+            };
+            let path = thumbnail_path(id);
+            let written = path
+                .parent()
+                .is_some_and(|dir| std::fs::create_dir_all(dir).is_ok())
+                && std::fs::write(&path, small).is_ok();
+            if written {
+                let _ = reads.send(Message::Thumbnail(id));
+            }
+        });
+    }
+
+    fn clipboard_thumbnailed(&mut self, id: u64) {
+        if self.clipboard.history.set_thumbnail(id) {
             self.clipboard_changed();
         }
     }
@@ -517,6 +590,7 @@ impl State {
 
     /// Tells the bus what the history holds now.
     fn clipboard_changed(&self) {
+        forget_thumbnails(&self.clipboard.history.ids());
         if let Some(service) = &self.clipboard.service {
             service.publish(dbus::Status {
                 rows: self.clipboard.history.rows(),
@@ -525,6 +599,106 @@ impl State {
             });
         }
     }
+}
+
+/// The most pixels along a thumbnail's longer side.
+const THUMBNAIL: u32 = 96;
+/// Images with more pixels than this get no thumbnail: decoding them would take memory.
+const MOST_PIXELS: u64 = 64 << 20;
+
+/// Where entry `id`'s thumbnail is: `$XDG_RUNTIME_DIR/patina/clipboard/<id>.png`.
+pub fn thumbnail_path(id: u64) -> std::path::PathBuf {
+    thumbnail_dir().join(format!("{id}.png"))
+}
+
+fn thumbnail_dir() -> std::path::PathBuf {
+    let runtime = std::env::var_os("XDG_RUNTIME_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(std::env::temp_dir);
+    runtime.join("patina").join("clipboard")
+}
+
+/// Removes thumbnails of entries that are gone, and any left by an earlier run.
+fn forget_thumbnails(kept: &[u64]) {
+    let Ok(dir) = std::fs::read_dir(thumbnail_dir()) else {
+        return;
+    };
+    for file in dir.flatten() {
+        let path = file.path();
+        let id = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .and_then(|s| s.parse::<u64>().ok());
+        if id.is_none_or(|id| !kept.contains(&id)) {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+}
+
+/// A PNG's shrunk copy, as PNG, at most `THUMBNAIL` along its longer side; `None` when it
+/// isn't a PNG this can read or is too big.
+fn thumbnail(bytes: &[u8]) -> Option<Vec<u8>> {
+    let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+    decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut reader = decoder.read_info().ok()?;
+    let info = reader.info();
+    if u64::from(info.width) * u64::from(info.height) > MOST_PIXELS {
+        return None;
+    }
+    let mut frame = vec![0; reader.output_buffer_size()?];
+    let out = reader.next_frame(&mut frame).ok()?;
+    let (w, h) = (out.width as usize, out.height as usize);
+    if w == 0 || h == 0 {
+        return None;
+    }
+    let channels = match out.color_type {
+        png::ColorType::Grayscale => 1,
+        png::ColorType::GrayscaleAlpha => 2,
+        png::ColorType::Rgb => 3,
+        png::ColorType::Rgba => 4,
+        png::ColorType::Indexed => return None,
+    };
+    let rgba = |x: usize, y: usize| -> [u32; 4] {
+        let at = (y * w + x) * channels;
+        let p = &frame[at..at + channels];
+        let c = match channels {
+            1 => [p[0], p[0], p[0], 255],
+            2 => [p[0], p[0], p[0], p[1]],
+            3 => [p[0], p[1], p[2], 255],
+            _ => [p[0], p[1], p[2], p[3]],
+        };
+        c.map(u32::from)
+    };
+    let scale = (w.max(h) as f64 / f64::from(THUMBNAIL)).max(1.0);
+    let (tw, th) = (
+        ((w as f64 / scale).round() as usize).max(1),
+        ((h as f64 / scale).round() as usize).max(1),
+    );
+    let mut small = Vec::with_capacity(tw * th * 4);
+    for ty in 0..th {
+        let (y0, y1) = (ty * h / th, ((ty + 1) * h / th).max(ty * h / th + 1));
+        for tx in 0..tw {
+            let (x0, x1) = (tx * w / tw, ((tx + 1) * w / tw).max(tx * w / tw + 1));
+            let mut sum = [0u32; 4];
+            let mut n = 0;
+            for y in y0..y1.min(h) {
+                for x in x0..x1.min(w) {
+                    let c = rgba(x, y);
+                    for i in 0..4 {
+                        sum[i] += c[i];
+                    }
+                    n += 1;
+                }
+            }
+            small.extend(sum.map(|v| (v / n.max(1)) as u8));
+        }
+    }
+    let mut png_bytes = Vec::new();
+    let mut encoder = png::Encoder::new(&mut png_bytes, tw as u32, th as u32);
+    encoder.set_color(png::ColorType::Rgba);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.write_header().ok()?.write_image_data(&small).ok()?;
+    Some(png_bytes)
 }
 
 /// Each type's bytes, as many as arrive by `deadline`: an app that never answers is left
@@ -563,6 +737,31 @@ mod tests {
 
     fn png(n: usize) -> Vec<(String, Vec<u8>)> {
         vec![("image/png".into(), vec![7; n])]
+    }
+
+    fn picture(w: u32, h: u32) -> Vec<u8> {
+        let mut out = Vec::new();
+        let mut e = png::Encoder::new(&mut out, w, h);
+        e.set_color(png::ColorType::Rgb);
+        e.set_depth(png::BitDepth::Eight);
+        let data: Vec<u8> = (0..w * h).flat_map(|_| [200, 30, 30]).collect();
+        e.write_header().unwrap().write_image_data(&data).unwrap();
+        out
+    }
+
+    #[test]
+    fn a_thumbnail_is_a_shrunk_png() {
+        let small = thumbnail(&picture(400, 200)).expect("a thumbnail");
+        let d = png::Decoder::new(std::io::Cursor::new(&small[..]));
+        let r = d.read_info().unwrap();
+        assert_eq!((r.info().width, r.info().height), (96, 48));
+        // A small picture stays as it is, and what isn't a PNG gets none.
+        let same = thumbnail(&picture(20, 10)).unwrap();
+        let r = png::Decoder::new(std::io::Cursor::new(&same[..]))
+            .read_info()
+            .unwrap();
+        assert_eq!((r.info().width, r.info().height), (20, 10));
+        assert!(thumbnail(b"not a png").is_none());
     }
 
     #[test]

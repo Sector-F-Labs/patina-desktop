@@ -3663,6 +3663,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-clipboard"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "image",
+ "patina-shell",
+ "patina-system",
+ "patina-ui",
+]
+
+[[package]]
 name = "patina-clock"
 version = "0.1.0"
 dependencies = [

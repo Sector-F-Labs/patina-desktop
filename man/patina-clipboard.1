@@ -1,0 +1,55 @@
+.Dd November 7, 2026
+.Dt PATINA-CLIPBOARD 1
+.Os
+.Sh NAME
+.Nm patina-clipboard
+.Nd the Patina desktop's clipboard menu
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+is the menu the bar's clipboard icon opens, at the bar's right end: what was copied lately,
+newest first, with how long ago.
+An image shows as a small picture.
+.Pp
+A click on an entry copies it again, so Ctrl+V pastes it, and closes the menu.
+The cross at its right end deletes it, and Clear all deletes them all.
+Pause stops new copies being kept, while those there stay.
+Escape, a click elsewhere, or the icon again closes it; running it while one is open closes that
+one.
+.Pp
+The history is kept by
+.Xr patina-compositor 1 ,
+not by this menu, so it goes on when the menu is closed, and copies outlive the app they came
+from.
+The menu reads it over
+.Ql com.sectorflabs.Patina.Clipboard
+on the session bus, and the bar shows the icon only while something serves it.
+Under another desktop there is none.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN
+The skin to wear, as the bar sets it; otherwise the bar's config's.
+.It Ev PATINA_HUD_EDGE
+.Dq top
+or
+.Dq bottom :
+which edge to open from.
+.It Ev PATINA_OPEN_AT
+Where the bar's button that opened it is, as
+.Ql edge,x,y Ns Op ,far
+in logical pixels: it opens just past it.
+.El
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-hud 1 ,
+.Xr patina-desktop 7

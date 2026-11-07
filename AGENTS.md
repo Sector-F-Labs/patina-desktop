@@ -204,6 +204,9 @@ puts them in `$(PREFIX)/share/man`.
   `.desktop` names, which `patina_system::apps` reads): `choose.rs` decides, `main.rs` lists and activates
   windows over wlr-foreign-toplevel with plain wayland-client; `--list` prints app ids.
 - `wifi/`: patina-wifi, the tray's Wi-Fi menu (ADR-0022), on `system/src/network.rs`.
+- `clipboard/`: patina-clipboard, the tray's clipboard menu (ADR-0114), on `system/src/clipboard.rs`, which
+  reads the compositor's history over `com.sectorflabs.Patina.Clipboard`; thumbnails are files the
+  compositor writes under `$XDG_RUNTIME_DIR/patina/clipboard/`.
 - `clock/`: patina-clock, the clock's menu (ADR-0082): a month and the day's events, which the
   Calendar app (`../calendar`) prints with `calendar --agenda` (`agenda.rs`); a click runs
   `calendar --open DATE [--event UID]`. The menu draws, Calendar keeps the data.
