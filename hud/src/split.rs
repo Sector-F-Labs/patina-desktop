@@ -182,8 +182,14 @@ pub fn keeps(config: &Config, gaps: Gaps, edge: &str) -> (i32, i32) {
         "left" | "right" => (Side::Top, Side::Bottom),
         _ => (Side::Left, Side::Right),
     };
-    // The gap is also what's left from a screen's edge nothing is kept on.
-    let keep = |side| kept(config, side).map_or(0, |t| t as i32) + gaps.gap;
+    // A kept edge is its parts' thickness and the gap they float in from the screen's edge,
+    // then clear of them by the gap, or a menu's space with gaps off. An edge nothing is
+    // kept on only needs the gap from the screen.
+    let clear = gaps.gap.max(SPACE as i32);
+    let keep = |side| match kept(config, side) {
+        Some(thickness) => thickness as i32 + gaps.gap + clear,
+        None => gaps.gap,
+    };
     (keep(near), keep(far))
 }
 
@@ -494,7 +500,8 @@ mod tests {
         let c = config("");
         let (near, far) = keeps(&c, GAPS, "left");
         assert_eq!(near, 8, "nothing kept at the top: the gap");
-        assert!(far > 8, "the bar's own height at the bottom");
+        // The bar's own height, the gap it floats in, and the gap clear of it.
+        assert_eq!(far, kept(&c, Side::Bottom).unwrap() as i32 + 8 + 8);
         assert_eq!(keeps(&c, GAMELESS, "left").0, 0, "no gaps, no gap");
     }
 
