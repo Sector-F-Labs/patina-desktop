@@ -162,7 +162,7 @@ impl Tiler<'_> {
                 }
                 *zone = now;
                 match now {
-                    Some(tile) => self.tiling.show_preview(self.rect_for(id, tile))?,
+                    Some(tile) => self.tiling.show_preview(self.rect_for(id, tile)?)?,
                     None => self.tiling.hide_preview()?,
                 }
             }
@@ -256,24 +256,39 @@ impl Tiler<'_> {
     }
 
     /// Where `tile` puts window `id`: beside the columns as they are, if
-    /// another window is in one; otherwise halves again.
-    fn rect_for(&self, id: u64, tile: Tile) -> Rect {
-        let beside = self
-            .tiled
+    /// another window is in one; beside a half that was stretched sideways,
+    /// taking what's left; otherwise halves again.
+    fn rect_for(&self, id: u64, tile: Tile) -> zbus::Result<Rect> {
+        let split = self.split_for(id, tile)?;
+        Ok(policy::rect_for(tile, self.area, self.gap, split))
+    }
+
+    fn split_for(&self, id: u64, tile: Tile) -> zbus::Result<f64> {
+        if self.beside(id) {
+            return Ok(self.split);
+        }
+        let others: Vec<Rect> = self
+            .tiling
+            .windows()?
             .iter()
-            .any(|(other, t)| *other != id && *t != Tile::Fill);
-        let split = if beside { self.split } else { policy::HALVES };
-        policy::rect_for(tile, self.area, self.gap, split)
+            .filter(|w| w.id != id && w.placement.is_empty())
+            .map(|w| w.rect)
+            .collect();
+        Ok(policy::split_beside(tile, self.area, self.gap, &others).unwrap_or(policy::HALVES))
+    }
+
+    /// Whether another window is in one of the columns.
+    fn beside(&self, id: u64) -> bool {
+        self.tiled
+            .iter()
+            .any(|(other, t)| *other != id && *t != Tile::Fill)
     }
 
     fn place(&mut self, id: u64, tile: Tile) -> zbus::Result<()> {
-        let rect = self.rect_for(id, tile);
-        if !self
-            .tiled
-            .iter()
-            .any(|(other, t)| *other != id && *t != Tile::Fill)
-        {
-            self.split = policy::HALVES;
+        let split = self.split_for(id, tile)?;
+        let rect = policy::rect_for(tile, self.area, self.gap, split);
+        if !self.beside(id) {
+            self.split = split;
         }
         self.tiled.insert(id, tile);
         self.tiling.place(id, rect)
