@@ -47,6 +47,48 @@ struct Applying {
     chosen: bool,
 }
 
+/// How the desktop is laid out in the preview: the compositor's `[gaps]` (ADR-0051), which isn't
+/// part of a skin, so it's set here only to see the skin with it.
+#[derive(Clone, Copy)]
+struct Gaps {
+    on: bool,
+    size: i32,
+    radius: i32,
+}
+
+impl Gaps {
+    /// What the compositor's config has now; off if it has none.
+    fn read() -> Self {
+        let text = dirs::config_dir()
+            .and_then(|d| std::fs::read_to_string(d.join("patina-compositor/config.toml")).ok());
+        Self::parse(&text.unwrap_or_default())
+    }
+
+    fn parse(text: &str) -> Self {
+        let doc = text.parse::<toml_edit::DocumentMut>().ok();
+        let table = doc.as_ref().and_then(|d| d.get("gaps"));
+        let number = |key: &str| {
+            table
+                .and_then(|t| t.get(key))
+                .and_then(|v| v.as_integer())
+                .map_or(8, |n| n.clamp(0, 64) as i32)
+        };
+        Self {
+            on: table
+                .and_then(|t| t.get("enabled"))
+                .and_then(|v| v.as_bool())
+                == Some(true),
+            size: number("size"),
+            radius: number("radius"),
+        }
+    }
+
+    /// The gap in effect: none when gaps are off.
+    fn gap(self) -> f32 {
+        if self.on { self.size as f32 } else { 0.0 }
+    }
+}
+
 enum Action {
     Quit,
     Save,
@@ -65,6 +107,7 @@ pub struct App {
     new: New,
     applying: Vec<Applying>,
     filter: String,
+    gaps: Gaps,
     /// What the last save or apply did, shown at the bottom.
     message: Option<(bool, String)>,
 }
@@ -84,6 +127,7 @@ impl App {
             },
             applying: Vec::new(),
             filter: String::new(),
+            gaps: Gaps::read(),
             message: None,
         };
         app.scan_library();
@@ -368,7 +412,10 @@ impl App {
                         }
                     });
                 });
-            preview(&mut cols[1], &open.doc);
+            egui::ScrollArea::vertical()
+                .id_salt("preview")
+                .auto_shrink(false)
+                .show(&mut cols[1], |ui| preview(ui, &open.doc, &mut self.gaps));
         });
         if changed {
             open.dirty = true;
@@ -576,7 +623,7 @@ fn window_radius(ui: &mut Ui, skin: &mut SkinDoc) -> bool {
 }
 
 /// A window drawn in the skin, with the usual controls, as the apps would show it.
-fn preview(ui: &mut Ui, skin_doc: &SkinDoc) {
+fn preview(ui: &mut Ui, skin_doc: &SkinDoc, gaps: &mut Gaps) {
     let skin = match Skin::parse(&skin_doc.text()) {
         Ok(skin) => skin,
         Err(e) => {
@@ -590,6 +637,29 @@ fn preview(ui: &mut Ui, skin_doc: &SkinDoc) {
     let visuals = skin.visuals(doc::visuals(skin_doc.dark()));
     let style = skin.frame_style(&visuals);
     let radius = f32::from(style.radius);
+    ui.scope(|ui| {
+        *ui.visuals_mut() = visuals.clone();
+        ui.label(RichText::new("Desktop").strong());
+        ui.horizontal(|ui| {
+            ui.checkbox(&mut gaps.on, "Gaps").on_hover_text(
+                "The compositor's gaps mode: tiled windows are spaced and the bar floats. Not \
+                 part of the skin; set it for real in Settings",
+            );
+            ui.add_enabled_ui(gaps.on, |ui| {
+                ui.add(egui::Slider::new(&mut gaps.size, 0..=64).text("size"));
+                ui.add(egui::Slider::new(&mut gaps.radius, 0..=64).text("radius"));
+            });
+        });
+        desktop(ui, &skin, *gaps);
+        ui.add_space(8.0);
+        ui.label(RichText::new("Bar").strong());
+        bar(ui, &skin, *gaps);
+        ui.add_space(8.0);
+        ui.label(RichText::new("Menu").strong());
+        menu(ui);
+    });
+    ui.add_space(8.0);
+    ui.label(RichText::new("Window").strong());
     let round = egui::CornerRadius::same(style.radius);
     let top = egui::CornerRadius {
         nw: style.radius,
@@ -630,6 +700,194 @@ fn preview(ui: &mut Ui, skin_doc: &SkinDoc) {
                 ui.add_space(10.0);
             });
         });
+}
+
+/// A screen in miniature, laid out as the compositor does (ADR-0051): two tiled windows, and the
+/// bar along the bottom. With gaps the bar floats, rounded, off the edges and the windows are
+/// spaced; without, they fill edge to edge.
+fn desktop(ui: &mut Ui, skin: &Skin, gaps: Gaps) {
+    const SCREEN: egui::Vec2 = egui::vec2(1280.0, 800.0);
+    const BAR: f32 = 41.0;
+    let v = ui.visuals().clone();
+    let style = skin.frame_style(&v);
+    let scale = (ui.available_width().min(560.0)) / SCREEN.x;
+    let (screen, _) = ui.allocate_exact_size(SCREEN * scale, egui::Sense::hover());
+    let at = |x: f32, y: f32, w: f32, h: f32| {
+        egui::Rect::from_min_size(
+            screen.min + egui::vec2(x, y) * scale,
+            egui::vec2(w, h) * scale,
+        )
+    };
+    let painter = ui.painter();
+    painter.rect_filled(screen, 0.0, v.extreme_bg_color.gamma_multiply(0.6));
+    let gap = gaps.gap();
+
+    // The bar, and the room above it.
+    let (bar_rect, floor) = if gaps.on {
+        (
+            at(gap, SCREEN.y - gap - BAR, SCREEN.x - 2.0 * gap, BAR),
+            SCREEN.y - BAR - gap,
+        )
+    } else {
+        (at(0.0, SCREEN.y - BAR, SCREEN.x, BAR), SCREEN.y - BAR)
+    };
+    // The tiling area: the work area, less the gap all round.
+    let (x, y, w, h) = (gap, gap, SCREEN.x - 2.0 * gap, floor - 2.0 * gap);
+    let half = (w - gap) / 2.0;
+    let line = v.widgets.noninteractive.bg_stroke;
+    let radius = (f32::from(style.radius) * scale).round().clamp(0.0, 255.0) as u8;
+    let round = egui::CornerRadius::same(radius);
+    let top = egui::CornerRadius {
+        nw: radius,
+        ne: radius,
+        ..Default::default()
+    };
+    for (i, left) in [x, x + half + gap].into_iter().enumerate() {
+        let win = at(left, y, half, h);
+        painter.rect_filled(win, round, v.panel_fill);
+        let title = egui::Rect::from_min_size(win.min, egui::vec2(win.width(), 26.0 * scale));
+        painter.rect_filled(title, top, style.title_bar);
+        painter.rect_stroke(
+            win,
+            round,
+            egui::Stroke::new(1.0, style.border),
+            egui::StrokeKind::Inside,
+        );
+        // Something on it, so the body reads as a window's.
+        for row in 0..4 {
+            let line_y = title.bottom() + (10.0 + row as f32 * 14.0) * scale;
+            let wide = if (row + i) % 2 == 0 { 0.7 } else { 0.45 };
+            painter.line_segment(
+                [
+                    egui::pos2(win.left() + 10.0 * scale, line_y),
+                    egui::pos2(win.left() + 10.0 * scale + win.width() * wide, line_y),
+                ],
+                egui::Stroke::new(2.0, v.weak_text_color()),
+            );
+        }
+    }
+
+    let bar_radius = if gaps.on {
+        ((gaps.radius as f32) * scale).min(bar_rect.height() / 2.0)
+    } else {
+        0.0
+    };
+    painter.rect_filled(bar_rect, bar_radius, v.panel_fill);
+    if gaps.on {
+        painter.rect_stroke(bar_rect, bar_radius, line, egui::StrokeKind::Inside);
+    } else {
+        painter.hline(bar_rect.x_range(), bar_rect.top() + line.width / 2.0, line);
+    }
+    // The launcher, the tabs (one shown) and the tray, as shapes.
+    let unit = bar_rect.height();
+    let pad = unit * 0.25;
+    let small = |rect: egui::Rect, fill| painter.rect_filled(rect, 2.0, fill);
+    small(
+        egui::Rect::from_min_size(
+            bar_rect.min + egui::vec2(pad, pad),
+            egui::vec2(unit - 2.0 * pad, unit - 2.0 * pad),
+        ),
+        v.text_color(),
+    );
+    for i in 0..3 {
+        let left = bar_rect.left() + unit + pad + i as f32 * unit * 2.4;
+        let fill = if i == 1 {
+            v.widgets.hovered.bg_fill
+        } else {
+            v.widgets.inactive.bg_fill
+        };
+        small(
+            egui::Rect::from_min_size(
+                egui::pos2(left, bar_rect.top() + pad),
+                egui::vec2(unit * 2.2, unit - 2.0 * pad),
+            ),
+            fill,
+        );
+    }
+    for i in 0..3 {
+        painter.circle_filled(
+            egui::pos2(
+                bar_rect.right() - pad * 2.0 - i as f32 * unit * 0.6,
+                bar_rect.center().y,
+            ),
+            unit * 0.18,
+            if i == 0 {
+                v.hyperlink_color
+            } else {
+                v.weak_text_color()
+            },
+        );
+    }
+}
+
+/// The bar as the shell draws it: a panel-coloured strip with the launcher, the window tabs
+/// (the real tab strip, the shown one set off the bar) and the clock and tray. Its colours are
+/// the skin's background, border, text, surface and accent; the title bar colour isn't used.
+fn bar(ui: &mut Ui, skin: &Skin, gaps: Gaps) {
+    let v = ui.visuals().clone();
+    let line = v.widgets.noninteractive.bg_stroke;
+    let mut style = skin.frame_style(&v);
+    style.title_bar = v.panel_fill;
+    let (rect, _) =
+        ui.allocate_exact_size(egui::vec2(ui.available_width(), 44.0), egui::Sense::hover());
+    if gaps.on {
+        // Off the screen's edges, outlined all round.
+        let radius = (gaps.radius as f32).min(rect.height() / 2.0);
+        ui.painter().rect_filled(rect, radius, v.panel_fill);
+        ui.painter()
+            .rect_stroke(rect, radius, line, egui::StrokeKind::Inside);
+    } else {
+        ui.painter().rect_filled(rect, 0.0, v.panel_fill);
+        ui.painter()
+            .hline(rect.x_range(), rect.top() + line.width / 2.0, line);
+    }
+    let inner = rect.shrink2(egui::vec2(6.0, line.width));
+    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| {
+        ui.horizontal_centered(|ui| {
+            ui.label(RichText::new("▦").size(18.0).color(v.text_color()));
+            ui.add_space(6.0);
+            let titles = ["Files", "Notebook", "Teleprinter"];
+            let _ = patina::tabs::TabStrip::new(&titles, 1, &style)
+                .id_salt("preview-windows")
+                .new_tab(false)
+                .noun("Window")
+                .span(inner.y_range())
+                .show(ui);
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label("12:34");
+                ui.add_space(8.0);
+                for colour in [v.text_color(), v.weak_text_color(), v.hyperlink_color] {
+                    let (dot, _) =
+                        ui.allocate_exact_size(egui::vec2(14.0, 14.0), egui::Sense::hover());
+                    ui.painter().circle_filled(dot.center(), 5.0, colour);
+                }
+                let (badge, _) =
+                    ui.allocate_exact_size(egui::vec2(18.0, 18.0), egui::Sense::hover());
+                ui.painter()
+                    .circle_filled(badge.center(), 8.0, v.extreme_bg_color);
+                ui.painter().text(
+                    badge.center(),
+                    egui::Align2::CENTER_CENTER,
+                    "3",
+                    egui::FontId::proportional(11.0),
+                    v.error_fg_color,
+                );
+            });
+        });
+    });
+}
+
+/// A menu as the shell opens one: a popup with an item under the pointer and a selected one.
+fn menu(ui: &mut Ui) {
+    let v = ui.visuals().clone();
+    egui::Frame::popup(ui.style()).show(ui, |ui| {
+        ui.set_width(180.0);
+        let _ = ui.selectable_label(false, "Open");
+        let _ = ui.selectable_label(true, "Selected");
+        let _ = ui.button("A button");
+        ui.separator();
+        ui.label(RichText::new("Weak note").color(v.weak_text_color()));
+    });
 }
 
 /// What the preview window holds.
@@ -783,8 +1041,25 @@ mod tests {
         let ctx = egui::Context::default();
         let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
             editor(ui, doc);
-            preview(ui, doc);
+            for on in [false, true] {
+                let mut gaps = Gaps {
+                    on,
+                    size: 8,
+                    radius: 8,
+                };
+                preview(ui, doc, &mut gaps);
+            }
         });
+    }
+
+    #[test]
+    fn gaps_are_read_from_the_compositors_config() {
+        let on = Gaps::parse("[gaps]\nenabled = true\nsize = 12\nradius = 3\n");
+        assert!(on.on && on.size == 12 && on.radius == 3 && on.gap() == 12.0);
+        assert!(!Gaps::parse("[gaps]\nsize = 12\n").on);
+        assert_eq!(Gaps::parse("").gap(), 0.0);
+        assert_eq!(Gaps::parse("[gaps]\nenabled = true\nsize = 900\n").size, 64);
+        assert!(!Gaps::parse("[gaps\nbroken").on);
     }
 
     #[test]
