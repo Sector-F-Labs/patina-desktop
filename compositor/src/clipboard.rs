@@ -198,7 +198,7 @@ impl History {
 
     /// Drops the entries copied `expire_after` seconds or more before `now`; gives what they
     /// held, so the clipboard can be emptied if it's one of them.
-    pub fn expire(&mut self, now: u64) -> Vec<Arc<Vec<(String, Vec<u8>)>>> {
+    pub fn expire(&mut self, now: u64) -> Vec<Types> {
         if self.expire_after == 0 {
             return Vec::new();
         }
@@ -349,6 +349,9 @@ fn now() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs())
 }
+
+/// The types an entry holds, with their bytes, shared with the clipboard when it's served.
+type Types = Arc<Vec<(String, Vec<u8>)>>;
 
 /// What a read of a copy brings back, from its thread to the loop.
 type Copied = Vec<(String, Vec<u8>)>;
