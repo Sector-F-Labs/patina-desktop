@@ -112,7 +112,8 @@ puts them in `$(PREFIX)/share/man`.
   Displays page. Mirroring maps every output at the origin, a monitor's scale making it as wide in
   points as the primary; the pointer stays on the primary. A monitor plugged in while running is
   idle (`UdevData::idle`, listed `active: false`), driven only when `set_display_mode` extends or
-  mirrors; `Mode::Off` drives the primary alone.
+  mirrors; `Mode::Off` drives the primary alone. How the pieces fit, with diagrams, is
+  `displays/HOW-IT-WORKS.md`.
 - `compositor/src/cmd.rs`: Super is Cmd (ADR-0067): a Super key the compositor doesn't keep is sent
   to the focused client as Ctrl+key (Ctrl+Shift to a terminal, by its desktop entry's category, and
   Super+Shift+key there as Ctrl+Alt+Shift+key),

@@ -18,6 +18,16 @@ off.
 - **A layer-shell overlay** on patina-shell, keyboard exclusive, closing on Escape or when the
   keyboard goes elsewhere.
 
+How the compositor, this popup and Settings split the work, with diagrams, is in
+[HOW-IT-WORKS.md](HOW-IT-WORKS.md).
+
 ## Code
 
 `main.rs`, the surface and the choice; `hud.rs`, the pill.
+
+## Running
+
+```sh
+cargo test -p patina-displays
+patina-displays   # inside the desktop, on the hardware: it asks the compositor
+```
