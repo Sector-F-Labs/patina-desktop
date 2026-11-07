@@ -506,6 +506,36 @@ fn run(
             .map_err(|e| e.to_string())?;
     }
 
+    // The tray's clipboard icon, there while the compositor keeps a history (ADR-0114).
+    if uses_tray {
+        let (served, clipboard) = channel::channel::<bool>();
+        std::thread::Builder::new()
+            .name("clipboard".into())
+            .spawn(move || {
+                let mut last = None;
+                patina_system::clipboard::watch(|s| {
+                    let now = s.is_some();
+                    // Each copy is a change; the icon only follows whether it's served.
+                    if last == Some(now) {
+                        return true;
+                    }
+                    last = Some(now);
+                    served.send(now).is_ok()
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        handle
+            .insert_source(clipboard, |event, _, host| {
+                if let Event::Msg(on) = event
+                    && host.shell.clipboard != on
+                {
+                    host.shell.clipboard = on;
+                    host.redraw_all();
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
+
     // The tray's keyboard layout (ADR-0068), as the compositor announces it.
     if uses_tray {
         let (statuses, keyboard) = channel::channel::<Option<patina_system::keyboard::Status>>();

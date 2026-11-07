@@ -82,6 +82,8 @@ After them, with more than one keyboard layout, the one in use, as
 a click lists them to switch to another, which Ctrl+Space also does.
 Then Wi-Fi, which opens
 .Xr patina-wifi 1 ;
+the clipboard, when the compositor keeps a history, which opens
+.Xr patina-clipboard 1 ;
 the speaker, which opens
 .Xr patina-volume 1 ;
 and the battery, red at 10% or less while discharging, which opens
@@ -278,8 +280,8 @@ A
 format;
 .Dq %a %-d %b  %H:%M
 by default.
-.It Ic launcher , volume , wifi , battery , calendar , power
-What the flask, the speaker, the Wi-Fi icon, the battery, the clock and the power button run,
+.It Ic launcher , volume , wifi , clipboard , battery , calendar , power
+What the flask, the speaker, the Wi-Fi icon, the clipboard icon, the battery, the clock and the power button run,
 through
 .Xr sh 1 .
 .It Ic wallpaper
@@ -319,6 +321,7 @@ again:
 .Pp
 .Dl $ pkill -x patina-hud
 .Sh SEE ALSO
+.Xr patina-clipboard 1 ,
 .Xr patina-clock 1 ,
 .Xr patina-compositor 1 ,
 .Xr patina-power 1 ,

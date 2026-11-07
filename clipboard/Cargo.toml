@@ -1,0 +1,14 @@
+[package]
+name = "patina-clipboard"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's clipboard menu: what was copied lately, to pick, delete or clear, from the compositor's history"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+egui = "0.35"
+image = { version = "0.25", default-features = false, features = ["png"] }
+patina-shell = { workspace = true }
+patina-system = { path = "../system" }
+patina-ui = { workspace = true }

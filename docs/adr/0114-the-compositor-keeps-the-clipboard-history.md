@@ -6,8 +6,10 @@ Date: 2026-11-07
 
 Accepted. The user asked whether a clipboard manager is possible on Wayland, and wanted a tray
 icon that opens a small applet to pick or delete items, with images shown. They agreed the
-compositor should own the history, and that the interface would be D-Bus. They signed off and work began with the compositor's half: text
-history, images kept in memory, served on the bus.
+compositor should own the history, and that the interface would be D-Bus. They signed off.
+Built so far: the history with text and images, in memory, with PNG thumbnails; the bus
+interface; patina-clipboard and the tray icon. Not yet: saving to disk, expiry, and a config
+entry for `Enabled` and `Paused`.
 
 ## Context
 

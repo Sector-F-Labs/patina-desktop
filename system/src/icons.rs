@@ -94,6 +94,29 @@ pub fn power(painter: &Painter, rect: Rect, colour: Color32) {
     );
 }
 
+/// A clipboard in `rect`: a board with its clip at the top and three lines of text.
+pub fn clipboard(painter: &Painter, rect: Rect, colour: Color32) {
+    let s = rect.height().min(rect.width());
+    let r = Rect::from_center_size(rect.center(), vec2(s, s));
+    let at = |x: f32, y: f32| pos2(r.left() + x * s, r.top() + y * s);
+    let stroke = Stroke::new((s * 0.08).max(1.0), colour);
+    painter.rect_stroke(
+        Rect::from_min_max(at(0.18, 0.16), at(0.82, 0.92)),
+        s * 0.08,
+        stroke,
+        egui::StrokeKind::Inside,
+    );
+    // The clip, over the board's top edge.
+    painter.rect_filled(
+        Rect::from_min_max(at(0.36, 0.06), at(0.64, 0.26)),
+        s * 0.05,
+        colour,
+    );
+    for y in [0.46, 0.62, 0.78] {
+        painter.line_segment([at(0.32, y), at(0.68, y)], stroke);
+    }
+}
+
 /// A Wi-Fi fan in `rect`: a dot and three arcs, lit up to `strength`
 /// (0 to 100), the rest dimmed; with a slash when not connected (`None`).
 pub fn wifi(painter: &Painter, rect: Rect, strength: Option<u8>, colour: Color32) {

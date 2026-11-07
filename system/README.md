@@ -11,6 +11,9 @@ painter) is [patina-shell](https://github.com/Sector-F-Labs/patina-shell), in it
   system D-Bus (zbus), or `network/wpa.rs`, wpa_supplicant through wpa_cli, on FreeBSD (ADR-0095): devices, access
   points, saved connections, scanning, joining, the radio switch (ADR-0022). For the bar's
   Wi-Fi icon and patina-wifi.
+- **`clipboard.rs`**: the compositor's clipboard history over `com.sectorflabs.Patina.Clipboard`:
+  the entries with their thumbnails, pick, delete, clear, pause, and `watch` on its `Changed` signal
+  (ADR-0114). For the bar's clipboard icon and patina-clipboard.
 - **`power.rs`**: the battery for the tray (ADR-0024), from a `PowerSource`: `power/sysfs.rs`
   (`/sys/class/power_supply`), or `power/acpi.rs` on FreeBSD (sysctl and acpiconf, ADR-0095).
 - **`backlight.rs`**: the screen's brightness, read from sysfs and set through logind's

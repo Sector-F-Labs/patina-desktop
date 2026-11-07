@@ -177,6 +177,32 @@ pub fn wifi(
     }
 }
 
+/// The clipboard icon; runs `command`, the history's menu, when it's clicked.
+pub fn clipboard(
+    ui: &mut Ui,
+    command: &str,
+    skin: &str,
+    opening: &dyn Fn(egui::Rect) -> crate::launcher::Opening,
+) {
+    let side = side(ui);
+    let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
+    let v = ui.visuals();
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
+    }
+    let colour = if response.hovered() {
+        v.strong_text_color()
+    } else {
+        v.text_color()
+    };
+    patina_system::icons::clipboard(ui.painter(), rect.shrink(padding(rect.width())), colour);
+    crate::tooltip::hover(ui, &response, "Clipboard history");
+    if response.clicked() {
+        crate::launcher::run(command, skin, &opening(rect));
+    }
+}
+
 /// The keyboard layout in use, as "US", when there's more than one to
 /// switch between; its button and how it was clicked.
 pub fn layout(

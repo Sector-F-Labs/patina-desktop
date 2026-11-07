@@ -97,6 +97,9 @@ pub struct Bar {
     pub volume: Option<patina_system::audio::Volume>,
     /// The Wi-Fi signal, for the tray's Wi-Fi icon (see tray::wifi).
     pub wifi: Option<Option<u8>>,
+    /// Whether the compositor keeps a clipboard history here (ADR-0114), for the tray's
+    /// clipboard icon.
+    pub clipboard: bool,
     /// The battery, for the tray; `None` without one.
     pub battery: Option<patina_system::power::Battery>,
     /// The compositor's keyboard layouts, for the tray's indicator
@@ -167,6 +170,7 @@ impl Bar {
                 status: Status::default(),
                 volume: None,
                 wifi: None,
+                clipboard: false,
                 battery: None,
                 keyboard: None,
                 media: None,
@@ -468,6 +472,14 @@ impl Bar {
                     ui.spacing_mut().item_spacing = vec2(0.0, 0.0);
                     self.tray_items(ui);
                     self.keyboard_layout(ui);
+                    if self.clipboard {
+                        crate::tray::clipboard(
+                            ui,
+                            &self.config.clipboard,
+                            &self.skin.name,
+                            &opening,
+                        );
+                    }
                     crate::tray::wifi(ui, self.wifi, &self.config.wifi, &self.skin.name, &opening);
                     crate::tray::speaker(
                         ui,
@@ -1386,6 +1398,7 @@ mod tests {
             status: Status::default(),
             volume: None,
             wifi: None,
+            clipboard: false,
             battery: None,
             keyboard: None,
             media: None,

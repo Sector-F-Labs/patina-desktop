@@ -158,6 +158,7 @@ keys work, with an on-screen flash.
 - **[patina-wallpaper](wallpaper/README.md)** (`wallpaper/`): the wallpaper, on the background layer of every screen: the bar config's `wallpaper` image, or by default the Sector F Labs flask in the skin's colours.
 - **[patina-volume](volume/README.md)** (`volume/`): the volume menu, opened by the bar's speaker; it also flashes up when the volume or brightness keys are used.
 - **[patina-wifi](wifi/README.md)** (`wifi/`): the Wi-Fi menu, through NetworkManager: networks in range, joining, disconnecting, Wi-Fi on and off, and signing in to captive portals (ADR-0098).
+- **[patina-clipboard](clipboard/README.md)** (`clipboard/`): the clipboard menu, opened by the bar's clipboard icon: what was copied lately, with image thumbnails, to copy again, delete or clear; the compositor keeps the history (ADR-0114).
 - **[patina-clock](clock/README.md)** (`clock/`): the clock's menu: a month and the day's events from the Calendar app.
 - **[patina-power](power/README.md)** (`power/`): the power menu after the clock: Lock, Log Out, Restart and Shut Down, each but Lock asking first.
 - **[patina-lock](lock/README.md)** (`lock/`): the lock screen, in the bar's skin, with the password checked through PAM. The compositor runs it on Ctrl+Super+Q, Super+Escape, when the screen turns off and before sleep.
@@ -195,6 +196,7 @@ clock = "%a %-d %b  %H:%M"  # strftime, as in date(1)
 launcher = "patina-launcher"  # what the Sector F button runs, through sh(1)
 volume = "patina-volume"
 wifi = "patina-wifi"
+clipboard = "patina-clipboard"
 calendar = "patina-clock"
 battery = "patina-settings --page power"
 power = "patina-power"
