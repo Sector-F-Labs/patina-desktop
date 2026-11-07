@@ -115,7 +115,8 @@ puts them in `$(PREFIX)/share/man`.
 - `compositor/src/displays.rs` (ADR-0121): extend or mirror and where each monitor goes, kept in
   `displays.toml` by monitor id (`edid.rs` reads the maker, model and serial; `MonitorId` is in each
   output's user data), a monitor going by an entry of its own id, else of its model (ADR-0124:
-  `Displays::resolve`, `places`), being known. `displays/dbus.rs` serves
+  `Displays::resolve`, `places`), being known; a known monitor plugged in is switched on without the
+  popup unless its entry `ask`s (ADR-0126, `monitors_plugged`, `UdevData::activate_only`). `displays/dbus.rs` serves
   `com.sectorflabs.Patina.Displays` (List, Mode, SetMode, SetPlace; Changed, MonitorAdded), client
   `system/src/displays.rs`. `displays/` (patina-displays) is the popup on Ctrl+Super+P, which the
   compositor also starts when a monitor is plugged in; extending onto a new monitor opens Settings'

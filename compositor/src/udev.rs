@@ -452,9 +452,24 @@ impl UdevData {
 
     /// Starts driving every idle monitor; the outputs added.
     pub fn activate_idle(&mut self, config: &crate::config::Config) -> Vec<Output> {
+        self.activate(config, None)
+    }
+
+    /// Starts driving the idle monitors whose ids are `ids`, and no others;
+    /// the outputs added.
+    pub fn activate_only(&mut self, config: &crate::config::Config, ids: &[String]) -> Vec<Output> {
+        self.activate(config, Some(ids))
+    }
+
+    fn activate(&mut self, config: &crate::config::Config, only: Option<&[String]>) -> Vec<Output> {
         let idle = std::mem::take(&mut self.idle);
         let mut added = Vec::new();
         for monitor in idle {
+            let wanted = only.is_none_or(|ids| ids.contains(&identity(&monitor).3));
+            if !wanted {
+                self.idle.push(monitor);
+                continue;
+            }
             match self.drive(&monitor, config, false) {
                 Some(output) => added.push(output),
                 None => self.idle.push(monitor),

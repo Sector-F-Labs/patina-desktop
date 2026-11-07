@@ -167,6 +167,7 @@ mechanics of adding one.
 | [0123](0123-minimised-windows-get-slow-frame-callbacks.md) | Minimised windows still get frame callbacks, slowly | Accepted |
 | [0124](0124-displays-are-remembered-by-model.md) | Displays are remembered by model, and listed in Settings | Accepted |
 | [0125](0125-a-multi-monitor-test-vm-on-vkms.md) | A multi-monitor test VM on vkms | Accepted |
+| [0126](0126-a-known-monitor-is-switched-on-without-asking.md) | A known monitor is switched on without asking | Accepted |
 
 ## Decision Relationship
 

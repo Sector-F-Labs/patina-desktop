@@ -328,14 +328,15 @@ impl DisplaysPage {
 
 /// The displays remembered: where each was put, whether or not it's
 /// connected. A monitor of the same model plugged in later goes where one of
-/// them was, so a hot desk's monitors are where they should be; one no
+/// them was, so a hot desk's monitors are where they should be, and is
+/// switched on without asking unless its entry says to ask (ADR-0126); one no
 /// monitor goes by is grayed, and can be forgotten.
 fn saved_list(ui: &mut Ui, saved: &[Saved], message: &mut Option<Message>) {
     ui.heading("Saved displays");
     ui.label(
         RichText::new(
             "Displays you place are remembered. A display of the same model plugged \
-             in later goes where one was put.",
+             in later goes where one was put, and is switched on without asking.",
         )
         .weak(),
     );
@@ -347,6 +348,7 @@ fn saved_list(ui: &mut Ui, saved: &[Saved], message: &mut Option<Message>) {
     // Newest first: the one a new monitor of its model would go by is on top.
     for s in saved.iter().rev() {
         let mut forget = false;
+        let mut ask = s.ask;
         ui.horizontal(|ui| {
             let name = RichText::new(&s.name);
             ui.label(if s.in_use { name.strong() } else { name.weak() });
@@ -362,8 +364,14 @@ fn saved_list(ui: &mut Ui, saved: &[Saved], message: &mut Option<Message>) {
             ui.label(RichText::new(note).small().weak());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 forget = ui.small_button("Forget").clicked();
+                ui.checkbox(&mut ask, "Ask when plugged in");
             });
         });
+        if ask != s.ask
+            && let Err(e) = displays::set_ask(&s.id, ask)
+        {
+            *message = Some(Message::error(format!("Couldn't change the display: {e}")));
+        }
         if forget && let Err(e) = displays::forget(&s.id) {
             *message = Some(Message::error(format!("Couldn't forget the display: {e}")));
         }
@@ -488,6 +496,7 @@ mod tests {
             id: id.into(),
             name: name.into(),
             in_use,
+            ask: false,
             to: String::new(),
             to_name: to.into(),
             side: Some(side),

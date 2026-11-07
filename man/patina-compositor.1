@@ -168,7 +168,9 @@ as Ctrl+Cmd+Space does on a Mac.
 Open the monitors' popup,
 .Xr patina-displays 1 :
 extend the desktop across the monitors or mirror it.
-It also opens by itself when a monitor is plugged in.
+It also opens by itself when a monitor is plugged in that it must ask about: a
+new one, or one whose saved display asks.
+A monitor it knows is switched on as the desktop was last used.
 .It Ctrl+Space
 Switch to the next keyboard layout, as on a Mac.
 .It Ctrl+Super+Alt
@@ -488,7 +490,7 @@ Night Light's state, overrides and inhibitors, on the hardware; see
 .Xr patina-night-light 1 .
 .It com.sectorflabs.Patina.Displays
 The monitors: List, Mode and SetMode (extend, mirror or off), SetPlace (which side
-of which monitor each sits on), Saved and Forget (the displays remembered), and
+of which monitor each sits on), Saved, SetAsk and Forget (the displays remembered), and
 the signals Changed and MonitorAdded; for
 .Xr patina-displays 1
 and

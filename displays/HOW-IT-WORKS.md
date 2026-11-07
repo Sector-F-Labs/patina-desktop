@@ -1,11 +1,11 @@
 # How several monitors fit into the desktop
 
-Plug in a second monitor and nothing lights up by itself. A moment later a pill appears on the
-laptop's screen asking whether to extend the desktop onto it, mirror it, or do nothing; extending
-onto a monitor the desktop hasn't seen before opens Settings, to say which side of the laptop it
-sits on. This page explains how that is split between the compositor, a small popup and
-Settings, and why. The README next to it covers running and testing; the decisions are in
-ADR-0121.
+Plug in a monitor you've placed before and it comes up where it was. Plug in one the desktop
+hasn't seen and nothing lights up by itself: a moment later a pill appears on the laptop's screen
+asking whether to extend the desktop onto it, mirror it, or do nothing, and extending onto it opens
+Settings, to say which side of the laptop it sits on. This page explains how that is split between
+the compositor, a small popup and Settings, and why. The README next to it covers running and
+testing; the decisions are in ADR-0121, ADR-0124 and ADR-0126.
 
 ## The idea in one paragraph
 
@@ -14,8 +14,9 @@ are connected, which are driven, who each one is, where each one sits, and the m
 the user wants* is asked for in two other places: a popup that comes when a monitor does, and a
 Settings page for arranging them. Both are clients of one bus name,
 `com.sectorflabs.Patina.Displays`, and neither draws a monitor, so either can be rebuilt and
-restarted without touching the screen. The one rule that shapes the rest: **a monitor plugged in
-while the desktop runs stays off until someone chooses for it.**
+restarted without touching the screen. The rule that shapes the rest: **a monitor plugged in while
+the desktop runs that the desktop doesn't know stays off until someone chooses for it**; one it
+knows is switched on as it was.
 
 ## The picture
 
@@ -38,6 +39,8 @@ same way at that moment and recovers on its own.
 | Event | What happens |
 |-------|--------------|
 | A connector changes (udev) | `UdevData::rescan` looks again. A monitor that went is dropped; one that came is left **idle** (connected, listed with `active = false`, not driven). The first monitor of an empty desktop is the exception: it is driven, as the primary. |
+| A **known** monitor came (it goes by a saved entry) | `monitors_plugged` switches it on, as the desktop was last used (extended to where it was put, or mirrored), with no popup, and only it: another left off stays off (`activate_only`, ADR-0126). |
+| A **new** monitor came, one whose entry **asks**, or any while the primary is alone | The popup, 1.5 s later. |
 | Ctrl+Super+P, or the plug-in's timer | The compositor starts `patina-displays`, always on the primary monitor (`new_layer_surface`). |
 | Extend or Mirror chosen | `set_display_mode` drives every idle monitor, `outputs_changed` lays them all out, the mode is saved. |
 | Do nothing (a monitor waiting) | The popup closes without calling anything; the monitor stays off and nothing else changes. |
@@ -67,8 +70,8 @@ that goes by that monitor's entry (`Displays::places`). "Right of the other Dell
 whichever Dell that is, at any desk.
 
 Placing a monitor saves an entry for it, and nothing else does, so desks don't pile up entries.
-Settings lists them (`Saved()`), grayed when no connected monitor goes by one, and `Forget(id)`
-removes one.
+Settings lists them (`Saved()`), grayed when no connected monitor goes by one; `Forget(id)` removes
+one, and `SetAsk(id, true)` makes its monitor ask each time it's plugged in.
 
 The compositor never reads the id back out of the file as a layout: `displays.toml` holds the
 *choice* (this monitor is above that one, 0 points along the edge); where that puts it, in

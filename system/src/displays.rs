@@ -153,6 +153,9 @@ pub struct Saved {
     pub name: String,
     /// A connected monitor goes by it: its own, or one of its model's.
     pub in_use: bool,
+    /// Its monitor is asked about each time it's plugged in; otherwise a
+    /// known one is switched on as the desktop was last used (ADR-0126).
+    pub ask: bool,
     /// The monitor it's next to, by id and by name; empty for none.
     pub to: String,
     pub to_name: String,
@@ -174,10 +177,17 @@ impl Saved {
                 .get("in-use")
                 .and_then(|v| bool::try_from(v).ok())
                 .unwrap_or(false),
+            ask: d
+                .get("ask")
+                .and_then(|v| bool::try_from(v).ok())
+                .unwrap_or(false),
             to: text("to"),
             to_name: text("to-name"),
             side: Side::from_name(&text("side")),
-            offset: d.get("offset").and_then(|v| i32::try_from(v).ok()).unwrap_or(0),
+            offset: d
+                .get("offset")
+                .and_then(|v| i32::try_from(v).ok())
+                .unwrap_or(0),
         }
     }
 }
@@ -205,6 +215,15 @@ pub fn saved() -> Result<Vec<Saved>, String> {
     let rows: Vec<HashMap<String, OwnedValue>> =
         proxy(&bus)?.call("Saved", &()).map_err(|e| e.to_string())?;
     Ok(rows.iter().map(Saved::from_dictionary).collect())
+}
+
+/// Whether the saved display `id` is asked about each time its monitor is
+/// plugged in (the popup), or switched on without.
+pub fn set_ask(id: &str, ask: bool) -> Result<(), String> {
+    let bus = session()?;
+    proxy(&bus)?
+        .call::<_, _, ()>("SetAsk", &(id, ask))
+        .map_err(|e| e.to_string())
 }
 
 /// Forgets the saved display `id`: a monitor of that model plugged in later
@@ -256,12 +275,17 @@ mod tests {
             ("id".to_string(), v("DEL-A0D3-HOME1".into())),
             ("name".to_string(), v("DELL U2720Q".into())),
             ("in-use".to_string(), v(false.into())),
+            ("ask".to_string(), v(true.into())),
             ("to-name".to_string(), v("Built-in display".into())),
             ("side".to_string(), v("right".into())),
         ]);
         let s = Saved::from_dictionary(&d);
-        assert_eq!((s.name.as_str(), s.in_use, s.side), ("DELL U2720Q", false, Some(Side::Right)));
+        assert_eq!(
+            (s.name.as_str(), s.in_use, s.side),
+            ("DELL U2720Q", false, Some(Side::Right))
+        );
         assert_eq!(s.to_name, "Built-in display");
+        assert!(s.ask);
     }
 
     #[test]

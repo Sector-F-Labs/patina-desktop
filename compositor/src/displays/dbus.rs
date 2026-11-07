@@ -2,15 +2,17 @@
 //! `com.sectorflabs.Patina.Displays` at `/com/sectorflabs/Patina/Displays`.
 //!
 //! Methods: `List()` the monitors, each a dictionary (see [`Monitor`]);
-//! `Saved()` the displays remembered, each a dictionary, and `Forget(id)`;
+//! `Saved()` the displays remembered, each a dictionary, `SetAsk(id, ask)` and
+//! `Forget(id)`;
 //! `Mode()` and `SetMode(mode)`: `extend` or `mirror` drive every connected
 //! monitor that way, `off` drives the primary alone; `SetPlace(id, to,
 //! side, offset)` puts monitor `id` on `side` (`above`, `below`, `left` or
 //! `right`) of monitor `to`, `offset` points along the edge, and an empty
 //! side puts it after the one before. Signals: `Changed()` when the monitors
 //! or their places change, and `MonitorAdded(id, name, known)` when one is
-//! plugged in, `known` if it has been placed before; it stays off until
-//! `SetMode`.
+//! plugged in, `known` if it goes by a saved display; a known one is switched
+//! on as the desktop was last used, unless it asks (ADR-0126), and any other
+//! stays off until `SetMode`.
 //!
 //! zbus runs on threads of its own; requests reach the event loop over a
 //! calloop channel and are answered from it.
@@ -92,6 +94,8 @@ pub struct SavedDisplay {
     pub name: String,
     /// A connected monitor goes by it.
     pub in_use: bool,
+    /// The monitor is asked about each time it's plugged in.
+    pub ask: bool,
     /// The monitor it's next to, by id and by name; empty for none.
     pub to: String,
     pub to_name: String,
@@ -108,6 +112,7 @@ impl SavedDisplay {
             ("id".into(), v(self.id.as_str())),
             ("name".into(), v(self.name.as_str())),
             ("in-use".into(), v(self.in_use)),
+            ("ask".into(), v(self.ask)),
             ("to".into(), v(self.to.as_str())),
             ("to-name".into(), v(self.to_name.as_str())),
             ("side".into(), v(self.side.as_str())),
@@ -124,6 +129,7 @@ pub enum Request {
     List(Reply<Vec<Monitor>>),
     Saved(Reply<Vec<SavedDisplay>>),
     Forget(String, Reply<Result<(), String>>),
+    SetAsk(String, bool, Reply<Result<(), String>>),
     Mode(Reply<String>),
     SetMode(String, Reply<Result<(), String>>),
     SetPlace {
@@ -214,7 +220,8 @@ impl Interface {
     }
 
     /// The saved displays, the one saved last at the end; each a dictionary:
-    /// `id`, `name`, `in-use` (a connected monitor goes by it), and where it
+    /// `id`, `name`, `in-use` (a connected monitor goes by it), `ask`
+    /// (its monitor is asked about each time it's plugged in), and where it
     /// was put: `to`, `to-name`, `side`, `offset`.
     fn saved(&self) -> zbus::fdo::Result<Vec<HashMap<String, OwnedValue>>> {
         Ok(self
@@ -222,6 +229,14 @@ impl Interface {
             .iter()
             .map(SavedDisplay::dictionary)
             .collect())
+    }
+
+    /// Whether the saved display `id` is asked about each time its monitor
+    /// is plugged in; otherwise a known monitor is switched on, as the
+    /// desktop was last used, without a popup.
+    fn set_ask(&self, id: String, ask: bool) -> zbus::fdo::Result<()> {
+        self.ask(|reply| Request::SetAsk(id, ask, reply))?
+            .map_err(zbus::fdo::Error::InvalidArgs)
     }
 
     /// Forgets the saved display `id`.
