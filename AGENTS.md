@@ -42,6 +42,12 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
 - `make run` opens the compositor as a window on the current desktop, on a session bus of its own
   (`dbus-run-session`) so it never takes a running Patina session's names (it pops up on the user's
   GNOME session, so prefer the VM).
+- The multi-monitor VM (ADR-0125): `make vm-displays` boots `PATINA_VM_INSTANCE=displays`, a Linux guest
+  on vkms, whose virtual monitors are plugged and unplugged with `vm-linux/vm.sh display plug N
+  PRESET` / `unplug N` (presets in `vm-linux/edid.py`), with `vm.sh session CMD` for the session's bus
+  and `vm.sh shot` capturing from inside (no VNC screen). `make test-vm-displays` runs
+  `vm-linux/tests/test_displays.py`. vkms has no EDID, so the compositor reads fake ones from
+  `PATINA_FAKE_EDID_DIR` (test-only; set by the guest's `~/.profile`).
 - Test ground is a FreeBSD VM from `bsdt.toml`: dwl from packages is only the parent desktop;
   `gui.start` runs `target/release/patina-compositor` in it. `make vm`, then `make vm-restart`
   after changes, `make screenshot` (grim → docs/screenshot.png) and read the PNG back.

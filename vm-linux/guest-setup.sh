@@ -33,6 +33,7 @@ cat > "$HOME/.profile" <<EOF
 [ -f "\$HOME/.bashrc" ] && [ -n "\${BASH_VERSION:-}" ] && . "\$HOME/.bashrc"
 PATH=$BIN:/teleprinter/target/release:\$PATH
 export PATH
+${PATINA_FAKE_EDID_DIR:+export PATINA_FAKE_EDID_DIR=$PATINA_FAKE_EDID_DIR}
 if [ "\$(tty)" = /dev/tty1 ] && [ -z "\${WAYLAND_DISPLAY:-}" ]; then
     exec dbus-run-session -- $BIN/patina-session > /tmp/patina-session.log 2>&1
 fi

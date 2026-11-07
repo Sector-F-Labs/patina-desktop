@@ -13,6 +13,9 @@ pub struct Edid {
     pub name: Option<String>,
     /// The serial number as text, if it has one.
     pub serial_text: Option<String>,
+    /// The panel's size in millimetres, as far as the EDID says (it is in
+    /// whole centimetres); (0, 0) when it doesn't.
+    pub size_mm: (u32, u32),
 }
 
 /// Reads the base block of `bytes`; `None` if it isn't an EDID.
@@ -55,6 +58,7 @@ pub fn parse(bytes: &[u8]) -> Option<Edid> {
         serial,
         name,
         serial_text,
+        size_mm: (bytes[21] as u32 * 10, bytes[22] as u32 * 10),
     })
 }
 
@@ -99,6 +103,15 @@ mod tests {
 
     // "GSM" is 0x1E6D.
     const GSM: [u8; 2] = [0x1e, 0x6d];
+
+    #[test]
+    fn reads_the_panels_size() {
+        let mut b = block(GSM, 1, 1, &[]);
+        b[21] = 80;
+        b[22] = 34;
+        assert_eq!(parse(&b).unwrap().size_mm, (800, 340));
+        assert_eq!(parse(&block(GSM, 1, 1, &[])).unwrap().size_mm, (0, 0));
+    }
 
     #[test]
     fn reads_maker_model_and_serial() {
