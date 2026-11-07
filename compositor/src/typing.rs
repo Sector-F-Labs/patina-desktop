@@ -50,7 +50,8 @@ const AFTER_READ: Duration = Duration::from_millis(150);
 /// The clipboard is given back after this even if the text wasn't read.
 const UNREAD: Duration = Duration::from_secs(1);
 /// How long a paste waits for modifiers held by hand to be let go, so the
-/// window sees Ctrl+V and not Ctrl+Alt+V; then it pastes anyway.
+/// window sees Ctrl+V and not Ctrl+Alt+V, and for a window to have the
+/// keyboard; then it pastes anyway.
 const LET_GO: Duration = Duration::from_secs(2);
 /// How often it looks.
 const LET_GO_STEP: Duration = Duration::from_millis(50);
@@ -252,9 +253,13 @@ impl State {
     }
 
     /// Pastes the next text, or gives the clipboard back if there's none.
-    /// Waits, for a while, for modifiers held by hand to be let go.
+    /// Waits, for a while, for modifiers held by hand to be let go, and for
+    /// a window to have the keyboard: the emoji picker (ADR-0120) commits as
+    /// it closes, while its surface still has it.
     fn paste_next(&mut self, saved: Option<Served>) {
-        if !self.typing.queue.is_empty() && self.modifiers_down() {
+        if !self.typing.queue.is_empty()
+            && (self.modifiers_down() || self.focused_window().is_none())
+        {
             let since = *self.typing.waiting.get_or_insert_with(Instant::now);
             if since.elapsed() < LET_GO {
                 self.typing.stage = Stage::Pasted { saved };

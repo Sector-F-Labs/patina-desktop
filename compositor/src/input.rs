@@ -41,6 +41,8 @@ pub enum KeyAction {
     /// Open the launcher as a search box in the middle of the screen
     /// (Super+Space, as Spotlight).
     Spotlight,
+    /// The emoji picker (Ctrl+Super+Space, as macOS).
+    Emoji,
     /// Hide the HUD, or bring it back (Super+H): `patina-hud --toggle`.
     Hud,
     /// Read config.toml again (Super+Shift+R).
@@ -302,6 +304,10 @@ impl State {
                 if !self.config.launcher_spotlight.is_empty() {
                     self.spawn_client(&self.config.launcher_spotlight.clone());
                 }
+                None
+            }
+            Some(KeyAction::Emoji) => {
+                self.spawn_client("patina-emoji");
                 None
             }
             Some(KeyAction::Hud) => {

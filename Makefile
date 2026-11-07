@@ -87,7 +87,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := files notebook patina-hud patina-clipboard patina-clock patina-compositor patina-dictate patina-launcher patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-skin-builder patina-tiler patina-volume patina-wallpaper patina-wifi
+BINARIES := files notebook patina-hud patina-clipboard patina-clock patina-compositor patina-dictate patina-emoji patina-launcher patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-skin-builder patina-tiler patina-volume patina-wallpaper patina-wifi
 # The session's terminal, which deploy installs too: the checkout beside this
 # one, as it is, else GitHub's.
 TELEPRINTER ?= $(abspath ../teleprinter)
