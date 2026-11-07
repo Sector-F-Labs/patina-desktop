@@ -182,7 +182,8 @@ pub fn keeps(config: &Config, gaps: Gaps, edge: &str) -> (i32, i32) {
         "left" | "right" => (Side::Top, Side::Bottom),
         _ => (Side::Left, Side::Right),
     };
-    let keep = |side| kept(config, side).map_or(0, |t| t as i32 + gaps.gap);
+    // The gap is also what's left from a screen's edge nothing is kept on.
+    let keep = |side| kept(config, side).map_or(0, |t| t as i32) + gaps.gap;
     (keep(near), keep(far))
 }
 
@@ -486,6 +487,16 @@ mod tests {
         gap: 0,
         radius: 0.0,
     };
+
+    #[test]
+    fn a_piece_keeps_the_gap_from_every_edge_and_what_is_kept_there() {
+        // The default bar keeps its bottom edge only: its 41 and the gap.
+        let c = config("");
+        let (near, far) = keeps(&c, GAPS, "left");
+        assert_eq!(near, 8, "nothing kept at the top: the gap");
+        assert!(far > 8, "the bar's own height at the bottom");
+        assert_eq!(keeps(&c, GAMELESS, "left").0, 0, "no gaps, no gap");
+    }
 
     #[test]
     fn the_whole_bars_menus_open_past_its_edge_as_before() {
