@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Skin Builder: a window with a palette's four swatches under its title bar. -->
+  <rect x="10" y="16" width="108" height="96" rx="14" fill="#ddd6c7" stroke="#8d8576" stroke-width="3"/>
+  <path d="M10 30a14 14 0 0 1 14-14h80a14 14 0 0 1 14 14v10H10z" fill="#c23f12"/>
+  <circle cx="26" cy="28" r="4" fill="#f4f1ea"/><circle cx="40" cy="28" r="4" fill="#f4f1ea"/>
+  <rect x="22" y="54" width="38" height="24" rx="6" fill="#4f7a3c"/>
+  <rect x="68" y="54" width="38" height="24" rx="6" fill="#2d6f8e"/>
+  <rect x="22" y="84" width="38" height="18" rx="6" fill="#e0a526"/>
+  <rect x="68" y="84" width="38" height="18" rx="6" fill="#3a3a40"/>
+</svg>

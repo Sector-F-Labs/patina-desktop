@@ -10,6 +10,7 @@ APPSDIR := $(PREFIX)/share/applications
 ICONDIR := $(PREFIX)/share/icons/hicolor
 SETTINGS_ID := com.sectorflabs.Settings
 PROCESSES_ID := com.sectorflabs.ProcessManager
+SKINBUILDER_ID := com.sectorflabs.SkinBuilder
 # Files (ADR-0106): its launcher entry and icon, and the file chooser it is
 # for the session, as a portal backend.
 FILES_ID := com.sectorflabs.Files
@@ -86,7 +87,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := files notebook patina-hud patina-clipboard patina-clock patina-compositor patina-dictate patina-launcher patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-tiler patina-volume patina-wallpaper patina-wifi
+BINARIES := files notebook patina-hud patina-clipboard patina-clock patina-compositor patina-dictate patina-launcher patina-lock patina-menu patina-night-light patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-skin-builder patina-tiler patina-volume patina-wallpaper patina-wifi
 # The session's terminal, which deploy installs too: the checkout beside this
 # one, as it is, else GitHub's.
 TELEPRINTER ?= $(abspath ../teleprinter)
@@ -120,6 +121,8 @@ stage:
 	sed 's|^Exec=patina-settings|Exec=$(PREFIX)/bin/patina-settings|' settings/packaging/$(SETTINGS_ID).desktop > $(DESTDIR)$(APPSDIR)/$(SETTINGS_ID).desktop
 	install -m 644 processes/packaging/processes.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(PROCESSES_ID).svg
 	sed 's|^Exec=patina-processes|Exec=$(PREFIX)/bin/patina-processes|' processes/packaging/$(PROCESSES_ID).desktop > $(DESTDIR)$(APPSDIR)/$(PROCESSES_ID).desktop
+	install -m 644 skin-builder/packaging/skin-builder.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(SKINBUILDER_ID).svg
+	sed 's|^Exec=patina-skin-builder|Exec=$(PREFIX)/bin/patina-skin-builder|' skin-builder/packaging/$(SKINBUILDER_ID).desktop > $(DESTDIR)$(APPSDIR)/$(SKINBUILDER_ID).desktop
 	install -d $(DESTDIR)$(PORTALDIR)/portals $(DESTDIR)$(PREFIX)/share/dbus-1/services
 	install -m 644 files/packaging/linux/files.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(FILES_ID).svg
 	sed 's|^Exec=files|Exec=$(PREFIX)/bin/files|' files/packaging/linux/$(FILES_ID).desktop > $(DESTDIR)$(APPSDIR)/$(FILES_ID).desktop
@@ -201,7 +204,8 @@ uninstall:
 	rm -f $(addprefix $(MANDIR)/man1/,$(notdir $(wildcard man/*.1)))
 	rm -f $(addprefix $(MANDIR)/man7/,$(notdir $(wildcard man/*.7)))
 	rm -f $(APPSDIR)/$(SETTINGS_ID).desktop $(APPSDIR)/patina-mimeapps.list $(ICONDIR)/scalable/apps/$(SETTINGS_ID).svg \
-		$(APPSDIR)/$(PROCESSES_ID).desktop $(ICONDIR)/scalable/apps/$(PROCESSES_ID).svg
+		$(APPSDIR)/$(PROCESSES_ID).desktop $(ICONDIR)/scalable/apps/$(PROCESSES_ID).svg \
+		$(APPSDIR)/$(SKINBUILDER_ID).desktop $(ICONDIR)/scalable/apps/$(SKINBUILDER_ID).svg
 	rm -f $(APPSDIR)/$(FILES_ID).desktop $(ICONDIR)/scalable/apps/$(FILES_ID).svg $(PORTALDIR)/portals/patina.portal \
 		$(PREFIX)/share/dbus-1/services/$(PORTAL_SERVICE).service
 	rm -f $(APPSDIR)/$(READER_ID).desktop $(ICONDIR)/scalable/apps/$(READER_ID).svg \

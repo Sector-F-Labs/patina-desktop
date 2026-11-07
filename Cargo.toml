@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["hud", "clipboard", "clock", "compositor", "dbug", "dictate", "files", "launcher", "lock", "menu", "notebook", "power", "processes", "raise", "reader", "screenshot", "session", "settings", "shell", "system", "tiler", "volume", "wallpaper", "wifi"]
+members = ["hud", "clipboard", "clock", "compositor", "dbug", "dictate", "files", "launcher", "lock", "menu", "notebook", "power", "processes", "raise", "reader", "screenshot", "session", "settings", "shell", "skin-builder", "system", "tiler", "volume", "wallpaper", "wifi"]
 
 # Patina's develop branch, so desktop work can use Patina changes before
 # they're released.
