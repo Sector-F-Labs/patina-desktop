@@ -360,7 +360,7 @@ where
             Rectangle::new(
                 (x0 + width(TOP_LEFT), y0).into(),
                 (
-                    outer.size.w - width(TOP_LEFT) - width(TOP_RIGHT),
+                    (outer.size.w - width(TOP_LEFT) - width(TOP_RIGHT)).max(0),
                     height(TOP),
                 )
                     .into(),
@@ -379,7 +379,7 @@ where
                 (x1 - width(RIGHT), y0 + height(TOP_RIGHT)).into(),
                 (
                     width(RIGHT),
-                    outer.size.h - height(TOP_RIGHT) - height(BOTTOM_RIGHT),
+                    (outer.size.h - height(TOP_RIGHT) - height(BOTTOM_RIGHT)).max(0),
                 )
                     .into(),
             ),
@@ -396,7 +396,7 @@ where
             Rectangle::new(
                 (x0 + width(BOTTOM_LEFT), y1 - height(BOTTOM)).into(),
                 (
-                    outer.size.w - width(BOTTOM_LEFT) - width(BOTTOM_RIGHT),
+                    (outer.size.w - width(BOTTOM_LEFT) - width(BOTTOM_RIGHT)).max(0),
                     height(BOTTOM),
                 )
                     .into(),
@@ -415,7 +415,7 @@ where
                 (x0, y0 + height(TOP_LEFT)).into(),
                 (
                     width(LEFT),
-                    outer.size.h - height(TOP_LEFT) - height(BOTTOM_LEFT),
+                    (outer.size.h - height(TOP_LEFT) - height(BOTTOM_LEFT)).max(0),
                 )
                     .into(),
             ),
