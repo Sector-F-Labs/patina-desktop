@@ -255,7 +255,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "parking_lot",
  "percent-encoding",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
  "x11rb",
 ]
 
@@ -1107,7 +1107,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users 0.5.3",
- "windows-sys 0.61.2",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1497,7 +1497,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1970,7 +1970,7 @@ dependencies = [
  "gobject-sys",
  "libc",
  "system-deps",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -3756,10 +3756,8 @@ version = "0.1.0"
 dependencies = [
  "egui",
  "emojis",
- "image",
  "patina-shell",
  "patina-ui",
- "twemoji-assets",
  "zbus",
 ]
 
@@ -3939,8 +3937,8 @@ dependencies = [
 
 [[package]]
 name = "patina-ui"
-version = "0.1.14"
-source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#13cb9443a56d995068eba542925fe4e50f56d876"
+version = "0.1.15"
+source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#e995ea50f18018fce2f8b88a86847719ece23f34"
 dependencies = [
  "dirs 7.0.0",
  "egui",
@@ -3953,6 +3951,7 @@ dependencies = [
  "serde_ignored",
  "syntect",
  "toml",
+ "ttf-parser",
  "two-face",
  "wayland-backend",
  "wayland-client",
@@ -4720,7 +4719,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys 0.12.1",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5293,7 +5292,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.5",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -5577,12 +5576,6 @@ checksum = "d2df906b07856748fa3f6e0ad0cbaa047052d4a7dd609e231c4f72cee8c36f31"
 dependencies = [
  "core_maths",
 ]
-
-[[package]]
-name = "twemoji-assets"
-version = "1.5.1+17.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6857896b4a287e70f8197ab8fb9d68b3c43bb7ae97595aceaf2d11c21b93d9e9"
 
 [[package]]
 name = "two-face"
@@ -6356,7 +6349,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

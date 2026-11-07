@@ -25,6 +25,8 @@ pub fn group(group: Group) -> Vec<&'static Emoji> {
     group
         .emojis()
         .filter(|e| matches!(e.skin_tone(), None | Some(emojis::SkinTone::Default)))
+        // Newer than the font: nothing to draw.
+        .filter(|e| patina::emoji::glyph(e.as_str()).is_some())
         .collect()
 }
 

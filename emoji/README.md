@@ -12,11 +12,12 @@ typed into the window that had the focus.
   clipboard and gives the clipboard back. Wayland windows only, as dictation.
 - **A layer-shell overlay** on patina-shell, like the launcher: keyboard exclusive, closes on
   Escape or when another window is clicked. Running it while open closes it, so the key toggles it.
-- **Twemoji**, as images (`twemoji-assets`, graphics CC-BY 4.0 by Twitter and other contributors),
-  because egui's fonts have no colour emoji. They are decoded as they scroll into view.
+- **Patina's emoji** (`patina::emoji`, feature `emoji`, Patina's ADR-0031): Noto Color Emoji as
+  images, the pack Teleprinter's code first solved, because egui's fonts have no colour emoji. They are
+  decoded as they scroll into view. Emoji newer than the font are left out.
 
 ## Code
 
-`main.rs`, the surface and the `Commit`; `ui.rs`, the search box, categories and grid; `data.rs`,
+`main.rs`, the surface and the `Commit`; `ui.rs`, the search box, categories and grid;  `data.rs`,
 the emoji (the `emojis` crate), searching them by name and shortcode, and the recent ones kept in
 `$XDG_DATA_HOME/patina-emoji/recent`.

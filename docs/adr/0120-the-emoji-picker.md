@@ -21,9 +21,11 @@ compositor's job (ADR-0071); dictation already does it through `Commit` on the s
   Super+period. The compositor starts it as a client, like the launcher.
 - **The pick is typed as dictation's words are**: the picker closes, waits 120 ms for the focus to
   come back, and calls `Commit`. No new compositor code for typing.
-- **Emoji from the `emojis` crate** (names, shortcodes, groups) and **drawn as Twemoji images**
-  (`twemoji-assets`, PNG), since egui has no colour emoji font; the graphics are CC-BY 4.0, credited in the
-  README and man page. About 3.5 MB of binary.
+- **Emoji from the `emojis` crate** (names, shortcodes, groups), **drawn with Patina's
+  `emoji` feature** (Patina's ADR-0031): Noto Color Emoji, the pack Teleprinter solved rendering
+  with (its ADR-0013), painted as images because egui has no colour glyphs, so an emoji looks the
+  same in every app. About 11 MB of binary. An emoji the font lacks (the `emojis` crate is newer) is
+  left out of the grid. (Twemoji was the first try, and dropped for this.)
 - **Recent emoji** are kept in `$XDG_DATA_HOME/patina-emoji/recent`.
 
 ## Consequences
