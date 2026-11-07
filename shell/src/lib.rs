@@ -6,8 +6,8 @@
 //! ([`piece`]), the Patina bar's skin and edge ([`hud`]), and the open
 //! windows ([`toplevels`]).
 
-pub mod hud;
 pub mod host;
+pub mod hud;
 pub mod piece;
 pub mod raster;
 mod scale;

@@ -125,6 +125,8 @@ pub struct App {
     wallpaper: Option<PathBuf>,
     /// How it meets the screen.
     wallpaper_fit: Fit,
+    /// The colour around it where the fit leaves gaps; `None` for the skin's.
+    wallpaper_background: Option<[u8; 3]>,
     /// Each wallpaper's thumbnail, once decoded; `None` if it won't.
     thumbnails: HashMap<PathBuf, Option<TextureHandle>>,
     decoded: Option<mpsc::Receiver<(PathBuf, Option<egui::ColorImage>)>>,
@@ -161,6 +163,7 @@ impl App {
             wallpapers: Vec::new(),
             wallpaper: patina_shell::hud::wallpaper(),
             wallpaper_fit: wallpapers::configured_fit(),
+            wallpaper_background: wallpapers::configured_background(),
             thumbnails: HashMap::new(),
             decoded: None,
             flask: None,
@@ -199,6 +202,7 @@ impl App {
         self.skins[self.skin].apply(ctx);
         self.wallpaper = patina_shell::hud::wallpaper();
         self.wallpaper_fit = wallpapers::configured_fit();
+        self.wallpaper_background = wallpapers::configured_background();
         self.bar.reload();
     }
 
@@ -229,6 +233,15 @@ impl App {
         match patina_shell::hud::set("wallpaper_fit", fit.name()) {
             Ok(()) => self.wallpaper_fit = fit,
             Err(e) => self.message = Some(Message::error(format!("Couldn't save the fit: {e}"))),
+        }
+    }
+
+    /// Sets the colour around the wallpaper; `None` goes back to the skin's.
+    fn choose_background(&mut self, colour: Option<[u8; 3]>) {
+        let text = colour.map(patina_system::wallpaper::background_text);
+        match patina_shell::hud::set("wallpaper_background", text.as_deref().unwrap_or("")) {
+            Ok(()) => self.wallpaper_background = colour,
+            Err(e) => self.message = Some(Message::error(format!("Couldn't save the colour: {e}"))),
         }
     }
 
@@ -426,6 +439,32 @@ impl App {
         });
         if let Some(fit) = fit {
             self.choose_fit(fit);
+        }
+        let mut background = None;
+        ui.add_enabled_ui(self.wallpaper.is_some(), |ui| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new("Background").strong())
+                    .on_hover_text("Shows where the scale leaves gaps around the image");
+                let mut rgb = self.wallpaper_background.unwrap_or_else(|| {
+                    let c = ui.visuals().panel_fill;
+                    [c.r(), c.g(), c.b()]
+                });
+                if egui::color_picker::color_edit_button_srgb(ui, &mut rgb).changed() {
+                    background = Some(Some(rgb));
+                }
+                if ui
+                    .add_enabled(
+                        self.wallpaper_background.is_some(),
+                        egui::Button::new("Skin colour"),
+                    )
+                    .clicked()
+                {
+                    background = Some(None);
+                }
+            });
+        });
+        if let Some(colour) = background {
+            self.choose_background(colour);
         }
         ui.add_space(8.0);
 

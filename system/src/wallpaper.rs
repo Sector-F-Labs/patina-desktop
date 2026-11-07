@@ -1,7 +1,25 @@
 //! How the wallpaper image meets the screen: `wallpaper_fit` in the bar's
 //! config, which patina-wallpaper draws by and Settings' Wallpaper page
 //! sets. There's no stretching: an image pulled out of its shape never
-//! looks right.
+//! looks right. `wallpaper_background` is the colour that shows where the
+//! layout leaves the screen bare.
+
+/// The colour behind the image, where its layout leaves the screen bare:
+/// `wallpaper_background` in the bar's config, as `#rrggbb`. Nothing, or
+/// anything else, leaves the skin's colour.
+pub fn parse_background(text: Option<&str>) -> Option<[u8; 3]> {
+    let hex = text?.trim().strip_prefix('#')?;
+    if hex.len() != 6 || !hex.is_ascii() {
+        return None;
+    }
+    let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
+    Some([byte(0)?, byte(2)?, byte(4)?])
+}
+
+/// `rgb` as `#rrggbb`, for the config.
+pub fn background_text([r, g, b]: [u8; 3]) -> String {
+    format!("#{r:02x}{g:02x}{b:02x}")
+}
 
 /// How the image is laid on the screen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -96,6 +114,17 @@ mod tests {
         assert_eq!(Fit::from_name(Some("center")), Fit::Centre);
         assert_eq!(Fit::from_name(Some("stretch")), Fit::Fill);
         assert_eq!(Fit::from_name(None), Fit::Fill);
+    }
+
+    #[test]
+    fn the_background_is_a_hex_colour() {
+        assert_eq!(parse_background(Some("#1a2B3c")), Some([0x1a, 0x2b, 0x3c]));
+        assert_eq!(background_text([0x1a, 0x2b, 0x3c]), "#1a2b3c");
+        assert_eq!(parse_background(Some("")), None);
+        assert_eq!(parse_background(Some("1a2b3c")), None);
+        assert_eq!(parse_background(Some("#12345")), None);
+        assert_eq!(parse_background(Some("#gggggg")), None);
+        assert_eq!(parse_background(None), None);
     }
 
     #[test]

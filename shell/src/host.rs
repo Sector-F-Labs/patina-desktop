@@ -25,9 +25,7 @@ use smithay_client_toolkit::{
         client::{
             Connection, QueueHandle,
             globals::registry_queue_init,
-            protocol::{
-                wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface, wl_touch,
-            },
+            protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface, wl_touch},
         },
         protocols::wp::cursor_shape::v1::client::wp_cursor_shape_device_v1::{
             Shape, WpCursorShapeDeviceV1,
@@ -68,7 +66,6 @@ use crate::raster::Painter;
 use crate::scale::{FractionalData, NoEvents};
 use crate::shadow::{self, Style as ShadowStyle};
 use crate::toplevels::{ManagerData, Toplevel, ToplevelRequest, Toplevels};
-use wayland_protocols_plasma::shadow::client::org_kde_kwin_shadow_manager::OrgKdeKwinShadowManager;
 use smithay_client_toolkit::reexports::protocols::wp::{
     fractional_scale::v1::client::{
         wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1,
@@ -76,6 +73,7 @@ use smithay_client_toolkit::reexports::protocols::wp::{
     },
     viewporter::client::{wp_viewport::WpViewport, wp_viewporter::WpViewporter},
 };
+use wayland_protocols_plasma::shadow::client::org_kde_kwin_shadow_manager::OrgKdeKwinShadowManager;
 
 fn output_size_id() -> egui::Id {
     egui::Id::new("patina-shell-output-size")
@@ -561,7 +559,14 @@ impl<S: Shell> Host<S> {
             if s.shadow.is_some() || !matches!(s.role, Role::Layer(_)) {
                 continue;
             }
-            match shadow::attach(manager, &self.shm, &self.qh, s.role.wl_surface(), style, inset) {
+            match shadow::attach(
+                manager,
+                &self.shm,
+                &self.qh,
+                s.role.wl_surface(),
+                style,
+                inset,
+            ) {
                 Ok(hold) => {
                     s.shadow = Some(hold);
                     // KWin applies a shadow with the surface's next commit.
@@ -1419,7 +1424,8 @@ impl<S: Shell> TouchHandler for Host<S> {
         let pointer = self.pointer_touch.take();
         for (id, surface, pos) in touches {
             if let Some(s) = self.surface_mut(&surface) {
-                s.events.push(touch_event(id, egui::TouchPhase::Cancel, pos));
+                s.events
+                    .push(touch_event(id, egui::TouchPhase::Cancel, pos));
                 if pointer == Some(id) {
                     s.events.push(egui::Event::PointerGone);
                 }
