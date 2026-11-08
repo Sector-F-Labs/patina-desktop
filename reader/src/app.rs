@@ -388,6 +388,7 @@ impl Reader {
     pub fn new(cc: &eframe::CreationContext<'_>, start: Start) -> Self {
         patina::appearance::watch(&cc.egui_ctx);
         patina::markdown::install(&cc.egui_ctx);
+        patina::emoji::install(patina_emoji_font::FONT);
         let config = Config::load();
         let (skins, skin_errors) = load_skins();
         let skin = skins.iter().position(|s| s.name == config.skin).unwrap_or(0);

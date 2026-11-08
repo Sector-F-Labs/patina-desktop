@@ -6,6 +6,8 @@ members = ["hud", "clipboard", "clock", "compositor", "dbug", "dictate", "displa
 # they're released.
 [workspace.dependencies]
 patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+# Noto Color Emoji for patina::emoji: git only, too big for crates.io (Patina ADR-0031).
+patina-emoji-font = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
 # The layer-shell host the pieces are drawn on (ADR-0109).
 patina-shell = { path = "shell" }
 

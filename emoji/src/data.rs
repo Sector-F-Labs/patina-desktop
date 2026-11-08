@@ -22,6 +22,9 @@ pub const GROUPS: [(Group, &str); 9] = [
 
 /// The emoji of `group`, without the skin-tone variants of each.
 pub fn group(group: Group) -> Vec<&'static Emoji> {
+    // The picker installs it in `main`; the tests don't go through there.
+    #[cfg(test)]
+    patina::emoji::install(patina_emoji_font::FONT);
     group
         .emojis()
         .filter(|e| matches!(e.skin_tone(), None | Some(emojis::SkinTone::Default)))

@@ -13,6 +13,7 @@ egui = "0.35"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp"] }
 # Patina's develop branch, for the markdown widget it now holds (ADR-0013).
 patina-ui = { workspace = true, features = ["markdown", "emoji"] }
+patina-emoji-font = { workspace = true }
 rfd = "0.17"
 serde = { version = "1", features = ["derive"] }
 toml = "1"

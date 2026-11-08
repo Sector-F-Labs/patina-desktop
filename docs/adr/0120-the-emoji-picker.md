@@ -24,7 +24,8 @@ compositor's job (ADR-0071); dictation already does it through `Commit` on the s
 - **Emoji from the `emojis` crate** (names, shortcodes, groups), **drawn with Patina's
   `emoji` feature** (Patina's ADR-0031): Noto Color Emoji, the pack Teleprinter solved rendering
   with (its ADR-0013), painted as images because egui has no colour glyphs, so an emoji looks the
-  same in every app. About 11 MB of binary. An emoji the font lacks (the `emojis` crate is newer) is
+  same in every app. About 11 MB of binary; the font comes from the `patina-emoji-font` git crate and
+  `main` installs it (Patina's ADR-0031). An emoji the font lacks (the `emojis` crate is newer) is
   left out of the grid. (Twemoji was the first try, and dropped for this.)
 - **Recent emoji** are kept in `$XDG_DATA_HOME/patina-emoji/recent`.
 

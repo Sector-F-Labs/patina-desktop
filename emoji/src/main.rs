@@ -34,6 +34,7 @@ const NAME: &str = "com.sectorflabs.Patina.Input";
 const PATH: &str = "/com/sectorflabs/Patina/Input";
 
 fn main() -> ExitCode {
+    patina::emoji::install(patina_emoji_font::FONT);
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         None => {}

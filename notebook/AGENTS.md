@@ -32,7 +32,9 @@ launcher isn't installed, or the window was opened before it was.
   in Patina, `patina::markdown` (`model`, `doc`, `editor`, `embeds`, `fonts`; ADR-0013, Patina's
   ADR-0015), from its develop branch. Change them there (`~/Src/com/sectorflabs/patina`, push
   `develop`), then `cargo update -p patina-ui` here; `main.rs` brings them in as `editor` and
-  `markdown`. Never publish Patina without asking.
+  `markdown`. Colour emoji
+  need `patina_emoji_font::FONT` installed at start-up (`emoji::install`; Patina's ADR-0031). Never
+  publish Patina without asking.
 - `src/notes.rs`: workspace scanning and file helpers, including image paths.
 - `src/app.rs`: window, Patina header bar, tabs and toolbar, sidebar, dialogs, autosave, skins.
   `Tab` holds one workspace (folder, tree, open note, editor); `App` holds the tabs and the

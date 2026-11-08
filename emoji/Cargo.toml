@@ -11,4 +11,5 @@ egui = "0.35"
 emojis = "0.9"
 patina-shell = { workspace = true }
 patina-ui = { workspace = true, features = ["emoji"] }
+patina-emoji-font = { workspace = true }
 zbus = "5"

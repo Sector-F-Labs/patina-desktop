@@ -22,7 +22,8 @@ add one.
 - `src/config.rs`: `~/.config/reader/config.toml`.
 - Markdown and highlighted source come from Patina's `markdown` feature (`patina::markdown`,
   Patina's ADR-0015): `Editor` read-only, `embeds::code_file`. Change them in Patina
-  (`~/Src/com/sectorflabs/patina`, push `develop`), then `cargo update -p patina-ui` here. Never
+  (`~/Src/com/sectorflabs/patina`, push `develop`), then `cargo update -p patina-ui` here. Colour emoji
+  need `patina_emoji_font::FONT` installed at start-up (`emoji::install`; Patina's ADR-0031). Never
   publish Patina without asking.
 
 ## Rules
