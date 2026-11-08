@@ -19,7 +19,7 @@
 # doesn't take modifiers alone.
 #
 # Not here, and no config can take them: Alt+Tab and Alt+Shift+Tab (the
-# bar's tabs, the way out of a fullscreen game), Ctrl+Shift+Escape (the task
+# most recently used windows, the way out of a fullscreen game), Ctrl+Shift+Escape (the task
 # manager), Ctrl+Alt+Backspace and Ctrl+Alt+Shift+Backspace (quit and restart
 # the desktop), the consoles and the media keys (`input::key_action`).
 

@@ -129,7 +129,7 @@ ADR-0069; the defaults are in [compositor/keys.toml](compositor/keys.toml)):
 | **Ctrl+Super+Space**, **Super+period** | the emoji picker: search, pick, and it's typed where you were (ADR-0120) |
 | **Super+H** | hide the HUD, or bring it back (`patina-hud --toggle`; ADR-0111) |
 | **Alt+T**, **Alt+B** | Teleprinter; Firefox, or its window if it's open |
-| **Alt+Tab**, **Alt+Shift+Tab** | step along the bar's tabs (fixed) |
+| **Alt+Tab**, **Alt+Shift+Tab** | swap with the previous window; hold Alt for further back (fixed) |
 | **Super+1–9** | bring a tab forward |
 | **Super+M** | minimise to its tab; focusing the tab brings it back |
 | **Super+Q** | quit the app (**Super+W** and other Super keys reach the app as Ctrl, so Super+W closes a tab) |

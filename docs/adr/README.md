@@ -168,6 +168,7 @@ mechanics of adding one.
 | [0124](0124-displays-are-remembered-by-model.md) | Displays are remembered by model, and listed in Settings | Accepted |
 | [0125](0125-a-multi-monitor-test-vm-on-vkms.md) | A multi-monitor test VM on vkms | Accepted |
 | [0126](0126-a-known-monitor-is-switched-on-without-asking.md) | A known monitor is switched on without asking | Accepted |
+| [0127](0127-alt-tab-goes-by-most-recent-use.md) | Alt+Tab goes by most recent use, as on other desktops | Accepted |
 
 ## Decision Relationship
 

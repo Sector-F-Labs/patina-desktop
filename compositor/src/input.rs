@@ -254,6 +254,10 @@ impl State {
             },
         );
         self.layout_maybe_changed();
+        // Alt up ends an Alt+Tab round (ADR-0127).
+        if !keyboard.modifier_state().alt {
+            self.recent.end();
+        }
         // Super tapped on its own (pressed and released with nothing in
         // between) does what `[keys]` gives "Super", the launcher by default;
         // any other key or a click cancels it.

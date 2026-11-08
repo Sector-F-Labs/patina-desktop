@@ -130,6 +130,8 @@ pub struct State {
     pub lock_shown: std::sync::Arc<std::sync::atomic::AtomicBool>,
     /// Super is down, and nothing else has been pressed since.
     pub super_tap: bool,
+    /// Windows in the order they were last used, for Alt+Tab (ADR-0127).
+    pub recent: crate::tabs::Recent<WlSurface>,
     /// Super keys sent on as Ctrl (ADR-0067).
     pub cmd: crate::cmd::Cmd,
     /// Keys sent on as others, still down (ADR-0076).
@@ -306,6 +308,7 @@ impl State {
             ),
             lock_shown: Default::default(),
             super_tap: false,
+            recent: Default::default(),
             cmd: Default::default(),
             remapped: Default::default(),
             caps: Default::default(),
@@ -921,6 +924,12 @@ impl State {
             && from != *window
         {
             crate::tabs::set_opener(window, &from);
+        }
+        if let Some(surface) = window
+            .as_ref()
+            .and_then(smithay::wayland::seat::WaylandFocus::wl_surface)
+        {
+            self.recent.used(&surface);
         }
         if let Some(window) = &window {
             self.unminimize(window);
