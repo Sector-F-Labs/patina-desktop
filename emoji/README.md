@@ -13,8 +13,9 @@ typed into the window that had the focus.
 - **A layer-shell overlay** on patina-shell, like the launcher: keyboard exclusive, closes on
   Escape or when another window is clicked. Running it while open closes it, so the key toggles it.
 - **Patina's emoji** (`patina::emoji`, feature `emoji`, Patina's ADR-0031): Noto Color Emoji as
-  images, the pack Teleprinter's code first solved, because egui's fonts have no colour emoji. They are
-  decoded as they scroll into view. Emoji newer than the font are left out.
+  images, the pack Teleprinter's code first solved, because egui's fonts have no colour emoji. The font
+  is the `patina-emoji-font` crate from git, which `main` hands to Patina with `emoji::install`
+  (10 MB is too much for Patina's crates.io package). They are decoded as they scroll into view. Emoji newer than the font are left out.
 
 ## Code
 

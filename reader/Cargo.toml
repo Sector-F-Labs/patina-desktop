@@ -12,6 +12,7 @@ eframe = { version = "0.35", features = ["persistence"] }
 egui = "0.35"
 # Patina's develop branch, for its markdown widget (Patina's ADR-0015).
 patina-ui = { workspace = true, features = ["markdown", "emoji"] }
+patina-emoji-font = { workspace = true }
 rfd = "0.17"
 serde = { version = "1", features = ["derive"] }
 toml = "1"
