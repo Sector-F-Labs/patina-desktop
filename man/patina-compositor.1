@@ -74,8 +74,8 @@ Only the app's own maximise button (or a double click on its title bar)
 maximises a window, edge to edge.
 With gaps on, it fills the screen inside the gaps instead, as Super+Up does,
 and keeps its rounded corners; the app's maximise again restores it.
-The bar's tabs are the list of windows: Alt+Tab steps along them, and
-closing a window gives the keyboard back to the window it came from, or,
+The bar's tabs are the list of windows, and Alt+Tab goes by most recent use.
+Closing a window gives the keyboard back to the window it came from, or,
 if that's gone, focuses its neighbouring tab.
 A minimised window leaves the screen and keeps its tab; focusing it again,
 by its tab, Alt+Tab or Super+1 to 9, puts it back where it was.
@@ -121,7 +121,8 @@ Hide the HUD, or bring it back:
 Bring forward the window in that tab of the bar, or start the pinned app
 whose tab it is.
 .It Alt+Tab , Alt+Shift+Tab
-Step to the next or previous tab.
+Go to the window used before this one: a quick press swaps with it, and again swaps back.
+Holding Alt and pressing Tab again goes further back; Shift goes the other way.
 .It Ctrl+Shift+Escape
 Open the process manager,
 .Xr patina-processes 1 ,
