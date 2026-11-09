@@ -14,6 +14,8 @@ and prints what was said; or it transcribes a WAV file.
   (ADR-0071). It ends when that name leaves the bus: with no Wayland connection, nothing else
   would end it, and a restarted desktop would have two.
 - **On its own**, `patina-dictate | wl-copy` puts what you said on the clipboard.
+- **Memory**: the model loads at the first press (or at start, with `preload`) and is unloaded after
+  ten seconds of a game or video in fullscreen, and after ten idle minutes (ADR-0129); Settings sets all three.
 - **Models** are whisper.cpp's GGML files in `$XDG_DATA_HOME/patina-dictate/models`, as
   `ggml-NAME.bin`; base.en is the default. Settings' Dictation page
   downloads and chooses them (`model` in the config); or fetch
@@ -26,7 +28,7 @@ For how the pieces mesh with the compositor, drawn out, see [HOW-IT-WORKS.md](HO
 `main.rs`, the arguments and the run; `daemon.rs`, `--daemon`: the signals, recording,
 transcribing on a thread of its own, and the overlay started and fed levels; `overlay.rs`,
 `--overlay` (ADR-0073), the waveform pill on patina-shell, read from stdin; `config.rs`,
-`~/.config/patina-dictate/config.toml` (overlay, model, language and the accuracy settings, ADR-0119); `capture.rs`, the microphone: cpal on Linux, `/dev/dsp`
+`~/.config/patina-dictate/config.toml` (overlay, model, language, the accuracy settings, ADR-0119, and when the model is loaded and put away, ADR-0129); `capture.rs`, the microphone: cpal on Linux, `/dev/dsp`
 on FreeBSD; `audio.rs`, WAV files, mixing down and resampling to Whisper's 16 kHz, with their
 tests; `transcribe.rs`, the model, and dropping what Whisper thinks isn't speech.
 

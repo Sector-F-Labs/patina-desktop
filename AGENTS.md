@@ -266,6 +266,9 @@ puts them in `$(PREFIX)/share/man`.
   `~/.config/patina-dictate/config.toml` (`config.rs`), which Settings' Dictation page writes.
   Without it, a command that records until Enter and prints the text. `capture.rs` is
   cpal on Linux, `/dev/dsp` on FreeBSD; `transcribe.rs` drops segments Whisper calls no speech.
+  The daemon's model thread (`Engine`, `unload_at`) loads the model at the first press (or at start,
+  `preload`) and unloads it `unload_fullscreen_secs` after the compositor's `FullscreenChanged(true)`
+  and after `unload_idle_mins` unused (ADR-0129).
   Models in `$XDG_DATA_HOME/patina-dictate/models`. On the GPU through Vulkan by default (ADR-0074; CPU
   without a driver), `--features cuda` adds CUDA; `-v` says which device.
 - `compositor/src/typing.rs`: text typed into the focused window (ADR-0071), served as
@@ -275,7 +278,8 @@ puts them in `$(PREFIX)/share/man`.
   `SelectionUserData`), Ctrl+V or Ctrl+Shift+V pressed through `KeyboardHandle::input` past the
   compositor's keys, and the old clipboard given back after the window reads it. Wayland only.
   The `dictate` key's press and release are signalled there (`dictate_key_pressed`/`_released`,
-  called from `State::key`).
+  called from `State::key`). `FullscreenChanged`/`Fullscreen` say when a fullscreen window has the
+  keyboard (`announce_fullscreen`, each time round the loop; ADR-0129).
 - `lock/`: patina-lock, the lock screen (ADR-0028): `Options::lock` makes the host draw on
   ext-session-lock surfaces and unlock when the shell finishes; `pam.rs` declares the PAM calls.
   The compositor's side is `compositor/src/lock.rs` (ADR-0025).
@@ -357,6 +361,13 @@ Don't repeat the UI (ADR-0027): a feature grows where it already lives. The bar'
 window list (Alt+Tab steps along them, closing gives the keyboard back to the window it came from,
 else the neighbouring tab, ADR-0059); there's no separate
 switcher.
+
+## What's done and what isn't
+
+`docs/FEATURES.md` lists what works, by area, and `docs/ROADMAP.md` what doesn't yet and what was
+decided against. When a change finishes something on the roadmap, or adds a feature, update both in the
+same commit, and search the READMEs for the old "not yet" wording (`grep -rn -i "not yet\|still to do"`),
+since several crates keep a "Limits, as they stand" section of their own.
 
 ## Gotchas
 

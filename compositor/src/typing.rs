@@ -91,6 +91,8 @@ impl Served {
 #[derive(Default)]
 pub struct Typing {
     service: Option<dbus::Service>,
+    /// Whether a fullscreen window had the keyboard when listeners were last told.
+    fullscreen: bool,
     /// How dictation is being held, while it is.
     dictating: Option<Held>,
     /// Since when a paste has waited for modifiers to be let go.
@@ -176,6 +178,18 @@ impl State {
         if stops {
             self.typing.dictating = None;
             self.announce_dictation(false);
+        }
+    }
+
+    /// Tells listeners when a fullscreen window gains the keyboard or loses it
+    /// (ADR-0129); called each time round the loop, and says nothing unless it changed.
+    pub fn announce_fullscreen(&mut self) {
+        let now = self.fullscreen_on_top().is_some();
+        if now != self.typing.fullscreen {
+            self.typing.fullscreen = now;
+            if let Some(service) = &self.typing.service {
+                service.announce_fullscreen(now);
+            }
         }
     }
 

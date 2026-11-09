@@ -31,8 +31,8 @@ of its own:
 .Dl dbus-run-session -- patina-compositor
 .It On the hardware
 From a text console or the login screen: it takes the GPU and the input
-devices through the login session, and shows one monitor, the laptop's
-panel first.
+devices through the login session, and shows every connected monitor, the
+laptop's panel first, extended or mirrored as patina-displays sets it.
 .El
 .Pp
 At start-up it runs Xwayland, when installed, for X11 apps.
@@ -518,6 +518,8 @@ Wayland windows only.
 And DictationStarted and DictationStopped, signalled as the
 .Ic dictate
 key goes down and comes up.
+And FullscreenChanged, with the property Fullscreen: whether a fullscreen window
+has the keyboard, a game or a video.
 For
 .Xr patina-dictate 1 ,
 which the compositor starts and keeps running.

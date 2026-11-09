@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 
 use crate::audio::Audio;
 use crate::capture::{Meter, Recording};
+use crate::config::Config;
 use crate::transcribe::{Transcriber, Tuning, model_path};
 
 const NAME: &str = "com.sectorflabs.Patina.Input";
@@ -109,7 +110,8 @@ pub fn run(model: Option<&str>, language: Option<&str>, verbose: bool) -> Result
     let signals = zbus::blocking::MessageIterator::for_match_rule(rule, &bus, None)
         .map_err(|e| e.to_string())?;
 
-    let (recorded, todo) = mpsc::channel::<(Audio, Option<Shown>)>();
+    let (work, todo) = mpsc::channel::<Work>();
+    let recorded = work.clone();
     let committing = bus.clone();
     let model = model.map(String::from);
     let language = language.map(String::from);
@@ -125,6 +127,11 @@ pub fn run(model: Option<&str>, language: Option<&str>, verbose: bool) -> Result
             )
         })
         .map_err(|e| e.to_string())?;
+
+    // A fullscreen window may have the keyboard already.
+    if fullscreen_now(&bus) {
+        let _ = work.send(Work::Fullscreen(true));
+    }
 
     let mut recording: Option<(Recording, Instant, Option<Shown>)> = None;
     for message in signals {
@@ -145,10 +152,15 @@ pub fn run(model: Option<&str>, language: Option<&str>, verbose: bool) -> Result
                         if let Some(shown) = &shown {
                             shown.transcribing();
                         }
-                        let _ = recorded.send((audio, shown));
+                        let _ = recorded.send(Work::Audio(audio, shown));
                     } else if let Some(shown) = shown {
                         shown.close();
                     }
+                }
+            }
+            Some("FullscreenChanged") => {
+                if let Ok(on) = message.body().deserialize::<bool>() {
+                    let _ = work.send(Work::Fullscreen(on));
                 }
             }
             _ => {}
@@ -184,51 +196,198 @@ fn end_with_the_compositor(bus: &zbus::blocking::Connection) -> Result<(), Strin
     Ok(())
 }
 
-/// Turns each recording into text and commits it. The settings are read at
-/// each recording: a changed model or language is loaded then, the tuning
-/// used as it is, and a model that wouldn't load is tried again, so one
-/// downloaded later is used without a restart.
-fn transcribe(
-    todo: &mpsc::Receiver<(Audio, Option<Shown>)>,
-    model: Option<&str>,
-    language: Option<&str>,
+/// What the thread that holds the model is given to do.
+enum Work {
+    /// A recording to turn into text.
+    Audio(Audio, Option<Shown>),
+    /// A fullscreen window, a game or a video, gained the keyboard (true) or
+    /// lost it (ADR-0129).
+    Fullscreen(bool),
+}
+
+/// Whether a fullscreen window has the keyboard now, as the compositor says;
+/// false if it doesn't say (an older compositor).
+fn fullscreen_now(bus: &zbus::blocking::Connection) -> bool {
+    bus.call_method(
+        Some(NAME),
+        PATH,
+        Some("org.freedesktop.DBus.Properties"),
+        "Get",
+        &(NAME, "Fullscreen"),
+    )
+    .ok()
+    .and_then(|reply| {
+        reply
+            .body()
+            .deserialize::<zbus::zvariant::Value>()
+            .ok()
+            .and_then(|v| bool::try_from(v).ok())
+    })
+    .unwrap_or(false)
+}
+
+/// When the model, if it's loaded, is to be unloaded next: after `idle_mins`
+/// unused since `used`, or `fullscreen_secs` into the fullscreen window that
+/// began at `fullscreen`, whichever comes first. A 0 never unloads.
+fn unload_at(
+    used: Instant,
+    fullscreen: Option<Instant>,
+    fullscreen_secs: u32,
+    idle_mins: u32,
+) -> Option<Instant> {
+    let idle = (idle_mins > 0).then(|| used + Duration::from_secs(u64::from(idle_mins) * 60));
+    let away = fullscreen
+        .filter(|_| fullscreen_secs > 0)
+        .map(|since| since + Duration::from_secs(u64::from(fullscreen_secs)));
+    match (idle, away) {
+        (Some(a), Some(b)) => Some(a.min(b)),
+        (a, b) => a.or(b),
+    }
+}
+
+/// The model, loaded and unloaded as the settings and the desktop say
+/// (ADR-0129), and the text it makes.
+struct Engine {
+    /// What's loaded, and what asked for it.
+    transcriber: Option<Transcriber>,
+    loaded: Option<(PathBuf, Option<String>)>,
+    /// The command line's model and language, which win over the config's.
+    model: Option<String>,
+    language: Option<String>,
     verbose: bool,
-    bus: &zbus::blocking::Connection,
-) {
-    // What is loaded, and what asked for it.
-    let mut transcriber: Option<Transcriber> = None;
-    let mut loaded: Option<(PathBuf, Option<String>)> = None;
-    for (audio, shown) in todo {
-        let config = crate::config::load();
+    /// When the model was last loaded or used.
+    used: Instant,
+    /// Since when a fullscreen window has had the keyboard, if one does.
+    fullscreen: Option<Instant>,
+}
+
+impl Engine {
+    /// Loads what the config and command line ask for, unless it's loaded; a
+    /// model that wouldn't load is tried again, so one downloaded later is
+    /// used without a restart.
+    fn load(&mut self, config: &Config) {
         let path = model_path(
-            model
+            self.model
+                .as_deref()
                 .or(config.model.as_deref())
                 .unwrap_or(crate::DEFAULT_MODEL),
         );
-        let language = language
-            .map(String::from)
-            .or_else(|| config.language.clone());
+        let language = self.language.clone().or_else(|| config.language.clone());
         let wanted = (path, language);
-        if transcriber.is_none() || loaded.as_ref() != Some(&wanted) {
+        if self.transcriber.is_none() || self.loaded.as_ref() != Some(&wanted) {
             let started = Instant::now();
-            transcriber = Transcriber::new(&wanted.0, wanted.1.as_deref(), !verbose)
+            self.transcriber = Transcriber::new(&wanted.0, wanted.1.as_deref(), !self.verbose)
                 .inspect_err(|e| eprintln!("patina-dictate: {e}"))
                 .ok();
-            if verbose && transcriber.is_some() {
+            if self.verbose && self.transcriber.is_some() {
                 eprintln!(
                     "patina-dictate: loaded {} in {:.2?}",
                     wanted.0.display(),
                     started.elapsed()
                 );
             }
-            loaded = Some(wanted);
+            self.loaded = Some(wanted);
         }
-        if let Some(t) = &mut transcriber {
+        self.used = Instant::now();
+    }
+
+    fn unload(&mut self, why: &str) {
+        if self.transcriber.take().is_some() {
+            self.loaded = None;
+            if self.verbose {
+                eprintln!("patina-dictate: unloaded the model: {why}");
+            }
+        }
+    }
+}
+
+/// Turns each recording into text and commits it, and keeps the model
+/// loaded only as long as it's wanted. The settings are read at each
+/// recording: a changed model or language is loaded then, the tuning used as
+/// it is. The model loads at the first press, or when the daemon starts if
+/// `preload` says so, and is unloaded after a stretch in a fullscreen window
+/// or of not being used (ADR-0129).
+fn transcribe(
+    todo: &mpsc::Receiver<Work>,
+    model: Option<&str>,
+    language: Option<&str>,
+    verbose: bool,
+    bus: &zbus::blocking::Connection,
+) {
+    let mut engine = Engine {
+        transcriber: None,
+        loaded: None,
+        model: model.map(String::from),
+        language: language.map(String::from),
+        verbose,
+        used: Instant::now(),
+        fullscreen: None,
+    };
+    let config = crate::config::load();
+    if config.preload {
+        engine.load(&config);
+    }
+    loop {
+        let config = crate::config::load();
+        let deadline = engine
+            .transcriber
+            .is_some()
+            .then(|| {
+                unload_at(
+                    engine.used,
+                    engine.fullscreen,
+                    config.unload_fullscreen_secs,
+                    config.unload_idle_mins,
+                )
+            })
+            .flatten();
+        let work = match deadline {
+            Some(deadline) => {
+                match todo.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+                    Ok(work) => work,
+                    Err(mpsc::RecvTimeoutError::Timeout) => {
+                        let fullscreen = engine
+                            .fullscreen
+                            .is_some_and(|_| config.unload_fullscreen_secs > 0);
+                        engine.unload(if fullscreen {
+                            "a fullscreen window has had the keyboard a while"
+                        } else {
+                            "it's been idle"
+                        });
+                        continue;
+                    }
+                    Err(mpsc::RecvTimeoutError::Disconnected) => return,
+                }
+            }
+            None => match todo.recv() {
+                Ok(work) => work,
+                Err(_) => return,
+            },
+        };
+        let (audio, shown) = match work {
+            Work::Fullscreen(true) => {
+                engine.fullscreen = Some(Instant::now());
+                continue;
+            }
+            Work::Fullscreen(false) => {
+                engine.fullscreen = None;
+                // Back from the game: ready again, if that's what's asked for.
+                if config.preload && engine.transcriber.is_none() {
+                    engine.load(&config);
+                }
+                continue;
+            }
+            Work::Audio(audio, shown) => (audio, shown),
+        };
+        engine.load(&config);
+        if let Some(t) = &mut engine.transcriber {
             t.tuning = Tuning::from(&config);
         }
         // Gone once the text is in, or there's none.
         let _closes = Closes(shown);
-        let Some(t) = &transcriber else { continue };
+        let Some(t) = &engine.transcriber else {
+            continue;
+        };
         let seconds = audio.seconds();
         let started = Instant::now();
         let text = match t.text(&audio.at_whisper_rate()) {
@@ -238,6 +397,7 @@ fn transcribe(
                 continue;
             }
         };
+        engine.used = Instant::now();
         if verbose {
             eprintln!(
                 "patina-dictate: {seconds:.1} s transcribed in {:.2?}",
@@ -261,5 +421,28 @@ impl Drop for Closes {
         if let Some(shown) = self.0.take() {
             shown.close();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_model_goes_at_the_earlier_of_idle_and_fullscreen() {
+        let t0 = Instant::now();
+        let s = Duration::from_secs;
+        // Idle only: ten minutes after it was used.
+        assert_eq!(unload_at(t0, None, 10, 10), Some(t0 + s(600)));
+        // In a fullscreen window: ten seconds after that began.
+        let fs = t0 + s(100);
+        assert_eq!(unload_at(t0, Some(fs), 10, 10), Some(fs + s(10)));
+        // But the idle time may come first.
+        assert_eq!(unload_at(t0, Some(t0 + s(595)), 30, 10), Some(t0 + s(600)));
+        // 0 turns each off.
+        assert_eq!(unload_at(t0, Some(fs), 0, 10), Some(t0 + s(600)));
+        assert_eq!(unload_at(t0, Some(fs), 10, 0), Some(fs + s(10)));
+        assert_eq!(unload_at(t0, Some(fs), 0, 0), None);
+        assert_eq!(unload_at(t0, None, 10, 0), None);
     }
 }
