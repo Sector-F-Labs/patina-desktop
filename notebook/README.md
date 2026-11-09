@@ -15,7 +15,8 @@ so it shares a window frame and skins with Photograph and UnAmp.
 
 - **Rich text:** titles, headings, quotes, bulleted, numbered and nested lists, checklists, and
   bold, italic, strikethrough, inline code and links.
-- **Tables** whose cells hold inline markdown.
+- **Tables** laid out like HTML's (as wide as their content, up to the text's width, with text
+  wrapping in the cells), whose cells hold inline markdown and images.
 - **Code blocks** with a language picker, syntax highlighting and a copy button.
 - **Safe with any markdown:** anything Notebook can't show as rich text is kept exactly as written.
 - **Markdown source** view (Ctrl+Shift+M) for when you want it.
