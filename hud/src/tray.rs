@@ -110,8 +110,9 @@ fn badge(
     colour: egui::Color32,
     ink: egui::Color32,
 ) {
-    let radius = (rect.width().min(rect.height()) * 0.24).clamp(5.0, 9.0);
-    let centre = egui::pos2(rect.right() - radius * 0.6, rect.bottom() - radius * 0.6);
+    // Inside the button: it fills the bar's thickness, so anything outside is cut off.
+    let radius = (rect.width().min(rect.height()) * 0.22).clamp(5.0, 8.0);
+    let centre = egui::pos2(rect.right() - radius - 1.0, rect.bottom() - radius - 1.0);
     painter.circle_filled(centre, radius, colour);
     let text = if count > 9 {
         "9+".to_string()

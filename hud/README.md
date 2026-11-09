@@ -28,7 +28,8 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   (opens Settings' Power and Battery page; ADR-0021, ADR-0022, ADR-0024).
 - `media` (ADR-0101): previous, play or pause and next for the media player playing (any MPRIS
   player: a browser tab, UnAmp), with the track on hover; nothing while none is. With more than one player it is one button with
-  their number, which opens patina-volume's list of them (ADR-0117). It's next to `tray`
+  their number, which opens patina-volume's list of them (ADR-0117; the button and the list are
+  pictured in [volume/README.md](../volume/README.md)). It's next to `tray`
   in the default `right`; leave it out of the lists to turn it off.
 - `clock`, the date in full on hover, which opens patina-clock: a month and the day's events from
   Calendar (ADR-0082); and under dwl `tags`, `layout`, `title` and `appid`.
