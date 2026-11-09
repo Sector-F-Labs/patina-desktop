@@ -209,6 +209,9 @@ pub struct Gaps {
     /// The floating bar's corner radius; the bar reads it, not the
     /// compositor.
     pub radius: u32,
+    /// With gaps on, an app's maximise fills inside them, as Super+Up does
+    /// (ADR-0093); false lets it maximise edge to edge, over the gaps (ADR-0130).
+    pub maximise_inside: bool,
 }
 
 /// The largest gap and radius taken.
@@ -220,6 +223,7 @@ impl Default for Gaps {
             enabled: false,
             size: 8,
             radius: 8,
+            maximise_inside: true,
         }
     }
 }
@@ -268,6 +272,12 @@ impl Default for Clipboard {
 }
 
 impl Config {
+    /// Whether an app's maximise fills inside the gaps instead of maximising:
+    /// with gaps on, unless `[gaps] maximise_inside` says otherwise (ADR-0130).
+    pub fn maximise_fills(&self) -> bool {
+        self.gap() > 0 && self.gaps.maximise_inside
+    }
+
     /// The gap around tiled windows: 0 when gaps are off.
     pub fn gap(&self) -> i32 {
         if self.gaps.enabled {
@@ -800,6 +810,22 @@ mod tests {
         );
         assert_eq!(Config::default().keyboard.caps_hold, CapsHold::None);
         assert!(parse("[keyboard]\ncaps_tap = \"hyper\"\n").is_err());
+    }
+
+    #[test]
+    fn an_apps_maximise_fills_inside_the_gaps_unless_told_not_to() {
+        let fills = |text| parse(text).unwrap().0.maximise_fills();
+        assert!(!fills(""), "no gaps: a real maximise");
+        assert!(
+            fills("[gaps]\nenabled = true\n"),
+            "gaps on: it fills inside them"
+        );
+        assert!(!fills("[gaps]\nenabled = true\nmaximise_inside = false\n"));
+        assert!(
+            !fills("[gaps]\nenabled = true\nsize = 0\n"),
+            "no gap to fill inside"
+        );
+        assert!(fills("[gaps]\nmaximise_inside = true\nenabled = true\n"));
     }
 
     #[test]

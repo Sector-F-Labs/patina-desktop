@@ -371,8 +371,9 @@ impl State {
     /// own request. With gaps on (ADR-0093) it fills inside them instead,
     /// never told it's maximised, so it keeps its corners; since its button
     /// then never shows restore, asking again while it fills restores it.
+    /// `[gaps] maximise_inside = false` keeps the real maximise (ADR-0130).
     pub fn maximize(&mut self, window: &Window) {
-        if self.config.gap() == 0 {
+        if !self.config.maximise_fills() {
             self.place_as(window, Placement::Maximized);
         } else if placement(window) == Some(Placement::Fill) {
             self.unmaximize(window, None);

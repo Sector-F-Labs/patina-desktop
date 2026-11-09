@@ -100,7 +100,7 @@ this workspace is a Wayland client of it.
   and wlr and ext data-control, so wl-copy and clipboard managers need no window (ADR-0059).
 - **Config:** `~/.config/patina-compositor/config.toml` (ADR-0019): scale, `[keyboard]`,
   `[touchpad]`, `[cursor]`, `[media]` (the volume commands, `wpctl` by default), `[lock]`,
-  `[night_light]`, `[gaps]` (space around tiled windows, ADR-0051), `[shadows]` (the shadows windows ask for,
+  `[night_light]`, `[gaps]` (space around tiled windows, ADR-0051, and whether an app's maximise fills inside it, ADR-0130), `[shadows]` (the shadows windows ask for,
   ADR-0112), `[clipboard]` (the history and screenshots on the clipboard, ADR-0116), the launcher and desktop
   menu commands, and `[bindings]` from key combinations
   to commands. Every key is optional; a broken file falls back to the defaults and never stops the
