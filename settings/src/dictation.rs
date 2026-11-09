@@ -242,8 +242,9 @@ impl DictationPage {
         ui.label(RichText::new("Speech model").strong());
         ui.label(
             RichText::new(
-                "Bigger models cope better with accents and mumbling, and are slower and larger. \
-                 Download one, then choose it; the next time you dictate it's used.",
+                "All of these are OpenAI's Whisper, run by whisper.cpp on this computer. Bigger \
+                 ones cope better with accents and mumbling, and are slower and larger. Download \
+                 one, then choose it; the next time you dictate it's used.",
             )
             .small()
             .weak(),
@@ -284,7 +285,7 @@ impl DictationPage {
                 .map(|(_, fraction)| *fraction);
             ui.horizontal(|ui| {
                 let picked = self.tuning.model == model.name;
-                let title = format!("{} ({} MB)", model.title, model.megabytes);
+                let title = format!("Whisper {} ({} MB)", model.title, model.megabytes);
                 if ui
                     .add_enabled(have, egui::RadioButton::new(picked, title))
                     .clicked()
@@ -314,15 +315,17 @@ impl DictationPage {
             });
             ui.label(RichText::new(model.about).small().weak());
         }
-        if !MODELS.iter().any(|m| m.name == self.tuning.model) {
-            ui.label(
-                RichText::new(format!(
-                    "In use: {} (set in the config file)",
-                    self.tuning.model
-                ))
-                .small(),
-            );
-        }
+        let listed = MODELS.iter().find(|m| m.name == self.tuning.model);
+        ui.label(
+            RichText::new(match listed {
+                Some(m) => format!(
+                    "In use: Whisper {} (ggml-{}.bin)",
+                    m.title, self.tuning.model
+                ),
+                None => format!("In use: {} (set in the config file)", self.tuning.model),
+            })
+            .small(),
+        );
         if !models::installed(&self.tuning.model)
             && MODELS.iter().any(|m| m.name == self.tuning.model)
         {
