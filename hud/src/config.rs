@@ -205,6 +205,10 @@ pub struct Config {
     pub tags: Vec<String>,
     /// Show only tags that have windows or are being viewed.
     pub hide_vacant_tags: bool,
+    /// While a maximised window has the keyboard and gaps are on, the HUD goes flush with the
+    /// screen's edges and its bars join end to end (ADR-0131); true draws them in plain black
+    /// then, false in the skin's own background.
+    pub flush_black: bool,
     /// Ask the compositor for a shadow around each element of the HUD
     /// (ADR-0113). It draws shadows only while its own `[shadows]` is on.
     pub shadows: bool,
@@ -291,6 +295,7 @@ impl Default for Config {
             skin: patina_shell::hud::DEFAULT_SKIN.to_string(),
             tags: (1..=9).map(|n| n.to_string()).collect(),
             hide_vacant_tags: false,
+            flush_black: false,
             shadows: true,
             shadow_blur: ShadowStyle::default().blur,
             shadow_drop: ShadowStyle::default().drop,

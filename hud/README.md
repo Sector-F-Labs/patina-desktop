@@ -58,7 +58,13 @@ Modules on the left, centre and right, as waybar lays them out (ADR-0001):
   pieces read it when they open.
 - **Floats with gaps** (ADR-0051): `gaps.rs` reads `[gaps]` from the compositor's config, which
   the bar checks each second too. With gaps on, the bar's layer-shell margin keeps it the gap
-  away from the screen's edges, and it draws with rounded corners and an outline all round.
+  away from the screen's edges, and it draws with rounded corners and an outline all round. While a
+  maximised window has the keyboard (a real maximise, `[gaps] maximise_inside = false`, ADR-0130) it goes
+  flush instead (ADR-0131): no margin, square, no outline or shadow, and the bars run end to end along
+  the edges, a split bar's parts fused into one bar (the default L, one L). The reserve strips, which
+  keep each edge's space, draw it on the layer under the windows, in the skin's background, or plain
+  black with `flush_black = true`. The compositor says which window is maximised
+  (wlr-foreign-toplevel), so nothing changes there; every part of a split bar listens for it.
 - **Skins** are Patina's, built in or in `~/.config/patina-hud/skins`, and through the bar they
   are the whole shell's.
 

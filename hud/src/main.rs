@@ -147,23 +147,30 @@ fn main() -> ExitCode {
             Some(s) => format!("patina-hud-{}", s.name()),
             None => "patina-hud".into(),
         },
-        layer: Layer::Top,
+        // A reserve's strip is the bar's background when flush (ADR-0131): under the windows,
+        // which stay clear of it, and under the parts, which are on the top layer.
+        layer: if matches!(section, Some(Section::Reserve(_))) {
+            Layer::Bottom
+        } else {
+            Layer::Top
+        },
         anchor: place.anchor,
         size: place.size,
         exclusive_zone: place.exclusive_zone,
         margin: place.margin,
         keyboard: KeyboardInteractivity::None,
         per_output: true,
-        toplevels: matches!(section, None | Some(Section::Windows)),
+        // Every part hears of the windows, to go flush with a maximised one (ADR-0131).
+        toplevels: true,
         // A reserve only keeps an edge's space.
         click_through: matches!(section, Some(Section::Reserve(_))),
         lock: false,
         window_fallback: false,
     };
     let (mut bar, skin_warnings) = bar::Bar::new(config);
-    bar.gaps = gaps;
     bar.section = section;
     bar.place = Some(place);
+    bar.set_gaps(gaps);
     bar.all_hidden = hide::hidden();
     bar.config_path = config_path.clone();
     warnings.extend(skin_warnings);
@@ -622,6 +629,7 @@ fn run(
                             restart(&mut parts);
                         }
                         host.shell.config.window_tabs = config.window_tabs;
+                        host.shell.config.flush_black = config.flush_black;
                         // Nothing changes where the shadow is as it was.
                         host.shell.config.copy_shadow(&config);
                         host.set_shadow(shadow_for(&host.shell.config, host.shell.section));
@@ -645,14 +653,14 @@ fn run(
                 if now != gaps_seen {
                     gaps_seen = now;
                     let gaps = gaps::read();
-                    if gaps != host.shell.gaps {
+                    if gaps != host.shell.configured_gaps {
                         if split && !is_part {
                             restart(&mut parts);
                         }
-                        host.shell.gaps = gaps;
+                        host.shell.set_gaps(gaps);
                         if !split {
                             let top = host.shell.config.position == Position::Top;
-                            host.set_margin(gaps.margin(top));
+                            host.set_margin(host.shell.gaps.margin(top));
                         }
                     }
                 }

@@ -119,6 +119,9 @@ pub struct BarPage {
     /// look (`shadow_blur`, `shadow_drop` and the rest).
     shadows: bool,
     shadow: ShadowStyle,
+    /// `flush_black`: draw the HUD in plain black, not the skin's background, while it's flush
+    /// with the edges for a maximised window (ADR-0131).
+    flush_black: bool,
     /// The desktop's gaps and the shadows it draws around windows (ADR-0051, ADR-0112), which
     /// are the compositor's config, not the HUD's, and sit on this page with the HUD's own.
     gaps: crate::gaps::GapsSection,
@@ -155,6 +158,7 @@ impl BarPage {
             window_tabs: String::new(),
             shadows: true,
             shadow: ShadowStyle::default(),
+            flush_black: false,
             gaps: crate::gaps::GapsSection::new(),
             window_shadows: crate::shadows::ShadowsSection::new(),
             top: false,
@@ -174,6 +178,7 @@ impl BarPage {
             .filter(|v| WINDOW_TABS.iter().any(|(value, _)| v == value))
             .unwrap_or_else(|| "both".into());
         self.shadows = read("shadows").is_none_or(|v| v != "false");
+        self.flush_black = read("flush_black").is_some_and(|v| v == "true");
         let defaults = ShadowStyle::default();
         let number = |key: &str, default: f32| {
             read(key)
@@ -561,6 +566,26 @@ impl BarPage {
         }
 
         self.gaps.ui(ui, message);
+        ui.add_space(4.0);
+        if ui
+            .checkbox(
+                &mut self.flush_black,
+                "Draw the HUD in black while a window is maximised",
+            )
+            .changed()
+            && let Err(e) = patina_shell::hud::set_bool("flush_black", self.flush_black)
+        {
+            *message = Some(Message::error(format!("Couldn't save the setting: {e}")));
+        }
+        ui.label(
+            RichText::new(
+                "With gaps on and a real maximise, the HUD goes flush with the screen's edges and \
+                 its bars join up. This colours them plain black; off, they keep the skin's own \
+                 background.",
+            )
+            .small()
+            .weak(),
+        );
         ui.add_space(16.0);
 
         // Shadows: the windows' (the compositor's), then the HUD's parts under them.
