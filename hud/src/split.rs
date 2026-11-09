@@ -157,7 +157,7 @@ fn in_corner(config: &Config, section: Section, spot: Spot) -> bool {
 /// thick as the thickest part along it, or none when no part is. A launcher
 /// in a corner keeps nothing of its own, but is as thick as the edges it
 /// meets if something else keeps them, so it never covers a window.
-fn kept(config: &Config, side: Side) -> Option<u32> {
+pub fn kept(config: &Config, side: Side) -> Option<u32> {
     let all = parts(config);
     let mut along = all
         .iter()

@@ -31,6 +31,9 @@ pub struct Toplevel {
     pub app_id: String,
     /// Whether it's the window with the keyboard.
     pub activated: bool,
+    /// Whether the compositor has it maximised: edge to edge, and told so. A window it
+    /// fills inside the gaps (ADR-0093) isn't.
+    pub maximized: bool,
 }
 
 /// What a shell piece can ask of a window.
@@ -122,10 +125,14 @@ impl<S: Shell> Dispatch2<ZwlrForeignToplevelHandleV1, Host<S>> for HandleData {
             Event::Title { title } => pending.title = title,
             Event::AppId { app_id } => pending.app_id = app_id,
             Event::State { state } => {
-                let activated = zwlr_foreign_toplevel_handle_v1::State::Activated as u32;
-                pending.activated = state
-                    .chunks_exact(4)
-                    .any(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]) == activated);
+                use zwlr_foreign_toplevel_handle_v1::State;
+                let has = |wanted: State| {
+                    state
+                        .chunks_exact(4)
+                        .any(|c| u32::from_ne_bytes([c[0], c[1], c[2], c[3]]) == wanted as u32)
+                };
+                pending.activated = has(State::Activated);
+                pending.maximized = has(State::Maximized);
             }
             Event::Done => {
                 list[i].1 = list[i].2.clone();

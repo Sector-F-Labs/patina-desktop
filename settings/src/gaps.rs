@@ -45,7 +45,8 @@ impl GapsSection {
             ui.label(
                 RichText::new(
                     "Keeps the window's rounded corners and the gap, as Super+Up does. Turn it \
-                     off for a real maximise: the window covers the whole screen, gaps and all.",
+                     off for a real maximise: the window covers the whole screen, gaps and all, \
+                     and the HUD goes flush with the edges, its bars joined, while it has the keyboard.",
                 )
                 .small()
                 .weak(),

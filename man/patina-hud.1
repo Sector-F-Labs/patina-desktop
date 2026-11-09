@@ -162,6 +162,12 @@ in
 .Xr patina-compositor 1 Ns 's
 config: with gaps on, it floats the gap away from the screen's edges, with
 rounded corners.
+While a maximised window has the keyboard, which takes
+.Ic maximise_inside
+false there, it goes flush with the edges instead: square, with no outline or
+shadow, its bars running end to end and joined, in the skin's background, or
+plain black with
+.Ic flush_black .
 .Xr patina-menu 1
 and
 .Xr patina-settings 1
@@ -188,6 +194,13 @@ its app's icon and its title (the default);
 .Dq icons ,
 narrow tabs with only the icon and the title on hover; or
 .Dq titles .
+.It Ic flush_black
+Whether the HUD is plain black, rather than the skin's own background, while it
+is flush with the screen's edges for a maximised window:
+.Cm true
+or
+.Cm false
+(the default).
 .It Ic shadows
 Whether each part of the HUD asks the compositor for a shadow, as Patina apps
 do:

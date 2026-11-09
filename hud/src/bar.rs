@@ -141,9 +141,16 @@ pub struct Bar {
     tooltip_shown: Option<crate::tooltip::Shown>,
     /// Where the window tabs' menus send what's chosen (ADR-0056).
     pub tab_menu: Option<patina_shell::calloop::channel::Sender<crate::menu::Chosen>>,
-    /// Gaps from the compositor's config: floating, with rounded corners
-    /// (ADR-0051).
+    /// The gaps the bar is drawn with (ADR-0051): floating, with rounded corners, as the
+    /// compositor's config says; none while a maximised window has the keyboard (ADR-0131).
     pub gaps: crate::gaps::Gaps,
+    /// The gaps the compositor's config asks for, which `gaps` is, or none in `flush`.
+    pub configured_gaps: crate::gaps::Gaps,
+    /// A maximised window has the keyboard.
+    maximised: bool,
+    /// The bar is flush with the screen's edges, as black bars: a maximised window has the
+    /// keyboard while gaps are on, so the window covers the gaps (ADR-0131).
+    pub flush: bool,
     /// The part of a split bar this draws, if it's split (experimental).
     pub section: Option<crate::split::Section>,
     /// Whether Super+H has hidden the HUD (ADR-0111).
@@ -194,6 +201,9 @@ impl Bar {
                 tips: Default::default(),
                 tooltip_shown: None,
                 gaps: crate::gaps::Gaps::default(),
+                configured_gaps: crate::gaps::Gaps::default(),
+                maximised: false,
+                flush: false,
                 section: None,
                 all_hidden: false,
                 slide: crate::hide::Slide::default(),
@@ -542,7 +552,9 @@ impl Bar {
                 let ctx = ui.ctx().clone();
                 let opening = |rect| self.opening(&ctx, rect);
                 // The hover fill follows the island's corners, inside its outline.
-                let radius = if self.gaps.floating() {
+                let radius = if self.flush {
+                    0.0
+                } else if self.gaps.floating() {
                     self.gaps.radius
                 } else {
                     8.0
@@ -942,6 +954,17 @@ fn open_tray_menu(tray: &patina_system::sni::Tray, key: &str, at: crate::split::
 
 /// egui's own tooltips would be cut off at the bar's edge: they never
 /// show, and the bar's show in patina-menu instead (ADR-0057).
+/// Greys in place of the skin's own fills, which are tinted and show as such on black: what's
+/// drawn on the bars while they're plain black (ADR-0131).
+fn neutral(ui: &mut Ui) {
+    let grey = egui::Color32::from_gray;
+    let v = ui.visuals_mut();
+    v.extreme_bg_color = grey(24);
+    v.widgets.hovered.weak_bg_fill = grey(40);
+    v.widgets.hovered.bg_fill = grey(40);
+    v.widgets.inactive.bg_fill = grey(48);
+}
+
 fn no_egui_tooltips(ctx: &egui::Context) {
     ctx.all_styles_mut(|s| s.interaction.tooltip_delay = f32::INFINITY);
 }
@@ -956,8 +979,12 @@ impl Shell for Bar {
         let active = toplevels.iter().find(|t| t.activated).map(|t| t.id);
         if active != self.active {
             self.active = active;
-            self.peek = true;
+            // Only the window list comes out for it; every part hears of the windows now, to
+            // go flush with a maximised one (ADR-0131), and the rest stay where they are.
+            self.peek = matches!(self.section, None | Some(crate::split::Section::Windows));
         }
+        self.maximised = toplevels.iter().any(|t| t.activated && t.maximized);
+        self.follow_gaps();
     }
 
     fn take_toplevel_requests(&mut self) -> Vec<ToplevelRequest> {
@@ -991,7 +1018,10 @@ impl Shell for Bar {
     }
 
     fn wanted_margin(&self) -> Option<(i32, i32, i32, i32)> {
-        let section = self.section?;
+        // The whole bar floats by the gaps it's drawn with, none when flush.
+        let Some(section) = self.section else {
+            return Some(self.gaps.margin(self.config.position == Position::Top));
+        };
         let place = self.place.as_ref()?;
         if matches!(section, crate::split::Section::Reserve(_)) {
             return None;
@@ -1015,7 +1045,8 @@ impl Shell for Bar {
         // Slid right off the screen but for its strip (`out` is 0 then, 1 in
         // place): the shadow would show at the edge with no part to be the
         // shadow of. While it moves, it goes with it.
-        self.section.is_some() && self.slide.out() <= 0.0
+        // Black bars flush with the edge have no shadow to cast.
+        self.flush || (self.section.is_some() && self.slide.out() <= 0.0)
     }
 
     fn shadow_inset(&self) -> (i32, i32, i32, i32) {
@@ -1057,17 +1088,82 @@ impl Shell for Bar {
 }
 
 impl Bar {
+    /// Takes the gaps the compositor's config asks for, and draws with them unless flush.
+    pub fn set_gaps(&mut self, gaps: crate::gaps::Gaps) {
+        self.configured_gaps = gaps;
+        self.follow_gaps();
+    }
+
+    /// Works out whether the bar is flush (a maximised window has the keyboard, with gaps on),
+    /// and the gaps it's drawn with, and where it sits with them (ADR-0131).
+    fn follow_gaps(&mut self) {
+        self.flush = self.maximised && self.configured_gaps.floating();
+        self.gaps = if self.flush {
+            crate::gaps::Gaps::default()
+        } else {
+            self.configured_gaps
+        };
+        if self.place.is_some() {
+            self.place = Some(crate::split::placement(
+                self.section,
+                &self.config,
+                self.gaps,
+            ));
+        }
+    }
+
+    /// A reserve (the strip that keeps an edge's space): nothing, until the HUD is flush, when
+    /// it is as thick as what it keeps and as long as the edge, in the bar's colour: the
+    /// background all the parts of that edge sit on, so they're one bar and the bars of two
+    /// edges meet in a corner (ADR-0131).
+    fn draw_reserve(&self, ui: &mut Ui, side: crate::config::Side) {
+        use crate::config::Side;
+        let thickness = crate::split::kept(&self.config, side);
+        let Some(thickness) = thickness.filter(|_| self.flush && !self.all_hidden) else {
+            self.wanted.set(None);
+            return;
+        };
+        let rect = ui.max_rect();
+        let v = ui.visuals();
+        let black = self.config.flush_black;
+        let fill = if black {
+            egui::Color32::BLACK
+        } else {
+            v.panel_fill
+        };
+        ui.painter().rect_filled(rect, 0.0, fill);
+        if !black {
+            // The line the bar has along the edge the windows are beside.
+            let line = v.widgets.noninteractive.bg_stroke;
+            let w = line.width / 2.0;
+            let painter = ui.painter();
+            match side {
+                Side::Top => painter.hline(rect.x_range(), rect.bottom() - w, line),
+                Side::Bottom => painter.hline(rect.x_range(), rect.top() + w, line),
+                Side::Left => painter.vline(rect.right() - w, rect.y_range(), line),
+                Side::Right => painter.vline(rect.left() + w, rect.y_range(), line),
+            };
+        }
+        // As thick as it keeps, and stretched along the edge (0 between its anchors).
+        self.wanted.set(Some(match side {
+            Side::Top | Side::Bottom => (0, thickness),
+            Side::Left | Side::Right => (thickness, 0),
+        }));
+    }
+
     /// A part of a split bar: an island of the bar's colour, as big as what
     /// it shows, which it then asks its surface to be (experimental).
     fn draw_part(&mut self, ui: &mut Ui, output: &str, section: crate::split::Section) {
         use crate::split::Section;
         let m = self.monitor(output);
         let full = ui.max_rect();
+        if self.flush && self.config.flush_black {
+            neutral(ui);
+        }
         let v = ui.visuals().clone();
         let line = v.widgets.noninteractive.bg_stroke;
-        if matches!(section, Section::Reserve(_)) {
-            // It only keeps the edge's space.
-            self.wanted.set(None);
+        if let Section::Reserve(side) = section {
+            self.draw_reserve(ui, side);
             return;
         }
         // Hiding at the edge: the pointer on what's showing brings it out.
@@ -1098,15 +1194,20 @@ impl Bar {
             full.min + vec2(trim_left as f32, trim_top as f32),
             full.max - vec2(trim_right as f32, trim_bottom as f32),
         );
-        let radius = if self.gaps.floating() {
-            self.gaps.radius
+        if self.flush {
+            // The reserve's strip along the edge is the background, under every part, so the
+            // bars are one (ADR-0131).
         } else {
-            8.0
+            let radius = if self.gaps.floating() {
+                self.gaps.radius
+            } else {
+                8.0
+            }
+            .min(island.width().min(island.height()) / 2.0);
+            ui.painter().rect_filled(island, radius, v.panel_fill);
+            ui.painter()
+                .rect_stroke(island, radius, line, egui::StrokeKind::Inside);
         }
-        .min(island.width().min(island.height()) / 2.0);
-        ui.painter().rect_filled(island, radius, v.panel_fill);
-        ui.painter()
-            .rect_stroke(island, radius, line, egui::StrokeKind::Inside);
         let inner = island.shrink(line.width);
         let height = crate::split::thickness(section, &self.config);
         match section {
@@ -1296,11 +1397,16 @@ impl Bar {
     }
 
     fn draw(&mut self, ui: &mut Ui, output: &str) {
+        if self.flush && self.config.flush_black {
+            neutral(ui);
+        }
         let m = self.monitor(output);
         let rect = ui.max_rect();
         let v = ui.visuals();
         let line = v.widgets.noninteractive.bg_stroke;
-        if self.gaps.floating() {
+        if self.flush && self.config.flush_black {
+            ui.painter().rect_filled(rect, 0.0, egui::Color32::BLACK);
+        } else if self.gaps.floating() {
             // Off the screen's edges, it's outlined all round.
             let radius = self.gaps.radius.min(rect.height() / 2.0);
             ui.painter().rect_filled(rect, radius, v.panel_fill);
@@ -1452,6 +1558,9 @@ mod tests {
             tips: Default::default(),
             tooltip_shown: None,
             gaps: crate::gaps::Gaps::default(),
+            configured_gaps: crate::gaps::Gaps::default(),
+            maximised: false,
+            flush: false,
             section: None,
             all_hidden: false,
             slide: crate::hide::Slide::default(),
@@ -1861,7 +1970,141 @@ mod tests {
             title: title.into(),
             app_id: format!("app{id}"),
             activated,
+            ..Default::default()
         }
+    }
+
+    #[test]
+    fn a_maximised_window_with_the_keyboard_takes_the_bars_gaps_away() {
+        use crate::gaps::Gaps;
+        let floating = Gaps {
+            gap: 8,
+            radius: 8.0,
+        };
+        let mut b = bar("left = [\"windows\"]\ncenter = []\nright = [\"clock\"]");
+        b.set_gaps(floating);
+        assert!(!b.flush);
+        assert_eq!(
+            b.wanted_margin(),
+            Some((0, 8, 8, 8)),
+            "floating off the bottom edge"
+        );
+
+        // A maximised window has the keyboard: flush with the edges, as black bars.
+        let maximised = |active| Toplevel {
+            maximized: true,
+            ..window(1, "one", active)
+        };
+        b.toplevels_changed(&[maximised(true)]);
+        assert!(b.flush);
+        assert_eq!(b.gaps.gap, 0);
+        assert_eq!(b.wanted_margin(), Some((0, 0, 0, 0)));
+        assert!(
+            b.shadow_hidden(),
+            "nothing to cast a shadow flush with the edge"
+        );
+
+        // Another window has the keyboard: the maximised one behind it doesn't count.
+        b.toplevels_changed(&[maximised(false), window(2, "two", true)]);
+        assert!(!b.flush);
+        assert_eq!(b.wanted_margin(), Some((0, 8, 8, 8)));
+        assert!(!b.shadow_hidden());
+
+        // The config's gaps changing while flush is what comes back after it.
+        b.toplevels_changed(&[maximised(true)]);
+        b.set_gaps(Gaps {
+            gap: 12,
+            radius: 8.0,
+        });
+        assert_eq!(b.wanted_margin(), Some((0, 0, 0, 0)));
+        b.toplevels_changed(&[window(1, "one", true)]);
+        assert_eq!(b.wanted_margin(), Some((0, 12, 12, 12)));
+
+        // With no gaps there is nothing to take away.
+        b.set_gaps(Gaps::default());
+        b.toplevels_changed(&[maximised(true)]);
+        assert!(!b.flush);
+    }
+
+    /// A reserve strip drawn with a maximised window having the keyboard: what it asks its
+    /// surface to be, a pixel in the middle of it, and the skin's background colour.
+    fn flush_strip(black: bool) -> (Option<(u32, u32)>, u32, [u8; 4]) {
+        use crate::gaps::Gaps;
+        let mut b = bar("");
+        b.config.flush_black = black;
+        b.section = Some(crate::split::Section::Reserve(crate::config::Side::Bottom));
+        b.set_gaps(Gaps {
+            gap: 8,
+            radius: 8.0,
+        });
+        b.toplevels_changed(&[Toplevel {
+            maximized: true,
+            ..window(1, "one", true)
+        }]);
+        let ctx = egui::Context::default();
+        b.setup(&ctx);
+        let (w, h) = (400usize, 41usize);
+        let mut painter = patina_shell::raster::Painter::default();
+        let mut pixels = vec![0u32; w * h];
+        for _ in 0..3 {
+            let input = egui::RawInput {
+                screen_rect: Some(Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    vec2(w as f32, h as f32),
+                )),
+                max_texture_side: Some(8192),
+                ..Default::default()
+            };
+            let out = ctx.run_ui(input, |ui| b.ui(ui, "A"));
+            let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+            painter.paint(
+                &mut pixels,
+                w,
+                h,
+                out.pixels_per_point,
+                &primitives,
+                &out.textures_delta,
+            );
+        }
+        let panel = ctx
+            .global_style()
+            .visuals
+            .panel_fill
+            .to_srgba_unmultiplied();
+        (b.wanted.get(), pixels[w * 20 + 200], panel)
+    }
+
+    #[test]
+    fn a_reserve_is_the_bars_background_along_its_edge_while_flush() {
+        // Not flush, it keeps the space and draws nothing.
+        let mut b = bar("");
+        b.section = Some(crate::split::Section::Reserve(crate::config::Side::Bottom));
+        let ctx = egui::Context::default();
+        b.setup(&ctx);
+        frame(&mut b, &ctx, &mut 0.0, vec![]);
+        assert_eq!(b.wanted.get(), None);
+
+        // Flush: as thick as what it keeps, stretched along the edge (0), in plain black or
+        // the skin's background.
+        let (wanted, black, _) = flush_strip(true);
+        assert_eq!(wanted, Some((0, 41)));
+        assert_eq!(black, 0xff00_0000, "plain black, not tinted");
+        let (_, skin, panel) = flush_strip(false);
+        assert_eq!(
+            skin & 0x00ff_ffff,
+            u32::from_be_bytes([0, panel[0], panel[1], panel[2]])
+        );
+    }
+
+    #[test]
+    fn a_part_other_than_the_window_list_doesnt_peek_for_a_window_change() {
+        let mut b = bar("left = []\ncenter = []\nright = []");
+        b.section = Some(crate::split::Section::Tray);
+        b.toplevels_changed(&[window(1, "one", true)]);
+        assert!(!b.peek, "only the window list comes out for it");
+        b.section = Some(crate::split::Section::Windows);
+        b.toplevels_changed(&[window(2, "two", true)]);
+        assert!(b.peek);
     }
 
     /// Runs frames of the bar at `time` steps, so clicks don't merge.
