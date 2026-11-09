@@ -8,9 +8,9 @@ with GDM), and how to get back if something goes wrong.
 | Piece | State |
 |---|---|
 | Running nested, as a window on GNOME or another desktop (`make run`) | Works |
-| Running on the hardware itself: one monitor, keyboard, mouse and touchpad, GPU | **Works** (tested on real hardware) |
+| Running on the hardware itself: monitors (several, ADR-0121), keyboard, mouse, touchpad, touchscreen, GPU | **Works** (tested on real hardware) |
 | A login-screen entry, for every user: `make install` | Works |
-| The session setup (`patina-session --session`) | Partly: the desktop's environment, not yet portals and helpers |
+| The session setup (`patina-session --session`) | Partly: the desktop's environment, the polkit agent and the portals' config, not yet a notification daemon, a keyring or autostart |
 | Restarting the desktop without logging out (`patina-session`) | Works: Ctrl+Alt+Shift+Backspace, or after a crash |
 
 patina-compositor picks its backend when it starts. With a desktop to open a window on
@@ -25,8 +25,9 @@ before choosing it at the login screen.
 
 - **The session:** libseat, through systemd-logind, opens the GPU and input devices without root,
   and hands them back and forth when you switch consoles.
-- **The screen:** one monitor, the laptop's own panel if it has one, otherwise the first connected
-  monitor, at its preferred mode, through DRM/KMS and GBM, drawn with OpenGL ES. Apps hand over GPU
+- **The screen:** every connected monitor at its preferred mode, the laptop's own panel first as the
+  primary, extended or mirrored from a popup (Ctrl+Super+P) and picked up when one is plugged in or out
+  ([ADR-0121](adr/0121-multi-monitor.md)), through DRM/KMS and GBM, drawn with OpenGL ES. Apps hand over GPU
   buffers through linux-dmabuf. It works on Mesa (Intel, AMD) and NVIDIA's driver alike.
 - **Scale:** 2 for dense panels that are still at least 800 points tall at 2x, 1.5 from 140 dpi
   (most laptops), 1 otherwise. Set `PATINA_SCALE=1.25` (or any value from 0.5 to 4) to choose. Apps
@@ -107,8 +108,8 @@ the session's log (`journalctl -b | grep patina`) and never stop the desktop: a 
 the settings in use. `PATINA_SCALE` and `XKB_DEFAULT_LAYOUT` in the environment still win over
 the file.
 
-Not yet: more than one monitor (others stay dark), plugging monitors in and out, the lid, an
-on-screen display for brightness and volume, and explicit sync for NVIDIA apps.
+Not yet: the compositor's own handling of the lid (logind suspends, and the screen locks first), and a
+scale and resolution for each monitor. What else is missing is in [ROADMAP.md](ROADMAP.md).
 
 ## You don't need to remove GDM
 
@@ -165,11 +166,13 @@ D-Bus session bus and `XDG_RUNTIME_DIR`. On top of that, the compositor:
   Patina, falls back to GTK's backend, which can't find the display, and file choosers never
   open.
 
+The portals work: `make install` puts `patina-portals.conf` in place, which picks Files' chooser for
+file dialogs, `xdg-desktop-portal-wlr` for screen sharing and `xdg-desktop-portal-gtk` for the rest
+([ADR-0092](adr/0092-screen-capture-for-apps-and-recording.md)). A portal backend of Patina's own
+isn't there.
+
 Still to do, so these don't work in the session yet:
 
-- start **xdg-desktop-portal** with a backend, so Firefox's file picker, Flatpak apps and screen
-  sharing work. `xdg-desktop-portal-wlr` (screen sharing) and `xdg-desktop-portal-gtk` (file
-  pickers) work until there's a Patina one;
 - a **notification daemon**, until Patina has its own notifications;
 - **gnome-keyring**, if you want passwords stored as on GNOME (Ubuntu's PAM setup unlocks it
   at login);

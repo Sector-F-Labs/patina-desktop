@@ -113,8 +113,8 @@ VM (`make vm-gui` to look at it, `make screenshot` to save its screen).
 **Nested** (on GNOME, sway and so on): the compositor opens a window; move it with Super+drag.
 Windows float and cascade; click to focus and raise.
 
-**On hardware** (a text console, or the login screen after installing): one monitor (the internal
-panel first), the GPU through Mesa or NVIDIA, fractional scaling chosen from the panel's density
+**On hardware** (a text console, or the login screen after installing): every monitor, extended or
+mirrored from a popup (Ctrl+Super+P, ADR-0121), the GPU through Mesa or NVIDIA, fractional scaling chosen from the panel's density
 (`scale` in the config overrides it), keyboard, mouse, touchpad and touchscreen through libinput,
 console switching (Ctrl+Alt+F1–F12).
 
@@ -172,7 +172,7 @@ keys work, with an on-screen flash.
 - **[patina-emoji](emoji/README.md)** (`emoji/`): the emoji picker, as Ctrl+Cmd+Space on a Mac: a popup with search and categories, the pick typed into the focused window the way dictation is (ADR-0120).
 - **[patina-settings](settings/README.md)** (`settings/`): the skin, wallpaper, default apps, Night Light, power modes, gaps, the bar's layout, and the desktop's processes.
 - **[patina-processes](processes/README.md)** (`processes/`): the process manager, on Ctrl+Shift+Escape, a key no config can take: the apps with their windows, and every process, with what each costs the CPU, memory and disks; ending, killing and pausing them; and graphs over the last minute.
-- **patina-night-light** (`night-light/`): Night Light from the command line.
+- **patina-night-light** (`settings/src/bin/`): Night Light from the command line.
 - **[patina-system](system/README.md)** (`system/`): what the pieces read and change on the machine (volume, Wi-Fi, battery, backlight), and the tray's icons.
 - **[patina-shell](shell/README.md)** (`shell/`): what every shell piece is built on: a layer-shell host for egui drawn in software, and the bar's skin and edge.
 
@@ -259,15 +259,12 @@ minimise = "Super+M"
 "Alt+B" = "patina-raise firefox"
 ```
 
-## Not yet
+## What it does, and what it doesn't yet
 
-- **Multiple monitors**, hotplug, lid close/open (it drives the first monitor).
-- **Flatpak integration** through portals. (Screen sharing goes through xdg-desktop-portal-wlr,
-  ADR-0092, and files through Files' chooser.)
-- **Polkit agent** for auth prompts (Software, Disks, etc.).
-- **Notification daemon**.
-- **GNOME keyring** integration (PAM unlock at login).
-- **Autostart** list for apps at login.
+[docs/FEATURES.md](docs/FEATURES.md) lists what works, by area. [docs/ROADMAP.md](docs/ROADMAP.md) lists
+what doesn't: a **notification daemon**, an **autostart** list, a **keyring**, **portals of its own** for
+Flatpak apps (screen sharing goes through xdg-desktop-portal-wlr, ADR-0092, and files through Files'
+chooser), **lid** handling beyond locking before sleep, and per-monitor scale and resolution.
 
 ## Development
 
