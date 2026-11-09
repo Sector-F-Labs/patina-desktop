@@ -10,7 +10,8 @@ changed. It's meant to become Patina's help viewer, opened when you choose Help 
 ![The Patina desktop's README in Reader](docs/screenshot-markdown.png)
 
 - **Markdown** (`.md`) through Patina's markdown widget in read-only mode: headings, lists, tasks,
-  quotes, tables, highlighted code blocks and images, with no markdown syntax on screen. Text can
+  quotes, tables (laid out like HTML's, with images in their cells), highlighted code blocks and
+  images, with no markdown syntax on screen. Text can
   be selected and copied. A link to another file in the project opens it here, a folder opens
   its README, a web link the browser, anything else its usual app.
 - **Rust** (`.rs`) highlighted as code blocks are, with line numbers, on the skin's code
