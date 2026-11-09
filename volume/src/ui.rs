@@ -215,16 +215,16 @@ impl VolumeMenu {
         } else {
             format!("{} · {}", player.artist, player.identity)
         };
-        ui.scope_builder(
+        // A child, not a scope: a scope would move the list's cursor back up to the end of the
+        // text, so each card would start inside the one above and the gap would be lost.
+        let mut label = ui.new_child(
             UiBuilder::new()
                 .max_rect(text)
                 .layout(Layout::top_down(Align::Min)),
-            |ui| {
-                ui.add_space(7.0);
-                ui.add(egui::Label::new(egui::RichText::new(&player.title).strong()).truncate());
-                ui.add(egui::Label::new(egui::RichText::new(by).weak().small()).truncate());
-            },
         );
+        label.add_space(7.0);
+        label.add(egui::Label::new(egui::RichText::new(&player.title).strong()).truncate());
+        label.add(egui::Label::new(egui::RichText::new(by).weak().small()).truncate());
         if let Some(command) = clicked {
             let _ = self.commands.send((player.bus_name.clone(), command));
             // Show it at once; the next read of the players confirms it.

@@ -3,6 +3,8 @@
 The volume menu in the bar's tray, which also flashes up when the volume or brightness keys
 are used (ADR-0021, ADR-0033).
 
+![With two players going, the bar's media button shows their number, and the volume menu has a card for each: its track, and previous, play or pause and next](images/players.png)
+
 ## On the desktop
 
 - **As a menu**, from the bar's speaker: a mute button, a slider and the level, at the bar's
