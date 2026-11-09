@@ -13,3 +13,6 @@ patina-shell = { workspace = true }
 patina-ui = { workspace = true, features = ["emoji"] }
 patina-emoji-font = { workspace = true }
 zbus = "5"
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
