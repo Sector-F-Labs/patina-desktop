@@ -208,15 +208,6 @@ fn now() -> u32 {
         .map_or(0, |d| u32::try_from(d.as_secs()).unwrap_or(u32::MAX))
 }
 
-/// Buttons as big as a window's title bar and tool bar have them (patina-ui's
-/// bar buttons): as wide as their text plus 10, 24 high, not egui's tiny ones.
-fn bar_buttons(ui: &mut Ui) {
-    let spacing = ui.spacing_mut();
-    spacing.button_padding = vec2(10.0, 5.0);
-    spacing.interact_size.y = 24.0;
-    spacing.item_spacing.x = 8.0;
-}
-
 impl Shell for ClipboardMenu {
     fn setup(&mut self, ctx: &egui::Context) {
         self.skin.apply(ctx);
@@ -259,7 +250,7 @@ impl Shell for ClipboardMenu {
         ui.horizontal(|ui| {
             ui.heading("Clipboard");
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                bar_buttons(ui);
+                patina::dialog::buttons(ui);
                 let any = !status.entries.is_empty();
                 if ui
                     .add_enabled(any, egui::Button::new("Clear all"))
