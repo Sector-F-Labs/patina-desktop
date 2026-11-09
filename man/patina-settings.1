@@ -19,24 +19,25 @@ Its pages:
 The skin every piece of the shell wears, and its skins folder; the style,
 Default, Light or Dark, that apps following the desktop take, GNOME's
 .Ic color-scheme
-setting; and gaps
-around tiled windows and the bar, with how big they are and how round the
-floating bar's corners are, written to
-.Ic [gaps]
-in the compositor's config; whether the desktop draws the shadows Patina apps ask
-for, written to
-.Ic [shadows]
-in the same; and the icon theme Files and GTK apps draw
+setting; and the icon theme Files and GTK apps draw
 with, GNOME's
 .Ic icon-theme
 setting for now, Yaru when it names none that's installed.
-.It Bar
+.It HUD
 What the window tabs show (icons, titles, or both), which edge the bar sits
-on, whether its parts have shadows and how they look (size, opacity, drop,
-sideways offset, spread and colour), and its config file for everything else.
-Its layout: one bar, or split into its parts (experimental), each placed by
+on, and its layout: one bar, or split into its parts (experimental), each placed by
 dragging it on a map of the screen, where it snaps to the nearest spot, or
 from a list.
+Gaps around tiled windows and the bar, with how big they are and how round the
+floating bar's corners are, written to
+.Ic [gaps]
+in the compositor's config.
+Shadows: whether the desktop draws the ones Patina apps ask for around windows,
+written to
+.Ic [shadows]
+in the same, and whether the HUD's parts have shadows and how they look (size,
+opacity, drop, sideways offset, spread and colour).
+Its config file is for everything else.
 .It Wallpaper
 The default, and the images in
 .Pa ~/Pictures/Wallpapers

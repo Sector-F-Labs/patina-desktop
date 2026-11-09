@@ -119,6 +119,10 @@ pub struct BarPage {
     /// look (`shadow_blur`, `shadow_drop` and the rest).
     shadows: bool,
     shadow: ShadowStyle,
+    /// The desktop's gaps and the shadows it draws around windows (ADR-0051, ADR-0112), which
+    /// are the compositor's config, not the HUD's, and sit on this page with the HUD's own.
+    gaps: crate::gaps::GapsSection,
+    window_shadows: crate::shadows::ShadowsSection,
     top: bool,
     split: bool,
     /// Each part's spot, in the order of `PARTS`.
@@ -151,6 +155,8 @@ impl BarPage {
             window_tabs: String::new(),
             shadows: true,
             shadow: ShadowStyle::default(),
+            gaps: crate::gaps::GapsSection::new(),
+            window_shadows: crate::shadows::ShadowsSection::new(),
             top: false,
             split: false,
             spots: [PARTS[0].3, PARTS[1].3, PARTS[2].3],
@@ -412,7 +418,7 @@ impl BarPage {
     /// Whether the HUD's parts have shadows, and how they look. Each change
     /// is written when a slider is let go; the HUD follows within a second.
     fn shadows_ui(&mut self, ui: &mut Ui, message: &mut Option<Message>) {
-        ui.label(RichText::new("Shadows").strong());
+        ui.add_space(4.0);
         if ui
             .checkbox(&mut self.shadows, "Draw shadows around the HUD's parts")
             .changed()
@@ -421,9 +427,11 @@ impl BarPage {
             *message = Some(Message::error(format!("Couldn't save the setting: {e}")));
         }
         ui.label(
-            RichText::new("The desktop draws them, so they also need Shadows on in Appearance.")
-                .small()
-                .weak(),
+            RichText::new(
+                "The desktop draws them, so they also need the shadows around windows, above.",
+            )
+            .small()
+            .weak(),
         );
         ui.add_space(4.0);
         let failed = std::cell::RefCell::new(None);
@@ -552,6 +560,11 @@ impl BarPage {
             ui.add_space(16.0);
         }
 
+        self.gaps.ui(ui, message);
+        ui.add_space(16.0);
+
+        // Shadows: the windows' (the compositor's), then the HUD's parts under them.
+        self.window_shadows.ui(ui, message);
         self.shadows_ui(ui, message);
         ui.add_space(16.0);
 

@@ -9,13 +9,15 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
 
 - **Appearance**: the shell's skin, as the desktop's menu offers it, with the skins folder
   buttons; the style (`color_scheme.rs`, ADR-0087), Default, Light or Dark, for apps through
-  GNOME's `color-scheme` setting; and gaps (ADR-0051), on or off, their size and the floating bar's corner radius,
-  written to `[gaps]` in the compositor's config; whether the desktop draws the shadows Patina apps
-  ask for (ADR-0112), written to `[shadows]`; and the icon theme (`icons.rs`), the installed
+  GNOME's `color-scheme` setting; and the icon theme (`icons.rs`), the installed
   ones offered, for Files and GTK apps through GNOME's `icon-theme` setting for now.
-- **Bar** (ADR-0050): what the window tabs show (icons and titles, icons, titles), which edge the
-  bar is on, whether its parts have shadows and how they look (`shadows` and `shadow_*` in its config, ADR-0113), and the button that opens its config file for everything else; and its layout, one
-  bar or split (ADR-0063), each part dragged to its spot on a map of the screen.
+- **HUD** (ADR-0050; `bar.rs`): what the window tabs show (icons and titles, icons, titles), which edge the
+  bar is on, and its layout, one bar or split (ADR-0063), each part dragged to its spot on a map of
+  the screen. Then gaps (ADR-0051), on or off, their size and the floating bar's corner radius,
+  written to `[gaps]` in the compositor's config; shadows: whether the desktop draws the ones Patina
+  apps ask for around windows (ADR-0112), written to `[shadows]`, and whether the HUD's parts have
+  them and how they look (`shadows` and `shadow_*` in its config, ADR-0113); and the button that
+  opens its config file for everything else.
 - **Wallpaper**: the default "Sector F Labs" and the images in `~/Pictures/Wallpapers` and the
   system's backgrounds, as thumbnails decoded off the UI thread.
 - **Account** (ADR-0104): your picture for the lock screen: the Sector F flask in each skin's

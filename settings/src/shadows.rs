@@ -1,4 +1,4 @@
-//! Shadows, on the Appearance page (ADR-0112): `[shadows]` in the compositor's
+//! Shadows around windows, on the HUD page (ADR-0112): `[shadows]` in the compositor's
 //! config, which the compositor follows within a second. It draws the shadow
 //! a window asks for, as Patina apps do; apps that draw their own keep it.
 
