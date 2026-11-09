@@ -171,6 +171,7 @@ mechanics of adding one.
 | [0127](0127-alt-tab-goes-by-most-recent-use.md) | Alt+Tab goes by most recent use, as on other desktops | Accepted |
 | [0128](0128-a-native-polkit-agent.md) | A native polkit agent asks for the password when an app needs administrator rights | Accepted |
 | [0129](0129-the-compositor-says-when-a-fullscreen-window-has-the-keyboard.md) | The compositor says when a fullscreen window has the keyboard, and dictation puts its model away then | Accepted |
+| [0130](0130-maximise-inside-the-gaps-is-a-setting.md) | Whether an app's maximise fills inside the gaps is a setting of its own | Accepted |
 
 ## Decision Relationship
 

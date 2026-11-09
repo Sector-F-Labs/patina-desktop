@@ -13,8 +13,9 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   ones offered, for Files and GTK apps through GNOME's `icon-theme` setting for now.
 - **HUD** (ADR-0050; `bar.rs`): what the window tabs show (icons and titles, icons, titles), which edge the
   bar is on, and its layout, one bar or split (ADR-0063), each part dragged to its spot on a map of
-  the screen. Then gaps (ADR-0051), on or off, their size and the floating bar's corner radius,
-  written to `[gaps]` in the compositor's config; shadows: whether the desktop draws the ones Patina
+  the screen. Then gaps (ADR-0051), on or off, their size, the floating bar's corner radius, and
+  whether an app's maximise fills inside them or maximises edge to edge (ADR-0130), written to
+  `[gaps]` in the compositor's config; shadows: whether the desktop draws the ones Patina
   apps ask for around windows (ADR-0112), written to `[shadows]`, and whether the HUD's parts have
   them and how they look (`shadows` and `shadow_*` in its config, ADR-0113); and the button that
   opens its config file for everything else.

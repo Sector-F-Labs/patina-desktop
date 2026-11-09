@@ -5,6 +5,7 @@ Date: 2026-10-25
 ## Status
 
 Accepted: tested on nifl. Amends [ADR-0052](0052-only-the-app-maximises.md) for gaps mode.
+Made optional by [ADR-0130](0130-maximise-inside-the-gaps-is-a-setting.md): `[gaps] maximise_inside`.
 
 ## Context
 

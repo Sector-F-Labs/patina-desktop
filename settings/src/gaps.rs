@@ -36,6 +36,21 @@ impl GapsSection {
         );
         ui.add_space(4.0);
         ui.add_enabled_ui(self.gaps.enabled, |ui| {
+            save |= ui
+                .checkbox(
+                    &mut self.gaps.maximise_inside,
+                    "An app's maximise fills inside the gaps",
+                )
+                .changed();
+            ui.label(
+                RichText::new(
+                    "Keeps the window's rounded corners and the gap, as Super+Up does. Turn it \
+                     off for a real maximise: the window covers the whole screen, gaps and all.",
+                )
+                .small()
+                .weak(),
+            );
+            ui.add_space(4.0);
             egui::Grid::new("gaps").num_columns(2).show(ui, |ui| {
                 for (name, value) in [
                     ("Gap", &mut self.gaps.size),

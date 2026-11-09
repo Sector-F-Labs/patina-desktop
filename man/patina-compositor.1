@@ -74,6 +74,10 @@ Only the app's own maximise button (or a double click on its title bar)
 maximises a window, edge to edge.
 With gaps on, it fills the screen inside the gaps instead, as Super+Up does,
 and keeps its rounded corners; the app's maximise again restores it.
+.Ic maximise_inside
+under
+.Ic [gaps]
+turns that off.
 The bar's tabs are the list of windows, and Alt+Tab goes by most recent use.
 Closing a window gives the keyboard back to the window it came from, or,
 if that's gone, focuses its neighbouring tab.
@@ -363,6 +367,10 @@ floats that far off the screen's edges with corners rounded by
 .Ic radius .
 Tiled windows keep their rounded corners, and an app's maximise fills
 inside the gaps like Super+Up rather than edge to edge.
+With
+.Ic maximise_inside
+false, the default being true, an app's maximise stays a real one, edge to
+edge over the gaps.
 Off by default.
 .It Ic [shadows]
 With

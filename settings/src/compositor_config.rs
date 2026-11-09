@@ -182,6 +182,9 @@ pub struct Gaps {
     pub size: u32,
     /// The floating bar's corners.
     pub radius: u32,
+    /// With gaps on, an app's maximise fills inside them (ADR-0093); false lets it
+    /// maximise edge to edge (ADR-0130).
+    pub maximise_inside: bool,
 }
 
 /// The largest gap and radius the compositor takes.
@@ -193,6 +196,7 @@ impl Default for Gaps {
             enabled: false,
             size: 8,
             radius: 8,
+            maximise_inside: true,
         }
     }
 }
@@ -209,6 +213,9 @@ pub fn parse_gaps(text: &str) -> Gaps {
     };
     if let Some(on) = table.get("enabled").and_then(|v| v.as_bool()) {
         gaps.enabled = on;
+    }
+    if let Some(inside) = table.get("maximise_inside").and_then(|v| v.as_bool()) {
+        gaps.maximise_inside = inside;
     }
     for (key, field) in [("size", &mut gaps.size), ("radius", &mut gaps.radius)] {
         if let Some(n) = table.get(key).and_then(|v| v.as_integer())
@@ -231,6 +238,7 @@ pub fn with_gaps(text: &str, gaps: &Gaps) -> Result<String, String> {
     table["enabled"] = value(gaps.enabled);
     table["size"] = value(gaps.size as i64);
     table["radius"] = value(gaps.radius as i64);
+    table["maximise_inside"] = value(gaps.maximise_inside);
     Ok(doc.to_string())
 }
 
@@ -572,10 +580,11 @@ mod tests {
             enabled: true,
             size: 12,
             radius: 4,
+            maximise_inside: false,
         };
         let text = with_gaps(STARTER, &gaps).unwrap();
         assert!(
-            text.contains("[gaps]\nenabled = true\nsize = 12\nradius = 4"),
+            text.contains("[gaps]\nenabled = true\nsize = 12\nradius = 4\nmaximise_inside = false"),
             "{text}"
         );
         assert!(text.contains("[night_light]\n# How warm."));
