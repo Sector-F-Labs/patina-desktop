@@ -271,6 +271,12 @@ puts them in `$(PREFIX)/share/man`.
   and after `unload_idle_mins` unused (ADR-0129).
   Models in `$XDG_DATA_HOME/patina-dictate/models`. On the GPU through Vulkan by default (ADR-0074; CPU
   without a driver), `--features cuda` adds CUDA; `-v` says which device.
+- `emoji/`: patina-emoji (ADR-0120), the emoji picker on Ctrl+Super+Space / Super+period (`emoji` in
+  `[keys]`): a centred patina-shell overlay (`ui.rs`: search, categories, grid, drawn as Noto Color Emoji
+  images through `patina::emoji`), `data.rs` (the `emojis` crate, search ranking, `recent`), and `main.rs`:
+  one instance (`piece::Single`, running it again closes it), then close, wait 120 ms for the focus, and
+  `Commit` on the Input interface. `PATINA_EMOJI_PREVIEW=dir cargo test -p patina-emoji preview --
+  --ignored` draws it per skin (the README's pictures); `emoji/HOW-IT-WORKS.md` explains the path.
 - `compositor/src/typing.rs`: text typed into the focused window (ADR-0071), served as
   `com.sectorflabs.Patina.Input` `Commit(text)` (`typing/dbus.rs`; `dbus-run-session -- cargo
   test -p patina-compositor typing -- --ignored`). Through the clipboard: the app's clipboard is

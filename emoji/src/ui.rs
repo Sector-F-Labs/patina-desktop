@@ -342,3 +342,83 @@ impl Picker {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The picker in each built-in skin, as PNGs in the folder PATINA_EMOJI_PREVIEW
+    /// names, so how it looks can be seen without a desktop: first as it opens, with
+    /// the recent ones kept, then searching, then on another category:
+    /// `PATINA_EMOJI_PREVIEW=/tmp/p cargo test -p patina-emoji preview -- --ignored`.
+    #[test]
+    #[ignore]
+    fn preview_the_picker() {
+        let dir = std::path::PathBuf::from(std::env::var("PATINA_EMOJI_PREVIEW").unwrap());
+        std::fs::create_dir_all(&dir).unwrap();
+        patina::emoji::install(patina_emoji_font::FONT);
+        let scale = 2.0;
+        let (skins, _) = patina::skin::load_all(patina::skin::BUILT_IN, &[]);
+        let recent: Vec<&'static Emoji> =
+            ["👍", "😂", "🎉", "❤️", "🙏", "🔥", "✅", "🤔", "👀", "🚀"]
+                .iter()
+                .filter_map(|e| emojis::get(e))
+                .collect();
+        for skin in skins {
+            let name = skin.name.clone();
+            for state in ["recent", "search", "food"] {
+                let mut picker =
+                    Picker::new(skin.clone(), recent.clone(), Arc::new(Mutex::new(None)));
+                match state {
+                    "search" => picker.query = "heart".into(),
+                    "food" => picker.category = Category::Group(3),
+                    _ => {}
+                }
+                let ctx = egui::Context::default();
+                ctx.set_pixels_per_point(scale);
+                picker.setup(&ctx);
+                let (w, h) = (
+                    (SIZE_POINTS.0 * scale) as usize,
+                    (SIZE_POINTS.1 * scale) as usize,
+                );
+                let mut painter = patina_shell::raster::Painter::default();
+                let mut pixels = vec![0u32; w * h];
+                // A few passes: the search box takes focus, the images arrive.
+                for _ in 0..4 {
+                    let input = egui::RawInput {
+                        screen_rect: Some(Rect::from_min_size(
+                            egui::pos2(0.0, 0.0),
+                            vec2(SIZE_POINTS.0, SIZE_POINTS.1),
+                        )),
+                        max_texture_side: Some(8192),
+                        focused: true,
+                        ..Default::default()
+                    };
+                    let out = ctx.run_ui(input, |ui| picker.ui(ui, ""));
+                    let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+                    painter.paint(
+                        &mut pixels,
+                        w,
+                        h,
+                        out.pixels_per_point,
+                        &primitives,
+                        &out.textures_delta,
+                    );
+                }
+                let rgba: Vec<u8> = pixels
+                    .iter()
+                    .flat_map(|p| {
+                        let [b, g, r, a] = p.to_le_bytes();
+                        [r, g, b, a]
+                    })
+                    .collect();
+                let file = dir.join(format!("emoji-{name}-{state}.png"));
+                image::save_buffer(&file, &rgba, w as u32, h as u32, image::ColorType::Rgba8)
+                    .unwrap();
+            }
+        }
+    }
+
+    /// The picker's size in points, as `main.rs` opens it.
+    const SIZE_POINTS: (f32, f32) = (400.0, 440.0);
+}

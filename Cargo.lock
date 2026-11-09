@@ -3770,6 +3770,7 @@ version = "0.1.0"
 dependencies = [
  "egui",
  "emojis",
+ "image",
  "patina-emoji-font",
  "patina-shell",
  "patina-ui",
