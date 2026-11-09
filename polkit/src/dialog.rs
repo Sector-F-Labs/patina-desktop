@@ -15,7 +15,9 @@ use std::process::ExitCode;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-use egui::{Align2, CornerRadius, FontId, Rect, RichText, Sense, Stroke, StrokeKind, Ui, pos2, vec2};
+use egui::{
+    Align2, CornerRadius, FontId, Rect, RichText, Sense, Stroke, StrokeKind, Ui, pos2, vec2,
+};
 use patina::skin::Skin;
 use patina_shell::calloop::channel::{self, Event};
 use patina_shell::piece;
@@ -26,7 +28,7 @@ const SIZE: (u32, u32) = (460, 262);
 const MARGIN: egui::Vec2 = vec2(32.0, 26.0);
 /// How high the buttons are: patina-ui's bar buttons (a title bar's or tool
 /// bar's), 24, rather than egui's own.
-const BUTTON_HEIGHT: f32 = 24.0;
+const BUTTON_HEIGHT: f32 = patina::dialog::BUTTON_HEIGHT;
 const FIELD: egui::Vec2 = vec2(396.0, 44.0);
 const SHAKE: f32 = 0.45;
 /// Longer than any password; what's typed past it is dropped.
@@ -268,7 +270,10 @@ impl Shell for Dialog {
         self.password_box(&mut text);
         text.add_space(8.0);
         let (note, colour) = match &self.status {
-            Status::Wrong => ("Sorry, that didn't work. Try again.", visuals.error_fg_color),
+            Status::Wrong => (
+                "Sorry, that didn't work. Try again.",
+                visuals.error_fg_color,
+            ),
             Status::Checking => ("Checking…", visuals.weak_text_color()),
             Status::Typing => (self.info.as_str(), visuals.weak_text_color()),
         };
@@ -277,26 +282,23 @@ impl Shell for Dialog {
         // The buttons, at the bottom right as a desktop's dialogs have them,
         // the size of the ones in a window's title bar: as wide as their text
         // and 10 of padding, 24 high (patina-ui's bar buttons), not egui's.
-        let row = Rect::from_min_max(pos2(inner.left(), inner.bottom() - BUTTON_HEIGHT), inner.max);
+        let row = Rect::from_min_max(
+            pos2(inner.left(), inner.bottom() - BUTTON_HEIGHT),
+            inner.max,
+        );
         let mut buttons = ui.new_child(
             egui::UiBuilder::new()
                 .max_rect(row)
                 .layout(egui::Layout::right_to_left(egui::Align::Center)),
         );
-        buttons.spacing_mut().button_padding = vec2(10.0, 5.0);
-        buttons.spacing_mut().interact_size.y = BUTTON_HEIGHT;
-        buttons.spacing_mut().item_spacing.x = 8.0;
+        patina::dialog::buttons(&mut buttons);
         let ready = !self.password.is_empty() && self.status != Status::Checking;
-        let label = RichText::new("Authenticate").color(if ready {
-            visuals.selection.stroke.color
+        let primary = if ready {
+            patina::dialog::primary(&buttons, "Authenticate")
         } else {
-            visuals.weak_text_color()
-        });
-        let primary = egui::Button::new(label).fill(if ready {
-            visuals.selection.bg_fill
-        } else {
-            visuals.widgets.inactive.weak_bg_fill
-        });
+            egui::Button::new(RichText::new("Authenticate").color(visuals.weak_text_color()))
+                .fill(visuals.widgets.inactive.weak_bg_fill)
+        };
         if buttons.add_enabled(ready, primary).clicked() {
             self.submit();
         }
@@ -308,11 +310,8 @@ impl Shell for Dialog {
             || self
                 .wrong_at
                 .is_some_and(|t| t.elapsed().as_secs_f32() < SHAKE);
-        ui.ctx().request_repaint_after(Duration::from_millis(if busy {
-            16
-        } else {
-            500
-        }));
+        ui.ctx()
+            .request_repaint_after(Duration::from_millis(if busy { 16 } else { 500 }));
     }
 
     fn finished(&self) -> bool {
@@ -416,7 +415,8 @@ mod tests {
         Dialog {
             skin,
             user: "divan".into(),
-            message: "Authentication is required to run the GParted Partition Editor as root".into(),
+            message: "Authentication is required to run the GParted Partition Editor as root"
+                .into(),
             prompt: "Password".into(),
             info: String::new(),
             password: String::new(),

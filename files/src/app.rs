@@ -2086,9 +2086,9 @@ impl Files {
                 }
             }
             ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-                dialog_buttons(ui);
+                patina::dialog::buttons(ui);
                 let label = picking.request.accept_label();
-                if ui.add(primary_button(ui, label)).clicked() {
+                if ui.add(patina::dialog::primary(ui, label)).clicked() {
                     a.push(Action::Accept);
                 }
                 if ui.button("Cancel").clicked() {
@@ -3616,8 +3616,10 @@ impl Files {
                     });
                     ui.add_space(12.0);
                     ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-                        dialog_buttons(ui);
-                        if ui.add(primary_button(ui, "Connect")).clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
+                        patina::dialog::buttons(ui);
+                        if ui.add(patina::dialog::primary(ui, "Connect")).clicked()
+                            || ui.input(|i| i.key_pressed(Key::Enter))
+                        {
                             answer = Some(network::Answer::Password {
                                 anonymous: asking.anonymous,
                                 user: asking.user.clone(),
@@ -3633,7 +3635,7 @@ impl Files {
                 }
                 network::AskKind::Question(choices) => {
                     ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-                        dialog_buttons(ui);
+                        patina::dialog::buttons(ui);
                         for (i, choice) in choices.iter().enumerate().rev() {
                             if ui.button(choice).clicked() {
                                 answer = Some(network::Answer::Choice(i));
@@ -4051,23 +4053,6 @@ fn zfs_label(ui: &mut Ui, info: &zfs::Info, open: bool) -> Response {
 /// The toolbar's height: its buttons, and the path bar's crumbs in their middle.
 const TOOLBAR_ROW: f32 = 26.0;
 
-/// Sizes a dialog's row of buttons as a window's title bar and tool bar have
-/// theirs (patina-ui's bar buttons): as wide as their text plus 10, 24 high,
-/// not egui's own tiny ones. Call it first inside the row's layout, so it
-/// only changes that row.
-fn dialog_buttons(ui: &mut Ui) {
-    let spacing = ui.spacing_mut();
-    spacing.button_padding = vec2(10.0, 5.0);
-    spacing.interact_size.y = 24.0;
-    spacing.item_spacing.x = 8.0;
-}
-
-/// The button a dialog's Enter presses, in the skin's accent.
-fn primary_button(ui: &Ui, text: impl Into<String>) -> egui::Button<'static> {
-    let v = ui.visuals();
-    egui::Button::new(egui::RichText::new(text).color(v.selection.stroke.color)).fill(v.selection.bg_fill)
-}
-
 fn glyph_button(ui: &mut Ui, glyph: Glyph, enabled: bool, hint: &str) -> Response {
     let resp = ui.add_enabled(enabled, egui::Button::new("").min_size(vec2(28.0, TOOLBAR_ROW))).on_hover_text(hint);
     let stroke = ui.visuals().widgets.style(&resp).fg_stroke;
@@ -4151,8 +4136,8 @@ fn confirm_body(ui: &mut Ui, title: &str, detail: &str, yes: &str) -> Option<boo
     ui.add_space(12.0);
     let mut answer = None;
     ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-        dialog_buttons(ui);
-        if ui.add(primary_button(ui, yes)).clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
+        patina::dialog::buttons(ui);
+        if ui.add(patina::dialog::primary(ui, yes)).clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
             answer = Some(true);
         }
         if ui.button("Cancel").clicked() {
@@ -4196,8 +4181,8 @@ fn conflict_body(
     ui.add_space(12.0);
     let mut answer = None;
     ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-        dialog_buttons(ui);
-        if ui.add(primary_button(ui, yes)).clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
+        patina::dialog::buttons(ui);
+        if ui.add(patina::dialog::primary(ui, yes)).clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
             answer = Some(choice);
         }
         if ui.button("Keep Both").clicked() {

@@ -176,13 +176,8 @@ impl PowerMenu {
         ui.label(RichText::new("Every app closes.").weak());
         ui.add_space(12.0);
         ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-            bar_buttons(ui);
-            let visuals = ui.visuals().clone();
-            let go = ui.add_enabled(
-                !self.busy,
-                egui::Button::new(RichText::new(answer).color(visuals.selection.stroke.color))
-                    .fill(visuals.selection.bg_fill),
-            );
+            patina::dialog::buttons(ui);
+            let go = ui.add_enabled(!self.busy, patina::dialog::primary(ui, answer));
             if go.clicked() || (!self.busy && ui.input(|i| i.key_pressed(egui::Key::Enter))) {
                 self.carry_out(action);
             }
@@ -191,15 +186,6 @@ impl PowerMenu {
             }
         });
     }
-}
-
-/// Buttons as big as a window's title bar and tool bar have them (patina-ui's
-/// bar buttons): as wide as their text plus 10, 24 high, not egui's tiny ones.
-fn bar_buttons(ui: &mut Ui) {
-    let spacing = ui.spacing_mut();
-    spacing.button_padding = vec2(10.0, 5.0);
-    spacing.interact_size.y = 24.0;
-    spacing.item_spacing.x = 8.0;
 }
 
 impl Shell for PowerMenu {

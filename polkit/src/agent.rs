@@ -214,12 +214,7 @@ impl Drop for Dialog {
 }
 
 /// Asks for the password until the helper accepts one.
-fn authenticate(
-    user: &str,
-    message: &str,
-    cookie: &str,
-    cancel: &Cancel,
-) -> Result<(), Failure> {
+fn authenticate(user: &str, message: &str, cookie: &str, cancel: &Cancel) -> Result<(), Failure> {
     let mut dialog = Dialog::open(user, message).map_err(Failure::Other)?;
     cancel.dialog.store(dialog.child.id(), Ordering::SeqCst);
     // Cancelled while it was starting.
@@ -329,7 +324,11 @@ impl Agent {
         let me = unsafe { libc::getuid() };
         let user = pick_user(&identities, me)
             .ok_or_else(|| zbus::fdo::Error::Failed("no one is allowed to authenticate".into()))?;
-        let message = if message.is_empty() { action_id } else { message };
+        let message = if message.is_empty() {
+            action_id
+        } else {
+            message
+        };
         let cancel = Arc::new(Cancel::default());
         lock(&self.active).insert(cookie.clone(), cancel.clone());
         // Off the bus's thread: it has to stay free for CancelAuthentication.
@@ -363,7 +362,10 @@ fn lock<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 /// This login session's id: from the environment where PAM's logind module
 /// set it, else logind's own idea of the caller's session.
 fn session_id(bus: &zbus::blocking::Connection) -> Result<String, String> {
-    if let Some(id) = std::env::var("XDG_SESSION_ID").ok().filter(|s| !s.is_empty()) {
+    if let Some(id) = std::env::var("XDG_SESSION_ID")
+        .ok()
+        .filter(|s| !s.is_empty())
+    {
         return Ok(id);
     }
     let reply = bus
