@@ -1588,6 +1588,7 @@ dependencies = [
  "libc",
  "notify 7.0.0",
  "patina-apps",
+ "patina-shell",
  "patina-ui",
  "raw-window-handle",
  "serde",
@@ -3855,6 +3856,7 @@ name = "patina-power"
 version = "0.1.0"
 dependencies = [
  "egui",
+ "image",
  "patina-shell",
  "patina-system",
  "patina-ui",

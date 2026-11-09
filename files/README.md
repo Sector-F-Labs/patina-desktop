@@ -10,6 +10,15 @@ chooser for other apps; and, for a folder on ZFS, a panel with its dataset, pool
 
 ![Files in the Everforest Dark skin, with the ZFS panel open on the right](docs/screenshots/files-zfs.png)
 
+Its dialogs match the window's title bar: buttons as high as its own, the one Enter presses in the
+skin's accent.
+
+| ![Asking before deleting for good](docs/screenshots/dialog-confirm.png) | ![Asking what to do about a taken name](docs/screenshots/dialog-conflict.png) |
+|---|---|
+
+`PATINA_FILES_PREVIEW=/tmp/p cargo test -p files preview -- --ignored` draws them in every built-in
+skin, without a desktop.
+
 ## Features
 
 - Folders as icons, a list or columns (Ctrl+1, Ctrl+2, Ctrl+3), in tabs, with a sidebar of places

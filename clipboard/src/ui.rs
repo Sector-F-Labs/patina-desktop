@@ -208,6 +208,15 @@ fn now() -> u32 {
         .map_or(0, |d| u32::try_from(d.as_secs()).unwrap_or(u32::MAX))
 }
 
+/// Buttons as big as a window's title bar and tool bar have them (patina-ui's
+/// bar buttons): as wide as their text plus 10, 24 high, not egui's tiny ones.
+fn bar_buttons(ui: &mut Ui) {
+    let spacing = ui.spacing_mut();
+    spacing.button_padding = vec2(10.0, 5.0);
+    spacing.interact_size.y = 24.0;
+    spacing.item_spacing.x = 8.0;
+}
+
 impl Shell for ClipboardMenu {
     fn setup(&mut self, ctx: &egui::Context) {
         self.skin.apply(ctx);
@@ -250,6 +259,7 @@ impl Shell for ClipboardMenu {
         ui.horizontal(|ui| {
             ui.heading("Clipboard");
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                bar_buttons(ui);
                 let any = !status.entries.is_empty();
                 if ui
                     .add_enabled(any, egui::Button::new("Clear all"))
@@ -346,5 +356,81 @@ mod tests {
         assert_eq!(ago(100 + 7200, 100), "2h");
         assert_eq!(ago(100 + 3 * 86400, 100), "3d");
         assert_eq!(ago(50, 100), "now", "a clock set back");
+    }
+
+    /// Draws the menu in each built-in skin, as PNGs in the folder
+    /// PATINA_CLIPBOARD_PREVIEW names, from made-up copies:
+    /// `PATINA_CLIPBOARD_PREVIEW=/tmp/p cargo test -p patina-clipboard preview -- --ignored`.
+    #[test]
+    #[ignore]
+    fn preview_the_menu() {
+        let dir = std::path::PathBuf::from(std::env::var("PATINA_CLIPBOARD_PREVIEW").unwrap());
+        std::fs::create_dir_all(&dir).unwrap();
+        let (skins, _) = patina::skin::load_all(patina::skin::BUILT_IN, &[]);
+        let (w, h) = (crate::SIZE.0 as usize, crate::SIZE.1 as usize);
+        let copies = [
+            ("cargo test -p patina-clipboard", 20),
+            ("https://github.com/Sector-F-Labs/patina-desktop", 140),
+            (
+                "Authentication is required to run the GParted Partition Editor as root",
+                900,
+            ),
+            ("fn bar_buttons(ui: &mut Ui)", 7200),
+        ];
+        for skin in skins {
+            let name = skin.name.clone();
+            let (send, _commands) = mpsc::channel();
+            let mut m = ClipboardMenu::new(skin, send);
+            m.had_focus = true;
+            m.status = Some(Status {
+                entries: copies
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (text, ago))| Entry {
+                        id: i as u64,
+                        kind: Kind::Text,
+                        preview: (*text).into(),
+                        thumbnail: None,
+                        at: now().saturating_sub(*ago),
+                    })
+                    .collect(),
+                enabled: true,
+                paused: false,
+            });
+            let ctx = egui::Context::default();
+            m.setup(&ctx);
+            let mut painter = patina_shell::raster::Painter::default();
+            let mut pixels = vec![0u32; w * h];
+            for _ in 0..3 {
+                let input = egui::RawInput {
+                    screen_rect: Some(Rect::from_min_size(
+                        pos2(0.0, 0.0),
+                        vec2(w as f32, h as f32),
+                    )),
+                    focused: true,
+                    max_texture_side: Some(8192),
+                    ..Default::default()
+                };
+                let out = ctx.run_ui(input, |ui| m.ui(ui, ""));
+                let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+                painter.paint(
+                    &mut pixels,
+                    w,
+                    h,
+                    out.pixels_per_point,
+                    &primitives,
+                    &out.textures_delta,
+                );
+            }
+            let rgba: Vec<u8> = pixels
+                .iter()
+                .flat_map(|p| {
+                    let [b, g, r, a] = p.to_le_bytes();
+                    [r, g, b, a]
+                })
+                .collect();
+            let file = dir.join(format!("clipboard-{name}.png"));
+            image::save_buffer(&file, &rgba, w as u32, h as u32, image::ColorType::Rgba8).unwrap();
+        }
     }
 }
