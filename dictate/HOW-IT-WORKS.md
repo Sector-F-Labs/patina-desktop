@@ -66,7 +66,11 @@ see the dictated text go past.
 
 1. Listen for `DictationStarted` and `DictationStopped` on `com.sectorflabs.Patina.Input`.
 2. Record between them, transcribe, and call `Commit(text)` on that same name.
-3. Exit when that name leaves the bus. It has no Wayland connection, so nothing else would end
+3. Keep the model only as long as it's wanted. `FullscreenChanged` says a game or a video has the
+   keyboard; ten seconds into one, and after ten idle minutes, the model is unloaded and loads
+   again at the next press (ADR-0129). `preload` in the config loads it at start instead of at
+   the first press. All three are on Settings' Dictation page, under Memory.
+4. Exit when that name leaves the bus. It has no Wayland connection, so nothing else would end
    it, and a restarted desktop would have two daemons dictating everything twice.
 
 That is why it could be written, tested and run on its own (`patina-dictate | wl-copy`) before

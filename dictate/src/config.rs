@@ -6,6 +6,10 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
+/// Unloading's defaults: ten seconds in a fullscreen window, ten idle minutes.
+pub const DEFAULT_UNLOAD_FULLSCREEN_SECS: u32 = 10;
+pub const DEFAULT_UNLOAD_IDLE_MINS: u32 = 10;
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct Config {
@@ -30,6 +34,14 @@ pub struct Config {
     /// Retry a hesitant segment hotter (temperature fallback) instead of
     /// accepting its first try.
     pub fallback: bool,
+    /// Load the model when the daemon starts, and again on leaving a
+    /// fullscreen window, instead of at the first press (ADR-0129).
+    pub preload: bool,
+    /// Seconds in a fullscreen window (a game, a video) after which the
+    /// model is unloaded; 0 never does.
+    pub unload_fullscreen_secs: u32,
+    /// Minutes unused after which the model is unloaded; 0 never does.
+    pub unload_idle_mins: u32,
 }
 
 impl Default for Config {
@@ -43,6 +55,9 @@ impl Default for Config {
             prompt: String::new(),
             threads: 0,
             fallback: true,
+            preload: false,
+            unload_fullscreen_secs: DEFAULT_UNLOAD_FULLSCREEN_SECS,
+            unload_idle_mins: DEFAULT_UNLOAD_IDLE_MINS,
         }
     }
 }
@@ -57,6 +72,8 @@ impl Config {
             0.6
         };
         self.threads = self.threads.min(64);
+        self.unload_fullscreen_secs = self.unload_fullscreen_secs.min(3600);
+        self.unload_idle_mins = self.unload_idle_mins.min(1440);
         self.model = self.model.filter(|m| !m.trim().is_empty());
         self.language = self.language.filter(|l| !l.trim().is_empty());
         self
@@ -138,5 +155,16 @@ mod tests {
             parse("model = \"small\"\nbeam_size = 99\nno_speech = 3.0\nlanguage = \"\"").unwrap();
         assert_eq!(c.model.as_deref(), Some("small"));
         assert_eq!((c.beam_size, c.no_speech, c.language), (8, 1.0, None));
+    }
+
+    #[test]
+    fn the_model_is_unloaded_after_ten_seconds_of_fullscreen_or_ten_idle_minutes() {
+        let c = parse("").unwrap();
+        assert!(!c.preload);
+        assert_eq!((c.unload_fullscreen_secs, c.unload_idle_mins), (10, 10));
+        let c =
+            parse("preload = true\nunload_fullscreen_secs = 0\nunload_idle_mins = 99999").unwrap();
+        assert!(c.preload);
+        assert_eq!((c.unload_fullscreen_secs, c.unload_idle_mins), (0, 1440));
     }
 }

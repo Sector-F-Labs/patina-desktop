@@ -132,6 +132,15 @@ Words Whisper is told came before, to lean it towards names and spellings.
 Decoder threads; 0, the default, for as many as there are, up to eight.
 .It Ic fallback
 Retry unsure passages with some randomness; default true.
+.It Ic preload
+Load the model when the daemon starts, and again when a fullscreen window is left,
+instead of at the first press; default false.
+.It Ic unload_fullscreen_secs
+Seconds after a fullscreen window, a game or a video, gets the keyboard, when
+the model is unloaded to free its memory; 0 never; default 10.
+.It Ic unload_idle_mins
+Minutes without dictating after which the model is unloaded; 0 never; default 10.
+The next press loads it again.
 .El
 .Xr patina-settings 1 Ns 's
 Dictation page writes it.

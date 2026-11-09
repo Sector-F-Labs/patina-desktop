@@ -1,7 +1,8 @@
 //! The Dictation page (ADR-0073, ADR-0119): the key held to dictate, from the
 //! compositor's `[keys]`, and patina-dictate's own config, which it reads at
 //! each press: the speech model (downloaded here), the language, how Whisper
-//! decodes, and where the overlay shows while dictating.
+//! decodes, when the model is loaded and put away, and where the overlay shows
+//! while dictating.
 
 use std::path::PathBuf;
 
@@ -61,6 +62,10 @@ const LANGUAGES: [(&str, &str); 12] = [
     ("ja", "Japanese"),
 ];
 
+/// What patina-dictate does with no setting (`dictate/src/config.rs`, ADR-0129).
+const UNLOAD_FULLSCREEN_SECS: i64 = 10;
+const UNLOAD_IDLE_MINS: i64 = 10;
+
 /// What patina-dictate uses with no `model` set.
 const DEFAULT_MODEL: &str = "base.en";
 
@@ -74,6 +79,9 @@ struct Tuning {
     prompt: String,
     threads: i64,
     fallback: bool,
+    preload: bool,
+    unload_fullscreen_secs: i64,
+    unload_idle_mins: i64,
 }
 
 impl Tuning {
@@ -107,6 +115,15 @@ impl Tuning {
                 .unwrap_or(0)
                 .clamp(0, 64),
             fallback: get("fallback").and_then(|v| v.as_bool()).unwrap_or(true),
+            preload: get("preload").and_then(|v| v.as_bool()).unwrap_or(false),
+            unload_fullscreen_secs: get("unload_fullscreen_secs")
+                .and_then(|v| v.as_integer())
+                .unwrap_or(UNLOAD_FULLSCREEN_SECS)
+                .clamp(0, 3600),
+            unload_idle_mins: get("unload_idle_mins")
+                .and_then(|v| v.as_integer())
+                .unwrap_or(UNLOAD_IDLE_MINS)
+                .clamp(0, 1440),
         }
     }
 }
@@ -216,6 +233,8 @@ impl DictationPage {
         self.language_ui(ui, message);
         ui.add_space(16.0);
         self.decoding_ui(ui, message);
+        ui.add_space(16.0);
+        self.memory_ui(ui, message);
         ui.add_space(16.0);
 
         ui.label(RichText::new("Overlay").strong());
@@ -397,6 +416,87 @@ impl DictationPage {
         }
     }
 
+    fn memory_ui(&mut self, ui: &mut Ui, message: &mut Option<Message>) {
+        ui.label(RichText::new("Memory").strong());
+        ui.label(
+            RichText::new(
+                "The model sits in memory, on the graphics card if there is one, so dictating \
+                 starts at once. Put it away when it isn't wanted: it loads again, in a second \
+                 or two, the next time you dictate.",
+            )
+            .small()
+            .weak(),
+        );
+        let mut t = self.tuning.clone();
+        let mut failed = None;
+        let mut save = |page: &mut Self, key: &str, v: toml_edit::Value| {
+            if let Err(e) = page.save(key, v) {
+                failed = Some(e);
+            }
+        };
+
+        if ui
+            .checkbox(&mut t.preload, "Load the model when the desktop starts")
+            .changed()
+        {
+            save(self, "preload", t.preload.into());
+        }
+        ui.label(
+            RichText::new(
+                "Otherwise the first time you dictate waits for it to load. Also loads it \
+                 again when you leave a fullscreen window.",
+            )
+            .small()
+            .weak(),
+        );
+
+        ui.horizontal(|ui| {
+            ui.label("Unload after");
+            let r = ui.add(
+                egui::DragValue::new(&mut t.unload_fullscreen_secs)
+                    .range(0..=3600)
+                    .suffix(" s"),
+            );
+            ui.label("in a fullscreen window");
+            if r.changed() {
+                save(
+                    self,
+                    "unload_fullscreen_secs",
+                    t.unload_fullscreen_secs.into(),
+                );
+            }
+        });
+        ui.label(
+            RichText::new(
+                "A game or a video: you're not dictating there, and a game wants the memory. \
+                 0 keeps the model loaded.",
+            )
+            .small()
+            .weak(),
+        );
+
+        ui.horizontal(|ui| {
+            ui.label("Unload after");
+            let r = ui.add(
+                egui::DragValue::new(&mut t.unload_idle_mins)
+                    .range(0..=1440)
+                    .suffix(" min"),
+            );
+            ui.label("without dictating");
+            if r.changed() {
+                save(self, "unload_idle_mins", t.unload_idle_mins.into());
+            }
+        });
+        ui.label(
+            RichText::new("0 keeps the model loaded until you log out.")
+                .small()
+                .weak(),
+        );
+        if let Some(e) = failed {
+            *message = Some(Message::error(format!("Couldn't save the setting: {e}")));
+        }
+    }
+
     fn decoding_ui(&mut self, ui: &mut Ui, message: &mut Option<Message>) {
         ui.label(RichText::new("Accuracy").strong());
         ui.label(
@@ -534,6 +634,16 @@ mod tests {
         let t = Tuning::parse("");
         assert_eq!(t.model, DEFAULT_MODEL);
         assert_eq!((t.beam_size, t.threads, t.fallback), (1, 0, true));
+        assert_eq!(
+            (t.preload, t.unload_fullscreen_secs, t.unload_idle_mins),
+            (false, 10, 10)
+        );
+        let t =
+            Tuning::parse("preload = true\nunload_fullscreen_secs = 0\nunload_idle_mins = 99999\n");
+        assert_eq!(
+            (t.preload, t.unload_fullscreen_secs, t.unload_idle_mins),
+            (true, 0, 1440)
+        );
         assert_eq!(t.no_speech, 0.6);
         let text = "overlay = \"top\"\nmodel = \"small.en\"\nbeam_size = 50\nno_speech = 1\n";
         let t = Tuning::parse(text);

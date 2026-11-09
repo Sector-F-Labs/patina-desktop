@@ -114,7 +114,9 @@ this workspace is a Wayland client of it.
   `com.sectorflabs.Patina.Clipboard` (`clipboard/dbus.rs`, ADR-0114), the clipboard's history: List,
   Pick, Delete, Clear and Changed, for the tray applet;   `com.sectorflabs.Patina.Input` (`typing/dbus.rs`, ADR-0071, ADR-0072), Commit, which types a
   text into the focused Wayland window through the clipboard and the paste key, and the
-  `dictate` key's press and release as signals, for patina-dictate, which it keeps running. On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
+  `dictate` key's press and release as signals, for patina-dictate, which it keeps running, and
+  `FullscreenChanged` with the `Fullscreen` property, true while a fullscreen window, a game or a
+  video, has the keyboard (ADR-0129), which patina-dictate uses to put its model away. On the hardware: `com.sectorflabs.Patina.NightLight` (Inhibit,
   Uninhibit, SetOverride, and its state as properties), for patina-settings,
   `patina-night-light` and apps that need true colour.
 - **Shares code with the shell pieces** through patina-system: the backlight (`backlight.rs`) for

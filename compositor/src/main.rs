@@ -199,6 +199,7 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     event_loop
         .run(None, &mut state, |state| {
             toplevels::refresh(state);
+            state.announce_fullscreen();
             udev::schedule(state);
             winit::schedule(state);
             nested::render(state);
