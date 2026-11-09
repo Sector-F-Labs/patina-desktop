@@ -302,14 +302,21 @@ mod tests {
         assert_eq!(overlay.levels.back(), Some(&height(0.05)));
     }
 
-    /// Draws it listening and transcribing, in software, as PNGs in the
-    /// folder PATINA_DICTATE_PREVIEW names, to look at.
+    /// Draws it listening and transcribing, in each built-in skin, in software,
+    /// as PNGs in the folder PATINA_DICTATE_PREVIEW names, to look at and for
+    /// the README: `PATINA_DICTATE_PREVIEW=/tmp/p cargo test -p patina-dictate
+    /// preview -- --ignored`.
     #[test]
     #[ignore]
     fn preview_the_overlay() {
         let dir = PathBuf::from(std::env::var("PATINA_DICTATE_PREVIEW").unwrap());
-        let scale = 2.0;
-        let (w, h) = (SIZE.0 as usize * 2, SIZE.1 as usize * 2);
+        std::fs::create_dir_all(&dir).unwrap();
+        let scale = 3.0;
+        let (w, h) = (
+            (SIZE.0 as f32 * scale) as usize,
+            (SIZE.1 as f32 * scale) as usize,
+        );
+        let (skins, _) = patina::skin::load_all(patina::skin::BUILT_IN, &[]);
         // A voice: syllables, louder and quieter.
         let voice: Vec<f32> = (0..BARS)
             .map(|i| {
@@ -317,9 +324,13 @@ mod tests {
                 (0.004 + 0.06 * (t.sin() * (t * 0.37).cos()).abs()).max(0.0)
             })
             .collect();
-        for (name, transcribing) in [("listening", false), ("transcribing", true)] {
+        for (skin, (phase, transcribing)) in skins
+            .iter()
+            .flat_map(|s| [(s, ("listening", false)), (s, ("transcribing", true))])
+        {
+            let name = format!("{}-{phase}", skin.name);
             let ctx = egui::Context::default();
-            let mut overlay = Overlay::new(Skin::default_skin());
+            let mut overlay = Overlay::new(skin.clone());
             overlay.skin.apply(&ctx);
             for &level in &voice {
                 overlay.take(Message::Level(level));

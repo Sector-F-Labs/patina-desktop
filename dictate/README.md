@@ -1,5 +1,9 @@
 # patina-dictate
 
+| While you speak | While it transcribes |
+|---|---|
+| ![The dictation overlay with a live waveform](images/overlay-listening.png) | ![The overlay while the words are being transcribed](images/overlay-transcribing.png) |
+
 Speech to text on the machine, with Whisper through whisper.cpp (ADR-0070). Dictation on the
 desktop: hold Ctrl+Super+Alt, speak, let go, and what was said is typed into the focused window
 (ADR-0072). As a command, it records from the microphone until Enter, or the end of its input,
@@ -44,7 +48,7 @@ cargo run --release -p patina-dictate -- -v -m small.en    # -v says which GPU, 
 # the overlay alone, with made-up levels (on a layer-shell compositor)
 (for i in $(seq 60); do echo 0.0$((RANDOM % 9)); sleep 0.03; done; echo transcribing; sleep 1) \
     | cargo run --release -p patina-dictate -- --overlay bottom
-# drawn in software as PNGs, to look at
+# drawn in software as PNGs, one per built-in skin: the pictures at the top (images/overlay-*.png are Everforest Dark)
 PATINA_DICTATE_PREVIEW=/tmp cargo test -p patina-dictate preview -- --ignored
 ```
 
