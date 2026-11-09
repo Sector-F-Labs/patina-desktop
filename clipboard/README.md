@@ -1,5 +1,7 @@
 # patina-clipboard
 
+![The clipboard menu](images/menu.png)
+
 The clipboard menu in the bar's tray (ADR-0114): what was copied lately, to copy again, delete or
 clear.
 
@@ -9,6 +11,9 @@ From the bar's clipboard icon, at the bar's right end: a header with Pause and C
 copies, newest first, each with how long ago. A click copies it again, so Ctrl+V pastes it, and
 closes the menu; the cross deletes it. An image shows as a thumbnail. Escape, a click elsewhere or
 the icon again closes it.
+
+`PATINA_CLIPBOARD_PREVIEW=/tmp/p cargo test -p patina-clipboard preview -- --ignored` draws it in every
+built-in skin, without a desktop.
 
 ## How it fits in
 

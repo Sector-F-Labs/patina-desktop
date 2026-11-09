@@ -2086,11 +2086,12 @@ impl Files {
                 }
             }
             ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
+                dialog_buttons(ui);
                 let label = picking.request.accept_label();
-                if ui.add(egui::Button::new(egui::RichText::new(label).strong()).min_size(vec2(80.0, 0.0))).clicked() {
+                if ui.add(primary_button(ui, label)).clicked() {
                     a.push(Action::Accept);
                 }
-                if ui.add(egui::Button::new("Cancel").min_size(vec2(80.0, 0.0))).clicked() {
+                if ui.button("Cancel").clicked() {
                     a.push(Action::Cancel);
                 }
                 if let Some(message) = &self.message {
@@ -3087,18 +3088,7 @@ impl Files {
         let yes = if matches!(confirm, Confirm::Replace(_)) { "Replace" } else { "Delete" };
         let mut answer = None;
         let modal = egui::Modal::new(Id::new("confirm")).show(ctx, |ui| {
-            ui.set_width(320.0);
-            ui.heading(title);
-            ui.label(detail);
-            ui.add_space(12.0);
-            ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-                if ui.button(yes).clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
-                    answer = Some(true);
-                }
-                if ui.button("Cancel").clicked() {
-                    answer = Some(false);
-                }
-            });
+            answer = confirm_body(ui, &title, detail, yes);
         });
         if modal.should_close() {
             answer = answer.or(Some(false));
@@ -3150,40 +3140,7 @@ impl Files {
         };
         let mut answer = None;
         let modal = egui::Modal::new(Id::new(("conflict", &conflict.source))).show(ctx, |ui| {
-            ui.set_width(380.0);
-            ui.heading(title);
-            ui.label(detail);
-            ui.add_space(8.0);
-            egui::Grid::new("conflict sides").num_columns(2).show(ui, |ui| {
-                // The conflict's sides are the newcomer's, then what's there.
-                for (side, i) in [("Already there", 1), ("Coming in", 0)] {
-                    let about: Vec<String> =
-                        [conflict.sizes[i].map(listing::human_size), conflict.modified[i].map(when)]
-                            .into_iter()
-                            .flatten()
-                            .collect();
-                    ui.label(egui::RichText::new(side).weak());
-                    ui.label(about.join(", "));
-                    ui.end_row();
-                }
-            });
-            ui.add_space(8.0);
-            ui.checkbox(&mut self.for_all, all);
-            ui.add_space(12.0);
-            ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-                if ui.button(yes).clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
-                    answer = Some(choice);
-                }
-                if ui.button("Keep Both").clicked() {
-                    answer = Some(Choice::KeepBoth);
-                }
-                if ui.button("Skip").clicked() {
-                    answer = Some(Choice::Skip);
-                }
-                if ui.button("Cancel").clicked() {
-                    answer = Some(Choice::Cancel);
-                }
-            });
+            answer = conflict_body(ui, &conflict, &title, &detail, yes, choice, all, &mut self.for_all);
         });
         if modal.should_close() {
             answer = answer.or(Some(Choice::Cancel));
@@ -3659,7 +3616,8 @@ impl Files {
                     });
                     ui.add_space(12.0);
                     ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
-                        if ui.button("Connect").clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
+                        dialog_buttons(ui);
+                        if ui.add(primary_button(ui, "Connect")).clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
                             answer = Some(network::Answer::Password {
                                 anonymous: asking.anonymous,
                                 user: asking.user.clone(),
@@ -3675,6 +3633,7 @@ impl Files {
                 }
                 network::AskKind::Question(choices) => {
                     ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
+                        dialog_buttons(ui);
                         for (i, choice) in choices.iter().enumerate().rev() {
                             if ui.button(choice).clicked() {
                                 answer = Some(network::Answer::Choice(i));
@@ -4092,6 +4051,23 @@ fn zfs_label(ui: &mut Ui, info: &zfs::Info, open: bool) -> Response {
 /// The toolbar's height: its buttons, and the path bar's crumbs in their middle.
 const TOOLBAR_ROW: f32 = 26.0;
 
+/// Sizes a dialog's row of buttons as a window's title bar and tool bar have
+/// theirs (patina-ui's bar buttons): as wide as their text plus 10, 24 high,
+/// not egui's own tiny ones. Call it first inside the row's layout, so it
+/// only changes that row.
+fn dialog_buttons(ui: &mut Ui) {
+    let spacing = ui.spacing_mut();
+    spacing.button_padding = vec2(10.0, 5.0);
+    spacing.interact_size.y = 24.0;
+    spacing.item_spacing.x = 8.0;
+}
+
+/// The button a dialog's Enter presses, in the skin's accent.
+fn primary_button(ui: &Ui, text: impl Into<String>) -> egui::Button<'static> {
+    let v = ui.visuals();
+    egui::Button::new(egui::RichText::new(text).color(v.selection.stroke.color)).fill(v.selection.bg_fill)
+}
+
 fn glyph_button(ui: &mut Ui, glyph: Glyph, enabled: bool, hint: &str) -> Response {
     let resp = ui.add_enabled(enabled, egui::Button::new("").min_size(vec2(28.0, TOOLBAR_ROW))).on_hover_text(hint);
     let stroke = ui.visuals().widgets.style(&resp).fg_stroke;
@@ -4165,6 +4141,78 @@ fn spawn_in(program: &str, args: &[String], dir: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// What's asked before something is deleted or replaced for good: the question,
+/// what follows, and Cancel and the button that goes ahead. `Some(true)` is the
+/// button (or Enter), `Some(false)` Cancel.
+fn confirm_body(ui: &mut Ui, title: &str, detail: &str, yes: &str) -> Option<bool> {
+    ui.set_width(320.0);
+    ui.heading(title);
+    ui.label(detail);
+    ui.add_space(12.0);
+    let mut answer = None;
+    ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
+        dialog_buttons(ui);
+        if ui.add(primary_button(ui, yes)).clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
+            answer = Some(true);
+        }
+        if ui.button("Cancel").clicked() {
+            answer = Some(false);
+        }
+    });
+    answer
+}
+
+/// What's asked when a name is taken (see `conflict_dialog`): the two sides, a
+/// box for doing the same for the rest, and the choices.
+#[allow(clippy::too_many_arguments)]
+fn conflict_body(
+    ui: &mut Ui,
+    conflict: &ops::Conflict,
+    title: &str,
+    detail: &str,
+    yes: &str,
+    choice: Choice,
+    all: &str,
+    for_all: &mut bool,
+) -> Option<Choice> {
+    ui.set_width(380.0);
+    ui.heading(title);
+    ui.label(detail);
+    ui.add_space(8.0);
+    egui::Grid::new("conflict sides").num_columns(2).show(ui, |ui| {
+        // The conflict's sides are the newcomer's, then what's there.
+        for (side, i) in [("Already there", 1), ("Coming in", 0)] {
+            let about: Vec<String> = [conflict.sizes[i].map(listing::human_size), conflict.modified[i].map(when)]
+                .into_iter()
+                .flatten()
+                .collect();
+            ui.label(egui::RichText::new(side).weak());
+            ui.label(about.join(", "));
+            ui.end_row();
+        }
+    });
+    ui.add_space(8.0);
+    ui.checkbox(for_all, all);
+    ui.add_space(12.0);
+    let mut answer = None;
+    ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
+        dialog_buttons(ui);
+        if ui.add(primary_button(ui, yes)).clicked() || ui.input(|i| i.key_pressed(Key::Enter)) {
+            answer = Some(choice);
+        }
+        if ui.button("Keep Both").clicked() {
+            answer = Some(Choice::KeepBoth);
+        }
+        if ui.button("Skip").clicked() {
+            answer = Some(Choice::Skip);
+        }
+        if ui.button("Cancel").clicked() {
+            answer = Some(Choice::Cancel);
+        }
+    });
+    answer
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4218,5 +4266,79 @@ mod tests {
         assert_eq!(columns.iter().map(|c| c.2).sum::<f32>(), 900.0);
         assert_eq!(list_columns(500.0, &wanted).len(), 3, "no Kind when narrow");
         assert_eq!(list_columns(900.0, &[SortBy::Created]).len(), 2);
+    }
+
+    /// Draws the confirmation and the name-taken question in each built-in
+    /// skin, as PNGs in the folder PATINA_FILES_PREVIEW names:
+    /// `PATINA_FILES_PREVIEW=/tmp/p cargo test -p files preview -- --ignored`.
+    #[test]
+    #[ignore]
+    fn preview_the_dialogs() {
+        let dir = PathBuf::from(std::env::var("PATINA_FILES_PREVIEW").unwrap());
+        std::fs::create_dir_all(&dir).unwrap();
+        let day = |d: u64| std::time::UNIX_EPOCH + Duration::from_secs(1_760_000_000 + d * 86_400);
+        let conflict = ops::Conflict {
+            source: "/home/divan/Downloads/notes.txt".into(),
+            existing: "/home/divan/Documents/notes.txt".into(),
+            folders: false,
+            sizes: [Some(48_200), Some(12_900)],
+            modified: [Some(day(20)), Some(day(3))],
+        };
+        let (skins, _) = skin::load_all(skin::BUILT_IN, &[]);
+        for skin in skins {
+            let name = skin.name.clone();
+            for (state, (w, h)) in [("confirm", (360usize, 130usize)), ("conflict", (420, 245))] {
+                let ctx = egui::Context::default();
+                skin.apply(&ctx);
+                let mut painter = patina_shell::raster::Painter::default();
+                let mut pixels = vec![0u32; w * h];
+                let mut for_all = false;
+                for _ in 0..3 {
+                    let input = egui::RawInput {
+                        screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(w as f32, h as f32))),
+                        max_texture_side: Some(8192),
+                        ..Default::default()
+                    };
+                    let out = ctx.run_ui(input, |ui| {
+                        let fill = ui.visuals().panel_fill;
+                        ui.painter().rect_filled(ui.max_rect(), 0.0, fill);
+                        let mut at = ui.new_child(egui::UiBuilder::new().max_rect(ui.max_rect().shrink(20.0)));
+                        match state {
+                            "confirm" => {
+                                confirm_body(
+                                    &mut at,
+                                    "Delete “notes.txt” permanently?",
+                                    "It can't be put back.",
+                                    "Delete",
+                                );
+                            }
+                            _ => {
+                                conflict_body(
+                                    &mut at,
+                                    &conflict,
+                                    "Replace “notes.txt”?",
+                                    "An item with that name is already in “Documents”. Replacing puts it in the Trash.",
+                                    "Replace",
+                                    Choice::Replace,
+                                    "Do this for all files",
+                                    &mut for_all,
+                                );
+                            }
+                        }
+                    });
+                    let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+                    painter.paint(&mut pixels, w, h, out.pixels_per_point, &primitives, &out.textures_delta);
+                }
+                let rgba: Vec<u8> = pixels
+                    .iter()
+                    .flat_map(|p| {
+                        let [b, g, r, a] = p.to_le_bytes();
+                        [r, g, b, a]
+                    })
+                    .collect();
+                let file = dir.join(format!("files-{name}-{state}.png"));
+                image::save_buffer(&file, &rgba, w as u32, h as u32, image::ColorType::Rgba8).unwrap();
+            }
+        }
     }
 }

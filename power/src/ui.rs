@@ -176,7 +176,13 @@ impl PowerMenu {
         ui.label(RichText::new("Every app closes.").weak());
         ui.add_space(12.0);
         ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
-            let go = ui.add_enabled(!self.busy, egui::Button::new(answer));
+            bar_buttons(ui);
+            let visuals = ui.visuals().clone();
+            let go = ui.add_enabled(
+                !self.busy,
+                egui::Button::new(RichText::new(answer).color(visuals.selection.stroke.color))
+                    .fill(visuals.selection.bg_fill),
+            );
             if go.clicked() || (!self.busy && ui.input(|i| i.key_pressed(egui::Key::Enter))) {
                 self.carry_out(action);
             }
@@ -185,6 +191,15 @@ impl PowerMenu {
             }
         });
     }
+}
+
+/// Buttons as big as a window's title bar and tool bar have them (patina-ui's
+/// bar buttons): as wide as their text plus 10, 24 high, not egui's tiny ones.
+fn bar_buttons(ui: &mut Ui) {
+    let spacing = ui.spacing_mut();
+    spacing.button_padding = vec2(10.0, 5.0);
+    spacing.interact_size.y = 24.0;
+    spacing.item_spacing.x = 8.0;
 }
 
 impl Shell for PowerMenu {
@@ -291,5 +306,68 @@ mod tests {
             shut_down: true,
         };
         assert!(Action::ALL.iter().all(|a| a.possible(&all)));
+    }
+
+    /// Draws the menu and the question it asks in each built-in skin, as PNGs
+    /// in the folder PATINA_POWER_PREVIEW names:
+    /// `PATINA_POWER_PREVIEW=/tmp/p cargo test -p patina-power preview -- --ignored`.
+    #[test]
+    #[ignore]
+    fn preview_the_menu() {
+        let dir = std::path::PathBuf::from(std::env::var("PATINA_POWER_PREVIEW").unwrap());
+        std::fs::create_dir_all(&dir).unwrap();
+        let (skins, _) = patina::skin::load_all(patina::skin::BUILT_IN, &[]);
+        let (w, h) = (crate::SIZE.0 as usize, crate::SIZE.1 as usize);
+        for skin in skins {
+            let name = skin.name.clone();
+            for state in ["menu", "question"] {
+                let (send, _chosen) = mpsc::channel();
+                let mut m = PowerMenu::new(skin.clone(), send);
+                m.abilities = Some(Abilities {
+                    session: true,
+                    restart: true,
+                    shut_down: true,
+                });
+                m.had_focus = true;
+                if state == "question" {
+                    m.asking = Some(Action::LogOut);
+                }
+                let ctx = egui::Context::default();
+                m.setup(&ctx);
+                let mut painter = patina_shell::raster::Painter::default();
+                let mut pixels = vec![0u32; w * h];
+                for _ in 0..3 {
+                    let input = egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(
+                            egui::pos2(0.0, 0.0),
+                            vec2(w as f32, h as f32),
+                        )),
+                        focused: true,
+                        max_texture_side: Some(8192),
+                        ..Default::default()
+                    };
+                    let out = ctx.run_ui(input, |ui| m.ui(ui, ""));
+                    let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+                    painter.paint(
+                        &mut pixels,
+                        w,
+                        h,
+                        out.pixels_per_point,
+                        &primitives,
+                        &out.textures_delta,
+                    );
+                }
+                let rgba: Vec<u8> = pixels
+                    .iter()
+                    .flat_map(|p| {
+                        let [b, g, r, a] = p.to_le_bytes();
+                        [r, g, b, a]
+                    })
+                    .collect();
+                let file = dir.join(format!("power-{name}-{state}.png"));
+                image::save_buffer(&file, &rgba, w as u32, h as u32, image::ColorType::Rgba8)
+                    .unwrap();
+            }
+        }
     }
 }

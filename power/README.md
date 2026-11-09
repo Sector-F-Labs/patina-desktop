@@ -1,5 +1,8 @@
 # patina-power
 
+| ![The power menu](images/menu.png) | ![Asking before logging out](images/question.png) |
+|---|---|
+
 The power menu at the bar's right end (ADR-0048): Lock, Log Out, Restart and Shut Down.
 
 ## On the desktop
@@ -18,6 +21,9 @@ the menu, as does a click elsewhere or the button again.
   which ends patina-session. Where the compositor can't be asked, Lock runs `patina-lock` itself.
 - **Restarts and shuts down** through logind on the system bus, or ConsoleKit2 where there's no
   logind (FreeBSD), off the UI thread.
+
+`PATINA_POWER_PREVIEW=/tmp/p cargo test -p patina-power preview -- --ignored` draws both in every
+built-in skin, without a desktop.
 
 ## Code
 

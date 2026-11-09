@@ -11,3 +11,6 @@ egui = "0.35"
 patina-shell = { workspace = true }
 patina-system = { path = "../system" }
 patina-ui = { workspace = true }
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
