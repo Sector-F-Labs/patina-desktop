@@ -88,6 +88,15 @@ puts them in `$(PREFIX)/share/man`.
   it again on exit status 75 (`session::RESTART`, Ctrl+Alt+Shift+Backspace or `RestartDesktop`) or a
   crash. `compositor/src/session.rs` is the compositor's side, with the marker that keeps the screen
   locked across a restart.
+- `polkit/`: patina-polkit (ADR-0128), the session's polkit agent, kept running by the compositor on
+  the hardware (not nested, where the parent desktop has the agent). `agent.rs` registers on the
+  system bus (`RegisterAuthenticationAgent`, session from `XDG_SESSION_ID`) and answers
+  `BeginAuthentication` by running itself as `--ask` (`dialog.rs`, a patina-shell overlay) and
+  relaying PAM's prompts between that dialog and polkit's agent helper (the socket
+  `/run/polkit/agent-helper.socket`, else the setuid program). Test on nifl: `make deploy nifl`,
+  then `pkexec gparted` from inside its session (e.g. through the compositor's `Spawn`).
+  `PATINA_POLKIT_PREVIEW=dir cargo test -p patina-polkit preview -- --ignored` paints the dialog
+  per skin and state as PNGs.
 - `compositor/src/screenshot.rs`: Super+Shift+3/4 (ADR-0034): the desktop or the focused
   window drawn offscreen with the backend's renderer, saved as a PNG on a thread; then a `Flash`
   each backend draws on top (`flash_element`, `overlay`).

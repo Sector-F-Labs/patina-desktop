@@ -3716,6 +3716,7 @@ dependencies = [
  "smithay-client-toolkit 0.21.1",
  "toml",
  "wayland-protocols-plasma",
+ "x11rb",
  "xcursor",
  "zbus",
 ]
@@ -3833,6 +3834,20 @@ dependencies = [
  "patina-shell",
  "patina-system",
  "patina-ui",
+]
+
+[[package]]
+name = "patina-polkit"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "egui",
+ "image",
+ "libc",
+ "patina-shell",
+ "patina-system",
+ "patina-ui",
+ "zbus",
 ]
 
 [[package]]

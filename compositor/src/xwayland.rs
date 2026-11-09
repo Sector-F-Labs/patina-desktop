@@ -40,6 +40,19 @@ pub fn display() -> Option<&'static str> {
 /// The smallest a resize makes an X window.
 const MIN_SIZE: i32 = 64;
 
+/// Lets root open windows on the X server, as `xhost +SI:localuser:root`
+/// does. Xwayland only lets its own user connect, and the apps started
+/// through polkit (GParted through `pkexec`, ADR-0128) run as root.
+fn allow_root(display: &str) -> Result<(), Box<dyn std::error::Error>> {
+    use x11rb::connection::Connection;
+    use x11rb::protocol::xproto::{ConnectionExt, Family, HostMode};
+    let (conn, _) = x11rb::rust_connection::RustConnection::connect(Some(display))?;
+    conn.change_hosts(HostMode::INSERT, Family::SERVER_INTERPRETED, b"localuser\0root")?
+        .check()?;
+    conn.flush()?;
+    Ok(())
+}
+
 impl State {
     /// Starts Xwayland on a free display, and the window manager once it's
     /// ready. Without Xwayland installed, X apps just don't open.
@@ -61,10 +74,19 @@ impl State {
             }
         };
         let display = format!(":{}", xwayland.display_number());
+        let socket_display = display.clone();
         let inserted =
             self.loop_handle
                 .insert_source(xwayland, move |event, _, state| match event {
                     XWaylandEvent::Ready { x11_socket, .. } => {
+                        // Off the loop: it connects to the X server, which the
+                        // window manager below is about to as well.
+                        let display = socket_display.clone();
+                        std::thread::spawn(move || {
+                            if let Err(e) = allow_root(&display) {
+                                eprintln!("patina-compositor: root can't open X windows: {e}");
+                            }
+                        });
                         match X11Wm::start_wm(state.loop_handle.clone(), x11_socket, client.clone())
                         {
                             Ok(wm) => state.xwm = Some(wm),

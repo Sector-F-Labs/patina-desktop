@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 920" width="960" height="920" role="img" aria-labelledby="t d">
+<title id="t">One polkit request, in time</title><desc id="d">pkexec asks polkitd, polkitd calls BeginAuthentication on the agent, and the agent starts the dialog and opens a conversation with the root helper. The helper's password prompt goes to the dialog, the typed password goes back through the agent to the helper, and PAM checks it. On success the helper tells polkitd and the agent, the dialog closes, BeginAuthentication returns and polkitd lets pkexec run the app as root. A wrong password makes the helper say FAILURE and the agent starts a new conversation with the same cookie.</desc>
+<style>:root{--bg:#fdf6e3;--group:#f4f0d9;--gstroke:#e0dcc7;--box:#fffbef;--bstroke:#a6b0a0;--text:#5c6a72;--muted:#708089;--blue:#3a94c5;--green:#8da101;--purple:#df69ba;--tblue:#2d7fa8;--tgreen:#677800;--tpurple:#b54f93;--busfill:#f3ecc2;--busstroke:#dfa000;--red:#f85552;--line:#829181;--note:#e4efe9;}@media (prefers-color-scheme: dark){:root{--bg:#2d353b;--group:#343f44;--gstroke:#475258;--box:#2d353b;--bstroke:#7a8478;--text:#d3c6aa;--muted:#9da9a0;--blue:#7fbbb3;--green:#a7c080;--purple:#d699b6;--tblue:#7fbbb3;--tgreen:#a7c080;--tpurple:#d699b6;--busfill:#4d4c43;--busstroke:#dbbc7f;--red:#e67e80;--line:#859289;--note:#384b55;}}
+text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:12.5px;fill:var(--text)}
+.b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.mu{fill:var(--muted);font-size:12px}.s{font-size:11.5px}.e{text-anchor:end}.c{text-anchor:middle}
+.h{font-size:14px;font-weight:600}
+.bg{fill:var(--bg)}
+.grp{fill:var(--group);stroke:var(--gstroke);stroke-width:1.2}
+.box{fill:var(--box);stroke:var(--bstroke);stroke-width:1.2}
+.bl{stroke:var(--blue);stroke-width:1.6}.gr{stroke:var(--green);stroke-width:1.6}.pu{stroke:var(--purple);stroke-width:1.6}
+.tb{fill:var(--tblue)}.tg{fill:var(--tgreen)}.tp{fill:var(--tpurple)}
+.bus{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}
+.ln{stroke:var(--line);stroke-width:1.5;fill:none}
+.dash{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5;fill:none}
+.ah{fill:var(--line)}
+.note{fill:var(--note);stroke:var(--blue);stroke-width:1}
+.red{fill:var(--red)}.bar{fill:var(--purple)}
+
+.l{paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round}.num{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}.nt{font-size:12px;font-weight:700;text-anchor:middle}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect class="bg" width="960" height="920" rx="10"/>
+<rect x="44" y="20" width="132" height="40" rx="8" class="box gr"/><text x="110" y="45" class="b c">pkexec</text>
+<line x1="110" y1="60" x2="110" y2="900" class="dash"/>
+<rect x="234" y="20" width="132" height="40" rx="8" class="box pu"/><text x="300" y="45" class="b c">polkitd</text>
+<line x1="300" y1="60" x2="300" y2="900" class="dash"/>
+<rect x="424" y="20" width="132" height="40" rx="8" class="box bl"/><text x="490" y="45" class="b c">agent</text>
+<line x1="490" y1="60" x2="490" y2="900" class="dash"/>
+<rect x="614" y="20" width="132" height="40" rx="8" class="box bl"/><text x="680" y="45" class="b c">dialog</text>
+<line x1="680" y1="60" x2="680" y2="900" class="dash"/>
+<rect x="804" y="20" width="132" height="40" rx="8" class="box pu"/><text x="870" y="45" class="b c">helper</text>
+<line x1="870" y1="60" x2="870" y2="900" class="dash"/>
+<line x1="111" y1="100" x2="299" y2="100" class="ln" marker-end="url(#a)"/>
+<text x="205.0" y="93" class="s c l">may I run this as root?</text>
+<line x1="301" y1="150" x2="489" y2="150" class="ln" marker-end="url(#a)"/>
+<text x="395.0" y="143" class="s c l">BeginAuthentication(cookie, message, who)</text>
+<line x1="491" y1="200" x2="679" y2="200" class="ln" marker-end="url(#a)"/>
+<text x="585.0" y="193" class="s c l">starts patina-polkit --ask</text>
+<rect x="705.0" y="212" width="170" height="28" rx="6" class="note"/><text x="790" y="230" class="s c">the dialog appears</text>
+<line x1="491" y1="262" x2="869" y2="262" class="ln" marker-end="url(#a)"/>
+<text x="680.0" y="255" class="s c l">user, cookie</text>
+<line x1="869" y1="312" x2="491" y2="312" class="ln" marker-end="url(#a)"/>
+<text x="680.0" y="305" class="s c l">PAM_PROMPT_ECHO_OFF Password:</text>
+<line x1="491" y1="362" x2="679" y2="362" class="ln" marker-end="url(#a)"/>
+<text x="585.0" y="355" class="s c l">prompt</text>
+<rect x="580.0" y="376" width="200" height="28" rx="6" class="note"/><text x="680" y="394" class="s c">you type the password</text>
+<line x1="679" y1="434" x2="491" y2="434" class="ln" marker-end="url(#a)"/>
+<text x="585.0" y="427" class="s c l">password</text>
+<line x1="491" y1="484" x2="869" y2="484" class="ln" marker-end="url(#a)"/>
+<text x="680.0" y="477" class="s c l">password (zeroed once sent)</text>
+<rect x="795.0" y="498" width="150" height="28" rx="6" class="note"/><text x="870" y="516" class="s c">PAM checks it</text>
+<line x1="869" y1="556" x2="301" y2="556" class="ln" marker-end="url(#a)"/>
+<text x="585.0" y="549" class="s c l">authenticated: tells polkitd itself</text>
+<line x1="869" y1="606" x2="491" y2="606" class="ln" marker-end="url(#a)"/>
+<text x="680.0" y="599" class="s c l">SUCCESS</text>
+<line x1="491" y1="656" x2="679" y2="656" class="ln" marker-end="url(#a)"/>
+<text x="585.0" y="649" class="s c l">ok</text>
+<rect x="755.0" y="668" width="130" height="28" rx="6" class="note"/><text x="820" y="686" class="s c">it closes</text>
+<line x1="489" y1="718" x2="301" y2="718" class="ln" marker-end="url(#a)"/>
+<text x="395.0" y="711" class="s c l">BeginAuthentication returns</text>
+<line x1="299" y1="768" x2="111" y2="768" class="ln" marker-end="url(#a)"/>
+<text x="205.0" y="761" class="s c l">go ahead</text>
+<rect x="65.0" y="782" width="210" height="28" rx="6" class="note"/><text x="170" y="800" class="s c">the app runs as root</text>
+<rect x="44" y="844" width="872" height="54" rx="8" class="note"/>
+<text x="480" y="866" class="s c">a wrong password: the helper says FAILURE, the dialog shakes and says so, and the agent opens a new</text>
+<text x="480" y="884" class="s c">conversation with the same cookie; cancelling, or polkit cancelling the request, closes the dialog and refuses</text>
+</svg>

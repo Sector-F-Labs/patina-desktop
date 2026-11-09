@@ -16,6 +16,7 @@ serde = { version = "1", features = ["derive"] }
 serde_ignored = "0.1"
 toml = "1"
 zbus = "5"
+x11rb = "0.13"
 rustix = { version = "1", features = ["process"] }
 png = "0.18"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
