@@ -1,4 +1,4 @@
-//! Gaps, on the Appearance page (ADR-0051): `[gaps]` in the compositor's
+//! Gaps, on the HUD page (ADR-0051): `[gaps]` in the compositor's
 //! config, which the compositor follows for tiled windows and the bar for
 //! floating, within a second.
 
