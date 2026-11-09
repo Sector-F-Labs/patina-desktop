@@ -156,6 +156,9 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     // parent desktop's services must keep reaching the parent.
     if session || !nested {
         export_to_session(&state);
+        // The password prompt for administrator rights (ADR-0128). Not nested:
+        // polkit has one agent per login session, and the parent desktop's is it.
+        state.keep_client("patina-polkit");
     }
     state.start_displays();
     state.start_night_light();

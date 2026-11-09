@@ -170,7 +170,6 @@ Still to do, so these don't work in the session yet:
 - start **xdg-desktop-portal** with a backend, so Firefox's file picker, Flatpak apps and screen
   sharing work. `xdg-desktop-portal-wlr` (screen sharing) and `xdg-desktop-portal-gtk` (file
   pickers) work until there's a Patina one;
-- a **polkit agent**, for password prompts from Software, Disks and the like;
 - a **notification daemon**, until Patina has its own notifications;
 - **gnome-keyring**, if you want passwords stored as on GNOME (Ubuntu's PAM setup unlocks it
   at login);

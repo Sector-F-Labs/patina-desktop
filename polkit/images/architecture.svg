@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800" width="1000" height="800" role="img" aria-labelledby="t d">
+<title id="t">How an app gets administrator rights in Patina</title><desc id="d">An app or pkexec asks polkitd whether it may run as root. polkitd sends the request to patina-polkit, the agent registered for the login session. The agent runs itself again as a dialog that shows the password box, and relays polkit's agent helper's prompts and the typed password between them. The helper, running as root, checks the password with PAM and tells polkitd the answer, and polkitd lets the app run as root. The compositor keeps the agent running and lets root onto the X server.</desc>
+<style>:root{--bg:#fdf6e3;--group:#f4f0d9;--gstroke:#e0dcc7;--box:#fffbef;--bstroke:#a6b0a0;--text:#5c6a72;--muted:#708089;--blue:#3a94c5;--green:#8da101;--purple:#df69ba;--tblue:#2d7fa8;--tgreen:#677800;--tpurple:#b54f93;--busfill:#f3ecc2;--busstroke:#dfa000;--red:#f85552;--line:#829181;--note:#e4efe9;}@media (prefers-color-scheme: dark){:root{--bg:#2d353b;--group:#343f44;--gstroke:#475258;--box:#2d353b;--bstroke:#7a8478;--text:#d3c6aa;--muted:#9da9a0;--blue:#7fbbb3;--green:#a7c080;--purple:#d699b6;--tblue:#7fbbb3;--tgreen:#a7c080;--tpurple:#d699b6;--busfill:#4d4c43;--busstroke:#dbbc7f;--red:#e67e80;--line:#859289;--note:#384b55;}}
+text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:12.5px;fill:var(--text)}
+.b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px}
+.mu{fill:var(--muted);font-size:12px}.s{font-size:11.5px}.e{text-anchor:end}.c{text-anchor:middle}
+.h{font-size:14px;font-weight:600}
+.bg{fill:var(--bg)}
+.grp{fill:var(--group);stroke:var(--gstroke);stroke-width:1.2}
+.box{fill:var(--box);stroke:var(--bstroke);stroke-width:1.2}
+.bl{stroke:var(--blue);stroke-width:1.6}.gr{stroke:var(--green);stroke-width:1.6}.pu{stroke:var(--purple);stroke-width:1.6}
+.tb{fill:var(--tblue)}.tg{fill:var(--tgreen)}.tp{fill:var(--tpurple)}
+.bus{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}
+.ln{stroke:var(--line);stroke-width:1.5;fill:none}
+.dash{stroke:var(--line);stroke-width:1.2;stroke-dasharray:5 5;fill:none}
+.ah{fill:var(--line)}
+.note{fill:var(--note);stroke:var(--blue);stroke-width:1}
+.red{fill:var(--red)}.bar{fill:var(--purple)}
+
+.l{paint-order:stroke;stroke:var(--bg);stroke-width:4px;stroke-linejoin:round}.num{fill:var(--busfill);stroke:var(--busstroke);stroke-width:1.4}.nt{font-size:12px;font-weight:700;text-anchor:middle}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="ah"/></marker></defs>
+<rect class="bg" width="1000" height="800" rx="10"/>
+<rect x="30" y="30" width="190" height="390" rx="12" class="grp"/>
+<text x="46" y="54" class="h tg">the app</text>
+<text x="46" y="72" class="s mu">asks; never sees a password</text>
+<rect x="320" y="30" width="300" height="390" rx="12" class="grp"/>
+<text x="336" y="54" class="h tp">the system</text>
+<text x="336" y="72" class="s mu">decides and checks</text>
+<rect x="720" y="30" width="250" height="390" rx="12" class="grp"/>
+<text x="736" y="54" class="h tb">your session</text>
+<text x="736" y="72" class="s mu">patina-polkit</text>
+<rect x="46" y="110" width="158" height="76" rx="8" class="box gr"/>
+<text x="125.0" y="134" class="b c">pkexec</text>
+<text x="125.0" y="153" class="s c mu">or an app using polkit</text>
+<text x="125.0" y="170" class="s c mu">(GParted's launcher)</text>
+<rect x="46" y="290" width="158" height="76" rx="8" class="box gr"/>
+<text x="125.0" y="314" class="b c">the app, as root</text>
+<text x="125.0" y="333" class="s c mu">GParted runs, and draws</text>
+<text x="125.0" y="350" class="s c mu">on the X server</text>
+<rect x="336" y="110" width="268" height="76" rx="8" class="box pu"/>
+<text x="470.0" y="134" class="b c">polkitd</text>
+<text x="470.0" y="153" class="s c mu">decides from its rules;</text>
+<text x="470.0" y="170" class="s c mu">hands the question to an agent</text>
+<rect x="336" y="290" width="268" height="100" rx="8" class="box pu"/>
+<text x="470.0" y="314" class="b c">polkit-agent-helper-1</text>
+<text x="470.0" y="333" class="s c mu">runs as root, asks PAM</text>
+<text x="470.0" y="350" class="s c mu">checks the password, and tells</text>
+<text x="470.0" y="367" class="s c mu">polkitd the answer itself</text>
+<rect x="736" y="110" width="218" height="100" rx="8" class="box bl"/>
+<text x="845.0" y="134" class="b c">the agent</text>
+<text x="845.0" y="153" class="s c mu">agent.rs: registered for</text>
+<text x="845.0" y="170" class="s c mu">this login session; relays</text>
+<text x="845.0" y="187" class="s c mu">prompts, never checks</text>
+<rect x="736" y="290" width="218" height="100" rx="8" class="box bl"/>
+<text x="845.0" y="314" class="b c">the dialog</text>
+<text x="845.0" y="333" class="s c mu">patina-polkit --ask</text>
+<text x="845.0" y="350" class="s c mu">dialog.rs: an overlay with</text>
+<text x="845.0" y="367" class="s c mu">the message and the box</text>
+<line x1="205" y1="130" x2="335" y2="130" class="ln" marker-end="url(#a)"/>
+<circle cx="270" cy="130" r="11" class="num"/><text x="270" y="134.5" class="nt">1</text>
+<line x1="335" y1="166" x2="205" y2="166" class="ln" marker-end="url(#a)"/>
+<circle cx="270" cy="166" r="11" class="num"/><text x="270" y="170.5" class="nt">6</text>
+<line x1="605" y1="148" x2="735" y2="148" class="ln" marker-end="url(#a)"/>
+<circle cx="670" cy="148" r="11" class="num"/><text x="670" y="152.5" class="nt">2</text>
+<line x1="845" y1="211" x2="845" y2="289" class="ln" marker-start="url(#a)" marker-end="url(#a)"/>
+<circle cx="845" cy="250" r="11" class="num"/><text x="845" y="254.5" class="nt">3</text>
+<line x1="737" y1="190" x2="605" y2="318" class="ln" marker-start="url(#a)" marker-end="url(#a)"/>
+<circle cx="671" cy="254" r="11" class="num"/><text x="671" y="258.5" class="nt">4</text>
+<line x1="470" y1="289" x2="470" y2="187" class="ln" marker-end="url(#a)"/>
+<circle cx="470" cy="238" r="11" class="num"/><text x="470" y="242.5" class="nt">5</text>
+<line x1="125" y1="187" x2="125" y2="289" class="dash" marker-end="url(#a)"/>
+<text x="137" y="244" class="s mu">6: runs as root</text>
+<rect x="30" y="440" width="940" height="196" rx="12" class="grp"/>
+<text x="46" y="466" class="h">one request</text>
+<circle cx="54" cy="488" r="11" class="num"/><text x="54" y="492.5" class="nt">1</text>
+<text x="74" y="492" class="s">pkexec, or an app using polkit, asks polkitd whether it may do this as root.</text>
+<circle cx="54" cy="512" r="11" class="num"/><text x="54" y="516.5" class="nt">2</text>
+<text x="74" y="516" class="s">polkitd finds the agent registered for the app's login session and calls BeginAuthentication: a cookie, the message, and who may approve.</text>
+<circle cx="54" cy="536" r="11" class="num"/><text x="54" y="540.5" class="nt">3</text>
+<text x="74" y="540" class="s">the agent starts patina-polkit --ask, the dialog: lines on its stdin and stdout carry the prompt, the password, and wrong or ok.</text>
+<circle cx="54" cy="560" r="11" class="num"/><text x="54" y="564.5" class="nt">4</text>
+<text x="74" y="564" class="s">the agent gives the helper the user and cookie (a socket, /run/polkit/agent-helper.socket); PAM's prompts and the password pass through the agent.</text>
+<circle cx="54" cy="584" r="11" class="num"/><text x="54" y="588.5" class="nt">5</text>
+<text x="74" y="588" class="s">the helper, as root, checks the password with PAM and tells polkitd the answer itself; the agent only hears SUCCESS or FAILURE.</text>
+<circle cx="54" cy="608" r="11" class="num"/><text x="54" y="612.5" class="nt">6</text>
+<text x="74" y="612" class="s">polkitd lets pkexec run the app as root.</text>
+<rect x="30" y="656" width="940" height="120" rx="12" class="grp"/>
+<text x="46" y="682" class="h tb">patina-compositor</text>
+<text x="46" y="700" class="s mu">sets the desktop up for it</text>
+<rect x="46" y="710" width="440" height="54" rx="8" class="box bl"/>
+<text x="266.0" y="734" class="b c">keeps patina-polkit running</text>
+<text x="266" y="750" class="s c mu">on the hardware, not nested (main.rs)</text>
+<rect x="510" y="710" width="444" height="54" rx="8" class="box bl"/>
+<text x="732.0" y="734" class="b c">lets root onto the X server</text>
+<text x="732" y="750" class="s c mu">xhost +SI:localuser:root, as allow_root (xwayland.rs)</text>
+</svg>

@@ -1,0 +1,52 @@
+.Dd November 9, 2026
+.Dt PATINA-POLKIT 1
+.Os
+.Sh NAME
+.Nm patina-polkit
+.Nd the Patina desktop's polkit agent
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+asks for your password when an app needs administrator rights:
+.Xr pkexec 1 ,
+GParted, Disks, Software, and anything else that asks
+.Xr polkit 8 .
+.Xr patina-compositor 1
+keeps it running in the session.
+It registers with polkit as the agent for this login session; when polkit
+needs a password it shows a dialog in the middle of the screen with what the
+app is asking for and who is authenticating, and the password is checked by
+polkit's own agent helper.
+Escape or Cancel closes the dialog and refuses the request; a wrong password
+asks again.
+.Pp
+polkit allows one agent per session, so
+.Nm
+stops with an error where there already is one, as in a GNOME session.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.It Fl -ask Fl -user Ar name Fl -message Ar text
+The dialog itself, which the agent starts for each request; it speaks the
+agent's line protocol on standard input and output, so it isn't useful by
+hand.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev XDG_SESSION_ID
+The login session to register for; without it, logind is asked.
+.It Ev PATINA_SKIN
+The skin to wear, as the bar sets it; otherwise the bar's config's.
+.El
+.Sh SEE ALSO
+.Xr patina-compositor 1 ,
+.Xr patina-lock 1 ,
+.Xr pkexec 1 ,
+.Xr patina-desktop 7 ,
+.Xr polkit 8

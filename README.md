@@ -163,6 +163,7 @@ keys work, with an on-screen flash.
 - **[patina-wifi](wifi/README.md)** (`wifi/`): the Wi-Fi menu, through NetworkManager: networks in range, joining, disconnecting, Wi-Fi on and off, and signing in to captive portals (ADR-0098).
 - **[patina-clipboard](clipboard/README.md)** (`clipboard/`): the clipboard menu, opened by the bar's clipboard icon: what was copied lately, with image thumbnails, to copy again, delete or clear; the compositor keeps the history (ADR-0114).
 - **[patina-clock](clock/README.md)** (`clock/`): the clock's menu: a month and the day's events from the Calendar app.
+- **[patina-polkit](polkit/README.md)** (`polkit/`): the password prompt when an app needs administrator rights (`pkexec`, GParted, Disks).
 - **[patina-power](power/README.md)** (`power/`): the power menu after the clock: Lock, Log Out, Restart and Shut Down, each but Lock asking first.
 - **[patina-lock](lock/README.md)** (`lock/`): the lock screen, in the bar's skin, with the password checked through PAM. The compositor runs it on Ctrl+Super+Q, Super+Escape, when the screen turns off and before sleep.
 - **[patina-screenshot](screenshot/README.md)** (`screenshot/`): what the Print key opens: the screen, a window or a selection, or recording the screen or a selection to `~/Videos/Screen Recordings`. Also what an app asking to share the screen may see, through xdg-desktop-portal-wlr.
