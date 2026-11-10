@@ -48,7 +48,8 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   grayed when none is connected, each with Ask when plugged in and Forget (ADR-0124, ADR-0126). It all goes through
   the compositor's `com.sectorflabs.Patina.Displays` (`patina_system::displays`), which keeps the
   places by monitor in `displays.toml`. The popup sends a monitor never placed here.
-- **Night Light** (ADR-0039): off, always on, or on a schedule, and the warmth. It also shows
+- **Night Light** (ADR-0039): off, always on, or on a schedule, the warmth, and whether it's off while a game or video is
+  fullscreen (ADR-0132). It also shows
   what the compositor says: whether this screen can be warmed, whether it's on now (with a button
   to turn it off until the schedule changes, or back), and which apps are holding it off.
 

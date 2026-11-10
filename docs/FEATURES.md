@@ -94,7 +94,8 @@ Last checked against the code: 2026-11-09.
   ([0121](adr/0121-multi-monitor.md), [0124](adr/0124-displays-are-remembered-by-model.md),
   [0126](adr/0126-a-known-monitor-is-switched-on-without-asking.md)).
 - **Night Light** through the display's gamma ramp ([0039](adr/0039-night-light.md)), also from the
-  command line (`patina-night-light`).
+  command line (`patina-night-light`); it can stand down while a game or video is fullscreen
+  ([0132](adr/0132-night-light-can-stand-down-for-a-fullscreen-window.md)).
 - **The screen turns off** after a while without input, unless something is playing
   ([0047](adr/0047-the-screen-turns-off-without-input.md)).
 - **Explicit sync** for NVIDIA's driver, so Chromium and Electron apps aren't shown half-drawn.

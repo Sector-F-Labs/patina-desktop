@@ -213,6 +213,9 @@ pub struct NightLight {
     /// set.
     override_until: Option<NaiveDateTime>,
     inhibitors: BTreeMap<u32, Inhibitor>,
+    /// A fullscreen window has the keyboard; held off by it when the
+    /// settings' `pause_in_fullscreen` says so.
+    fullscreen: bool,
     /// The temperature on screen.
     shown: f64,
     /// Where it's heading.
@@ -237,6 +240,7 @@ impl NightLight {
             overridden: Override::Auto,
             override_until: None,
             inhibitors: BTreeMap::new(),
+            fullscreen: false,
             shown: NEUTRAL as f64,
             target: NEUTRAL as f64,
             fade: None,
@@ -271,9 +275,15 @@ impl NightLight {
         }
     }
 
-    /// Whether it's warm now: wanted, and not inhibited.
+    /// Whether a fullscreen window is holding it off.
+    fn paused(&self) -> bool {
+        self.settings.pause_in_fullscreen && self.fullscreen
+    }
+
+    /// Whether it's warm now: wanted, and neither inhibited nor paused by
+    /// a fullscreen window.
     pub fn active(&mut self, now: NaiveDateTime) -> bool {
-        self.wanted(now) && self.inhibitors.is_empty()
+        self.wanted(now) && self.inhibitors.is_empty() && !self.paused()
     }
 
     /// The temperature to head for at `now`, and how fast: slowly when the
@@ -340,7 +350,12 @@ impl NightLight {
         dbus::Status {
             available,
             active: self.active(now),
-            inhibitors: self.inhibitors.values().map(|i| i.reason.clone()).collect(),
+            inhibitors: self
+                .inhibitors
+                .values()
+                .map(|i| i.reason.clone())
+                .chain(self.paused().then(|| "A fullscreen window".to_string()))
+                .collect(),
             temperature: self.shown.round() as u32,
             overridden: self.overridden.name().into(),
         }
@@ -392,6 +407,7 @@ impl State {
     /// Heads for the temperature the settings, schedule, overrides and
     /// inhibitors call for, fading if it changes.
     pub fn night_light_update(&mut self) {
+        self.night_light.fullscreen = self.fullscreen_on_top().is_some();
         let fading = self.night_light.update(local_now(), Instant::now());
         if fading && !self.night_light.stepping {
             self.night_light.stepping = true;
@@ -604,5 +620,25 @@ mod tests {
         n.set_override(Override::Off, at(20, 1));
         n.update(at(20, 1), start);
         assert_eq!(n.fade.unwrap().length, QUICK_FADE);
+    }
+
+    #[test]
+    fn a_fullscreen_window_pauses_it_only_when_asked() {
+        let mut settings = config::NightLight {
+            mode: NightLightMode::Always,
+            ..Default::default()
+        };
+        let mut n = NightLight::new(&settings);
+        n.fullscreen = true;
+        assert!(n.active(at(12, 0)), "not asked, so a game changes nothing");
+        settings.pause_in_fullscreen = true;
+        n.configure(&settings);
+        assert!(!n.active(at(12, 0)));
+        assert_eq!(
+            n.status(true, at(12, 0)).inhibitors,
+            ["A fullscreen window"]
+        );
+        n.fullscreen = false;
+        assert!(n.active(at(12, 0)));
     }
 }

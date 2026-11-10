@@ -173,6 +173,7 @@ mechanics of adding one.
 | [0129](0129-the-compositor-says-when-a-fullscreen-window-has-the-keyboard.md) | The compositor says when a fullscreen window has the keyboard, and dictation puts its model away then | Accepted |
 | [0130](0130-maximise-inside-the-gaps-is-a-setting.md) | Whether an app's maximise fills inside the gaps is a setting of its own | Accepted |
 | [0131](0131-the-huds-bars-fuse-flush-with-the-edges-for-a-maximised-window.md) | The HUD's bars fuse flush with the edges while a maximised window has the keyboard | Accepted |
+| [0132](0132-night-light-can-stand-down-for-a-fullscreen-window.md) | Night Light can stand down while a fullscreen window has the keyboard | Accepted |
 
 ## Decision Relationship
 

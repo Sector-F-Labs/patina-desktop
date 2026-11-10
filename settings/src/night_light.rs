@@ -86,7 +86,23 @@ impl NightLightPage {
                     .weak(),
             );
         });
-        if times_changed || slid {
+
+        ui.add_space(12.0);
+        let before = self.settings.pause_in_fullscreen;
+        ui.add_enabled(
+            self.settings.mode != Mode::Off,
+            egui::Checkbox::new(
+                &mut self.settings.pause_in_fullscreen,
+                "Off while a game or video is fullscreen",
+            ),
+        );
+        ui.label(
+            RichText::new("The colours go back to normal for as long as it has the screen.")
+                .small()
+                .weak(),
+        );
+        let paused_changed = self.settings.pause_in_fullscreen != before;
+        if times_changed || slid || paused_changed {
             self.save(message);
         }
     }
@@ -150,11 +166,7 @@ impl NightLightPage {
         });
         if !status.inhibitors.is_empty() {
             ui.label(
-                RichText::new(format!(
-                    "Held off by an app: {}.",
-                    status.inhibitors.join(", ")
-                ))
-                .weak(),
+                RichText::new(format!("Held off by: {}.", status.inhibitors.join(", "))).weak(),
             );
         }
     }
