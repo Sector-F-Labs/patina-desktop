@@ -175,6 +175,9 @@ pub struct NightLight {
     pub to: String,
     /// How warm, in kelvin: 6500 is neutral, 1700 the warmest.
     pub temperature: u32,
+    /// Leave the screen's colours alone while a fullscreen window (a game, a
+    /// video) has the keyboard.
+    pub pause_in_fullscreen: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -194,6 +197,7 @@ impl Default for NightLight {
             from: "20:00".into(),
             to: "06:00".into(),
             temperature: 4000,
+            pause_in_fullscreen: false,
         }
     }
 }
@@ -962,6 +966,7 @@ mod tests {
         assert_eq!(c.night_light.mode, NightLightMode::Schedule);
         assert_eq!(c.night_light.from, "21:30");
         assert_eq!(c.night_light.temperature, 3000);
+        assert!(!c.night_light.pause_in_fullscreen);
         let (c, w) = parse("[night_light]\nfrom = \"late\"\ntemperature = 900\n").unwrap();
         assert_eq!(c.night_light, NightLight::default());
         assert_eq!(w.len(), 2, "{w:?}");

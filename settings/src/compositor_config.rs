@@ -40,6 +40,8 @@ pub struct NightLight {
     pub from: (u32, u32),
     pub to: (u32, u32),
     pub temperature: u32,
+    /// Off while a fullscreen window (a game, a video) has the keyboard.
+    pub pause_in_fullscreen: bool,
 }
 
 impl Default for NightLight {
@@ -49,6 +51,7 @@ impl Default for NightLight {
             from: FROM,
             to: TO,
             temperature: TEMPERATURE,
+            pause_in_fullscreen: false,
         }
     }
 }
@@ -95,6 +98,9 @@ pub fn parse(text: &str) -> NightLight {
     {
         night.temperature = k as u32;
     }
+    if let Some(pause) = table.get("pause_in_fullscreen").and_then(|v| v.as_bool()) {
+        night.pause_in_fullscreen = pause;
+    }
     night
 }
 
@@ -110,6 +116,7 @@ pub fn with_night_light(text: &str, night: &NightLight) -> Result<String, String
     table["from"] = value(format_time(night.from));
     table["to"] = value(format_time(night.to));
     table["temperature"] = value(night.temperature as i64);
+    table["pause_in_fullscreen"] = value(night.pause_in_fullscreen);
     Ok(doc.to_string())
 }
 
@@ -534,6 +541,7 @@ mod tests {
             from: (21, 30),
             to: (7, 0),
             temperature: 3200,
+            pause_in_fullscreen: true,
         };
         let text = with_night_light(STARTER, &night).unwrap();
         assert!(text.starts_with("# Patina compositor settings.\n\nscale = 1.5\n"));
