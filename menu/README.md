@@ -12,7 +12,8 @@ How the jobs share one program, with diagrams, is in [HOW-IT-WORKS.md](HOW-IT-WO
 
 At the pointer: the style, Default, Light or Dark; Wallpaper…, which opens Settings at
 its Wallpaper page; items to copy the built-in skins to the bar's skins folder, open that folder,
-and open the bar's settings file; and Settings…. A click elsewhere, Escape or losing the keyboard
+open the bar's settings file; Process Manager, which brings it forward or starts it, as
+Ctrl+Shift+Escape does; and Settings…. A click elsewhere, Escape or losing the keyboard
 closes it.
 
 ## How it fits in

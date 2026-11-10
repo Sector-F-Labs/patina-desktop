@@ -17,6 +17,9 @@ const APP: &str = "patina-hud";
 const WIDTH: f32 = 240.0;
 /// Settings (ADR-0038).
 const SETTINGS: &str = "patina-settings";
+/// Brings the process manager forward, or starts it: one, however often it's
+/// asked for, as Ctrl+Shift+Escape does.
+const PROCESS_MANAGER: &str = "patina-raise com.sectorflabs.ProcessManager -- patina-processes";
 
 pub struct DesktopMenu {
     /// Where it opens, in the surface's points.
@@ -117,6 +120,13 @@ impl DesktopMenu {
             self.open(path);
         }
         ui.separator();
+        if ui
+            .button("Process Manager")
+            .on_hover_text("What's running, and end what's hung (Ctrl+Shift+Escape)")
+            .clicked()
+        {
+            self.process_manager();
+        }
         if ui.button("Settings…").clicked() {
             self.settings(None);
         }
@@ -125,6 +135,23 @@ impl DesktopMenu {
             for note in &self.notes {
                 ui.label(RichText::new(note).small().weak());
             }
+        }
+    }
+
+    /// Opens the process manager, or brings it forward, and closes.
+    fn process_manager(&mut self) {
+        if patina_system::processes::spawn(PROCESS_MANAGER, &[]).is_ok() {
+            self.done = true;
+            return;
+        }
+        match std::process::Command::new("sh")
+            .args(["-c", PROCESS_MANAGER])
+            .spawn()
+        {
+            Ok(_) => self.done = true,
+            Err(e) => self
+                .notes
+                .push(format!("Couldn't open the process manager: {e}")),
         }
     }
 
