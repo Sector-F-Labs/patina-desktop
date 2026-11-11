@@ -44,6 +44,24 @@ pub struct WebApp {
     pub icon: Option<String>,
 }
 
+impl Engine {
+    pub const ALL: [Engine; 2] = [Engine::WebKit, Engine::Chromium];
+
+    /// What it's called, to a person and on the command line.
+    pub fn name(self) -> &'static str {
+        match self {
+            Engine::WebKit => "WebKit",
+            Engine::Chromium => "Chromium",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Engine> {
+        Engine::ALL
+            .into_iter()
+            .find(|e| e.name().eq_ignore_ascii_case(name))
+    }
+}
+
 /// What a web app's page runs in.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -68,17 +86,25 @@ impl WebApp {
         format!("{ID_PREFIX}{}", self.slug)
     }
 
-    /// The app-id its window has: the WebKit host's own, or Chromium's
-    /// `chrome-<host>_<path>-<profile>`, which is only known for an address with no path; a
-    /// longer one gets none, and matches by [`slug_from_app_id`].
+    /// The app-id its window has: the WebKit host's own, or Chromium's, which it builds from
+    /// the address and the profile: `chrome-<host>_<path>-<profile>`, the path without its query
+    /// and with `/` as `_` (`https://x.com/a/b?c` in profile `p` is `chrome-x.com__a_b-p`).
     pub fn app_id(&self) -> Option<String> {
         if self.engine == Engine::WebKit {
             return Some(self.profile_name());
         }
         let rest = self.url.split("://").nth(1)?;
-        let (host, path) = rest.split_once('/').unwrap_or((rest, ""));
-        let simple = path.is_empty() && !host.contains(['?', '#', ':']);
-        simple.then(|| format!("chrome-{host}__-{}", self.profile_name()))
+        let (authority, path) = match rest.find('/') {
+            Some(i) => rest.split_at(i),
+            None => (rest.split(['?', '#']).next()?, "/"),
+        };
+        let host = authority.rsplit('@').next()?.split(':').next()?;
+        let path = path.split(['?', '#']).next()?;
+        Some(format!(
+            "chrome-{host}_{}-{}",
+            path.replace('/', "_"),
+            self.profile_name()
+        ))
     }
 }
 
@@ -238,6 +264,20 @@ impl Store {
         self.save(apps).map_err(|e| e.to_string())
     }
 
+    /// Changes which engine opens `slug`, and writes its `.desktop` entry again (the window's
+    /// app-id, which the entry names, depends on the engine).
+    pub fn set_engine(&self, slug: &str, engine: Engine) -> Result<(), String> {
+        let mut apps = self.list();
+        let app = apps
+            .iter_mut()
+            .find(|a| a.slug == slug)
+            .ok_or(format!("no web app called {slug}"))?;
+        app.engine = engine;
+        let app = app.clone();
+        self.save(apps).map_err(|e| e.to_string())?;
+        self.write_entry(&app).map_err(|e| e.to_string())
+    }
+
     /// Reads the site again for its colour and icon, and keeps what it says (what it doesn't
     /// say is kept as it was). Slow: it's the network, so not on a UI thread.
     pub fn refresh(&self, slug: &str) -> Result<WebApp, String> {
@@ -291,6 +331,8 @@ impl Store {
                 self.profile_dir_for(&app.slug, engine).display()
             ),
             format!("--profile-directory={}", app.profile_name()),
+            // The WebKit host's size, for a window that hasn't one of its own yet.
+            "--window-size=960,640".into(),
             "--no-first-run".into(),
             "--no-default-browser-check".into(),
             format!("--app={}", app.url),
@@ -523,6 +565,51 @@ mod tests {
         assert_eq!(s.list().len(), 1);
         assert!(s.remove("whatsapp").is_err());
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn the_engine_can_be_changed_and_the_entry_follows() {
+        let (s, dir) = store();
+        let a = s.add("X", "x.example.com").unwrap();
+        let entry = |s: &Store| fs::read_to_string(s.desktop_path(&a.slug)).unwrap();
+        assert!(entry(&s).contains("StartupWMClass=patina-webapp-x"));
+        s.set_engine("x", Engine::Chromium).unwrap();
+        assert_eq!(s.find("x").unwrap().engine, Engine::Chromium);
+        assert!(entry(&s).contains("StartupWMClass=chrome-x.example.com__-patina-webapp-x"));
+        assert_eq!(Engine::from_name("chromium"), Some(Engine::Chromium));
+        assert!(s.set_engine("nope", Engine::WebKit).is_err());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn chromiums_app_id_follows_its_address() {
+        let chromium = |url: &str| WebApp {
+            slug: "ha".into(),
+            name: "HA".into(),
+            url: url.into(),
+            engine: Engine::Chromium,
+            color: None,
+            icon: None,
+        };
+        let id = |url: &str| chromium(url).app_id().unwrap();
+        // The ones Chromium was seen to give.
+        assert_eq!(
+            id("https://web.whatsapp.com"),
+            "chrome-web.whatsapp.com__-patina-webapp-ha"
+        );
+        assert_eq!(
+            id("https://web.whatsapp.com/"),
+            "chrome-web.whatsapp.com__-patina-webapp-ha"
+        );
+        assert_eq!(
+            id("https://homeassistant.divanv.com/lovelace/0?homescreen=1"),
+            "chrome-homeassistant.divanv.com__lovelace_0-patina-webapp-ha"
+        );
+        assert_eq!(
+            id("https://x.com:8123/a#b"),
+            "chrome-x.com__a-patina-webapp-ha"
+        );
+        assert_eq!(slug_from_app_id(&id("https://x.com/a/b")), Some("ha"));
     }
 
     #[test]

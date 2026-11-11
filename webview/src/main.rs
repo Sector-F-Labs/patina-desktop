@@ -201,8 +201,11 @@ fn main() -> gtk4::glib::ExitCode {
         // below): the compositor's title bar is this, and the page gets a border to match,
         // rounded at the bottom with the corners outside it left transparent, as Patina's own
         // apps do.
+        let plain = std::env::var_os("PATINA_WEBVIEW_PLAIN").is_some_and(|v| v == "1");
         let css = gtk4::CssProvider::new();
-        if let Some(display) = gtk4::gdk::Display::default() {
+        if plain {
+            // Debugging: the bare web view, to tell a crash of ours from WebKit's.
+        } else if let Some(display) = gtk4::gdk::Display::default() {
             gtk4::style_context_add_provider_for_display(
                 &display,
                 &css,
@@ -213,13 +216,16 @@ fn main() -> gtk4::glib::ExitCode {
             let (css, view) = (css.clone(), view.clone());
             Rc::new(move |color: Option<look::Rgb>| {
                 let border = color.map(look::border_for).unwrap_or([0x3a, 0x3f, 0x44]);
-                if let Some([r, g, b]) = color {
+                if let (Some([r, g, b]), false) = (color, plain) {
                     view.set_background_color(&gtk4::gdk::RGBA::new(
                         f32::from(r) / 255.0,
                         f32::from(g) / 255.0,
                         f32::from(b) / 255.0,
                         1.0,
                     ));
+                }
+                if plain {
+                    return;
                 }
                 css.load_from_string(&format!(
                     "window.patina-webapp, window.patina-webapp.background {{ background: transparent; }}\n\
@@ -230,14 +236,18 @@ fn main() -> gtk4::glib::ExitCode {
             })
         };
         apply(app.color.as_deref().and_then(look::parse));
-        follow_the_page(&view, &app.slug, app.color.clone(), apply);
+        if std::env::var_os("PATINA_WEBVIEW_FOLLOW").is_none_or(|v| v != "0") {
+            follow_the_page(&view, &app.slug, app.color.clone(), apply);
+        }
         let page = gtk4::Box::new(gtk4::Orientation::Vertical, 0);
         page.add_css_class("patina-page");
         view.set_vexpand(true);
         view.set_hexpand(true);
         page.append(&view);
         // What clips the page to the rounded corners; CSS has no property for it.
-        page.set_overflow(gtk4::Overflow::Hidden);
+        if !plain {
+            page.set_overflow(gtk4::Overflow::Hidden);
+        }
 
         let window = gtk4::ApplicationWindow::builder()
             .application(application)
@@ -248,6 +258,19 @@ fn main() -> gtk4::glib::ExitCode {
             .child(&page)
             .build();
         window.add_css_class("patina-webapp");
+        // WebKit runs the page in a process of its own, which can die (a driver, memory) without
+        // the window: say why, in the journal, and load the page again, once a minute at most.
+        let last_crash = Rc::new(RefCell::new(None::<std::time::Instant>));
+        view.connect_web_process_terminated(move |view, reason| {
+            eprintln!("patina-webview: the page's process ended: {reason:?}");
+            let recent = last_crash
+                .borrow()
+                .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(60));
+            *last_crash.borrow_mut() = Some(std::time::Instant::now());
+            if !recent {
+                view.reload();
+            }
+        });
         view.connect_title_notify({
             let window = window.clone();
             move |view| window.set_title(view.title().as_deref())

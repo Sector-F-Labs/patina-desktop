@@ -6,8 +6,7 @@ use std::process::{Command, ExitCode};
 
 use patina_webapp::{Engine, Store, find_engine, find_webview};
 
-const USAGE: &str =
-    "usage: patina-webapp launch SLUG | list | add URL [NAME] | refresh SLUG | remove SLUG | sync";
+const USAGE: &str = "usage: patina-webapp launch SLUG | list | add URL [NAME] | refresh SLUG | engine SLUG webkit|chromium | remove SLUG | sync";
 
 fn main() -> ExitCode {
     match run(std::env::args().skip(1).collect()) {
@@ -74,6 +73,10 @@ fn run(args: Vec<String>) -> Result<(), String> {
                 app.icon.unwrap_or_default()
             );
             Ok(())
+        }
+        ["engine", slug, name] => {
+            let engine = Engine::from_name(name).ok_or("the engines are webkit and chromium")?;
+            store.set_engine(slug, engine)
         }
         ["remove", slug] => store.remove(slug),
         ["sync"] => store.write_entries().map_err(|e| e.to_string()),
