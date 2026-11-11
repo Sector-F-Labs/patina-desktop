@@ -193,6 +193,72 @@ struct Frame {
     border: Option<[f32; 4]>,
     /// The border down the window's left and right, and along its bottom.
     sides: [SolidColorBuffer; 3],
+    /// How round the compositor makes the window's bottom corners, in points: for a web app in
+    /// an engine that can't round its own (ADR-0133); `None` for every other window.
+    round: Option<i32>,
+    /// The corners' border arcs, left and right, and what they were painted for.
+    corners: Option<Corners>,
+}
+
+/// The anti-aliased arcs of a rounded window's border, for one radius and colour.
+struct Corners {
+    key: (i32, [u8; 3]),
+    left: MemoryRenderBuffer,
+    right: MemoryRenderBuffer,
+}
+
+impl Corners {
+    /// Both bottom corners' arcs, `radius` pixels square, one pixel wide, in `color`.
+    fn paint(radius: i32, color: [u8; 3]) -> Option<Self> {
+        use resvg::tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform as Xf};
+        let side = radius.max(1) as u32;
+        let mut pixmap = Pixmap::new(side, side)?;
+        // The quarter circle round the bottom left corner: its centre is the tile's top right,
+        // and the stroke is centred half a pixel inside the edge.
+        let r = radius as f32;
+        let rho = r - 0.5;
+        let k = 0.552_284_7 * rho;
+        let mut path = PathBuilder::new();
+        path.move_to(r - rho, 0.0);
+        path.cubic_to(r - rho, k, r - k, rho, r, rho);
+        let mut paint = Paint::default();
+        paint.set_color(Color::from_rgba8(color[0], color[1], color[2], 255));
+        paint.anti_alias = true;
+        pixmap.stroke_path(
+            &path.finish()?,
+            &paint,
+            &Stroke::default(),
+            Xf::identity(),
+            None,
+        );
+        let bytes = |mirror: bool| -> Vec<u8> {
+            let mut out = Vec::with_capacity(pixmap.data().len());
+            for y in 0..side {
+                for x in 0..side {
+                    let x = if mirror { side - 1 - x } else { x };
+                    let p = pixmap.pixels()[(y * side + x) as usize];
+                    // Premultiplied, as Argb8888 wants it, little-endian: B G R A.
+                    out.extend([p.blue(), p.green(), p.red(), p.alpha()]);
+                }
+            }
+            out
+        };
+        let buffer = |bytes: Vec<u8>| {
+            MemoryRenderBuffer::from_slice(
+                &bytes,
+                Fourcc::Argb8888,
+                (side as i32, side as i32),
+                1,
+                Transform::Normal,
+                None,
+            )
+        };
+        Some(Self {
+            key: (radius, color),
+            left: buffer(bytes(false)),
+            right: buffer(bytes(true)),
+        })
+    }
 }
 
 #[derive(Default)]
@@ -364,23 +430,29 @@ where
     R: Renderer + ImportAll + ImportMem,
     R::TextureId: Send + Clone + Texture + 'static,
 {
-    // A web app's page draws its own border, rounded at the bottom (ADR-0133).
-    if window
-        .toplevel()
-        .is_some_and(|t| is_web_app(t.wl_surface()))
+    let mut frame = slot(window).0.borrow_mut();
+    let round = frame.round;
+    // A web app's page draws its own border, rounded at the bottom, when it's the WebKit host
+    // (ADR-0133); the compositor's is only for the windows it rounds itself.
+    if round.is_none()
+        && window
+            .toplevel()
+            .is_some_and(|t| is_web_app(t.wl_surface()))
     {
         return Vec::new();
     }
-    let mut frame = slot(window).0.borrow_mut();
     let Some(color) = frame.border else {
         return Vec::new();
     };
     let size = window.geometry().size;
     let (w, h) = (size.w.max(1), size.h.max(1));
+    // Down the sides and along the bottom, short of the corners if it rounds them: their arcs
+    // go there.
+    let r = round.unwrap_or(0).min(w / 2).min(h);
     let lines: [(Point<i32, Logical>, Size<i32, Logical>); 3] = [
-        ((0, 0).into(), (1, h).into()),
-        ((w - 1, 0).into(), (1, h).into()),
-        ((0, h - 1).into(), (w, 1).into()),
+        ((0, 0).into(), (1, h - r).into()),
+        ((w - 1, 0).into(), (1, h - r).into()),
+        ((r, h - 1).into(), (w - 2 * r, 1).into()),
     ];
     frame
         .sides
@@ -399,12 +471,72 @@ where
         .collect()
 }
 
+/// The arcs of a rounded window's border, at its two bottom corners.
+fn corner_elements<R>(
+    renderer: &mut R,
+    window: &Window,
+    location: Point<i32, Logical>,
+    scale: f64,
+) -> Vec<DesktopElement<R>>
+where
+    R: Renderer + ImportAll + ImportMem,
+    R::TextureId: Send + Clone + Texture + 'static,
+{
+    let mut frame = slot(window).0.borrow_mut();
+    let (Some(round), Some(color)) = (frame.round, frame.border) else {
+        return Vec::new();
+    };
+    let size = window.geometry().size;
+    let radius = ((round as f64 * scale).round() as i32).min((size.w as f64 * scale / 2.0) as i32);
+    if radius < 1 {
+        return Vec::new();
+    }
+    let rgb = [0, 1, 2].map(|i| (color[i] / color[3].max(f32::EPSILON) * 255.0).round() as u8);
+    if frame.corners.as_ref().map(|c| c.key) != Some((radius, rgb)) {
+        frame.corners = Corners::paint(radius, rgb);
+    }
+    let Some(corners) = &frame.corners else {
+        return Vec::new();
+    };
+    let bottom = Point::<i32, Logical>::from((0, size.h)).to_physical_precise_round(scale);
+    let right = Point::<i32, Logical>::from((size.w, 0)).to_physical_precise_round(scale);
+    let origin = location.to_physical_precise_round(scale);
+    let mut out = Vec::new();
+    for (buffer, at) in [
+        (&corners.left, origin + bottom - Point::from((0, radius))),
+        (
+            &corners.right,
+            origin + bottom + right - Point::from((radius, radius)),
+        ),
+    ] {
+        let at: Point<f64, smithay::utils::Physical> = at.to_f64();
+        // The tile is `radius` physical pixels, which is `round` logical ones: said, or the
+        // output's scale is applied to it a second time.
+        let tile = Size::<i32, Logical>::from((round, round));
+        if let Ok(element) = MemoryRenderBufferRenderElement::from_buffer(
+            renderer,
+            at,
+            buffer,
+            None,
+            // All of the tile's pixels: given only `size`, the source is taken to be that many
+            // pixels from the corner, and the rest of the arc is cut off.
+            Some(Rectangle::from_size((radius as f64, radius as f64).into())),
+            Some(tile),
+            Kind::Unspecified,
+        ) {
+            out.push(DesktopElement::Frame(element));
+        }
+    }
+    out
+}
+
 render_elements! {
     /// The desktop: layer surfaces, windows and their frames.
     pub DesktopElement<R> where R: ImportAll + ImportMem;
     Surface=WaylandSurfaceRenderElement<R>,
     Frame=MemoryRenderBufferRenderElement<R>,
     Border=SolidColorRenderElement,
+    Rounded=crate::rounded::Rounded<WaylandSurfaceRenderElement<R>>,
 }
 
 /// The desktop on `output`, top first, as Smithay's `space_render_elements`
@@ -466,21 +598,34 @@ where
             // The frame first, so its border lies over the window's edges.
             if wants_frame(window) && fullscreen != Some(window) {
                 elements.extend(border_elements(window, location, scale));
+                elements.extend(corner_elements(renderer, window, location, scale));
                 elements.extend(
                     frame_element(renderer, window, location, scale).map(DesktopElement::Frame),
                 );
             }
-            elements.extend(
-                window
-                    .render_elements::<WaylandSurfaceRenderElement<R>>(
-                        renderer,
-                        at,
-                        Scale::from(scale),
-                        1.0,
-                    )
-                    .into_iter()
-                    .map(DesktopElement::Surface),
+            let surfaces = window.render_elements::<WaylandSurfaceRenderElement<R>>(
+                renderer,
+                at,
+                Scale::from(scale),
+                1.0,
             );
+            // A window the compositor rounds (ADR-0133) is drawn through its rounded shape.
+            let round = (wants_frame(window) && fullscreen != Some(window))
+                .then(|| slot(window).0.borrow().round)
+                .flatten();
+            match round {
+                Some(radius) => {
+                    let rect = Rectangle::new(
+                        location.to_physical_precise_round(scale),
+                        window.geometry().size.to_physical_precise_round(scale),
+                    );
+                    let radius = (radius as f64 * scale).round() as i32;
+                    elements.extend(surfaces.into_iter().map(|surface| {
+                        DesktopElement::Rounded(crate::rounded::Rounded::new(surface, rect, radius))
+                    }));
+                }
+                None => elements.extend(surfaces.into_iter().map(DesktopElement::Surface)),
+            }
             // A shadow the window asked for, under it.
             if fullscreen != Some(window) {
                 elements.extend(
@@ -541,7 +686,9 @@ impl Default for Frames {
             hovered: None,
             pressed: None,
             cursor: false,
-            webapps: patina_webapp::Store::user().map(|s| s.list()).unwrap_or_default(),
+            webapps: patina_webapp::Store::user()
+                .map(|s| s.list())
+                .unwrap_or_default(),
             webapps_read: webapps_mtime(),
         }
     }
@@ -597,12 +744,24 @@ impl State {
         })
     }
 
-    /// The colour the site gave the web app `window` is, if it is one and gave one.
-    fn web_app_color(&self, window: &Window) -> Option<patina_webapp::look::Rgb> {
+    /// The web app `window` is, if it is one.
+    fn web_app(&self, window: &Window) -> Option<&patina_webapp::WebApp> {
         let (_, app_id) = crate::toplevels::describe(window.toplevel()?.wl_surface());
         let slug = patina_webapp::slug_from_app_id(&app_id)?;
-        let app = self.frames.webapps.iter().find(|a| a.slug == slug)?;
-        patina_webapp::look::parse(app.color.as_deref()?)
+        self.frames.webapps.iter().find(|a| a.slug == slug)
+    }
+
+    /// The colour the site gave the web app `window` is, if it is one and gave one.
+    fn web_app_color(&self, window: &Window) -> Option<patina_webapp::look::Rgb> {
+        patina_webapp::look::parse(self.web_app(window)?.color.as_deref()?)
+    }
+
+    /// Whether the compositor rounds `window`'s bottom corners: a web app in Chromium, which
+    /// draws square ones, while it isn't maximised. The WebKit host rounds its own.
+    fn rounds_corners(&self, window: &Window) -> bool {
+        self.web_app(window)
+            .is_some_and(|a| a.engine == patina_webapp::Engine::Chromium)
+            && !crate::maximize::is_maximized(window)
     }
 
     /// Paints the frames that changed; call before drawing. Asks for
@@ -618,7 +777,14 @@ impl State {
             let Some(look) = self.look(&window) else {
                 continue;
             };
+            let round = self
+                .rounds_corners(&window)
+                .then_some(patina_webapp::look::RADIUS as i32);
             let mut frame = slot(&window).0.borrow_mut();
+            if frame.round != round {
+                frame.round = round;
+                self.needs_redraw = true;
+            }
             if frame.look.as_ref() == Some(&look) && !frame.again {
                 continue;
             }

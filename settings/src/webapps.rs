@@ -7,7 +7,7 @@ use std::process::{Command, Stdio};
 use std::sync::mpsc::{Receiver, Sender, channel};
 
 use egui::{RichText, TextEdit, Ui};
-use patina_webapp::{Store, WebApp};
+use patina_webapp::{Engine, Store, WebApp};
 
 use crate::app::Message;
 
@@ -29,6 +29,11 @@ pub struct WebAppsPage {
 impl WebAppsPage {
     pub fn new() -> Self {
         let store = Store::user().ok();
+        // The entries are written again, so a change to how they're made (a window's app-id, which
+        // an entry names) reaches the web apps already installed.
+        if let Some(store) = &store {
+            let _ = store.write_entries();
+        }
         let apps = store.as_ref().map(Store::list).unwrap_or_default();
         Self {
             store,
@@ -182,6 +187,25 @@ impl WebAppsPage {
                     } else {
                         if ui.button("Remove").clicked() {
                             self.removing = Some(app.slug.clone());
+                        }
+                        // Which engine opens it: WebKit is lighter and the desktop's own, but a
+                        // site it can't run (or that crashes it) opens in Chromium.
+                        let mut engine = app.engine;
+                        egui::ComboBox::from_id_salt(("engine", &app.slug))
+                            .selected_text(engine.name())
+                            .width(90.0)
+                            .show_ui(ui, |ui| {
+                                for e in Engine::ALL {
+                                    ui.selectable_value(&mut engine, e, e.name());
+                                }
+                            })
+                            .response
+                            .on_hover_text("The browser engine this web app opens in");
+                        if engine != app.engine {
+                            match store.set_engine(&app.slug, engine) {
+                                Ok(()) => self.apps = store.list(),
+                                Err(e) => *message = Some(Message::error(e)),
+                            }
                         }
                         let busy = self.fetching.contains(&app.slug);
                         if ui

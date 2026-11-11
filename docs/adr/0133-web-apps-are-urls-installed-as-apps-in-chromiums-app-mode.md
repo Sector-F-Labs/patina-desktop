@@ -73,7 +73,15 @@ Ruled out or put off:
 - The host can't read the skin, so its corner radius is Patina's default (15): a skin with another
   radius isn't followed at the bottom. The colour is the site's, so a site with a light colour
   gets a light frame; it can't be overridden yet.
-- WebKit has no Widevine and some sites need more than it does; those get Chromium.
+- WebKit has no Widevine and some sites need more than it does; those get Chromium, chosen per
+  app in Settings (or `patina-webapp engine SLUG chromium`).
+- Ubuntu's WebKitGTK 2.52.6 segfaults in `AcceleratedBackingStore::update` (UI process, when a
+  page first enters accelerated compositing) on a Home Assistant dashboard on an NVIDIA
+  proprietary-driver machine, whatever the host's own window styling, `WEBKIT_DISABLE_DMABUF_RENDERER`
+  or `WEBKIT_DISABLE_COMPOSITING_MODE` (found with gdb and debuginfod; the host's
+  `PATINA_WEBVIEW_PLAIN=1` and `PATINA_WEBVIEW_FOLLOW=0` switch its own code off to tell). Such a
+  site is set to Chromium. The page's process dying is logged and reloaded once; a crash of the
+  host itself can't be, as `launch` replaces itself with it.
 - Reading with `patina-webview probe` needs a display, so a refresh on a headless machine reads
   only what `curl` can.
 - The `webkit6` crate (0.5, with `gtk4` 0.10) doesn't build with `gtk4` 0.11.

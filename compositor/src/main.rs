@@ -32,6 +32,7 @@ mod nested;
 mod night_light;
 mod processes;
 mod remap;
+mod rounded;
 mod scale;
 mod screenshot;
 mod session;
