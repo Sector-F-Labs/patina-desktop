@@ -26,6 +26,9 @@ fn run(args: Vec<String>) -> Result<(), String> {
             let app = store
                 .find(slug)
                 .ok_or(format!("no web app called {slug}"))?;
+            // The entries are brought up to date, as an upgrade can change how they're made (a
+            // window's app-id, which the bar matches the name by).
+            let _ = store.write_entries();
             // The engine takes this process's place, so the window is the app's.
             let mut command = match app.engine {
                 Engine::WebKit => match find_webview() {
