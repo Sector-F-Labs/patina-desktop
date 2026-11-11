@@ -315,10 +315,15 @@ impl Store {
 
     fn write_entry(&self, app: &WebApp) -> io::Result<()> {
         let path = self.desktop_path(&app.slug);
+        let text = desktop_entry(app);
+        // Left alone when it's already right, so the launcher isn't told of a change that isn't.
+        if fs::read_to_string(&path).is_ok_and(|old| old == text) {
+            return Ok(());
+        }
         if let Some(dir) = path.parent() {
             fs::create_dir_all(dir)?;
         }
-        fs::write(path, desktop_entry(app))
+        fs::write(path, text)
     }
 
     /// The command that opens the app: the engine, in `--app` mode, with its own profile.
@@ -610,6 +615,26 @@ mod tests {
             "chrome-x.com__a-patina-webapp-ha"
         );
         assert_eq!(slug_from_app_id(&id("https://x.com/a/b")), Some("ha"));
+    }
+
+    #[test]
+    fn entries_are_only_written_when_they_change() {
+        let (s, dir) = store();
+        let a = s.add("X", "x.example.com").unwrap();
+        let path = s.desktop_path(&a.slug);
+        // An entry from an older build is brought up to date, one that's current isn't touched.
+        fs::write(&path, "[Desktop Entry]\nName=old\n").unwrap();
+        s.write_entries().unwrap();
+        assert!(
+            fs::read_to_string(&path)
+                .unwrap()
+                .contains("StartupWMClass=patina-webapp-x")
+        );
+        let before = fs::metadata(&path).unwrap().modified().unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(30));
+        s.write_entries().unwrap();
+        assert_eq!(fs::metadata(&path).unwrap().modified().unwrap(), before);
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]
