@@ -174,6 +174,7 @@ mechanics of adding one.
 | [0130](0130-maximise-inside-the-gaps-is-a-setting.md) | Whether an app's maximise fills inside the gaps is a setting of its own | Accepted |
 | [0131](0131-the-huds-bars-fuse-flush-with-the-edges-for-a-maximised-window.md) | The HUD's bars fuse flush with the edges while a maximised window has the keyboard | Accepted |
 | [0132](0132-night-light-can-stand-down-for-a-fullscreen-window.md) | Night Light can stand down while a fullscreen window has the keyboard | Accepted |
+| [0133](0133-web-apps-are-urls-installed-as-apps-in-chromiums-app-mode.md) | Web apps are URLs installed as apps, opened in a WebKitGTK window the compositor frames in the site's colour | Accepted |
 
 ## Decision Relationship
 

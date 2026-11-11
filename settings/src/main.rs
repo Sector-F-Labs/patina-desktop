@@ -23,6 +23,7 @@ mod power;
 mod processes;
 mod shadows;
 mod wallpapers;
+mod webapps;
 
 use std::process::ExitCode;
 

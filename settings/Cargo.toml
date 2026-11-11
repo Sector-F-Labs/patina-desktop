@@ -15,6 +15,7 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 rfd = "0.17"
 patina-shell = { workspace = true }
 patina-system = { path = "../system" }
+patina-webapp = { path = "../webapp" }
 patina-ui = { workspace = true }
 dirs = "6"
 toml_edit = "0.25"

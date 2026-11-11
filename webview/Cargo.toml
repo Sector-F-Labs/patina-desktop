@@ -1,0 +1,13 @@
+[package]
+name = "patina-webview"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "The Patina desktop's web app host: one web page in a window with no browser around it, on WebKitGTK"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+dirs = "6"
+gtk4 = { version = "0.10", features = ["v4_12"] }
+patina-webapp = { path = "../webapp" }
+webkit6 = "0.5"
