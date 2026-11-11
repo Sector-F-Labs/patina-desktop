@@ -61,7 +61,7 @@ help: ## Show this help
 deps: ## Show the system packages the build needs
 	@echo "Ubuntu/Debian: sudo apt install pkg-config libxkbcommon-dev libpixman-1-dev libudev-dev \\"
 	@echo "                   libinput-dev libseat-dev libgbm-dev libegl-dev libdrm-dev libwayland-dev \\"
-	@echo "                   libasound2-dev cmake clang glslc libvulkan-dev"
+	@echo "                   libasound2-dev cmake clang glslc libvulkan-dev libwebkitgtk-6.0-dev"
 	@echo "FreeBSD:       pkg install pkgconf libxkbcommon pixman libudev-devd libinput seatd mesa-libs libdrm wayland cmake llvm \\"
 	@echo "                   shaderc vulkan-headers vulkan-loader"
 	@echo "To build the .deb (make deb): dpkg-dev, and Rust from rustup.rs."
@@ -87,7 +87,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := files notebook patina-hud patina-clipboard patina-clock patina-compositor patina-dictate patina-displays patina-emoji patina-launcher patina-lock patina-menu patina-night-light patina-polkit patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-skin-builder patina-tiler patina-volume patina-wallpaper patina-wifi
+BINARIES := files notebook patina-hud patina-clipboard patina-clock patina-compositor patina-dictate patina-displays patina-emoji patina-launcher patina-lock patina-menu patina-night-light patina-polkit patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-skin-builder patina-tiler patina-volume patina-wallpaper patina-webapp patina-webview patina-wifi
 # The session's terminal, which deploy installs too: the checkout beside this
 # one, as it is, else GitHub's.
 TELEPRINTER ?= $(abspath ../teleprinter)

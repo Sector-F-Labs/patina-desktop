@@ -24,4 +24,5 @@ patina-shell = { workspace = true }
 patina-ui = { workspace = true }
 egui = "0.35"
 patina-system = { path = "../system" }
+patina-webapp = { path = "../webapp" }
 smithay-client-toolkit = { version = "0.21", default-features = false, features = ["calloop", "xkbcommon"] }

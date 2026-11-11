@@ -38,10 +38,11 @@ pub enum Page {
     NightLight,
     Power,
     Processes,
+    WebApps,
 }
 
 impl Page {
-    const ALL: [Page; 12] = [
+    const ALL: [Page; 13] = [
         Page::Appearance,
         Page::Bar,
         Page::Wallpaper,
@@ -54,6 +55,7 @@ impl Page {
         Page::NightLight,
         Page::Power,
         Page::Processes,
+        Page::WebApps,
     ];
 
     pub fn from_name(name: &str) -> Option<Self> {
@@ -70,6 +72,7 @@ impl Page {
             "night-light" => Some(Page::NightLight),
             "power" => Some(Page::Power),
             "processes" => Some(Page::Processes),
+            "web-apps" => Some(Page::WebApps),
             _ => None,
         }
     }
@@ -88,6 +91,7 @@ impl Page {
             Page::NightLight => "Night Light",
             Page::Power => "Power and Battery",
             Page::Processes => "Processes",
+            Page::WebApps => "Web apps",
         }
     }
 }
@@ -144,6 +148,7 @@ pub struct App {
     keyboard: crate::keyboard::KeyboardPage,
     dictation: crate::dictation::DictationPage,
     clipboard: crate::clipboard::ClipboardPage,
+    webapps: crate::webapps::WebAppsPage,
     displays: crate::displays::DisplaysPage,
     night_light: NightLightPage,
     power: crate::power::PowerPage,
@@ -178,6 +183,7 @@ impl App {
             keyboard: crate::keyboard::KeyboardPage::new(ctx),
             dictation: crate::dictation::DictationPage::new(),
             clipboard: crate::clipboard::ClipboardPage::new(),
+            webapps: crate::webapps::WebAppsPage::new(),
             displays: crate::displays::DisplaysPage::new(ctx),
             night_light: NightLightPage::new(ctx),
             power: crate::power::PowerPage::new(ctx),
@@ -693,6 +699,10 @@ impl App {
                 Page::Processes => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.processes.ui(ui, &mut self.message));
+                }
+                Page::WebApps => {
+                    egui::ScrollArea::vertical()
+                        .show(ui, |ui| self.webapps.ui(ui, &mut self.message));
                 }
             });
 

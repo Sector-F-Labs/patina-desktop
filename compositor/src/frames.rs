@@ -65,13 +65,27 @@ const EDGE: i32 = 5;
 /// Along an edge, how near a corner resizes both ways.
 const CORNER: i32 = 12;
 
+/// The app-id part that marks a web app's window (ADR-0133): the WebKit host's app-id is
+/// `patina-webapp-<slug>`, and Chromium's `chrome-<host>__-patina-webapp-<slug>`.
+const WEB_APP: &str = "patina-webapp-";
+
+/// Whether `surface` is a web app's window.
+pub fn is_web_app(
+    surface: &smithay::reexports::wayland_server::protocol::wl_surface::WlSurface,
+) -> bool {
+    crate::toplevels::describe(surface).1.contains(WEB_APP)
+}
+
 /// Whether `window` gets a frame drawn, as long as it isn't fullscreen: a
-/// Wayland window in xdg-decoration's server side, or an X11 window the
+/// Wayland window in xdg-decoration's server side, or a web app's, or an X11 window the
 /// window manager handles that hasn't said it draws its own, and is a
 /// window rather than a splash, menu or toolbar.
 pub fn wants_frame(window: &Window) -> bool {
     if let Some(toplevel) = window.toplevel() {
-        return toplevel.current_state().decoration_mode == Some(Mode::ServerSide);
+        // A web app is framed whatever the engine says about decorations: the engine draws
+        // the page, the desktop the window (ADR-0133).
+        return toplevel.current_state().decoration_mode == Some(Mode::ServerSide)
+            || is_web_app(toplevel.wl_surface());
     }
     let Some(x11) = window.x11_surface() else {
         return false;
@@ -160,6 +174,8 @@ struct Look {
     title: String,
     maximized: bool,
     skin: String,
+    /// A web app's colour (ADR-0133): the title bar is this, not the skin's.
+    tint: Option<patina_webapp::look::Rgb>,
 }
 
 /// A window's frame: its egui context and painter, and the last picture.
@@ -214,7 +230,10 @@ impl Frame {
         viewport.maximized = Some(look.maximized);
         let mut border = None;
         let output = self.ctx.run_ui(input, |ui| {
-            let frame = skin.frame_style(ui.visuals());
+            let mut frame = skin.frame_style(ui.visuals());
+            if let Some(tint) = look.tint {
+                tint_frame(&mut frame, tint);
+            }
             // The skin's, as an app's own frame has: square in a skin that
             // squares its windows.
             let radius = corner_radius(ui.ctx(), frame.radius);
@@ -277,6 +296,22 @@ impl Frame {
     }
 }
 
+/// `frame` in a web app's colour: the bar is the site's, its text and buttons read on it, and
+/// the border is a little darker (what the host draws round the page, too).
+fn tint_frame(frame: &mut patina::frame::FrameStyle, tint: patina_webapp::look::Rgb) {
+    use patina_webapp::look::{border_for, text_on};
+    let rgb = |[r, g, b]: patina_webapp::look::Rgb| egui::Color32::from_rgb(r, g, b);
+    let [tr, tg, tb] = text_on(tint);
+    let text = rgb([tr, tg, tb]);
+    frame.title_bar = rgb(tint);
+    frame.title_text = text;
+    frame.border = rgb(border_for(tint));
+    frame.controls.icon = text;
+    frame.controls.icon_hover = text;
+    frame.controls.hover = egui::Color32::from_rgba_unmultiplied(tr, tg, tb, 36);
+    frame.controls.pressed = egui::Color32::from_rgba_unmultiplied(tr, tg, tb, 72);
+}
+
 /// The frame of `window`, whose own surface is at `location` (relative to
 /// the output), to draw: `None` if it hasn't been painted.
 fn frame_element<R>(
@@ -329,6 +364,13 @@ where
     R: Renderer + ImportAll + ImportMem,
     R::TextureId: Send + Clone + Texture + 'static,
 {
+    // A web app's page draws its own border, rounded at the bottom (ADR-0133).
+    if window
+        .toplevel()
+        .is_some_and(|t| is_web_app(t.wl_surface()))
+    {
+        return Vec::new();
+    }
     let mut frame = slot(window).0.borrow_mut();
     let Some(color) = frame.border else {
         return Vec::new();
@@ -480,6 +522,15 @@ pub struct Frames {
     pressed: Option<Window>,
     /// Whether the cursor is the frames' (an edge's arrows).
     cursor: bool,
+    /// The web apps, from their list, read again when it changes (ADR-0133).
+    webapps: Vec<patina_webapp::WebApp>,
+    webapps_read: Option<SystemTime>,
+}
+
+fn webapps_mtime() -> Option<SystemTime> {
+    std::fs::metadata(patina_webapp::Store::user().ok()?.list_path())
+        .and_then(|m| m.modified())
+        .ok()
 }
 
 impl Default for Frames {
@@ -490,6 +541,8 @@ impl Default for Frames {
             hovered: None,
             pressed: None,
             cursor: false,
+            webapps: patina_webapp::Store::user().map(|s| s.list()).unwrap_or_default(),
+            webapps_read: webapps_mtime(),
         }
     }
 }
@@ -540,7 +593,16 @@ impl State {
             title: title(window),
             maximized: crate::maximize::is_maximized(window),
             skin: self.frames.skin.name.clone(),
+            tint: self.web_app_color(window),
         })
+    }
+
+    /// The colour the site gave the web app `window` is, if it is one and gave one.
+    fn web_app_color(&self, window: &Window) -> Option<patina_webapp::look::Rgb> {
+        let (_, app_id) = crate::toplevels::describe(window.toplevel()?.wl_surface());
+        let slug = patina_webapp::slug_from_app_id(&app_id)?;
+        let app = self.frames.webapps.iter().find(|a| a.slug == slug)?;
+        patina_webapp::look::parse(app.color.as_deref()?)
     }
 
     /// Paints the frames that changed; call before drawing. Asks for
@@ -573,6 +635,14 @@ impl State {
     /// follow it as the bar does, and the pinned apps, so the tab keys
     /// follow its tabs (ADR-0080).
     pub fn poll_bar_config(&mut self) {
+        let webapps = webapps_mtime();
+        if webapps != self.frames.webapps_read {
+            self.frames.webapps_read = webapps;
+            self.frames.webapps = patina_webapp::Store::user()
+                .map(|s| s.list())
+                .unwrap_or_default();
+            self.needs_redraw = true;
+        }
         let mtime = bar_mtime();
         if mtime != self.frames.skin_read {
             self.frames.skin_read = mtime;
@@ -881,6 +951,7 @@ mod tests {
             title: "Minecraft Launcher".into(),
             maximized: false,
             skin: skin.name.clone(),
+            tint: None,
         };
         let mut frame = Frame::default();
         frame.run(&look, &skin, Vec::new());
@@ -910,6 +981,7 @@ mod tests {
                     title: "Minecraft Launcher".into(),
                     maximized: false,
                     skin: skin.name.clone(),
+                    tint: None,
                 };
                 let mut frame = Frame::default();
                 frame.run(&look, &skin, Vec::new());
