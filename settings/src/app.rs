@@ -12,6 +12,7 @@ use patina::frame::{self, TitleBar};
 use patina::skin::{self, Skin};
 use patina_system::wallpaper::Fit;
 
+use crate::game_mode::GameModePage;
 use crate::night_light::NightLightPage;
 use crate::wallpapers::{self, Wallpaper};
 
@@ -36,13 +37,14 @@ pub enum Page {
     Clipboard,
     Displays,
     NightLight,
+    GameMode,
     Power,
     Processes,
     WebApps,
 }
 
 impl Page {
-    const ALL: [Page; 13] = [
+    const ALL: [Page; 14] = [
         Page::Appearance,
         Page::Bar,
         Page::Wallpaper,
@@ -53,6 +55,7 @@ impl Page {
         Page::Clipboard,
         Page::Displays,
         Page::NightLight,
+        Page::GameMode,
         Page::Power,
         Page::Processes,
         Page::WebApps,
@@ -70,6 +73,7 @@ impl Page {
             "clipboard" => Some(Page::Clipboard),
             "displays" => Some(Page::Displays),
             "night-light" => Some(Page::NightLight),
+            "game-mode" => Some(Page::GameMode),
             "power" => Some(Page::Power),
             "processes" => Some(Page::Processes),
             "web-apps" => Some(Page::WebApps),
@@ -89,6 +93,7 @@ impl Page {
             Page::Clipboard => "Clipboard",
             Page::Displays => "Displays",
             Page::NightLight => "Night Light",
+            Page::GameMode => "Game mode",
             Page::Power => "Power and Battery",
             Page::Processes => "Processes",
             Page::WebApps => "Web apps",
@@ -151,6 +156,7 @@ pub struct App {
     webapps: crate::webapps::WebAppsPage,
     displays: crate::displays::DisplaysPage,
     night_light: NightLightPage,
+    game_mode: GameModePage,
     power: crate::power::PowerPage,
     processes: crate::processes::ProcessesPage,
     message: Option<Message>,
@@ -186,6 +192,7 @@ impl App {
             webapps: crate::webapps::WebAppsPage::new(),
             displays: crate::displays::DisplaysPage::new(ctx),
             night_light: NightLightPage::new(ctx),
+            game_mode: GameModePage::new(ctx),
             power: crate::power::PowerPage::new(ctx),
             processes: crate::processes::ProcessesPage::new(ctx),
             message: None,
@@ -691,6 +698,10 @@ impl App {
                 Page::NightLight => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.night_light.ui(ui, &mut self.message));
+                }
+                Page::GameMode => {
+                    egui::ScrollArea::vertical()
+                        .show(ui, |ui| self.game_mode.ui(ui, &mut self.message));
                 }
                 Page::Power => {
                     egui::ScrollArea::vertical()

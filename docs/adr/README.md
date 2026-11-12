@@ -175,6 +175,7 @@ mechanics of adding one.
 | [0131](0131-the-huds-bars-fuse-flush-with-the-edges-for-a-maximised-window.md) | The HUD's bars fuse flush with the edges while a maximised window has the keyboard | Accepted |
 | [0132](0132-night-light-can-stand-down-for-a-fullscreen-window.md) | Night Light can stand down while a fullscreen window has the keyboard | Accepted |
 | [0133](0133-web-apps-are-urls-installed-as-apps-in-chromiums-app-mode.md) | Web apps are URLs installed as apps, opened in a WebKitGTK window the compositor frames in the site's colour | Accepted |
+| [0134](0134-game-mode-is-a-program-of-its-own.md) | Game mode is a program of its own that quits programs and runs commands while a fullscreen window has the keyboard | Accepted |
 
 ## Decision Relationship
 
