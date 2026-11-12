@@ -395,6 +395,25 @@ pub fn stop(id: u32) -> Result<(), String> {
     terminate(pid)
 }
 
+/// Asks everything that's running to quit, as the compositor does on its way
+/// out (a restart or a log-out), so nothing it started outlives it: a program
+/// that has no Wayland connection to lose, like the tiler or game mode's
+/// daemon, would otherwise be left running, one more with each restart. Kept
+/// pieces stay down.
+pub fn stop_all() {
+    stop_matching(|_| true);
+}
+
+fn stop_matching(which: impl Fn(&Process) -> bool) {
+    let mut processes = processes();
+    for p in processes.list.iter_mut().filter(|p| which(p)) {
+        let Some(pid) = p.pid else { continue };
+        p.restarting = false;
+        p.stopping = true;
+        let _ = terminate(pid);
+    }
+}
+
 /// Process `id`'s log from line `from` on, and the line to ask from next.
 pub fn log(id: u32, from: u64) -> Option<(u64, Vec<String>)> {
     let mut processes = processes();
@@ -454,6 +473,32 @@ mod tests {
         let (next, rest) = log(id, 2).unwrap();
         assert_eq!(next, 3);
         assert_eq!(rest.len(), 1);
+    }
+
+    #[test]
+    fn stopping_what_matches_reaches_every_group_and_keeps_kept_pieces_down() {
+        spawn(OsStr::new("test"), "sleep 30; true", true);
+        let kept = last_id();
+        spawn(OsStr::new("test"), "sleep 30; true", false);
+        let once = last_id();
+        spawn(OsStr::new("test"), "sleep 30; true", false);
+        let other = last_id();
+        let pids: Vec<u32> = [kept, once]
+            .iter()
+            .map(|&id| wait_for(id, |e| e.pid != 0).pid)
+            .collect();
+        wait_for(other, |e| e.pid != 0);
+        stop_matching(|p| p.id == kept || p.id == once);
+        wait_for(kept, |e| e.status == "stopped");
+        wait_for(once, |e| e.pid == 0);
+        for pid in pids {
+            let group = rustix::process::Pid::from_raw(pid as i32).unwrap();
+            assert!(rustix::process::test_kill_process_group(group).is_err());
+        }
+        // Not what the filter left out.
+        assert_ne!(list().into_iter().find(|e| e.id == other).unwrap().pid, 0);
+        stop(other).unwrap();
+        wait_for(other, |e| e.pid == 0);
     }
 
     #[test]
