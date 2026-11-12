@@ -197,7 +197,7 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
         state.spawn_client(command);
     }
 
-    event_loop
+    let ran = event_loop
         .run(None, &mut state, |state| {
             toplevels::refresh(state);
             state.announce_fullscreen();
@@ -209,7 +209,10 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
                 eprintln!("patina-compositor: {e}");
             }
         })
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string());
+    // Nothing started here outlives it, restart or not, or it failing (ADR-0045).
+    processes::stop_all();
+    ran?;
     Ok(state.restart)
 }
 
