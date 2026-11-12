@@ -3,7 +3,7 @@
 //! what they share: the host that makes and drives the surfaces
 //! ([`Host`], ADR-0003 and ADR-0011 of the Patina desktop), the software
 //! painter ([`raster`], its ADR-0002), one running copy per display
-//! ([`piece`]), the Patina bar's skin and edge ([`hud`]), and the open
+//! ([`piece`]), a text notice ([`toast`]), the Patina bar's skin and edge ([`hud`]), and the open
 //! windows ([`toplevels`]).
 
 pub mod host;
@@ -12,6 +12,7 @@ pub mod piece;
 pub mod raster;
 mod scale;
 mod shadow;
+pub mod toast;
 pub mod toplevels;
 
 pub use host::{Anchor, Host, KeyboardInteractivity, Layer, Options, Shell, output_size};
