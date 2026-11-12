@@ -1,0 +1,15 @@
+[package]
+name = "patina-game-mode"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "Quits programs and runs commands while a game is fullscreen"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[dependencies]
+dirs = "6"
+patina-shell = { workspace = true }
+patina-system = { path = "../system" }
+rustix = { version = "1", features = ["process"] }
+serde = { version = "1", features = ["derive"] }
+toml = "1"

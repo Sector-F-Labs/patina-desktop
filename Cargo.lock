@@ -4112,6 +4112,18 @@ version = "0.1.0"
 source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#420bb798b5635246ddc87d9d7f5c54acca35a905"
 
 [[package]]
+name = "patina-game-mode"
+version = "0.1.0"
+dependencies = [
+ "dirs 6.0.0",
+ "patina-shell",
+ "patina-system",
+ "rustix 1.1.5",
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "patina-hud"
 version = "0.1.0"
 dependencies = [

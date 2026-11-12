@@ -18,6 +18,7 @@ mod displays;
 mod gaps;
 mod icons;
 mod keyboard;
+mod game_mode;
 mod night_light;
 mod power;
 mod processes;

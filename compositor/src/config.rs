@@ -94,8 +94,13 @@ pub fn combo(text: &str) -> Result<Combo, String> {
 }
 
 fn default_bindings() -> std::collections::BTreeMap<String, String> {
-    [("Alt+T", "teleprinter"), ("Alt+B", "patina-raise firefox")]
-        .into_iter()
+    [
+        ("Alt+T", "teleprinter"),
+        ("Alt+B", "patina-raise firefox"),
+        // Game mode (ADR-0134), by hand.
+        ("Ctrl+Super+G", "patina-game-mode --toggle"),
+    ]
+    .into_iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
 }

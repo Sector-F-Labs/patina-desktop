@@ -193,6 +193,8 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
     state.keep_client("patina-tiler");
     // Dictation (ADR-0072): it listens for the dictate key on the bus.
     state.keep_client("patina-dictate --daemon");
+    // Game mode (ADR-0134): quits programs and runs commands while a game is fullscreen.
+    state.keep_client("patina-game-mode --daemon");
     for command in commands {
         state.spawn_client(command);
     }
