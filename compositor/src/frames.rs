@@ -544,6 +544,38 @@ render_elements! {
 /// background layers), with each framed window's frame beside it in the
 /// stacking order; `fullscreen` is drawn without one. For a `shot`, the
 /// screenshot chooser is left out (ADR-0091), in case it's still mapped.
+/// The surfaces on the Overlay layer of `output`, to be drawn above a
+/// fullscreen window: layer-shell puts that layer over fullscreen windows, so a
+/// notice (game mode's, dictation's pill) isn't hidden behind a game. The
+/// ones that take the keyboard are no problem, since a window that doesn't
+/// have it isn't drawn as fullscreen.
+pub fn overlay_elements<R>(renderer: &mut R, output: &Output) -> Vec<DesktopElement<R>>
+where
+    R: Renderer + ImportAll + ImportMem,
+    R::TextureId: Send + Clone + Texture + 'static,
+{
+    let scale = output.current_scale().fractional_scale();
+    let layer_map = layer_map_for_output(output);
+    let mut elements = Vec::new();
+    for surface in layer_map.layers().rev().filter(|s| s.layer() == Layer::Overlay) {
+        let Some(geometry) = layer_map.layer_geometry(surface) else {
+            continue;
+        };
+        elements.extend(
+            AsRenderElements::<R>::render_elements::<WaylandSurfaceRenderElement<R>>(
+                surface,
+                renderer,
+                geometry.loc.to_physical_precise_round(scale),
+                Scale::from(scale),
+                1.0,
+            )
+            .into_iter()
+            .map(DesktopElement::Surface),
+        );
+    }
+    elements
+}
+
 pub fn desktop_elements<R>(
     renderer: &mut R,
     space: &Space<Window>,

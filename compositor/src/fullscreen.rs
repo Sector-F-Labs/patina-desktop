@@ -2,8 +2,9 @@
 //! it, over the bar. Xwayland games ask with `_NET_WM_STATE_FULLSCREEN`, or
 //! by asking for the screen's size at its corner; Wayland apps with
 //! `xdg_toplevel.set_fullscreen`. The window is placed over the whole
-//! output and drawn above the layer surfaces while it has the keyboard;
-//! leaving fullscreen puts it back where it was.
+//! output and drawn above the layer surfaces while it has the keyboard, but
+//! for the Overlay layer, which layer-shell puts over it (a notice, dictation's
+//! pill); leaving fullscreen puts it back where it was.
 
 use smithay::{
     backend::renderer::{
