@@ -1117,6 +1117,14 @@ fn render(state: &mut State) {
                 .as_ref()
                 .filter(|(_, at)| view.area.contains(*at))
                 .map(|(w, at)| (w.clone(), *at - origin));
+            if fullscreen_here.is_some() {
+                // Above it: a notice shouldn't hide behind a game.
+                elements.extend(
+                    crate::frames::overlay_elements(&mut u.renderer, &output)
+                        .into_iter()
+                        .map(OutputElement::Desktop),
+                );
+            }
             elements.extend(
                 crate::fullscreen::elements(&mut u.renderer, fullscreen_here.as_ref(), scale)
                     .into_iter()
