@@ -55,6 +55,9 @@ const PLACE_ICON: f32 = 16.0;
 /// from the folder windows', and its size the first time.
 const QUICK_LOOK_ID: &str = "com.sectorflabs.Files.QuickLook";
 const QUICK_LOOK_SIZE: [f32; 2] = [720.0, 540.0];
+/// What's left clear between Quick Look's window and the edges of the area it
+/// opens in, in points.
+const QUICK_LOOK_MARGIN: f32 = 32.0;
 /// Its icon, for what isn't a picture.
 const QUICK_LOOK_ICON: f32 = 128.0;
 /// The Properties window's icon.
@@ -315,6 +318,25 @@ pub struct Files {
     previews: Previews,
     /// Quick Look is showing the item at the cursor (ADR-0008).
     looking: bool,
+    /// The picture Quick Look's window was last sized to fit, so it's sized
+    /// once for each and the user's own resizing is left alone.
+    looking_sized: Option<PathBuf>,
+    /// Whether Quick Look's window is open: it waits for a picture to be
+    /// decoded, so it opens at the picture's shape, in the middle (the tiler
+    /// centres it as it opens, at the size it opens with).
+    looking_open: bool,
+    /// The size the window was asked to open at. Asked for again with every
+    /// frame, the same: egui takes a different one as a resize.
+    looking_size: [f32; 2],
+    /// The size pictures are decoded at for it, in pixels, set as it opens.
+    looking_px: u32,
+    /// The largest Quick Look's window may start at, asked of the compositor as
+    /// it opens: the work area less a margin all round.
+    looking_room: Option<egui::Vec2>,
+    looking_area: Option<Receiver<Option<WorkArea>>>,
+    /// What the window has round its picture (title bar, details, margins), as
+    /// measured the last time it was drawn.
+    looking_chrome: egui::Vec2,
     /// The Properties window, while it's open.
     properties: Option<Properties>,
     places: Vec<Place>,
@@ -458,6 +480,13 @@ impl Files {
             icons: Icons::new(ctx),
             previews: Previews::new(ctx),
             looking: false,
+            looking_sized: None,
+            looking_open: false,
+            looking_size: QUICK_LOOK_SIZE,
+            looking_px: 2048,
+            looking_room: None,
+            looking_area: None,
+            looking_chrome: vec2(16.0, 83.0),
             properties: None,
             places,
             disks: places::disks(),
@@ -3562,6 +3591,11 @@ impl Files {
             self.looking = false;
         }
         if !self.looking {
+            self.looking_sized = None;
+            self.looking_open = false;
+            self.looking_size = QUICK_LOOK_SIZE;
+            self.looking_room = None;
+            self.looking_area = None;
             return;
         }
         let Some(entry) = self.looked_at().cloned() else {
@@ -3569,11 +3603,60 @@ impl Files {
             return;
         };
         let custom = !self.config.system_title_bar;
+        if !self.looking_open {
+            // The room it has: the area windows tile in, which the compositor
+            // knows (the bar's space is taken off), less a margin round it.
+            if self.looking_room.is_none() {
+                let asked = self.looking_area.get_or_insert_with(|| {
+                    let (send, answer) = channel();
+                    let ctx = ctx.clone();
+                    std::thread::spawn(move || {
+                        let _ = send.send(tiling_work_area());
+                        ctx.request_repaint();
+                    });
+                    answer
+                });
+                let Ok(area) = asked.try_recv() else {
+                    ctx.request_repaint();
+                    return;
+                };
+                let screen = ctx.input(|i| i.viewport().monitor_size).unwrap_or(vec2(1600.0, 900.0));
+                // Where there's no compositor to ask, most of the screen.
+                let whole = area.map_or(screen * 0.9, |(_, _, w, h)| vec2(w as f32, h as f32));
+                self.looking_room = Some((whole - egui::Vec2::splat(2.0 * QUICK_LOOK_MARGIN)).max(vec2(320.0, 240.0)));
+            }
+            // Decoded at the screen's size, so a maximised window is sharp.
+            let screen =
+                ctx.input(|i| i.viewport().monitor_size).map_or(2048.0, |s| s.max_elem() * ctx.pixels_per_point());
+            self.looking_px = screen.round().clamp(1024.0, 4096.0) as u32;
+            let picture = entry.kind == Kind::File
+                && entry.remote.is_none()
+                && entry.mime.as_deref().is_some_and(icons::has_thumbnail)
+                && entry.mime.as_deref() != Some("image/svg+xml");
+            if picture {
+                // The window opens once the picture is ready, at its shape.
+                match self.previews.get(&entry.path, entry.modified, self.looking_px) {
+                    preview::State::Loading => {
+                        ctx.request_repaint();
+                        return;
+                    }
+                    preview::State::Ready(p) => {
+                        if let Some([w, h]) = p.size {
+                            let natural = vec2(w as f32, h as f32) / ctx.pixels_per_point();
+                            let room = self.looking_room.unwrap_or(vec2(1200.0, 800.0));
+                            self.looking_size = quick_look_fit(natural, self.looking_chrome, room).into();
+                        }
+                    }
+                    preview::State::Failed(_) => {}
+                }
+            }
+            self.looking_open = true;
+        }
         let builder = frame::viewport(
             egui::ViewportBuilder::default()
                 .with_title(entry.name.clone())
                 .with_app_id(QUICK_LOOK_ID)
-                .with_inner_size(QUICK_LOOK_SIZE)
+                .with_inner_size(self.looking_size)
                 .with_min_inner_size([320.0, 240.0]),
             custom,
         );
@@ -3593,9 +3676,7 @@ impl Files {
         let radius = if custom { frame::corner_radius(&ctx, style.radius) } else { 0 };
         let ppp = ctx.pixels_per_point();
         let icon = self.icons.get(&self.icon_source(entry), (QUICK_LOOK_ICON * ppp).round() as u32);
-        // Decoded at the screen's size, so a maximised window is sharp.
-        let screen = ctx.input(|i| i.viewport().monitor_size).map_or(2048.0, |s| s.max_elem() * ppp);
-        let mut px = screen.round().clamp(1024.0, 4096.0) as u32;
+        let mut px = self.looking_px;
         if entry.mime.as_deref() == Some("image/svg+xml") {
             // Drawn for the window instead, having no size of its own: in
             // steps, so resizing doesn't draw it again each frame. Kept to
@@ -3668,6 +3749,16 @@ impl Files {
                     Some(Some(Ok((texture, drawn, size)))) => {
                         // At its own size, or smaller to fit; never larger.
                         let natural = size.map_or(*drawn, |[w, h]| vec2(w as f32, h as f32)) / ppp;
+                        // The window takes the picture's shape: its own size if the
+                        // room has it, else shrunk to fit, in its shape, with a margin
+                        // left round it; never stretched to the edges.
+                        self.looking_chrome = ctx.content_rect().size() - body.size();
+                        if size.is_some() && self.looking_sized.as_ref() != Some(&entry.path) {
+                            self.looking_sized = Some(entry.path.clone());
+                            let room = self.looking_room.unwrap_or(vec2(1200.0, 800.0));
+                            let want = quick_look_fit(natural, self.looking_chrome, room);
+                            ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(want));
+                        }
                         let scale = (body.width() / natural.x).min(body.height() / natural.y).min(1.0);
                         let shown = Rect::from_center_size(body.center(), natural * scale);
                         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
@@ -4161,6 +4252,28 @@ fn shortcut(ui: &Ui, text: &str) -> egui::RichText {
 
 /// Quick Look for what isn't a picture: its icon and name in the middle of
 /// `body`, with why a picture couldn't be shown.
+/// The window size for a picture `natural` points across: its own size if
+/// `room`, the most the window may be, has it, else the picture shrunk to fit,
+/// keeping its shape; with `chrome` (what the window has round the picture)
+/// added, and no less than the window's least.
+fn quick_look_fit(natural: egui::Vec2, chrome: egui::Vec2, room: egui::Vec2) -> egui::Vec2 {
+    let space = (room - chrome).max(vec2(1.0, 1.0));
+    let fit = (space.x / natural.x).min(space.y / natural.y).min(1.0);
+    (natural * fit + chrome).max(vec2(320.0, 240.0))
+}
+
+/// (x, y, width, height), in points.
+type WorkArea = (i32, i32, i32, i32);
+
+/// The area windows tile in, from the
+/// compositor's tiling service; `None` without one.
+fn tiling_work_area() -> Option<WorkArea> {
+    const NAME: &str = "com.sectorflabs.Patina.Tiling";
+    let bus = zbus::blocking::Connection::session().ok()?;
+    let proxy = zbus::blocking::Proxy::new(&bus, NAME, "/com/sectorflabs/Patina/Tiling", NAME).ok()?;
+    proxy.call("WorkArea", &()).ok()
+}
+
 fn quick_look_card(ui: &mut Ui, body: Rect, icon: Option<egui::TextureId>, name: &str, failed: Option<&str>) {
     let card = Rect::from_center_size(body.center(), vec2(body.width().min(420.0), QUICK_LOOK_ICON + 60.0));
     ui.scope_builder(UiBuilder::new().max_rect(card).layout(egui::Layout::top_down(Align::Center)), |ui| {
@@ -4405,6 +4518,24 @@ mod tests {
         assert_eq!(expand("~"), home);
         assert_eq!(expand("/etc"), Path::new("/etc"));
         assert_eq!(expand("file:///etc"), Path::new("/etc"));
+    }
+
+    #[test]
+    fn quick_look_shows_a_small_picture_as_it_is_and_shrinks_a_big_one_in_its_shape() {
+        let chrome = vec2(16.0, 100.0);
+        let room = vec2(1200.0, 700.0);
+        // Smaller than the room: its own size, and the chrome.
+        assert_eq!(quick_look_fit(vec2(640.0, 400.0), chrome, room), vec2(656.0, 500.0));
+        // Bigger: shrunk to fit, in its shape.
+        let size = quick_look_fit(vec2(4000.0, 3000.0), chrome, room);
+        assert!(size.x <= room.x + 0.01 && size.y <= room.y + 0.01, "{size:?}");
+        let shown = size - chrome;
+        assert!((shown.x / shown.y - 4.0 / 3.0).abs() < 0.01);
+        // A tall one is limited by the height.
+        let tall = quick_look_fit(vec2(1000.0, 4000.0), chrome, room);
+        assert!((tall.y - room.y).abs() < 0.01);
+        // A tiny one gets the window's least.
+        assert_eq!(quick_look_fit(vec2(32.0, 32.0), chrome, room), vec2(320.0, 240.0));
     }
 
     #[test]
