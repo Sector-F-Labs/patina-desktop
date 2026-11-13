@@ -225,6 +225,15 @@ impl Tiler<'_> {
                 if !placement.is_empty() || !tiling::deciding(self.bus) {
                     return Ok(());
                 }
+                // Quick Look and the like open in the middle, whatever was.
+                if policy::CENTRED.contains(&app_id.as_str()) {
+                    match policy::centred(rect, self.area) {
+                        Opening::Stay => {}
+                        Opening::Move(x, y) => self.tiling.move_to(id, (x, y))?,
+                        Opening::Fill => self.place(id, Tile::Fill)?,
+                    }
+                    return Ok(());
+                }
                 // A second window of an app cascades, rather than opening
                 // on top of the first.
                 let alone = !app_id.is_empty()
