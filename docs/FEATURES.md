@@ -131,6 +131,8 @@ Last checked against the code: 2026-11-09.
   ([0104](adr/0104-your-picture-is-dot-face.md)).
 - **A polkit agent**, so GParted, Disks and `pkexec` can ask for the password
   ([0128](adr/0128-a-native-polkit-agent.md)).
+- **A keyring password prompt**, for when logging in couldn't unlock gnome-keyring
+  ([0139](adr/0139-a-native-keyring-prompter-in-front-of-gnome-keyring.md)).
 - **A session supervisor** that restarts the compositor after a crash or on Ctrl+Alt+Shift+Backspace,
   and takes the login profile's environment ([0046](adr/0046-patina-session-restarts-the-compositor.md),
   [0083](adr/0083-the-session-reads-the-login-profile.md)).

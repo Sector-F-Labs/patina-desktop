@@ -180,6 +180,7 @@ mechanics of adding one.
 | [0136](0136-minimising-and-restoring-are-animated.md) | Minimising and restoring are animated: the window shrinks and fades to the window list | Accepted |
 | [0137](0137-the-launcher-searches-files-with-fd-and-ripgrep.md) | The launcher searches files with fd and ripgrep, in folders Settings' Search page chooses | Accepted |
 | [0138](0138-viewport-windows-get-the-default-shadow-from-the-compositor.md) | Windows that are viewports of another's get the default shadow from the compositor | Accepted |
+| [0139](0139-a-native-keyring-prompter-in-front-of-gnome-keyring.md) | A native prompter asks for the keyring's password, in front of gnome-keyring | Accepted |
 
 ## Decision Relationship
 

@@ -97,6 +97,14 @@ puts them in `$(PREFIX)/share/man`.
   then `pkexec gparted` from inside its session (e.g. through the compositor's `Spawn`).
   `PATINA_POLKIT_PREVIEW=dir cargo test -p patina-polkit preview -- --ignored` paints the dialog
   per skin and state as PNGs.
+- `keyring/`: patina-keyring (ADR-0139), the keyring's password prompt, kept running by the
+  compositor like polkit's agent. `agent.rs` takes `org.gnome.keyring.SystemPrompter` and
+  `PrivatePrompter` on the session bus and speaks gcr's internal prompter protocol, running itself as
+  `--ask` for each dialog (`dialog.rs`); `exchange.rs` is gcr's secret exchange (the password under
+  DH, HKDF and AES). gnome-keyring stays the daemon. Reply properties are nested variants (a `v` in
+  the `a{sv}`'s `v`), or libgcr ignores them. Checks that need the GNOME libraries and a daemon run by
+  hand, not in `make check`: `keyring/tests/gcr-interop.py` and `keyring/tests/daemon-e2e.py`.
+  Test on nifl: `make deploy nifl` (the compositor restarts the prompter).
 - `compositor/src/screenshot.rs`: Super+Shift+3/4 (ADR-0034): the desktop or the focused
   window drawn offscreen with the backend's renderer, saved as a PNG on a thread; then a `Flash`
   each backend draws on top (`flash_element`, `overlay`).
