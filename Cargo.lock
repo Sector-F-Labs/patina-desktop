@@ -4151,6 +4151,7 @@ dependencies = [
  "image",
  "libc",
  "patina-apps",
+ "patina-search",
  "patina-shell",
  "patina-ui",
  "smithay-client-toolkit 0.21.1",
@@ -4243,6 +4244,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-search"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "toml_edit",
+]
+
+[[package]]
 name = "patina-session"
 version = "0.1.0"
 dependencies = [
@@ -4259,6 +4268,7 @@ dependencies = [
  "eframe",
  "egui",
  "image",
+ "patina-search",
  "patina-shell",
  "patina-system",
  "patina-ui",

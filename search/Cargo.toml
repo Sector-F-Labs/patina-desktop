@@ -1,0 +1,14 @@
+[package]
+name = "patina-search"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "File search for the Patina launcher: which folders to search and how, in a config the Settings page edits, and the fd and ripgrep runs that find the files"
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
+
+[lib]
+name = "patina_search"
+
+[dependencies]
+libc = "0.2"
+toml_edit = "0.25"

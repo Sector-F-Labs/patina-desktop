@@ -14,6 +14,7 @@ egui = "0.35"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 rfd = "0.17"
 patina-shell = { workspace = true }
+patina-search = { path = "../search" }
 patina-system = { path = "../system" }
 patina-webapp = { path = "../webapp" }
 patina-ui = { workspace = true }

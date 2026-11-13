@@ -11,6 +11,7 @@ egui = "0.35"
 freedesktop-desktop-entry = { version = "0.8", default-features = false }
 freedesktop-icons = "0.4"
 libc = "0.2"
+patina-search = { path = "../search" }
 patina-apps = { git = "https://github.com/Sector-F-Labs/patina-apps", features = ["icon"] }
 patina-shell = { workspace = true }
 patina-ui = { workspace = true }

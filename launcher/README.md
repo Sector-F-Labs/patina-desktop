@@ -34,6 +34,16 @@ Two options change where it opens and where the search box sits:
 So `patina-launcher --position center --search top` is a Spotlight-style launcher, and a bar's
 button can run `patina-launcher --search top` for a top bar.
 
+## Files
+
+Typing also lists matching files under the apps, from the folders Settings' Search page turns on
+(`~/.config/patina-search/config.toml`): by name with [fd](https://github.com/sharkdp/fd), by
+what's inside with [ripgrep](https://github.com/BurntSushi/ripgrep), or both, per folder. By
+default that's Pictures, Music and Videos by name, and Documents and Notes by name and contents.
+Enter or a click opens a file with its app. It starts 150 ms after the typing pauses, on a thread
+of its own, and needs fd (`fdfind` on Debian and Ubuntu) and ripgrep installed
+([ADR-0137](../docs/adr/0137-the-launcher-searches-files-with-fd-and-ripgrep.md)).
+
 ## Where the apps come from
 
 - **Installed apps**, from the `.desktop` files in every XDG data directory, the user's own first

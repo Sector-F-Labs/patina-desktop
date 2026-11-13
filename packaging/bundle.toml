@@ -88,6 +88,7 @@ recommended = [
     "firefox",                  # Alt+B; from Mozilla's apt repository on Patina OS, not the snap
     "adwaita-icon-theme",
     "gvfs-backends", "gvfs-fuse",  # UnAmp's network shares
+    "fd-find", "ripgrep",          # the launcher's file search (ADR-0137)
 ]
 # Apps that also ship .debs of their own: the bundle takes their place, so
 # apt swaps one for the other instead of refusing the overlapping files.

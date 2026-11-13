@@ -39,6 +39,9 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   short list and downloaded with curl (`dictation_models.rs`), the language, the accuracy
   settings, when the model is loaded and put away (at start, in a fullscreen window, when idle,
   ADR-0129), and whether the overlay shows at the bottom or top.
+- **Search** (ADR-0137): whether the launcher searches files, which folders, and whether each is
+  searched by name (fd), by contents (ripgrep) or both, in `~/.config/patina-search/config.toml`
+  (`search.rs`; the config and the runs are in `patina-search`).
 - **Clipboard** (ADR-0114, ADR-0116): whether the compositor keeps a history of what's copied,
   how many copies, for how long, and whether screenshots go on the clipboard, written to `[clipboard]` in the
   compositor's config (`clipboard.rs`); Clear history asks the compositor over the session bus.
