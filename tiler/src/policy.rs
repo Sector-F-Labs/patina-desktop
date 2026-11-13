@@ -171,11 +171,40 @@ pub fn opening(rect: Rect, remembered: Option<Remembered>, area: Rect) -> Openin
     }
 }
 
+/// Apps whose windows open in the middle of the area instead of where the
+/// last one was or where the compositor cascaded it: Files' Quick Look, which
+/// takes the shape of what it shows.
+pub const CENTRED: &[&str] = &["com.sectorflabs.Files.QuickLook"];
+
+/// Where a window opening at `rect` goes to be in the middle of `area`: kept
+/// inside it, and filling it if it's too big to fit.
+pub fn centred(rect: Rect, area: Rect) -> Opening {
+    let (x, y, w, h) = rect;
+    let (ax, ay, aw, ah) = area;
+    if w > aw || h > ah {
+        return Opening::Fill;
+    }
+    let at = (ax + (aw - w) / 2, ay + (ah - h) / 2);
+    if at == (x, y) {
+        Opening::Stay
+    } else {
+        Opening::Move(at.0, at.1)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     const SCREEN: Rect = (0, 0, 1280, 800);
+
+    #[test]
+    fn a_centred_window_opens_in_the_middle_of_the_area() {
+        let area = (0, 40, 1280, 760);
+        assert_eq!(centred((48, 48, 800, 600), area), Opening::Move(240, 120));
+        assert_eq!(centred((240, 120, 800, 600), area), Opening::Stay);
+        assert_eq!(centred((0, 0, 1300, 500), area), Opening::Fill, "too wide");
+    }
 
     #[test]
     fn the_edges_tile_as_on_ubuntu() {

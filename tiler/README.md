@@ -19,7 +19,8 @@ desktop.
   between tiled windows is dragged (the compositor's `Resized`, ADR-0054), it keeps the split,
   and a window tiled to the other side takes the rest. A window opens where its app's window was
   last (`WindowOpened`, saved from `WindowClosed` and drops) if no other of its app's is open,
-  and fills if it's too big for the work area or closed filled (ADR-0065). It exits when the
+  and fills if it's too big for the work area or closed filled (ADR-0065). Quick Look's window
+  (`policy::CENTRED`) opens in the middle of the work area instead. It exits when the
   compositor it started with leaves the bus.
 - **Gives way** to another tiler: it holds `com.sectorflabs.Patina.Tiler` allowing replacement
   (`claim_default`), so one that `claim`s it (`cargo run -p patina-system --example thirds`)
