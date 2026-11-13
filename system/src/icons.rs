@@ -117,6 +117,36 @@ pub fn clipboard(painter: &Painter, rect: Rect, colour: Color32) {
     }
 }
 
+/// A coffee cup in `rect`: a cup with its handle and saucer, and steam above
+/// it when `on` (the cup is filled then too).
+pub fn coffee(painter: &Painter, rect: Rect, on: bool, colour: Color32) {
+    let s = rect.height().min(rect.width());
+    let r = Rect::from_center_size(rect.center(), vec2(s, s));
+    let at = |x: f32, y: f32| pos2(r.left() + x * s, r.top() + y * s);
+    let stroke = Stroke::new((s * 0.08).max(1.0), colour);
+    let cup = Rect::from_min_max(at(0.12, 0.42), at(0.58, 0.80));
+    if on {
+        painter.rect_filled(cup, s * 0.08, colour);
+    } else {
+        painter.rect_stroke(cup, s * 0.08, stroke, egui::StrokeKind::Inside);
+    }
+    // The handle, a ring on the right.
+    painter.circle_stroke(at(0.68, 0.56), s * 0.10, stroke);
+    // The saucer.
+    painter.line_segment([at(0.06, 0.90), at(0.74, 0.90)], stroke);
+    if on {
+        for x in [0.26, 0.42] {
+            let wave: Vec<_> = (0..=8)
+                .map(|i| {
+                    let t = i as f32 / 8.0;
+                    at(x + 0.04 * (t * std::f32::consts::TAU).sin(), 0.34 - 0.26 * t)
+                })
+                .collect();
+            painter.add(Shape::line(wave, stroke));
+        }
+    }
+}
+
 /// A Wi-Fi fan in `rect`: a dot and three arcs, lit up to `strength`
 /// (0 to 100), the rest dimmed; with a slash when not connected (`None`).
 pub fn wifi(painter: &Painter, rect: Rect, strength: Option<u8>, colour: Color32) {
