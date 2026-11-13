@@ -11,6 +11,8 @@ name = "patina_shell"
 
 [dependencies]
 egui = "0.35"
+toml = "1"
+dirs = "6"
 patina-ui = { workspace = true }
 # The layer surfaces' shadows (ADR-0113): KDE's shadow protocol, the one Patina apps ask through.
 wayland-protocols-plasma = { version = "0.3", default-features = false, features = ["client"] }

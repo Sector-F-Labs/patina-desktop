@@ -4271,9 +4271,11 @@ dependencies = [
 name = "patina-shell"
 version = "0.1.0"
 dependencies = [
+ "dirs 6.0.0",
  "egui",
  "patina-ui",
  "smithay-client-toolkit 0.21.1",
+ "toml",
  "wayland-protocols-plasma",
 ]
 

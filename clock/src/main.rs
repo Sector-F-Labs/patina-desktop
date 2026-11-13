@@ -103,7 +103,8 @@ fn run() -> Result<(), String> {
         lock: false,
         window_fallback: false,
     };
-    let (host, event_loop) = Host::connect(options, menu)?;
+    let (mut host, event_loop) = Host::connect(options, menu)?;
+    host.set_shadow(patina_shell::hud::shadow());
     event_loop
         .handle()
         .insert_source(receive, |event, _, host| {

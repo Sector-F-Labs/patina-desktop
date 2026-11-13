@@ -76,10 +76,14 @@ impl Shell for Tooltip {
             .constrain(true)
             .interactable(false)
             .show(&ctx, |ui| {
-                Frame::popup(ui.style()).show(ui, |ui| {
-                    ui.set_max_width(WIDTH);
-                    ui.label(&self.text);
-                })
+                let mut style = (**ui.style()).clone();
+                patina_shell::hud::style_popups(&mut style.visuals);
+                Frame::popup(&style)
+                    .corner_radius(style.visuals.menu_corner_radius)
+                    .show(ui, |ui| {
+                        ui.set_max_width(WIDTH);
+                        ui.label(&self.text);
+                    })
             });
         ctx.request_repaint_after(POLL);
     }
