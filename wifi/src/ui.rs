@@ -260,7 +260,7 @@ impl Shell for WifiMenu {
         let v = ui.visuals().clone();
         ui.painter().rect(
             rect,
-            v.menu_corner_radius,
+            patina_shell::hud::corner_radius(),
             v.panel_fill,
             v.window_stroke,
             StrokeKind::Inside,

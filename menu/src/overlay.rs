@@ -73,6 +73,7 @@ pub fn show(ui: &Ui, id: &str, place: Place, items: impl FnOnce(&mut Ui)) {
         .constrain(true)
         .show(&ctx, |ui| {
             patina::menu::style(ui.style_mut());
+            patina_shell::hud::style_popups(&mut ui.style_mut().visuals);
             Frame::menu(ui.style()).show(ui, |ui| {
                 ui.with_layout(Layout::top_down_justified(Align::Min), items)
             })

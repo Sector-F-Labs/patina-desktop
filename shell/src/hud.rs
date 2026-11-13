@@ -30,6 +30,81 @@ pub fn at_top() -> bool {
         == Some("top")
 }
 
+/// The corner radius of the HUD's islands, which the menus share: the
+/// compositor's `[gaps]` radius while the HUD floats, else 8, as the bar draws it.
+pub fn radius() -> f32 {
+    static RADIUS: std::sync::OnceLock<f32> = std::sync::OnceLock::new();
+    *RADIUS.get_or_init(|| {
+        let gaps = crate::gaps::read();
+        if gaps.floating() { gaps.radius } else { 8.0 }
+    })
+}
+
+/// [`radius`] as egui's corner radius, for a menu's card.
+pub fn corner_radius() -> egui::CornerRadius {
+    egui::CornerRadius::from(radius())
+}
+
+/// Gives `visuals` the HUD's corners and shadow for the menus and popups egui
+/// draws itself, on a surface that's all screen (patina-menu), where a
+/// shadow can't be asked of the compositor around a card.
+pub fn style_popups(visuals: &mut egui::Visuals) {
+    visuals.menu_corner_radius = corner_radius();
+    visuals.popup_shadow = match shadow() {
+        Some(s) => egui::Shadow {
+            offset: [s.offset_x.round() as i8, s.drop.round() as i8],
+            blur: s.blur.round() as u8,
+            spread: s.spread.round().max(0.0) as u8,
+            color: egui::Color32::from_rgba_unmultiplied(
+                s.color[0],
+                s.color[1],
+                s.color[2],
+                (s.opacity * 255.0).round() as u8,
+            ),
+        },
+        None => egui::Shadow::NONE,
+    };
+}
+
+/// The shadow the HUD's config asks for around its parts (ADR-0113), for the
+/// menus to ask for too; `None` when `shadows = false`. A key that's missing
+/// or unreadable is the default, as for the HUD.
+pub fn shadow() -> Option<crate::ShadowStyle> {
+    let text = std::fs::read_to_string(config_path()?).unwrap_or_default();
+    shadow_from(&text)
+}
+
+fn shadow_from(text: &str) -> Option<crate::ShadowStyle> {
+    if top_level(text, "shadows").as_deref() == Some("false") {
+        return None;
+    }
+    let default = crate::ShadowStyle::default();
+    let number = |key: &str, default: f32| {
+        top_level(text, key)
+            .and_then(|v| v.parse::<f32>().ok())
+            .filter(|n| n.is_finite())
+            .unwrap_or(default)
+    };
+    let color = top_level(text, "shadow_color")
+        .and_then(|c| {
+            let hex = c.strip_prefix('#')?;
+            if hex.len() != 6 || !hex.is_ascii() {
+                return None;
+            }
+            let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
+            Some([byte(0)?, byte(2)?, byte(4)?])
+        })
+        .unwrap_or([0, 0, 0]);
+    Some(crate::ShadowStyle {
+        blur: number("shadow_blur", default.blur).clamp(0.0, 64.0),
+        drop: number("shadow_drop", default.drop).clamp(-64.0, 64.0),
+        opacity: number("shadow_opacity", default.opacity).clamp(0.0, 1.0),
+        spread: number("shadow_spread", default.spread).clamp(-64.0, 64.0),
+        offset_x: number("shadow_offset_x", default.offset_x).clamp(-64.0, 64.0),
+        color,
+    })
+}
+
 /// The HUD's config file, `~/.config/patina-hud/config.toml`. The folder was
 /// `patina-bar` before the bar became the HUD (ADR-0110): when only the old
 /// one exists it is moved to the new name, skins and all.
@@ -165,6 +240,19 @@ mod tests {
         assert_eq!(top_level(text, "a").as_deref(), Some("#1a2b3c"));
         assert_eq!(top_level(text, "b").as_deref(), Some("2"));
         assert_eq!(top_level(text, "c").as_deref(), Some("x"));
+    }
+
+    #[test]
+    fn the_menus_shadow_is_the_huds() {
+        assert_eq!(shadow_from(""), Some(crate::ShadowStyle::default()));
+        assert_eq!(shadow_from("shadows = false\n"), None);
+        let style =
+            shadow_from("shadow_blur = 3\nshadow_color = \"#102030\"\nshadow_opacity = 7\n")
+                .unwrap();
+        assert_eq!(
+            (style.blur, style.opacity, style.color),
+            (3.0, 1.0, [0x10, 0x20, 0x30])
+        );
     }
 
     #[test]

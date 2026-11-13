@@ -158,7 +158,8 @@ fn run(args: Args) -> Result<(), String> {
         // On GNOME, which has no layer shell: a centred window, as wofi.
         window_fallback: true,
     };
-    let (host, event_loop) = Host::connect(options, launcher)?;
+    let (mut host, event_loop) = Host::connect(options, launcher)?;
+    host.set_shadow(patina_shell::hud::shadow());
     event_loop
         .handle()
         .insert_source(receive, |event, _, host| match event {
