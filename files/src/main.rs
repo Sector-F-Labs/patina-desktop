@@ -13,6 +13,7 @@ mod icons;
 mod listing;
 mod mime;
 mod network;
+mod openwith;
 mod ops;
 mod places;
 mod portal;

@@ -27,6 +27,7 @@ use crate::icons::{self, Icons, Source};
 use crate::listing::{self, Entry, Kind, Listed, Location, SortBy};
 use crate::mime::Mime;
 use crate::network::{self, Network};
+use crate::openwith;
 use crate::ops::{self, Choice, Op};
 use crate::places::{self, Place};
 use crate::preview::{self, Previews};
@@ -250,6 +251,10 @@ enum Action {
     Terminal(PathBuf),
     /// A script opened in the text editor (ADR-0011).
     Edit(PathBuf),
+    /// A file opened with a chosen app: the file, and the command line.
+    OpenWith(PathBuf, Vec<String>),
+    /// The list of every app, to open a file with one that isn't offered.
+    OtherApp(PathBuf),
     NewWindow,
     Drop {
         paths: Vec<PathBuf>,
@@ -322,6 +327,9 @@ pub struct Files {
     /// Listings being read, and ones that changed again while they were.
     reading: HashSet<Location>,
     /// The folder the status bar's ZFS facts are for, when they were read, and them.
+    open_with: openwith::Finder,
+    /// Other Application's window: the file, and what's typed in its filter.
+    other_app: Option<(PathBuf, String)>,
     zfs: Option<(PathBuf, std::time::Instant, Option<zfs::Info>)>,
     zfs_reader: zfs::Reader,
     zfs_asked: Option<(PathBuf, std::time::Instant)>,
@@ -458,6 +466,8 @@ impl Files {
             listed_send,
             listed,
             reading: HashSet::new(),
+            open_with: openwith::Finder::new(),
+            other_app: None,
             zfs: None,
             zfs_reader: zfs::Reader::new(),
             zfs_asked: None,
@@ -968,6 +978,13 @@ impl Files {
                     self.message = Some(Message::error(format!("Can't edit {}: {e}", places::name(&path))));
                 }
             }
+            Action::OpenWith(path, line) => {
+                let dir = path.parent().unwrap_or(Path::new("/"));
+                if let Err(e) = spawn_in(&line[0], &line[1..], dir) {
+                    self.message = Some(Message::error(format!("Can't open {}: {e}", places::name(&path))));
+                }
+            }
+            Action::OtherApp(path) => self.other_app = Some((path, String::new())),
             Action::NewWindow => {
                 let here = self.current().folder().map(Path::to_path_buf);
                 let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("files"));
@@ -1864,6 +1881,7 @@ impl Files {
                 ui.spacing_mut().item_spacing.x = 2.0;
                 let filter = egui::TextEdit::singleline(&mut self.tabs[self.tab].filter)
                     .hint_text("Filter")
+                    .margin(toolbar_field_margin(ui))
                     .desired_width(150.0);
                 let resp = ui.add(filter);
                 if std::mem::take(&mut self.focus_filter) {
@@ -1901,7 +1919,9 @@ impl Files {
     fn path_bar(&mut self, ui: &mut Ui, a: &mut Vec<Action>) {
         if let Some(text) = &mut self.location_edit {
             let all = text.chars().count();
-            let resp = ui.add(egui::TextEdit::singleline(text).desired_width(ui.available_width()));
+            let resp = ui.add(
+                egui::TextEdit::singleline(text).margin(toolbar_field_margin(ui)).desired_width(ui.available_width()),
+            );
             if !self.location_started {
                 // All of it selected, so typing replaces it, or the cursor at the end.
                 self.location_started = true;
@@ -2560,14 +2580,9 @@ impl Files {
             );
             self.rename_field(ui, field, false);
         } else {
-            let mut job = LayoutJob::single_section(
-                entry.name.clone(),
-                TextFormat { font_id: font.clone(), color: colour, ..Default::default() },
-            );
-            job.wrap.max_width = name_w - (text_left - rect.left()) - 8.0;
-            job.wrap.max_rows = 1;
-            job.wrap.break_anywhere = true;
-            let galley = ui.painter().layout_job(job);
+            let max_w = name_w - (text_left - rect.left()) - 8.0;
+            let shown = middle_ellipsis(ui, &entry.name, &font, max_w);
+            let galley = ui.painter().layout_no_wrap(shown, font.clone(), colour);
             painter.galley(pos2(text_left, rect.center().y - galley.size().y / 2.0), galley, colour);
         }
 
@@ -2897,7 +2912,32 @@ impl Files {
                         a.push(Action::AddFavourite(entry.path.clone()));
                     }
                 }
-                Kind::File => {}
+                Kind::File => {
+                    let mime = entry.mime.as_deref().unwrap_or("application/octet-stream");
+                    ui.menu_button("Open With", |ui| {
+                        match self.open_with.get(mime, ui.ctx()) {
+                            None => {
+                                ui.add_enabled(false, egui::Button::new("Looking…"));
+                            }
+                            Some(apps) => {
+                                for app in apps {
+                                    if ui.button(&app.name).clicked() {
+                                        a.push(Action::OpenWith(entry.path.clone(), app.command(&entry.path)));
+                                        ui.close();
+                                    }
+                                }
+                                if apps.is_empty() {
+                                    ui.add_enabled(false, egui::Button::new("No apps for this type"));
+                                }
+                            }
+                        }
+                        ui.separator();
+                        if ui.button("Other Application…").clicked() {
+                            a.push(Action::OtherApp(entry.path.clone()));
+                            ui.close();
+                        }
+                    });
+                }
             }
             ui.separator();
             if ui.button("Cut").clicked() {
@@ -3266,6 +3306,54 @@ impl Files {
         }
     }
 
+    /// Every app to open a file with, with a filter, for Other Application.
+    fn other_app_window(&mut self, ctx: &egui::Context) {
+        let Some((path, filter)) = &mut self.other_app else { return };
+        let mut open = true;
+        let mut chosen = None;
+        egui::Window::new(format!("Open {} With", places::name(path)))
+            .id(Id::new("other app"))
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .pivot(Align2::CENTER_CENTER)
+            .default_pos(ctx.content_rect().center())
+            .show(ctx, |ui| {
+                ui.set_width(320.0);
+                let field = ui.add(egui::TextEdit::singleline(filter).hint_text("Filter").desired_width(f32::INFINITY));
+                if !field.has_focus() && !ui.memory(|m| m.has_focus(field.id)) {
+                    field.request_focus();
+                }
+                ui.add_space(4.0);
+                match self.open_with.all(ctx) {
+                    None => {
+                        ui.spinner();
+                    }
+                    Some(apps) => {
+                        let wanted = filter.to_lowercase();
+                        egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                            for app in apps.iter().filter(|a| a.name.to_lowercase().contains(&wanted)) {
+                                if ui
+                                    .add(
+                                        egui::Button::new(&app.name)
+                                            .frame(false)
+                                            .min_size(vec2(ui.available_width(), 0.0)),
+                                    )
+                                    .clicked()
+                                {
+                                    chosen = Some(Action::OpenWith(path.clone(), app.command(path)));
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+        if chosen.is_some() || !open || ctx.input(|i| i.key_pressed(Key::Escape)) {
+            self.other_app = None;
+        }
+        self.actions.extend(chosen);
+    }
+
     fn properties_window(&mut self, ctx: &egui::Context) {
         let Some(properties) = &self.properties else { return };
         let info = properties.info().clone();
@@ -3278,6 +3366,7 @@ impl Files {
         let title = one.map_or_else(|| "Properties".to_string(), |item| format!("{} Properties", item.entry.name));
         let mut open = true;
         let mut mode = None;
+        let mut opens_with: Option<(String, String)> = None;
         egui::Window::new(title)
             .id(Id::new("properties"))
             .open(&mut open)
@@ -3320,6 +3409,38 @@ impl Files {
                     weak(ui, "Type");
                     ui.label(kind);
                     ui.end_row();
+
+                    if let Some(item) = one
+                        && item.entry.kind == Kind::File
+                        && !item.entry.script
+                        && item.entry.trashed.is_none()
+                        && item.entry.remote.is_none()
+                        && let Some(mime) = &item.entry.mime
+                    {
+                        weak(ui, "Opens with");
+                        match self.open_with.get(mime, ui.ctx()) {
+                            None => {
+                                ui.spinner();
+                            }
+                            Some([]) => {
+                                weak(ui, "No app for this type");
+                            }
+                            Some(apps) => {
+                                let current = apps.iter().find(|a| a.default).map(|a| a.name.as_str());
+                                egui::ComboBox::from_id_salt("opens with")
+                                    .selected_text(current.unwrap_or("Choose an app"))
+                                    .width(180.0)
+                                    .show_ui(ui, |ui| {
+                                        for app in apps {
+                                            if ui.selectable_label(app.default, &app.name).clicked() && !app.default {
+                                                opens_with = Some((mime.clone(), app.id.clone()));
+                                            }
+                                        }
+                                    });
+                            }
+                        }
+                        ui.end_row();
+                    }
 
                     weak(ui, if one.is_some_and(properties::Item::is_folder) { "Contents" } else { "Size" });
                     ui.horizontal(|ui| {
@@ -3407,6 +3528,12 @@ impl Files {
                     weak(ui, "Only its owner can change who may use it.");
                 }
             });
+        if let Some((mime, id)) = opens_with {
+            match openwith::set_default(&mime, &id) {
+                Ok(()) => self.open_with.forget(&mime),
+                Err(e) => self.message = Some(Message::error(format!("Couldn't change the app: {e}"))),
+            }
+        }
         if !open {
             self.properties = None;
         } else if let (Some(mode), Some(properties)) = (mode, &self.properties) {
@@ -3751,6 +3878,7 @@ impl eframe::App for Files {
 
         self.quick_look(&ctx);
         self.properties_window(&ctx);
+        self.other_app_window(&ctx);
         self.drag_out(&ctx);
         self.drag_ghost(&ctx);
         self.dialogs(&ctx);
@@ -3831,6 +3959,33 @@ const OPTIONAL_COLUMNS: [(SortBy, &str); 5] = [
     (SortBy::Accessed, "Date Last Opened"),
     (SortBy::Kind, "Kind"),
 ];
+
+/// `text` cut to fit `max_w` with an ellipsis in the middle, so the start and
+/// the end (the extension, a trailing number) both stay readable.
+fn middle_ellipsis(ui: &Ui, text: &str, font: &egui::FontId, max_w: f32) -> String {
+    let width = |s: &str| ui.painter().layout_no_wrap(s.to_string(), font.clone(), egui::Color32::WHITE).size().x;
+    if width(text) <= max_w {
+        return text.to_string();
+    }
+    let chars: Vec<char> = text.chars().collect();
+    let build = |keep: usize| {
+        let tail = keep / 2;
+        let head = keep - tail;
+        let a: String = chars[..head].iter().collect();
+        let b: String = chars[chars.len() - tail..].iter().collect();
+        format!("{}…{}", a.trim_end(), b.trim_start())
+    };
+    let (mut lo, mut hi) = (0, chars.len());
+    while lo < hi {
+        let mid = (lo + hi).div_ceil(2);
+        if width(&build(mid)) <= max_w {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    build(lo)
+}
 
 /// The list's columns: what each sorts by, its heading, width and whether
 /// it's right-aligned. Name takes what the others leave; of those `wanted`,
@@ -4052,6 +4207,14 @@ fn zfs_label(ui: &mut Ui, info: &zfs::Info, open: bool) -> Response {
 
 /// The toolbar's height: its buttons, and the path bar's crumbs in their middle.
 const TOOLBAR_ROW: f32 = 26.0;
+
+/// The margin that makes a text field in the toolbar as tall as its buttons:
+/// `TextEdit` ignores a minimum height, so the height is made up of the margin,
+/// the row's height less one line of text, halved.
+fn toolbar_field_margin(ui: &Ui) -> egui::Margin {
+    let pad = ((TOOLBAR_ROW - ui.text_style_height(&egui::TextStyle::Body)) / 2.0).max(0.0);
+    egui::Margin::symmetric(8, pad.round() as i8)
+}
 
 fn glyph_button(ui: &mut Ui, glyph: Glyph, enabled: bool, hint: &str) -> Response {
     let resp = ui.add_enabled(enabled, egui::Button::new("").min_size(vec2(28.0, TOOLBAR_ROW))).on_hover_text(hint);
