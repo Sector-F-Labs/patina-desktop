@@ -309,7 +309,7 @@ fn list(ui: &mut Ui, id: &str, items: &mut Vec<String>, typing: &mut String, hin
         let mut remove = None;
         for (i, item) in items.iter().enumerate() {
             ui.horizontal(|ui| {
-                if ui.small_button("✕").on_hover_text("Remove").clicked() {
+                if ui.button("✕").on_hover_text("Remove").clicked() {
                     remove = Some(i);
                 }
                 ui.monospace(item);

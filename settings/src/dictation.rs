@@ -328,7 +328,7 @@ impl DictationPage {
                     {
                         start = Some(model);
                     }
-                } else if !picked && ui.small_button("Delete").clicked() {
+                } else if !picked && ui.button("Delete").clicked() {
                     remove = Some(model.name);
                 }
             });

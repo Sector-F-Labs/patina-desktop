@@ -77,7 +77,7 @@ impl SearchPage {
                                         .changed();
                                 }
                             });
-                        if ui.small_button("Remove").clicked() {
+                        if ui.button("Remove").clicked() {
                             remove = Some(i);
                         }
                         ui.end_row();
