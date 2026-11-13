@@ -35,6 +35,7 @@ pub enum Page {
     Keyboard,
     Dictation,
     Clipboard,
+    Search,
     Displays,
     NightLight,
     GameMode,
@@ -44,7 +45,7 @@ pub enum Page {
 }
 
 impl Page {
-    const ALL: [Page; 14] = [
+    const ALL: [Page; 15] = [
         Page::Appearance,
         Page::Bar,
         Page::Wallpaper,
@@ -53,6 +54,7 @@ impl Page {
         Page::Keyboard,
         Page::Dictation,
         Page::Clipboard,
+        Page::Search,
         Page::Displays,
         Page::NightLight,
         Page::GameMode,
@@ -71,6 +73,7 @@ impl Page {
             "keyboard" => Some(Page::Keyboard),
             "dictation" => Some(Page::Dictation),
             "clipboard" => Some(Page::Clipboard),
+            "search" => Some(Page::Search),
             "displays" => Some(Page::Displays),
             "night-light" => Some(Page::NightLight),
             "game-mode" => Some(Page::GameMode),
@@ -91,6 +94,7 @@ impl Page {
             Page::Keyboard => "Keyboard",
             Page::Dictation => "Dictation",
             Page::Clipboard => "Clipboard",
+            Page::Search => "Search",
             Page::Displays => "Displays",
             Page::NightLight => "Night Light",
             Page::GameMode => "Game mode",
@@ -153,6 +157,7 @@ pub struct App {
     keyboard: crate::keyboard::KeyboardPage,
     dictation: crate::dictation::DictationPage,
     clipboard: crate::clipboard::ClipboardPage,
+    search: crate::search::SearchPage,
     webapps: crate::webapps::WebAppsPage,
     displays: crate::displays::DisplaysPage,
     night_light: NightLightPage,
@@ -189,6 +194,7 @@ impl App {
             keyboard: crate::keyboard::KeyboardPage::new(ctx),
             dictation: crate::dictation::DictationPage::new(),
             clipboard: crate::clipboard::ClipboardPage::new(),
+            search: crate::search::SearchPage::new(),
             webapps: crate::webapps::WebAppsPage::new(),
             displays: crate::displays::DisplaysPage::new(ctx),
             night_light: NightLightPage::new(ctx),
@@ -690,6 +696,10 @@ impl App {
                 Page::Clipboard => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.clipboard.ui(ui, &mut self.message));
+                }
+                Page::Search => {
+                    egui::ScrollArea::vertical()
+                        .show(ui, |ui| self.search.ui(ui, &mut self.message));
                 }
                 Page::Displays => {
                     egui::ScrollArea::vertical()

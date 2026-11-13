@@ -178,6 +178,7 @@ mechanics of adding one.
 | [0134](0134-game-mode-is-a-program-of-its-own.md) | Game mode is a program of its own that quits programs and runs commands while a fullscreen window has the keyboard | Accepted |
 | [0135](0135-a-four-finger-swipe-minimises-every-window.md) | A four-finger swipe toward the window list's edge minimises every window, and one away from it brings them back | Accepted |
 | [0136](0136-minimising-and-restoring-are-animated.md) | Minimising and restoring are animated: the window shrinks and fades to the window list | Accepted |
+| [0137](0137-the-launcher-searches-files-with-fd-and-ripgrep.md) | The launcher searches files with fd and ripgrep, in folders Settings' Search page chooses | Accepted |
 
 ## Decision Relationship
 

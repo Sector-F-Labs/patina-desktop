@@ -4,6 +4,7 @@
 //! toggles it.
 
 mod apps;
+mod files;
 mod folders;
 mod icons;
 mod ui;
@@ -78,6 +79,8 @@ fn parse_args(args: impl IntoIterator<Item = String>) -> Result<Args, String> {
 
 enum Message {
     Icon(usize, egui::ColorImage),
+    /// Files found for a question, by its number.
+    Files(u64, Vec<patina_search::Hit>),
     Close,
 }
 
@@ -124,6 +127,14 @@ fn run(args: Args) -> Result<(), String> {
         .enumerate()
         .filter_map(|(i, a)| a.icon.clone().map(|icon| (i, icon)))
         .collect();
+    // The files to search, as Settings' Search page has them; answers come
+    // back as messages, as the icons do.
+    let found = send.clone();
+    let finder = files::Finder::new(
+        patina_search::config::read(),
+        patina_search::Tools::find(),
+        move |number, hits| found.send(Message::Files(number, hits)).is_ok(),
+    );
     let start_icons = Box::new(move |size: u32| {
         icons::spawn(wanted, size, move |i, image| {
             send.send(Message::Icon(i, image)).is_ok()
@@ -133,6 +144,7 @@ fn run(args: Args) -> Result<(), String> {
         apps,
         piece::skin("patina-launcher"),
         args.search,
+        Some(finder),
         start_icons,
     );
 
@@ -165,6 +177,10 @@ fn run(args: Args) -> Result<(), String> {
         .insert_source(receive, |event, _, host| match event {
             Event::Msg(Message::Icon(i, image)) => {
                 host.shell.pending.push((i, image));
+                host.redraw_all();
+            }
+            Event::Msg(Message::Files(number, hits)) => {
+                host.shell.files_found(number, hits);
                 host.redraw_all();
             }
             Event::Msg(Message::Close) => host.shell.close(),

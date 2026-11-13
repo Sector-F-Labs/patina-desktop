@@ -58,7 +58,9 @@ Last checked against the code: 2026-11-09.
 ## Launching and files
 
 - **A launcher** over the installed apps, with folder apps from `~/Apps`, and Super+Space as a search box
-  ([0010](adr/0010-launcher-reads-desktop-entries.md), [0035](adr/0035-the-launcher-lists-folder-apps.md)).
+  ([0010](adr/0010-launcher-reads-desktop-entries.md), [0035](adr/0035-the-launcher-lists-folder-apps.md)),
+  and files from chosen folders, by name (fd) and contents (ripgrep), set on Settings' Search page
+  ([0137](adr/0137-the-launcher-searches-files-with-fd-and-ripgrep.md)).
 - **`patina-raise`**: focus an app's window or start it, for keys such as Alt+B
   ([0058](adr/0058-patina-raise.md)).
 - **Files**, the file manager, which is also the session's file chooser through the portal
