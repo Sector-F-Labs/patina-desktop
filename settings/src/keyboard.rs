@@ -24,6 +24,13 @@ pub struct KeyboardPage {
     search: String,
     /// What's typed to try key repeat.
     trial: String,
+    /// The shortcuts: the config's `[bindings]`, else the compositor's
+    /// defaults, which the first change copies into the config.
+    bindings: Vec<(String, String)>,
+    /// Whether the config has a `[bindings]` section.
+    custom: bool,
+    /// The shortcut being added.
+    adding: (String, String),
     /// The system's layouts, for when the compositor isn't there to say.
     system: Vec<(String, String)>,
 }
@@ -39,7 +46,23 @@ impl KeyboardPage {
             search: String::new(),
             trial: String::new(),
             system: keyboard::system_layouts(),
+            bindings: Vec::new(),
+            custom: false,
+            adding: (String::new(), String::new()),
         }
+        .with_bindings()
+    }
+
+    fn with_bindings(mut self) -> Self {
+        let read = config::read_bindings();
+        self.custom = read.is_some();
+        self.bindings = read.unwrap_or_else(|| {
+            config::DEFAULT_BINDINGS
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect()
+        });
+        self
     }
 
     fn save(&mut self, message: &mut Option<Message>) {
@@ -62,6 +85,109 @@ impl KeyboardPage {
         self.layouts(ui, message);
         ui.add_space(16.0);
         self.repeat(ui, message);
+        ui.add_space(16.0);
+        self.shortcuts(ui, message);
+    }
+
+    /// Writes the shortcuts that read as key combinations, once each.
+    fn save_bindings(&mut self, message: &mut Option<Message>) {
+        let mut seen = Vec::new();
+        let list: Vec<(String, String)> = self
+            .bindings
+            .iter()
+            .filter(|(k, c)| config::valid_combo(k) && !c.trim().is_empty())
+            .filter(|(k, _)| {
+                let fresh = !seen.contains(&k.to_lowercase());
+                seen.push(k.to_lowercase());
+                fresh
+            })
+            .cloned()
+            .collect();
+        self.custom = true;
+        if let Err(e) = config::write_bindings(Some(&list)) {
+            *message = Some(Message::error(format!("Couldn't save the shortcuts: {e}")));
+        }
+    }
+
+    /// The keys that run commands: `[bindings]` in the compositor's config.
+    fn shortcuts(&mut self, ui: &mut Ui, message: &mut Option<Message>) {
+        ui.label(RichText::new("Shortcuts").strong());
+        ui.label(
+            RichText::new(
+                "Keys that run a command: modifiers (Super, Alt, Ctrl, Shift) and a key by its \
+                 name, like Super+Return or Alt+F5. patina-raise focuses an app's window, or \
+                 starts the app if none is open.",
+            )
+            .small()
+            .weak(),
+        );
+        ui.add_space(4.0);
+        let mut save = false;
+        let mut remove = None;
+        egui::Grid::new("shortcuts")
+            .num_columns(3)
+            .spacing([12.0, 6.0])
+            .show(ui, |ui| {
+                for (i, (combo, command)) in self.bindings.iter_mut().enumerate() {
+                    let bad = !config::valid_combo(combo);
+                    let mut field = patina::dialog::text_edit(ui, combo).desired_width(180.0);
+                    if bad {
+                        field = field.text_color(ui.visuals().error_fg_color);
+                    }
+                    let keys = ui.add(field);
+                    let run = ui.add(patina::dialog::text_edit(ui, command).desired_width(320.0));
+                    save |= (keys.lost_focus() && keys.changed())
+                        || (run.lost_focus() && run.changed())
+                        || keys.lost_focus() && bad;
+                    if ui.button("Remove").clicked() {
+                        remove = Some(i);
+                    }
+                    ui.end_row();
+                }
+            });
+        if let Some(i) = remove {
+            self.bindings.remove(i);
+            save = true;
+        }
+        if save {
+            self.save_bindings(message);
+        }
+        ui.add_space(4.0);
+        let ready = config::valid_combo(&self.adding.0) && !self.adding.1.trim().is_empty();
+        let mut add = false;
+        ui.horizontal(|ui| {
+            let keys = patina::dialog::text_edit(ui, &mut self.adding.0)
+                .hint_text("Super+E")
+                .desired_width(180.0);
+            let keys = ui.add(keys);
+            let run = patina::dialog::text_edit(ui, &mut self.adding.1)
+                .hint_text("Command to run")
+                .desired_width(320.0);
+            let run = ui.add(run);
+            let enter = (keys.lost_focus() || run.lost_focus())
+                && ui.input(|i| i.key_pressed(egui::Key::Enter));
+            add = ui.add_enabled(ready, egui::Button::new("Add")).clicked() || (enter && ready);
+        });
+        if add {
+            let (combo, command) = std::mem::take(&mut self.adding);
+            self.bindings
+                .push((combo.trim().to_string(), command.trim().to_string()));
+            self.save_bindings(message);
+        }
+        if self.custom {
+            ui.add_space(4.0);
+            if ui.button("Restore the defaults").clicked() {
+                if let Err(e) = config::write_bindings(None) {
+                    *message = Some(Message::error(format!("Couldn't save the shortcuts: {e}")));
+                } else {
+                    self.custom = false;
+                    self.bindings = config::DEFAULT_BINDINGS
+                        .iter()
+                        .map(|(k, v)| (k.to_string(), v.to_string()))
+                        .collect();
+                }
+            }
+        }
     }
 
     /// What xkb calls a layout: from its list, else from the compositor,
