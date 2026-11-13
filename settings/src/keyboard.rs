@@ -124,27 +124,21 @@ impl KeyboardPage {
         ui.add_space(4.0);
         let mut save = false;
         let mut remove = None;
-        egui::Grid::new("shortcuts")
-            .num_columns(3)
-            .spacing([12.0, 6.0])
-            .show(ui, |ui| {
-                for (i, (combo, command)) in self.bindings.iter_mut().enumerate() {
-                    let bad = !config::valid_combo(combo);
-                    let mut field = patina::dialog::text_edit(ui, combo).desired_width(180.0);
-                    if bad {
-                        field = field.text_color(ui.visuals().error_fg_color);
-                    }
-                    let keys = ui.add(field);
-                    let run = ui.add(patina::dialog::text_edit(ui, command).desired_width(320.0));
-                    save |= (keys.lost_focus() && keys.changed())
-                        || (run.lost_focus() && run.changed())
-                        || keys.lost_focus() && bad;
-                    if ui.button("Remove").clicked() {
-                        remove = Some(i);
-                    }
-                    ui.end_row();
+        for (i, (combo, command)) in self.bindings.iter_mut().enumerate() {
+            let bad = !config::valid_combo(combo);
+            ui.horizontal(|ui| {
+                let (keys, run) = shortcut_fields(ui, combo, command, bad, ("", ""));
+                save |= (keys.lost_focus() && keys.changed())
+                    || (run.lost_focus() && run.changed())
+                    || (keys.lost_focus() && bad);
+                if ui
+                    .add_sized([SHORTCUT_BUTTON, 0.0], egui::Button::new("Remove"))
+                    .clicked()
+                {
+                    remove = Some(i);
                 }
             });
+        }
         if let Some(i) = remove {
             self.bindings.remove(i);
             save = true;
@@ -156,17 +150,20 @@ impl KeyboardPage {
         let ready = config::valid_combo(&self.adding.0) && !self.adding.1.trim().is_empty();
         let mut add = false;
         ui.horizontal(|ui| {
-            let keys = patina::dialog::text_edit(ui, &mut self.adding.0)
-                .hint_text("Super+E")
-                .desired_width(180.0);
-            let keys = ui.add(keys);
-            let run = patina::dialog::text_edit(ui, &mut self.adding.1)
-                .hint_text("Command to run")
-                .desired_width(320.0);
-            let run = ui.add(run);
+            let (keys, run) = shortcut_fields(
+                ui,
+                &mut self.adding.0,
+                &mut self.adding.1,
+                false,
+                ("Super+E", "Command to run"),
+            );
             let enter = (keys.lost_focus() || run.lost_focus())
                 && ui.input(|i| i.key_pressed(egui::Key::Enter));
-            add = ui.add_enabled(ready, egui::Button::new("Add")).clicked() || (enter && ready);
+            let button = ui.add_enabled(
+                ready,
+                egui::Button::new("Add").min_size(vec2(SHORTCUT_BUTTON, 0.0)),
+            );
+            add = button.clicked() || (enter && ready);
         });
         if add {
             let (combo, command) = std::mem::take(&mut self.adding);
@@ -441,6 +438,35 @@ impl KeyboardPage {
             self.save(message);
         }
     }
+}
+
+/// The width of a shortcut row's key field, and of its button.
+const SHORTCUT_KEYS: f32 = 190.0;
+const SHORTCUT_BUTTON: f32 = 80.0;
+
+/// A shortcut's key and command fields, the command taking what the row's
+/// key field and button leave.
+fn shortcut_fields(
+    ui: &mut Ui,
+    keys: &mut String,
+    command: &mut String,
+    bad: bool,
+    hints: (&str, &str),
+) -> (egui::Response, egui::Response) {
+    let gap = ui.spacing().item_spacing.x;
+    let rest = ui.available_width() - SHORTCUT_KEYS - SHORTCUT_BUTTON - 2.0 * gap;
+    let mut field = patina::dialog::text_edit(ui, keys)
+        .hint_text(hints.0)
+        .desired_width(SHORTCUT_KEYS);
+    if bad {
+        field = field.text_color(ui.visuals().error_fg_color);
+    }
+    let first = ui.add_sized([SHORTCUT_KEYS, 0.0], field);
+    let width = rest.max(120.0);
+    let second = patina::dialog::text_edit(ui, command)
+        .hint_text(hints.1)
+        .desired_width(width);
+    (first, ui.add_sized([width, 0.0], second))
 }
 
 /// Follows the compositor's layouts on a thread, sending each change.
