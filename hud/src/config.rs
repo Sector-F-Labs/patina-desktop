@@ -253,6 +253,8 @@ pub struct Config {
     /// Split, how thick each part is across its edge, in logical pixels
     /// (its height along the top or bottom, its width up a side); unset,
     /// `height`. A tall window list is a dock; a small tray is a status line.
+    /// On the left or right, the window list's icons grow with it once it's
+    /// thicker than the default `height`, as a dock's do.
     pub launcher_height: Option<u32>,
     pub windows_height: Option<u32>,
     pub tray_height: Option<u32>,

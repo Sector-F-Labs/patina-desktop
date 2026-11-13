@@ -57,7 +57,7 @@ pub fn installed(question: Ask) -> Found {
     match question {
         Ask::Icon(app_id, size) => {
             let icon = find(&known, &app_id, size);
-            Found::Icon(app_id, icon)
+            Found::Icon(app_id, size, icon)
         }
         Ask::Name(app_id) => {
             let name = name(&known, &app_id);
@@ -85,7 +85,8 @@ pub enum Ask {
 /// The answer: an app id's icon or name, if it has one.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Found {
-    Icon(String, Option<ColorImage>),
+    /// An app id's icon at this many pixels a side.
+    Icon(String, u32, Option<ColorImage>),
     Name(String, Option<String>),
     /// A tray icon, by `named_key`.
     Named(String, Option<ColorImage>),
@@ -181,7 +182,7 @@ pub fn spawn(send: impl Fn(Found) -> bool + Send + 'static) -> mpsc::Sender<Ask>
                     }
                     Ask::Icon(app_id, size) => {
                         let icon = find(&known, &app_id, size);
-                        Found::Icon(app_id, icon)
+                        Found::Icon(app_id, size, icon)
                     }
                     Ask::Name(app_id) => {
                         let name = name(&known, &app_id);
