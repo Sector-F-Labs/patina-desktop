@@ -651,7 +651,7 @@ impl Reader {
         let field = ui
             .scope(|ui| {
                 *ui.visuals_mut() = window;
-                ui.add(egui::TextEdit::singleline(&mut self.query).hint_text("Search").desired_width(170.0))
+                ui.add(patina::dialog::text_edit(ui, &mut self.query).hint_text("Search").desired_width(170.0))
             })
             .inner;
         if std::mem::take(&mut self.focus_search) {
@@ -771,7 +771,7 @@ impl Reader {
         ui.separator();
         ui.label("Man Page:");
         let field =
-            ui.add(egui::TextEdit::singleline(&mut self.man_query).hint_text("ls, printf(3)").desired_width(160.0));
+            ui.add(patina::dialog::text_edit(ui, &mut self.man_query).hint_text("ls, printf(3)").desired_width(160.0));
         if field.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
             let query = std::mem::take(&mut self.man_query);
             match man::find(&query) {
@@ -897,7 +897,7 @@ impl Reader {
             return;
         }
         let filter = ui.add(
-            egui::TextEdit::singleline(&mut tab.filter)
+            patina::dialog::text_edit(ui, &mut tab.filter)
                 .hint_text(if tab.man { "Find a page" } else { "Find a file" })
                 .desired_width(f32::INFINITY),
         );

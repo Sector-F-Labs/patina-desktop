@@ -4109,7 +4109,7 @@ dependencies = [
 [[package]]
 name = "patina-emoji-font"
 version = "0.1.0"
-source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#adae321855c0e66b6dc458d481f22d157ee2f84d"
+source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#c67641129dd0676f470011decc29a7e52413f3ca"
 
 [[package]]
 name = "patina-game-mode"
@@ -4328,7 +4328,7 @@ dependencies = [
 [[package]]
 name = "patina-ui"
 version = "0.1.15"
-source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#adae321855c0e66b6dc458d481f22d157ee2f84d"
+source = "git+https://github.com/Sector-F-Labs/patina?branch=develop#c67641129dd0676f470011decc29a7e52413f3ca"
 dependencies = [
  "dirs 7.0.0",
  "egui",

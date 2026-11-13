@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::process::{Command, Stdio};
 use std::sync::mpsc::{Receiver, Sender, channel};
 
-use egui::{RichText, TextEdit, Ui};
+use egui::{RichText, Ui};
 use patina_webapp::{Engine, Store, WebApp};
 
 use crate::app::Message;
@@ -116,12 +116,12 @@ impl WebAppsPage {
         let mut add = false;
         ui.horizontal(|ui| {
             let url = ui.add(
-                TextEdit::singleline(&mut self.url)
+                patina::dialog::text_edit(ui, &mut self.url)
                     .hint_text("web.whatsapp.com")
                     .desired_width(260.0),
             );
             ui.add(
-                TextEdit::singleline(&mut self.name)
+                patina::dialog::text_edit(ui, &mut self.name)
                     .hint_text("Name (optional)")
                     .desired_width(160.0),
             );

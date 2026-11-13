@@ -5,8 +5,8 @@
 use std::sync::mpsc::Sender;
 
 use egui::{
-    Align, Color32, Layout, Rect, RichText, ScrollArea, Sense, StrokeKind, TextEdit, Ui, UiBuilder,
-    pos2, vec2,
+    Align, Color32, Layout, Rect, RichText, ScrollArea, Sense, StrokeKind, Ui, UiBuilder, pos2,
+    vec2,
 };
 use patina::skin::Skin;
 use patina_shell::Shell;
@@ -183,7 +183,7 @@ impl WifiMenu {
                 return;
             }
             let field = ui.add(
-                TextEdit::singleline(&mut self.password)
+                patina::dialog::text_edit(ui, &mut self.password)
                     .password(true)
                     .hint_text("Password")
                     .desired_width(ui.available_width() - 90.0),

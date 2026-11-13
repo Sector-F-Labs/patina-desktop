@@ -555,6 +555,10 @@ impl Files {
     fn apply_skin(&self, ctx: &egui::Context) {
         let skin = &self.skins[self.skin];
         skin.apply(ctx);
+        // Inputs are as tall as the toolbar's buttons beside them, whatever the
+        // skin's input height: the filter and the location field.
+        let size = patina::dialog::input_size(ctx);
+        patina::dialog::set_input_size(ctx, patina::dialog::InputSize { height: TOOLBAR_ROW, ..size });
         if skin.follows_desktop() {
             ctx.set_theme(self.config.theme());
         }
@@ -1908,9 +1912,8 @@ impl Files {
             // From the right: the filter, the view, the Trash's button.
             ui.with_layout(egui::Layout::right_to_left(Align::Center), |ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;
-                let filter = egui::TextEdit::singleline(&mut self.tabs[self.tab].filter)
+                let filter = patina::dialog::text_edit(ui, &mut self.tabs[self.tab].filter)
                     .hint_text("Filter")
-                    .margin(toolbar_field_margin(ui))
                     .desired_width(150.0);
                 let resp = ui.add(filter);
                 if std::mem::take(&mut self.focus_filter) {
@@ -1948,9 +1951,7 @@ impl Files {
     fn path_bar(&mut self, ui: &mut Ui, a: &mut Vec<Action>) {
         if let Some(text) = &mut self.location_edit {
             let all = text.chars().count();
-            let resp = ui.add(
-                egui::TextEdit::singleline(text).margin(toolbar_field_margin(ui)).desired_width(ui.available_width()),
-            );
+            let resp = ui.add(patina::dialog::text_edit(ui, text).desired_width(ui.available_width()));
             if !self.location_started {
                 // All of it selected, so typing replaces it, or the cursor at the end.
                 self.location_started = true;
@@ -2119,7 +2120,7 @@ impl Files {
         ui.horizontal(|ui| {
             if picking.request.save {
                 ui.label("Name:");
-                let field = ui.add(egui::TextEdit::singleline(&mut picking.name).desired_width(260.0));
+                let field = ui.add(patina::dialog::text_edit(ui, &mut picking.name).desired_width(260.0));
                 if !picking.name_started {
                     picking.name_started = true;
                     // The name without its extension, ready to type over.
@@ -3349,7 +3350,8 @@ impl Files {
             .default_pos(ctx.content_rect().center())
             .show(ctx, |ui| {
                 ui.set_width(320.0);
-                let field = ui.add(egui::TextEdit::singleline(filter).hint_text("Filter").desired_width(f32::INFINITY));
+                let field =
+                    ui.add(patina::dialog::text_edit(ui, filter).hint_text("Filter").desired_width(f32::INFINITY));
                 if !field.has_focus() && !ui.memory(|m| m.has_focus(field.id)) {
                     field.request_focus();
                 }
@@ -3808,7 +3810,7 @@ impl Files {
                             let mut field = |ui: &mut Ui, label: &str, text: &mut String, password: bool| {
                                 ui.label(label);
                                 let resp =
-                                    ui.add(egui::TextEdit::singleline(text).password(password).desired_width(260.0));
+                                    ui.add(patina::dialog::text_edit(ui, text).password(password).desired_width(260.0));
                                 if focus && (text.is_empty() || password) {
                                     resp.request_focus();
                                     focus = false;
@@ -4320,14 +4322,6 @@ fn zfs_label(ui: &mut Ui, info: &zfs::Info, open: bool) -> Response {
 
 /// The toolbar's height: its buttons, and the path bar's crumbs in their middle.
 const TOOLBAR_ROW: f32 = 26.0;
-
-/// The margin that makes a text field in the toolbar as tall as its buttons:
-/// `TextEdit` ignores a minimum height, so the height is made up of the margin,
-/// the row's height less one line of text, halved.
-fn toolbar_field_margin(ui: &Ui) -> egui::Margin {
-    let pad = ((TOOLBAR_ROW - ui.text_style_height(&egui::TextStyle::Body)) / 2.0).max(0.0);
-    egui::Margin::symmetric(8, pad.round() as i8)
-}
 
 fn glyph_button(ui: &mut Ui, glyph: Glyph, enabled: bool, hint: &str) -> Response {
     let resp = ui.add_enabled(enabled, egui::Button::new("").min_size(vec2(28.0, TOOLBAR_ROW))).on_hover_text(hint);

@@ -320,7 +320,7 @@ fn list(ui: &mut Ui, id: &str, items: &mut Vec<String>, typing: &mut String, hin
         }
         ui.horizontal(|ui| {
             let field = ui.add(
-                egui::TextEdit::singleline(typing)
+                patina::dialog::text_edit(ui, typing)
                     .hint_text(hint)
                     .desired_width(260.0),
             );
