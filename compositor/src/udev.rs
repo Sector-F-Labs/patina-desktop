@@ -1075,6 +1075,7 @@ fn render(state: &mut State) {
     let dnd_icon = state.dnd_icon_at();
     let fullscreen = state.fullscreen_drawn();
     state.paint_frames();
+    state.tick_ghosts();
     let ready: Vec<(usize, Output)> = match state.udev.as_ref() {
         Some(u) => u
             .heads
@@ -1163,6 +1164,7 @@ fn render(state: &mut State) {
                     &output,
                     state.fullscreen.as_ref(),
                     false,
+                    &state.ghosts,
                 )
                 .into_iter()
                 .map(OutputElement::Desktop),

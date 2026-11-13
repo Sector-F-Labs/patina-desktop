@@ -236,6 +236,7 @@ pub fn overlay<R>(
     desktop: Option<&Space<Window>>,
     output: &Output,
     fullscreen_window: Option<&Window>,
+    ghosts: &[crate::animate::Ghost],
 ) -> Vec<Overlay<R>>
 where
     R: Renderer + ImportAll + ImportMem,
@@ -264,6 +265,7 @@ where
                         output,
                         fullscreen_window,
                         false,
+                        ghosts,
                     )
                 })
                 .unwrap_or_default()
@@ -325,7 +327,12 @@ where
                     .map(crate::frames::DesktopElement::Surface)
                     .collect();
             elements.extend(crate::frames::desktop_elements(
-                renderer, space, output, fullscreen, true,
+                renderer,
+                space,
+                output,
+                fullscreen,
+                true,
+                &[],
             ));
             draw::<R, T, _>(renderer, &elements, size, scale, crate::nested::BACKGROUND)
         }

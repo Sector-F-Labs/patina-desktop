@@ -417,6 +417,10 @@ pub struct Touchpad {
     /// Three fingers moving drag, as macOS's accessibility setting has it
     /// (ADR-0031). On by default.
     pub three_finger_drag: bool,
+    /// Four fingers toward the window list's edge minimise every window, and
+    /// away from it bring them back
+    /// (ADR-0135). On by default.
+    pub four_finger_swipe: bool,
 }
 
 impl Default for Config {
@@ -498,6 +502,7 @@ impl Default for Touchpad {
             natural_scroll: true,
             speed: 0.0,
             three_finger_drag: true,
+            four_finger_swipe: true,
         }
     }
 }

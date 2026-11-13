@@ -62,6 +62,9 @@
 # them back within half a second to carry on the drag; moving on with one
 # finger drops it at once.
 # three_finger_drag = true
+# Four fingers toward the edge the HUD's window list is on minimise every
+# window; four fingers away from it bring back the ones that did.
+# four_finger_swipe = true
 
 [cursor]
 # An installed cursor theme (a folder in /usr/share/icons, such as "Yaru"

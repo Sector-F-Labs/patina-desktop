@@ -187,6 +187,7 @@ impl Scene<'_> {
                 self.output,
                 self.shown.fullscreen_window.as_ref(),
                 shot,
+                &[],
             )
             .into_iter()
             .map(CaptureElement::Desktop),

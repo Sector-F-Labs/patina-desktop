@@ -170,6 +170,7 @@ pub fn render(state: &mut State) {
     let dnd_icon = state.dnd_icon_at();
     let fullscreen = state.fullscreen_drawn();
     state.paint_frames();
+    state.tick_ghosts();
     let fullscreen_window = state.fullscreen.clone();
     let Some(n) = state.nested.as_mut() else {
         return;
@@ -201,6 +202,7 @@ pub fn render(state: &mut State) {
         (!locked).then_some(&state.space),
         &state.output,
         fullscreen_window.as_ref(),
+        &state.ghosts,
     );
     let damaged = {
         let mut target = match n.renderer.bind(image) {

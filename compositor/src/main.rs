@@ -2,6 +2,7 @@
 //! built on Smithay. For now it runs as a window on another desktop and
 //! starts patina-hud and a terminal inside it.
 
+mod animate;
 mod caps;
 mod capture;
 mod clients;

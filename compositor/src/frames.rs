@@ -31,6 +31,7 @@ use smithay::{
                 memory::{MemoryRenderBuffer, MemoryRenderBufferRenderElement},
                 solid::{SolidColorBuffer, SolidColorRenderElement},
                 surface::WaylandSurfaceRenderElement,
+                utils::{RelocateRenderElement, RescaleRenderElement},
             },
         },
     },
@@ -380,11 +381,12 @@ fn tint_frame(frame: &mut patina::frame::FrameStyle, tint: patina_webapp::look::
 
 /// The frame of `window`, whose own surface is at `location` (relative to
 /// the output), to draw: `None` if it hasn't been painted.
-fn frame_element<R>(
+pub fn frame_element<R>(
     renderer: &mut R,
     window: &Window,
     location: Point<i32, Logical>,
     scale: f64,
+    alpha: f32,
 ) -> Option<MemoryRenderBufferRenderElement<R>>
 where
     R: Renderer + ImportMem,
@@ -401,7 +403,7 @@ where
             .to_i32_round::<i32>()
             .to_f64(),
         buffer,
-        None,
+        Some(alpha),
         Some(Rectangle::from_size(
             (pixels.w as f64, pixels.h as f64).into(),
         )),
@@ -537,6 +539,8 @@ render_elements! {
     Frame=MemoryRenderBufferRenderElement<R>,
     Border=SolidColorRenderElement,
     Rounded=crate::rounded::Rounded<WaylandSurfaceRenderElement<R>>,
+    Ghost=RelocateRenderElement<RescaleRenderElement<WaylandSurfaceRenderElement<R>>>,
+    GhostFrame=RelocateRenderElement<RescaleRenderElement<MemoryRenderBufferRenderElement<R>>>,
 }
 
 /// The desktop on `output`, top first, as Smithay's `space_render_elements`
@@ -586,6 +590,7 @@ pub fn desktop_elements<R>(
     output: &Output,
     fullscreen: Option<&Window>,
     shot: bool,
+    ghosts: &[crate::animate::Ghost],
 ) -> Vec<DesktopElement<R>>
 where
     R: Renderer + ImportAll + ImportMem,
@@ -623,9 +628,18 @@ where
             );
         }
     };
+    if let Some(screen) = space.output_geometry(output) {
+        elements.extend(crate::animate::elements(
+            renderer, ghosts, screen.loc, scale,
+        ));
+    }
     layers(renderer, upper, &mut elements);
     if let Some(screen) = space.output_geometry(output) {
         for window in space.elements().rev() {
+            // One on its way to or from the window list is drawn as its ghost.
+            if ghosts.iter().any(|g| g.window() == window) {
+                continue;
+            }
             let Some(location) = space.element_location(window) else {
                 continue;
             };
@@ -636,7 +650,8 @@ where
                 elements.extend(border_elements(window, location, scale));
                 elements.extend(corner_elements(renderer, window, location, scale));
                 elements.extend(
-                    frame_element(renderer, window, location, scale).map(DesktopElement::Frame),
+                    frame_element(renderer, window, location, scale, 1.0)
+                        .map(DesktopElement::Frame),
                 );
             }
             let surfaces = window.render_elements::<WaylandSurfaceRenderElement<R>>(
@@ -689,7 +704,7 @@ where
     if !wants_frame(window) {
         return None;
     }
-    frame_element(renderer, window, (0, TITLE).into(), scale)
+    frame_element(renderer, window, (0, TITLE).into(), scale, 1.0)
 }
 
 /// The frames' skin, and the pointer on them.
