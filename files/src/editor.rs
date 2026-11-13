@@ -28,7 +28,7 @@ pub fn command(path: &Path) -> Result<Vec<String>, String> {
     Ok(in_terminal(line))
 }
 
-fn in_terminal(line: Vec<String>) -> Vec<String> {
+pub fn in_terminal(line: Vec<String>) -> Vec<String> {
     let mut out = vec![patina_apps::terminal(), "-e".into()];
     out.extend(line);
     out
@@ -36,7 +36,7 @@ fn in_terminal(line: Vec<String>) -> Vec<String> {
 
 /// The mimeapps lists, most important first, as the XDG MIME Applications
 /// spec orders them.
-fn lists() -> Vec<PathBuf> {
+pub fn lists() -> Vec<PathBuf> {
     let desktops: Vec<String> = std::env::var("XDG_CURRENT_DESKTOP")
         .unwrap_or_default()
         .split(':')
@@ -67,11 +67,16 @@ fn default_app(mime: &str) -> Option<String> {
 }
 
 /// The ids in a list's `[Default Applications]` for `mime`, in order.
-fn defaults(text: &str, mime: &str) -> Vec<String> {
+pub fn defaults(text: &str, mime: &str) -> Vec<String> {
+    associations(text, "[Default Applications]", mime)
+}
+
+/// The ids a list's `section` gives `mime`, in order.
+pub fn associations(text: &str, section: &str, mime: &str) -> Vec<String> {
     let mut in_section = false;
     for line in text.lines().map(str::trim) {
         if line.starts_with('[') {
-            in_section = line == "[Default Applications]";
+            in_section = line == section;
         } else if in_section
             && let Some((key, value)) = line.split_once('=')
             && key.trim() == mime
@@ -82,7 +87,7 @@ fn defaults(text: &str, mime: &str) -> Vec<String> {
     Vec::new()
 }
 
-fn find_entry(id: &str) -> Option<PathBuf> {
+pub fn find_entry(id: &str) -> Option<PathBuf> {
     data_dirs().into_iter().map(|d| d.join("applications").join(id)).find(|p| p.is_file())
 }
 
@@ -106,7 +111,7 @@ fn desktop_exec(text: &str) -> Option<(String, bool)> {
 
 /// `Exec` split into words, its field codes filled in for `path`: the file
 /// in place of `%f`, `%F`, `%u` or `%U`, or after the rest if there's none.
-fn expand(exec: &str, path: &Path) -> Vec<String> {
+pub fn expand(exec: &str, path: &Path) -> Vec<String> {
     let file = path.display().to_string();
     let mut placed = false;
     let mut words = Vec::new();
