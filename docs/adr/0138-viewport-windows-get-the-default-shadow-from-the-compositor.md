@@ -1,11 +1,11 @@
-# 0138. Quick Look's window gets the default shadow from the compositor
+# 0138. Windows that are viewports of another's get the default shadow from the compositor
 
 Date: 2026-11-13
 
 ## Status
 
 Accepted. The user asked for Files' preview windows to throw a shadow, as the app's own window
-does. It follows [0112](0112-windows-ask-for-their-shadow-through-the-kde-shadow-protocol.md).
+does, and then for the Process Manager's process windows to as well. It follows [0112](0112-windows-ask-for-their-shadow-through-the-kde-shadow-protocol.md).
 
 ## Context
 
@@ -29,16 +29,17 @@ Ways to give it one:
 ## Decision
 
 - **`UNABLE_TO_ASK`** in `compositor/src/shadow.rs` lists the app ids of windows that get the
-  default shadow when they haven't asked: `com.sectorflabs.Files.QuickLook`. It is the shadow
+  default shadow when they haven't asked: `com.sectorflabs.Files.QuickLook` and
+  `com.sectorflabs.ProcessManager.Process`. It is the shadow
   patina-ui makes for `request` (`shadow::tiles` with the default style), made once, and drawn as
   any other, lighter when the window isn't focused, and none when it's maximised or the
   compositor's `[shadows]` is off. A window on the list that does ask gets what it asked for.
 
 ## Consequences
 
-- Quick Look looks like the folder window it belongs to. On nifl, with it open, the pixels just above
+- Quick Look and a process's window look like the window they belong to. On nifl, with it open, the pixels just above
   its top edge are about 6 of 255 darker, fading out over 16 px, as for the other windows.
 - The default style is patina-ui's, not the HUD's `shadow_*` settings (ADR-0113), so changing those
   doesn't reach it, as it doesn't reach windows that ask.
 - Another viewport window of ours needs its app id added here; a window that can ask should ask.
-- If eframe ever gives a viewport's handle, Quick Look can ask and leave the list.
+- If eframe ever gives a viewport's handle, these can ask and leave the list.

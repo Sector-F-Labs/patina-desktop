@@ -319,7 +319,7 @@ impl ProcessesView {
         let mut asked = Vec::new();
 
         ui.horizontal(|ui| {
-            let edit = egui::TextEdit::singleline(&mut self.filter)
+            let edit = patina::dialog::text_edit(ui, &mut self.filter)
                 .hint_text("Filter by name, command, user or PID")
                 .desired_width(ui.available_width().min(360.0));
             let response = ui.add(edit);
