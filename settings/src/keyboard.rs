@@ -258,7 +258,7 @@ impl KeyboardPage {
             .height(320.0)
             .show_ui(ui, |ui| {
                 ui.add(
-                    egui::TextEdit::singleline(&mut self.search)
+                    patina::dialog::text_edit(ui, &mut self.search)
                         .hint_text("Search")
                         .desired_width(f32::INFINITY),
                 )

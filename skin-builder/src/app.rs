@@ -353,7 +353,7 @@ impl App {
         ui.separator();
         ui.label(RichText::new("New skin").strong());
         ui.add(
-            egui::TextEdit::singleline(&mut self.new.name)
+            patina::dialog::text_edit(ui, &mut self.new.name)
                 .hint_text("Name")
                 .desired_width(f32::INFINITY),
         );
@@ -451,7 +451,7 @@ impl App {
         ui.add_space(4.0);
         ui.horizontal(|ui| {
             ui.add(
-                egui::TextEdit::singleline(&mut self.filter)
+                patina::dialog::text_edit(ui, &mut self.filter)
                     .hint_text("Filter")
                     .desired_width(200.0),
             );

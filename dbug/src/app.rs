@@ -445,7 +445,7 @@ impl eframe::App for App {
             ui.horizontal(|ui| {
                 ui.label("Filter");
                 ui.add(
-                    egui::TextEdit::singleline(&mut self.filter)
+                    patina::dialog::text_edit(ui, &mut self.filter)
                         .hint_text("words, all must match")
                         .desired_width(320.0),
                 )

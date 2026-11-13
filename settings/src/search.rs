@@ -94,7 +94,7 @@ impl SearchPage {
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 let field = ui.add(
-                    egui::TextEdit::singleline(&mut self.adding)
+                    patina::dialog::text_edit(ui, &mut self.adding)
                         .hint_text("A folder to add, such as ~/Projects")
                         .desired_width(300.0),
                 );

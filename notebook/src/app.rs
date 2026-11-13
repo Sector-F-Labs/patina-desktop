@@ -1113,7 +1113,8 @@ impl App {
             ui.add_space(8.0);
             match dialog {
                 Dialog::NewNote { name, .. } | Dialog::NewFolder { name, .. } | Dialog::Rename { name, .. } => {
-                    let resp = ui.add(egui::TextEdit::singleline(name).hint_text("Name").desired_width(f32::INFINITY));
+                    let resp =
+                        ui.add(patina::dialog::text_edit(ui, name).hint_text("Name").desired_width(f32::INFINITY));
                     if !resp.has_focus() && !resp.lost_focus() {
                         resp.request_focus();
                     }
