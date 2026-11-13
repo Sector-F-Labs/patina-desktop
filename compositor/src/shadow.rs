@@ -323,7 +323,7 @@ where
     };
     let own = window.toplevel().is_some_and(|t| {
         let app_id = crate::toplevels::describe(t.wl_surface()).1;
-        UNABLE_TO_ASK.contains(&app_id.as_str())
+        UNABLE_TO_ASK.contains(&app_id.as_str()) || crate::frames::is_web_app(t.wl_surface())
     });
     around(
         renderer,

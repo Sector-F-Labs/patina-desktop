@@ -33,7 +33,7 @@ pub struct WebApp {
     pub name: String,
     pub url: String,
     /// What opens it; WebKit when unset.
-    #[serde(default, skip_serializing_if = "is_webkit")]
+    #[serde(default, skip_serializing_if = "is_default_engine")]
     pub engine: Engine,
     /// The site's theme colour, `#rrggbb`: the window's frame is this (read on install and
     /// refresh, never at launch).
@@ -67,15 +67,15 @@ impl Engine {
 #[serde(rename_all = "lowercase")]
 pub enum Engine {
     /// `patina-webview`, on WebKitGTK: the window is the page, and the desktop's.
-    #[default]
     WebKit,
     /// Chromium's `--app` mode: more sites work (DRM, some calls), at the cost of a second
-    /// browser installed.
+    /// browser installed. The default.
+    #[default]
     Chromium,
 }
 
-fn is_webkit(e: &Engine) -> bool {
-    *e == Engine::WebKit
+fn is_default_engine(e: &Engine) -> bool {
+    *e == Engine::default()
 }
 
 impl WebApp {
@@ -541,10 +541,10 @@ mod tests {
         let (s, dir) = store();
         let a = s.add("", "web.whatsapp.com").unwrap();
         assert_eq!((a.slug.as_str(), a.name.as_str()), ("whatsapp", "Whatsapp"));
-        assert_eq!(a.engine, Engine::WebKit);
+        assert_eq!(a.engine, Engine::Chromium);
         let entry = fs::read_to_string(s.desktop_path("whatsapp")).unwrap();
         assert!(entry.contains("Exec=patina-webapp launch whatsapp"));
-        assert!(entry.contains("StartupWMClass=patina-webapp-whatsapp"));
+        assert!(entry.contains("StartupWMClass=chrome-web.whatsapp.com__-patina-webapp-whatsapp"));
         assert_eq!(
             slug_from_app_id("chrome-web.whatsapp.com__-patina-webapp-whatsapp"),
             Some("whatsapp")
@@ -577,11 +577,12 @@ mod tests {
         let (s, dir) = store();
         let a = s.add("X", "x.example.com").unwrap();
         let entry = |s: &Store| fs::read_to_string(s.desktop_path(&a.slug)).unwrap();
-        assert!(entry(&s).contains("StartupWMClass=patina-webapp-x"));
-        s.set_engine("x", Engine::Chromium).unwrap();
-        assert_eq!(s.find("x").unwrap().engine, Engine::Chromium);
         assert!(entry(&s).contains("StartupWMClass=chrome-x.example.com__-patina-webapp-x"));
+        s.set_engine("x", Engine::WebKit).unwrap();
+        assert_eq!(s.find("x").unwrap().engine, Engine::WebKit);
+        assert!(entry(&s).contains("StartupWMClass=patina-webapp-x"));
         assert_eq!(Engine::from_name("chromium"), Some(Engine::Chromium));
+        assert_eq!(Engine::from_name("webkit"), Some(Engine::WebKit));
         assert!(s.set_engine("nope", Engine::WebKit).is_err());
         let _ = fs::remove_dir_all(dir);
     }
@@ -628,7 +629,7 @@ mod tests {
         assert!(
             fs::read_to_string(&path)
                 .unwrap()
-                .contains("StartupWMClass=patina-webapp-x")
+                .contains("StartupWMClass=chrome-x.example.com__-patina-webapp-x")
         );
         let before = fs::metadata(&path).unwrap().modified().unwrap();
         std::thread::sleep(std::time::Duration::from_millis(30));
