@@ -45,6 +45,11 @@ own frame, so it reads and changes the same state, with nothing to pass between 
 - The folder stays in view and can be clicked; the preview follows the selection either way.
 - The desktop places the window, not Files: Wayland gives no way to put it beside the folder, and
   no app has a desktop entry under its app id, so the bar shows it without an icon.
+- The window opens once a picture is decoded, at the picture's shape: its own size if the area
+  windows tile in (asked of the compositor's `WorkArea`, so the bar's space is taken off) has room
+  for it with 32 points clear all round, else shrunk to fit in its shape (never stretched), and the Patina tiler centres it as it opens (patina-desktop
+  `policy::CENTRED`). Moving to another picture resizes it from its top left corner, so it drifts
+  off centre; a Wayland app can't place its window, and the tiler is told only of windows opening.
 - No preview yet for text, PDFs, video or audio: they get the icon card. Each would be its own
   renderer in the same window.
 - An immediate viewport repaints with the folder window; fine for one picture, but anything that
