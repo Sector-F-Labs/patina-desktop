@@ -170,10 +170,24 @@ struct Dialog {
     stdout: BufReader<ChildStdout>,
 }
 
+/// This program's path, for running itself as the dialog. After a reinstall
+/// replaces the file under a running agent, Linux reports the path with a
+/// " (deleted)" suffix; the new binary at the plain path is what to run.
+fn own_path() -> Result<std::path::PathBuf, String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    Ok(strip_deleted(exe))
+}
+
+fn strip_deleted(exe: std::path::PathBuf) -> std::path::PathBuf {
+    match exe.to_str().and_then(|s| s.strip_suffix(" (deleted)")) {
+        Some(plain) => plain.into(),
+        None => exe,
+    }
+}
+
 impl Dialog {
     fn open(user: &str, message: &str) -> Result<Dialog, String> {
-        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-        let mut child = Command::new(exe)
+        let mut child = Command::new(own_path()?)
             .args(["--ask", "--user", user, "--message", message])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -215,7 +229,10 @@ impl Drop for Dialog {
 
 /// Asks for the password until the helper accepts one.
 fn authenticate(user: &str, message: &str, cookie: &str, cancel: &Cancel) -> Result<(), Failure> {
-    let mut dialog = Dialog::open(user, message).map_err(Failure::Other)?;
+    let mut dialog = Dialog::open(user, message).map_err(|e| {
+        eprintln!("patina-polkit: {e}");
+        Failure::Other(e)
+    })?;
     cancel.dialog.store(dialog.child.id(), Ordering::SeqCst);
     // Cancelled while it was starting.
     if cancel.is_cancelled() {
@@ -430,6 +447,19 @@ pub fn run() -> Result<ExitCode, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_replaced_binarys_path_loses_the_deleted_suffix() {
+        let strip = |s: &str| strip_deleted(s.into());
+        assert_eq!(
+            strip("/usr/local/bin/patina-polkit (deleted)"),
+            std::path::PathBuf::from("/usr/local/bin/patina-polkit")
+        );
+        assert_eq!(
+            strip("/usr/local/bin/patina-polkit"),
+            std::path::PathBuf::from("/usr/local/bin/patina-polkit")
+        );
+    }
 
     #[test]
     fn the_helpers_lines_are_understood() {
