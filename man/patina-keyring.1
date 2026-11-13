@@ -1,0 +1,61 @@
+.Dd November 13, 2026
+.Dt PATINA-KEYRING 1
+.Os
+.Sh NAME
+.Nm patina-keyring
+.Nd the Patina desktop's keyring password prompt
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+asks for a keyring's password when logging in couldn't unlock it.
+The keyring itself is
+.Xr gnome-keyring-daemon 1 ,
+which stores the passwords and tokens apps keep through the Secret Service and
+is normally unlocked at login with your login password.
+It asks only when that can't happen: after an automatic login or a fingerprint
+login, when the keyring has another password than your login one, or when an
+app creates a new keyring.
+The daemon doesn't draw the dialog; it calls a prompter on the session bus,
+and
+.Nm
+is that prompter, in place of GNOME's.
+.Xr patina-compositor 1
+keeps it running in the session.
+.Pp
+The dialog opens in the middle of the screen: a password, a new password
+with a second box to repeat it in, or a question with two buttons, and the
+daemon's tick box (unlock automatically whenever you're logged in) where it
+asks for one.
+Enter goes on, Escape or Cancel refuses.
+A wrong password is asked for again.
+.Pp
+Only one prompter can have the bus names, so
+.Nm
+stops with an error where there already is one, as GNOME's
+.Xr gcr-prompter 1 .
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.It Fl -ask Ar options
+The dialog itself, which the prompter starts for each request; it answers on
+standard output, so it isn't useful by hand.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN
+The skin to wear, as the bar sets it; otherwise the bar's config's.
+.It Ev PATINA_KEYRING_DIALOG
+A program to run in place of the dialog, with the same options, for tests
+with no screen.
+.El
+.Sh SEE ALSO
+.Xr gnome-keyring-daemon 1 ,
+.Xr patina-compositor 1 ,
+.Xr patina-polkit 1 ,
+.Xr patina-desktop 7

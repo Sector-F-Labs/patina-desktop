@@ -15,8 +15,10 @@ The things a desktop usually brings that the session still leaves to the system.
 - **A notification daemon.** Nothing shows `org.freedesktop.Notifications`, so apps' notifications go
   nowhere. The tray (StatusNotifierItem) is there; notifications are not.
 - **Autostart.** There is no list of apps to open at login.
-- **A keyring.** Passwords aren't stored as on GNOME (Ubuntu's PAM setup can unlock gnome-keyring at
-  login, but the session doesn't start it).
+- **A keyring manager.** gnome-keyring stores the passwords and logging in unlocks it (Ubuntu's PAM
+  setup), and the password prompt is Patina's ([ADR-0139](adr/0139-a-native-keyring-prompter-in-front-of-gnome-keyring.md)),
+  but nothing lists or deletes what's stored or changes the keyring's password: a Passwords page in
+  Settings would.
 - **Flatpak and portals.** Files is the file chooser and xdg-desktop-portal-wlr shares the screen
   ([ADR-0092](adr/0092-screen-capture-for-apps-and-recording.md)), and `xdg-desktop-portal-gtk` covers the
   rest. There is no portal backend of the desktop's own. We ruled that out for now, since it gives

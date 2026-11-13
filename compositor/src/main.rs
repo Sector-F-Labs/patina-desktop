@@ -161,6 +161,9 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
         // The password prompt for administrator rights (ADR-0128). Not nested:
         // polkit has one agent per login session, and the parent desktop's is it.
         state.keep_client("patina-polkit");
+        // The keyring's password prompt (ADR-0139), for the same reason: the
+        // parent desktop's prompter has the names when nested.
+        state.keep_client("patina-keyring");
     }
     state.start_displays();
     state.start_night_light();

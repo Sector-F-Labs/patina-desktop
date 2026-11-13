@@ -10,7 +10,7 @@ with GDM), and how to get back if something goes wrong.
 | Running nested, as a window on GNOME or another desktop (`make run`) | Works |
 | Running on the hardware itself: monitors (several, ADR-0121), keyboard, mouse, touchpad, touchscreen, GPU | **Works** (tested on real hardware) |
 | A login-screen entry, for every user: `make install` | Works |
-| The session setup (`patina-session --session`) | Partly: the desktop's environment, the polkit agent and the portals' config, not yet a notification daemon, a keyring or autostart |
+| The session setup (`patina-session --session`) | Partly: the desktop's environment, the polkit agent, the keyring's password prompt and the portals' config, not yet a notification daemon or autostart |
 | Restarting the desktop without logging out (`patina-session`) | Works: Ctrl+Alt+Shift+Backspace, or after a crash |
 
 patina-compositor picks its backend when it starts. With a desktop to open a window on
@@ -176,7 +176,7 @@ Still to do, so these don't work in the session yet:
 
 - a **notification daemon**, until Patina has its own notifications;
 - **gnome-keyring**, if you want passwords stored as on GNOME (Ubuntu's PAM setup unlocks it
-  at login);
+  at login; patina-keyring asks for its password where that can't);
 - an autostart list for apps to open at login.
 
 ### Which app opens a file
