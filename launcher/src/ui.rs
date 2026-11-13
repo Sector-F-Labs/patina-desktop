@@ -223,7 +223,7 @@ impl Shell for Launcher {
 
         let search = ui.add(
             TextEdit::singleline(&mut self.query)
-                .hint_text("Search apps")
+                .hint_text(egui::RichText::new("Search apps").text_style(TextStyle::Heading))
                 .font(TextStyle::Heading)
                 .desired_width(f32::INFINITY)
                 .margin(vec2(8.0, 6.0)),
