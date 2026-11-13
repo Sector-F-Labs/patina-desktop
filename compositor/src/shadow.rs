@@ -244,6 +244,39 @@ pub fn set_enabled(on: bool) {
     ENABLED.store(on, Ordering::Relaxed);
 }
 
+/// Windows that can't ask for a shadow themselves, so they get the default one
+/// here when they haven't asked (ADR-0138): a window that's a viewport of
+/// another's, as Files' Quick Look is, is made by the toolkit, which gives out
+/// no handle to its surface for the app to ask with.
+const UNABLE_TO_ASK: &[&str] = &["com.sectorflabs.Files.QuickLook"];
+
+/// The shadow patina-ui gives a window that asks for the default one: the
+/// same eight tiles, made here.
+fn default_shadow() -> &'static Shadow {
+    static DEFAULT: std::sync::OnceLock<Shadow> = std::sync::OnceLock::new();
+    DEFAULT.get_or_init(|| {
+        let (tiles, offsets) = patina::frame::shadow::tiles(Default::default());
+        let mut shadow = Shadow {
+            offsets: offsets.map(f64::from),
+            ..Shadow::default()
+        };
+        for (i, (w, h, bytes)) in tiles.into_iter().enumerate() {
+            shadow.tiles[i] = Some(Tile {
+                buffer: MemoryRenderBuffer::from_slice(
+                    &bytes,
+                    Fourcc::Argb8888,
+                    (w, h),
+                    1,
+                    Transform::Normal,
+                    None,
+                ),
+                size: (w, h).into(),
+            });
+        }
+        shadow
+    })
+}
+
 /// How much of its shadow a window keeps when it isn't the focused one.
 /// Firefox's, on a white background, is 27 to 34 of 255 dark beside the
 /// window unfocused and 61 to 79 focused: about 0.45.
@@ -284,12 +317,17 @@ where
     let Some(surface) = window.wl_surface() else {
         return Vec::new();
     };
+    let own = window.toplevel().is_some_and(|t| {
+        let app_id = crate::toplevels::describe(t.wl_surface()).1;
+        UNABLE_TO_ASK.contains(&app_id.as_str())
+    });
     around(
         renderer,
         &surface,
         Rectangle::new(location, window.geometry().size),
         scale,
         alpha,
+        own,
     )
 }
 
@@ -308,7 +346,7 @@ where
     if !ENABLED.load(Ordering::Relaxed) {
         return Vec::new();
     }
-    around(renderer, surface, geometry, scale, 1.0)
+    around(renderer, surface, geometry, scale, 1.0, false)
 }
 
 /// `surface`'s shadow tiles around `window`, the rectangle that is the
@@ -319,18 +357,21 @@ fn around<R>(
     window: Rectangle<i32, Logical>,
     scale: f64,
     alpha: f32,
+    default: bool,
 ) -> Vec<MemoryRenderBufferRenderElement<R>>
 where
     R: Renderer + ImportMem,
     R::TextureId: Send + Clone + Texture + 'static,
 {
     let (location, size) = (window.loc, window.size);
-    let Some(shadow) = with_states(surface, |states| {
+    let asked = with_states(surface, |states| {
         states
             .data_map
             .get::<Slot>()
             .and_then(|slot| slot.lock().unwrap().clone())
-    }) else {
+    });
+    // With `default`, one that hasn't asked has the default shadow.
+    let Some(shadow) = asked.or_else(|| default.then(|| default_shadow().clone())) else {
         return Vec::new();
     };
     let [left, top, right, bottom] = shadow.offsets.map(|o| o.round() as i32);
