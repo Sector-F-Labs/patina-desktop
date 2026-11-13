@@ -156,7 +156,7 @@ impl KeyboardPage {
                         if in_use == Some(i) {
                             ui.label(RichText::new("In use").weak());
                         } else if in_use.is_some() {
-                            if ui.small_button("Use").clicked() {
+                            if ui.button("Use").clicked() {
                                 switch = Some(i);
                             }
                         } else {
@@ -165,20 +165,17 @@ impl KeyboardPage {
                     }
                     ui.horizontal(|ui| {
                         let mut list = shown.clone();
-                        if ui
-                            .add_enabled(i > 0, egui::Button::new("Up").small())
-                            .clicked()
-                        {
+                        if ui.add_enabled(i > 0, egui::Button::new("Up")).clicked() {
                             list.swap(i, i - 1);
                             edited = Some(list);
                         } else if ui
-                            .add_enabled(i + 1 < count, egui::Button::new("Down").small())
+                            .add_enabled(i + 1 < count, egui::Button::new("Down"))
                             .clicked()
                         {
                             list.swap(i, i + 1);
                             edited = Some(list);
                         } else if ui
-                            .add_enabled(count > 1, egui::Button::new("Remove").small())
+                            .add_enabled(count > 1, egui::Button::new("Remove"))
                             .clicked()
                         {
                             list.remove(i);
@@ -310,7 +307,7 @@ impl KeyboardPage {
             ui.end_row();
         });
         ui.add(
-            egui::TextEdit::singleline(&mut self.trial)
+            patina::dialog::text_edit(ui, &mut self.trial)
                 .hint_text("Type here to try it")
                 .desired_width(280.0),
         );

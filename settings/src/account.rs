@@ -254,7 +254,7 @@ impl AccountPage {
                     ui.label(RichText::new("Your own").strong());
                     if let Some(dir) = user_dir()
                         && ui
-                            .small_button("Open folder")
+                            .button("Open folder")
                             .on_hover_text(dir.display().to_string())
                             .clicked()
                     {

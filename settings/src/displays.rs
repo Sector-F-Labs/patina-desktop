@@ -363,7 +363,7 @@ fn saved_list(ui: &mut Ui, saved: &[Saved], message: &mut Option<Message>) {
             };
             ui.label(RichText::new(note).small().weak());
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                forget = ui.small_button("Forget").clicked();
+                forget = ui.button("Forget").clicked();
                 ui.checkbox(&mut ask, "Ask when plugged in");
             });
         });
