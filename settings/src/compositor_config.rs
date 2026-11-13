@@ -443,6 +443,62 @@ pub fn with_keyboard(text: &str, keyboard: &Keyboard) -> Result<String, String> 
     Ok(doc.to_string())
 }
 
+/// The commands the compositor runs for key combinations when the config has
+/// no `[bindings]` section (its `default_bindings`), which a section replaces.
+pub const DEFAULT_BINDINGS: [(&str, &str); 3] = [
+    ("Alt+T", "teleprinter"),
+    ("Alt+B", "patina-raise firefox"),
+    ("Ctrl+Super+G", "patina-game-mode --toggle"),
+];
+
+/// `[bindings]`' key combinations and the commands they run, in the file's
+/// order; `None` when there is no section, so the compositor's defaults apply.
+pub fn parse_bindings(text: &str) -> Option<Vec<(String, String)>> {
+    let doc = text.parse::<DocumentMut>().ok()?;
+    let table = doc.get("bindings")?.as_table()?;
+    Some(
+        table
+            .iter()
+            .filter_map(|(k, v)| Some((k.to_string(), v.as_str()?.to_string())))
+            .collect(),
+    )
+}
+
+/// Whether `text` reads as a key combination: modifiers (Super, Alt, Ctrl,
+/// Shift) then a key, joined by `+`. Whether the key's name exists is for the
+/// compositor, which says so in its log.
+pub fn valid_combo(text: &str) -> bool {
+    let mut parts: Vec<&str> = text.split('+').map(str::trim).collect();
+    let key_ok = parts.pop().is_some_and(|k| !k.is_empty());
+    key_ok
+        && parts.iter().all(|m| {
+            matches!(
+                m.to_ascii_lowercase().as_str(),
+                "super" | "logo" | "mod4" | "alt" | "mod1" | "ctrl" | "control" | "shift"
+            )
+        })
+}
+
+/// `text` with `[bindings]` set to `bindings`, everything else kept; `None`
+/// takes the section out, leaving the compositor's defaults.
+pub fn with_bindings(text: &str, bindings: Option<&[(String, String)]>) -> Result<String, String> {
+    let mut doc = text.parse::<DocumentMut>().map_err(|e| e.to_string())?;
+    let Some(bindings) = bindings else {
+        doc.remove("bindings");
+        return Ok(doc.to_string());
+    };
+    let table = doc
+        .entry("bindings")
+        .or_insert_with(toml_edit::table)
+        .as_table_mut()
+        .ok_or("bindings in the compositor's config isn't a section")?;
+    table.clear();
+    for (combo, command) in bindings {
+        table[combo.as_str()] = value(command.as_str());
+    }
+    Ok(doc.to_string())
+}
+
 fn read_text() -> Option<String> {
     path().and_then(|p| std::fs::read_to_string(p).ok())
 }
@@ -485,6 +541,17 @@ pub fn read_keyboard() -> Keyboard {
 /// Writes the keyboard's settings into the compositor's config.
 pub fn write_keyboard(keyboard: &Keyboard) -> Result<(), String> {
     update(|text| with_keyboard(text, keyboard))
+}
+
+/// The key bindings from the compositor's config; `None` for its defaults.
+pub fn read_bindings() -> Option<Vec<(String, String)>> {
+    read_text().and_then(|t| parse_bindings(&t))
+}
+
+/// Writes the key bindings into the compositor's config; `None` goes back to
+/// its defaults.
+pub fn write_bindings(bindings: Option<&[(String, String)]>) -> Result<(), String> {
+    update(|text| with_bindings(text, bindings))
 }
 
 /// Writes the gaps into the compositor's config.
@@ -675,6 +742,30 @@ mod tests {
             parse_keyboard("[keyboard]\nlayout = \"us,ru\"\n").layouts,
             [("us".into(), String::new()), ("ru".into(), String::new())]
         );
+    }
+
+    #[test]
+    fn bindings_are_written_keeping_the_rest() {
+        assert_eq!(parse_bindings(STARTER), None);
+        let list = vec![
+            ("Alt+T".to_string(), "teleprinter".to_string()),
+            ("Super+E".to_string(), "patina-files".to_string()),
+        ];
+        let text = with_bindings(STARTER, Some(&list)).unwrap();
+        assert!(text.contains("[night_light]\n# How warm."), "{text}");
+        assert_eq!(parse_bindings(&text), Some(list.clone()));
+        let one = &list[..1];
+        let text = with_bindings(&text, Some(one)).unwrap();
+        assert_eq!(text.matches("[bindings]").count(), 1);
+        assert_eq!(parse_bindings(&text), Some(one.to_vec()));
+        // An empty section is still a section: no bindings at all.
+        let text = with_bindings(&text, Some(&[])).unwrap();
+        assert_eq!(parse_bindings(&text), Some(Vec::new()));
+        let text = with_bindings(&text, None).unwrap();
+        assert_eq!(parse_bindings(&text), None);
+        assert!(text.contains("[night_light]"));
+        assert!(valid_combo("Ctrl+Alt+Return") && valid_combo("F5"));
+        assert!(!valid_combo("Hyper+T") && !valid_combo("Alt+") && !valid_combo(""));
     }
 
     #[test]
