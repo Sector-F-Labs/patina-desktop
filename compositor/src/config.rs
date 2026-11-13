@@ -101,8 +101,8 @@ fn default_bindings() -> std::collections::BTreeMap<String, String> {
         ("Ctrl+Super+G", "patina-game-mode --toggle"),
     ]
     .into_iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect()
+    .map(|(k, v)| (k.to_string(), v.to_string()))
+    .collect()
 }
 
 impl Config {

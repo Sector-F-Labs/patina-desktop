@@ -52,7 +52,11 @@ impl<T: Clone + PartialEq> Recent<T> {
         if self.round.is_none() {
             self.used.retain(|w| tabs.contains(w));
             let mut order = self.used.clone();
-            let unused: Vec<T> = tabs.iter().filter(|t| !order.contains(t)).cloned().collect();
+            let unused: Vec<T> = tabs
+                .iter()
+                .filter(|t| !order.contains(t))
+                .cloned()
+                .collect();
             order.extend(unused);
             self.round = Some((order, 0));
         }
@@ -61,7 +65,11 @@ impl<T: Clone + PartialEq> Recent<T> {
         if len == 0 {
             return None;
         }
-        *at = if forward { (*at + 1) % len } else { (*at + len - 1) % len };
+        *at = if forward {
+            (*at + 1) % len
+        } else {
+            (*at + len - 1) % len
+        };
         Some(order[*at].clone())
     }
 

@@ -557,7 +557,11 @@ where
     let scale = output.current_scale().fractional_scale();
     let layer_map = layer_map_for_output(output);
     let mut elements = Vec::new();
-    for surface in layer_map.layers().rev().filter(|s| s.layer() == Layer::Overlay) {
+    for surface in layer_map
+        .layers()
+        .rev()
+        .filter(|s| s.layer() == Layer::Overlay)
+    {
         let Some(geometry) = layer_map.layer_geometry(surface) else {
             continue;
         };

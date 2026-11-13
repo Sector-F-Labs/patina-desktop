@@ -47,8 +47,12 @@ fn allow_root(display: &str) -> Result<(), Box<dyn std::error::Error>> {
     use x11rb::connection::Connection;
     use x11rb::protocol::xproto::{ConnectionExt, Family, HostMode};
     let (conn, _) = x11rb::rust_connection::RustConnection::connect(Some(display))?;
-    conn.change_hosts(HostMode::INSERT, Family::SERVER_INTERPRETED, b"localuser\0root")?
-        .check()?;
+    conn.change_hosts(
+        HostMode::INSERT,
+        Family::SERVER_INTERPRETED,
+        b"localuser\0root",
+    )?
+    .check()?;
     conn.flush()?;
     Ok(())
 }

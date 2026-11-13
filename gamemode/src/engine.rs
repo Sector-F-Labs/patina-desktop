@@ -156,10 +156,12 @@ impl GameMode {
 }
 
 fn spawn_transition(work: impl FnOnce() + Send + 'static) {
-    let _ = std::thread::Builder::new().name("game-mode".into()).spawn(move || {
-        let _guard = TRANSITION.lock().unwrap_or_else(|e| e.into_inner());
-        work();
-    });
+    let _ = std::thread::Builder::new()
+        .name("game-mode".into())
+        .spawn(move || {
+            let _guard = TRANSITION.lock().unwrap_or_else(|e| e.into_inner());
+            work();
+        });
 }
 
 fn set_marker(on: bool) {
@@ -212,8 +214,9 @@ pub fn leave(settings: &Config) {
 }
 
 fn terminate(pid: u32) -> bool {
-    rustix::process::Pid::from_raw(pid as i32)
-        .is_some_and(|pid| rustix::process::kill_process(pid, rustix::process::Signal::TERM).is_ok())
+    rustix::process::Pid::from_raw(pid as i32).is_some_and(|pid| {
+        rustix::process::kill_process(pid, rustix::process::Signal::TERM).is_ok()
+    })
 }
 
 /// The ids of the user's own processes named in `names` (the kernel keeps 15
@@ -229,7 +232,11 @@ fn find(names: &[String]) -> Vec<u32> {
     };
     let mut found = Vec::new();
     for entry in dir.flatten() {
-        let Some(pid) = entry.file_name().to_str().and_then(|n| n.parse::<u32>().ok()) else {
+        let Some(pid) = entry
+            .file_name()
+            .to_str()
+            .and_then(|n| n.parse::<u32>().ok())
+        else {
             continue;
         };
         if pid == me || entry.metadata().map(|m| m.uid()).ok() != Some(uid) {
@@ -238,7 +245,10 @@ fn find(names: &[String]) -> Vec<u32> {
         let Ok(comm) = std::fs::read_to_string(format!("/proc/{pid}/comm")) else {
             continue;
         };
-        if names.iter().any(|n| name_matches(n, comm.trim_end_matches('\n'))) {
+        if names
+            .iter()
+            .any(|n| name_matches(n, comm.trim_end_matches('\n')))
+        {
             found.push(pid);
         }
     }
@@ -290,7 +300,8 @@ fn capture(mut command: Command) -> Result<bool, String> {
             Ok(Some(status)) => break Some(status),
             Ok(None) if started.elapsed() > COMMAND_TIMEOUT => {
                 if let Some(group) = rustix::process::Pid::from_raw(child.id() as i32) {
-                    let _ = rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
+                    let _ =
+                        rustix::process::kill_process_group(group, rustix::process::Signal::KILL);
                 }
                 let _ = child.wait();
                 break None;
@@ -300,7 +311,9 @@ fn capture(mut command: Command) -> Result<bool, String> {
         }
     };
     let _ = reader.join();
-    status.map(|s| s.success()).ok_or_else(|| "took too long, stopped".into())
+    status
+        .map(|s| s.success())
+        .ok_or_else(|| "took too long, stopped".into())
 }
 
 #[cfg(test)]
@@ -370,7 +383,10 @@ mod tests {
 
     #[test]
     fn only_a_game_mode_is_taken_for_one() {
-        assert!(!is_game_mode(std::process::id()), "the test binary has another name");
+        assert!(
+            !is_game_mode(std::process::id()),
+            "the test binary has another name"
+        );
         assert!(!is_game_mode(u32::MAX));
         // What the kernel calls it, cut to 15 characters.
         assert!(name_matches("patina-game-mode", "patina-game-mod"));
@@ -402,7 +418,10 @@ mod tests {
         enter(&s);
         assert!(marker.exists());
         assert!(killed.wait().is_ok(), "asked to quit");
-        assert!(other.try_wait().unwrap().is_none(), "the rest is left alone");
+        assert!(
+            other.try_wait().unwrap().is_none(),
+            "the rest is left alone"
+        );
         leave(&s);
         assert!(!marker.exists());
 

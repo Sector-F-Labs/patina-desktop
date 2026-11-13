@@ -15,8 +15,8 @@ use smithay::{
     utils::{Logical, Point, Rectangle},
 };
 
-use crate::state::State;
 use crate::layout::View;
+use crate::state::State;
 
 /// Premultiplied: black over what isn't taken, and the selection's edge.
 const DIM: [f32; 4] = [0.0, 0.0, 0.0, 0.35];

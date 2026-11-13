@@ -22,8 +22,8 @@ use smithay::{
     utils::{Logical, Point, Rectangle},
 };
 
-use crate::maximize::{Placement, Snap, inset, placement};
 use crate::layout::View;
+use crate::maximize::{Placement, Snap, inset, placement};
 use crate::state::State;
 use dbus::{Event, Rect, Request, WindowRow};
 
@@ -327,7 +327,8 @@ impl State {
                     Some(window) => {
                         let area = rectangle(area);
                         // The monitor the area is on.
-                        let centre = area.loc.to_f64() + area.size.to_f64().downscale(2.0).to_point();
+                        let centre =
+                            area.loc.to_f64() + area.size.to_f64().downscale(2.0).to_point();
                         let on = self.output_under(centre).clone();
                         let work = self.work_area_on(&on);
                         let placement = if area == inset(work, self.config.gap()) {

@@ -235,7 +235,8 @@ impl Wallpaper {
             let texture =
                 ui.ctx()
                     .load_texture(format!("logo-{output}"), image, TextureOptions::LINEAR);
-            self.logos.insert(output.to_string(), (key, pixels, texture));
+            self.logos
+                .insert(output.to_string(), (key, pixels, texture));
         }
         if let Some((_, _, texture)) = self.logos.get(output) {
             let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));

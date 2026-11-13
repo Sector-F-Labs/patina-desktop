@@ -69,7 +69,10 @@ pub fn load(previous: &Config) -> Config {
                 config
             }
             Err(e) => {
-                eprintln!("patina-game-mode: {}: {e}; keeping the settings in use", path.display());
+                eprintln!(
+                    "patina-game-mode: {}: {e}; keeping the settings in use",
+                    path.display()
+                );
                 previous.clone()
             }
         },

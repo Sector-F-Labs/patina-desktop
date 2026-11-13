@@ -256,7 +256,13 @@ impl Interface {
     }
 
     /// Puts monitor `id` on `side` of monitor `to`.
-    fn set_place(&self, id: String, to: String, side: String, offset: i32) -> zbus::fdo::Result<()> {
+    fn set_place(
+        &self,
+        id: String,
+        to: String,
+        side: String,
+        offset: i32,
+    ) -> zbus::fdo::Result<()> {
         self.ask(|reply| Request::SetPlace {
             id,
             to,
