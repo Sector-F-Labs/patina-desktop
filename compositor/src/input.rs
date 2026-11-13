@@ -489,14 +489,20 @@ pub fn handle<B: InputBackend>(state: &mut State, event: InputEvent<B>) -> Optio
                 event.time_msec(),
             )
         }
-        // Three fingers drag (ADR-0031); other swipes aren't used yet.
+        // Three fingers drag (ADR-0031), four minimise every window or bring
+        // them back (ADR-0135).
         InputEvent::GestureSwipeBegin { event } => {
             state.swipe_begin(event.fingers(), event.time_msec());
+            state.all_swipe_begin(event.fingers());
         }
         InputEvent::GestureSwipeUpdate { event } => {
             state.swipe_update(event.delta(), event.time_msec());
+            state.all_swipe_update(event.delta());
         }
-        InputEvent::GestureSwipeEnd { .. } => state.swipe_end(),
+        InputEvent::GestureSwipeEnd { .. } => {
+            state.swipe_end();
+            state.all_swipe_end();
+        }
         InputEvent::PointerAxis { event } => {
             let mut frame = AxisFrame::new(event.time_msec()).source(event.source());
             for axis in [Axis::Horizontal, Axis::Vertical] {

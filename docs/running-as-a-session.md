@@ -55,7 +55,8 @@ before choosing it at the login screen.
   on the desktop opens the desktop's menu, where the shell's skin and wallpaper are chosen. On the
   touchpad, three fingers drag, as with macOS's accessibility setting: lift and put them back
   within half a second to carry on, or carry on with one finger to drop (`three_finger_drag` in
-  `[touchpad]` turns it off). The pointer is Patina's own, shaped for what's under it.
+  `[touchpad]` turns it off). Four fingers toward the edge the window list is on minimise every window, and away from it
+  bring them back (`four_finger_swipe`). The pointer is Patina's own, shaped for what's under it.
 
 ## Settings
 

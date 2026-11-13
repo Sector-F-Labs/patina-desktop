@@ -176,6 +176,8 @@ mechanics of adding one.
 | [0132](0132-night-light-can-stand-down-for-a-fullscreen-window.md) | Night Light can stand down while a fullscreen window has the keyboard | Accepted |
 | [0133](0133-web-apps-are-urls-installed-as-apps-in-chromiums-app-mode.md) | Web apps are URLs installed as apps, opened in a WebKitGTK window the compositor frames in the site's colour | Accepted |
 | [0134](0134-game-mode-is-a-program-of-its-own.md) | Game mode is a program of its own that quits programs and runs commands while a fullscreen window has the keyboard | Accepted |
+| [0135](0135-a-four-finger-swipe-minimises-every-window.md) | A four-finger swipe toward the window list's edge minimises every window, and one away from it brings them back | Accepted |
+| [0136](0136-minimising-and-restoring-are-animated.md) | Minimising and restoring are animated: the window shrinks and fades to the window list | Accepted |
 
 ## Decision Relationship
 

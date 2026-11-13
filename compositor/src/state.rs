@@ -173,6 +173,10 @@ pub struct State {
     pub fullscreen: Option<Window>,
     /// Windows out of the space, minimised to their tabs (ADR-0084).
     pub minimized: crate::minimize::Minimized,
+    /// The four-finger swipe that minimises every window and brings them back.
+    pub all_swipe: crate::minimize::AllSwipe,
+    /// Windows on their way to the window list or back (ADR-0136).
+    pub ghosts: Vec<crate::animate::Ghost>,
     /// Tiling by dragging, and the tiler deciding it (ADR-0049).
     pub tiling: crate::tiling::Tiling,
     _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState,
@@ -333,6 +337,8 @@ impl State {
             dnd_icon: None,
             fullscreen: None,
             minimized: Default::default(),
+            all_swipe: Default::default(),
+            ghosts: Vec::new(),
             tiling: Default::default(),
             _cursor_shape: smithay::wayland::cursor_shape::CursorShapeManagerState::new::<Self>(
                 &dh,

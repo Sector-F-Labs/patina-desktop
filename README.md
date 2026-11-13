@@ -238,6 +238,7 @@ caps_lock = "escape"         # Caps Lock tapped; held, a layer of keys (caps_hol
 tap = true
 natural_scroll = true
 three_finger_drag = true
+four_finger_swipe = true
 
 [screen]
 off_after = 300              # seconds without input; 0 for never
