@@ -93,3 +93,9 @@ Ruled out or put off:
 
 - A skin with another corner radius, or a dark frame on a light site, is wanted.
 - Pages are to be skinned: the WebKit host can inject the skin as CSS variables.
+
+## Update 2026-11-13
+
+Chromium is the default engine now (WebKit is `engine = "webkit"` in the list), as it runs the
+sites WebKit can't. The compositor also draws the default shadow (ADR-0138) under a web app's
+window, as neither engine asks for one.
