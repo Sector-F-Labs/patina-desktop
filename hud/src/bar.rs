@@ -119,6 +119,8 @@ pub struct Bar {
     /// Whether the compositor keeps a clipboard history here (ADR-0114), for the tray's
     /// clipboard icon.
     pub clipboard: bool,
+    /// Holding the screen on, for the tray's coffee cup.
+    pub caffeine: patina_system::caffeine::Caffeine,
     /// The battery, for the tray; `None` without one.
     pub battery: Option<patina_system::power::Battery>,
     /// The compositor's keyboard layouts, for the tray's indicator
@@ -200,6 +202,7 @@ impl Bar {
                 volume: None,
                 wifi: None,
                 clipboard: false,
+                caffeine: Default::default(),
                 battery: None,
                 keyboard: None,
                 media: None,
@@ -524,6 +527,10 @@ impl Bar {
                             &self.skin.name,
                             &opening,
                         );
+                    }
+                    if crate::tray::caffeine(ui, self.caffeine.is_on()) {
+                        self.caffeine.toggle();
+                        ui.ctx().request_repaint();
                     }
                     crate::tray::wifi(ui, self.wifi, &self.config.wifi, &self.skin.name, &opening);
                     crate::tray::speaker(
@@ -1572,6 +1579,7 @@ mod tests {
             volume: None,
             wifi: None,
             clipboard: false,
+            caffeine: Default::default(),
             battery: None,
             keyboard: None,
             media: None,
