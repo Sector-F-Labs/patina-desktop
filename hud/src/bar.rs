@@ -20,6 +20,25 @@ const GAP: f32 = 12.0;
 /// The side of a tab's icon, in points, as Patina's TabStrip draws it.
 const ICON: f32 = 18.0;
 
+/// The size, in points, a tab's icon starts being as big as, when the window
+/// list is as thick as the bar's default `height`; thicker, a column of them
+/// grows toward a dock's (see [`dock_icon`]).
+const DEFAULT_THICKNESS: f32 = 41.0;
+
+/// How big the icons in a window column `side` points wide are. At the
+/// default thickness they're [`ICON`], as before; as the column gets thicker
+/// they grow with it, until a thin margin is all that's left around each, as
+/// in Ubuntu's dock: a 64 wide column has 48 icons.
+fn dock_icon(side: f32) -> f32 {
+    let grown = ICON + (side - DEFAULT_THICKNESS).max(0.0) * 1.43;
+    grown.min(side - 14.0).max(ICON)
+}
+
+/// What an icon of `size` pixels is kept under.
+fn icon_key(app_id: &str, size: u32) -> String {
+    format!("{app_id}@{size}")
+}
+
 /// An app's icon, as far as the icon thread has got with it.
 enum Icon {
     Asked,
@@ -256,12 +275,12 @@ impl Bar {
     /// An app's icon or name, found on the icon thread.
     pub fn app_found(&mut self, found: crate::icons::Found) {
         match found {
-            crate::icons::Found::Icon(app_id, image) => {
+            crate::icons::Found::Icon(app_id, size, image) => {
                 let icon = match image {
                     Some(image) => Icon::Found(Arc::new(image)),
                     None => Icon::Missing,
                 };
-                self.icons.get_mut().insert(app_id, icon);
+                self.icons.get_mut().insert(icon_key(&app_id, size), icon);
             }
             crate::icons::Found::Name(app_id, name) => {
                 self.names.get_mut().insert(app_id, Some(name));
@@ -413,29 +432,41 @@ impl Bar {
     /// `app_id`'s icon as a texture in `ctx`, asking the icon thread for it
     /// the first time it's wanted.
     fn icon(&self, ctx: &egui::Context, app_id: &str) -> Option<egui::TextureId> {
+        self.icon_sized(ctx, app_id, ICON)
+    }
+
+    /// [`Self::icon`] drawn `points` a side: each size is asked for, and kept,
+    /// on its own.
+    fn icon_sized(
+        &self,
+        ctx: &egui::Context,
+        app_id: &str,
+        points: f32,
+    ) -> Option<egui::TextureId> {
+        let size = (points * ctx.pixels_per_point()).ceil() as u32;
+        let key = icon_key(app_id, size);
         let mut icons = self.icons.borrow_mut();
-        let image = match icons.get(app_id) {
+        let image = match icons.get(&key) {
             Some(Icon::Found(image)) => image.clone(),
             Some(_) => return None,
             None => {
                 let ask = self.ask_app.as_ref()?;
-                let size = (ICON * ctx.pixels_per_point()).ceil() as u32;
                 if ask
                     .send(crate::icons::Ask::Icon(app_id.to_string(), size))
                     .is_ok()
                 {
-                    icons.insert(app_id.to_string(), Icon::Asked);
+                    icons.insert(key, Icon::Asked);
                 }
                 return None;
             }
         };
         let id = egui::Id::new("patina-hud-icons");
         let known = ctx.data(|d| d.get_temp::<Textures>(id)).unwrap_or_default();
-        if let Some(texture) = known.0.get(app_id) {
+        if let Some(texture) = known.0.get(&key) {
             return Some(texture.id());
         }
         let texture = ctx.load_texture(
-            format!("icon-{app_id}"),
+            format!("icon-{key}"),
             (*image).clone(),
             egui::TextureOptions::LINEAR,
         );
@@ -443,7 +474,7 @@ impl Bar {
         ctx.data_mut(|d| {
             d.get_temp_mut_or_default::<Textures>(id)
                 .0
-                .insert(app_id.to_string(), texture)
+                .insert(key, texture)
         });
         Some(texture_id)
     }
@@ -1298,6 +1329,7 @@ impl Bar {
     /// it can't be dragged.
     fn windows_column(&self, ui: &mut Ui, rect: Rect) {
         let side = rect.width();
+        let size = dock_icon(side);
         let v = ui.visuals().clone();
         let mut request = None;
         let mut menu_at = None;
@@ -1324,7 +1356,9 @@ impl Bar {
             } else {
                 Color32::TRANSPARENT
             };
-            ui.painter().rect_filled(cell.shrink(3.0), 6.0, fill);
+            // The highlight's corners grow with the icon.
+            let radius = (size * 0.22).max(6.0);
+            ui.painter().rect_filled(cell.shrink(3.0), radius, fill);
             let name = self.app_name(&app_id);
             // A pinned app with no window is half there, as in the row.
             let tint = if window.is_some() {
@@ -1334,11 +1368,11 @@ impl Bar {
             };
             // At the size it was drawn for, on whole pixels: anything else
             // blurs it.
-            let corner = cell.center() - vec2(ICON, ICON) / 2.0;
+            let corner = cell.center() - vec2(size, size) / 2.0;
             let corner =
                 egui::emath::GuiRounding::round_to_pixels(corner, ui.ctx().pixels_per_point());
-            let mark = Rect::from_min_size(corner, vec2(ICON, ICON));
-            match self.icon(ui.ctx(), &app_id) {
+            let mark = Rect::from_min_size(corner, vec2(size, size));
+            match self.icon_sized(ui.ctx(), &app_id, size) {
                 Some(texture) => {
                     let uv = Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
                     ui.painter().image(texture, mark, uv, tint);
@@ -1353,7 +1387,7 @@ impl Bar {
                         .unwrap_or_default();
                     ui.painter().rect_filled(
                         mark,
-                        5.0,
+                        radius * 0.8,
                         v.widgets
                             .inactive
                             .bg_fill
@@ -1573,6 +1607,19 @@ mod tests {
     }
 
     #[test]
+    fn a_window_column_grows_its_icons_like_a_dock() {
+        // As thick as the bar by default: the icons are as they were.
+        assert_eq!(dock_icon(41.0 - 2.0), ICON);
+        assert_eq!(dock_icon(20.0), ICON);
+        // 64 thick, less its 1 px outline each side: Ubuntu's 48.
+        assert_eq!(dock_icon(62.0).round(), 48.0);
+        // Always a margin left round them, and never smaller as it grows.
+        let sizes: Vec<f32> = (30..140).map(|s| dock_icon(s as f32)).collect();
+        assert!(sizes.windows(2).all(|w| w[0] <= w[1]));
+        assert!((30..140).all(|s| dock_icon(s as f32) <= (s as f32 - 14.0).max(ICON)));
+    }
+
+    #[test]
     fn each_apps_icon_is_asked_for_once_and_drawn_when_found() {
         let mut b = bar("left = [\"windows\"]\ncenter = []\nright = []");
         let (ask, asked) = mpsc::channel();
@@ -1597,6 +1644,7 @@ mod tests {
         );
         b.app_found(crate::icons::Found::Icon(
             "foot".into(),
+            18,
             Some(egui::ColorImage::filled([18, 18], Color32::RED)),
         ));
         frame(&mut b, &ctx, &mut time, vec![]);
