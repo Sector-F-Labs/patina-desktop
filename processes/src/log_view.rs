@@ -206,7 +206,7 @@ impl LogView {
                     }
                 });
             ui.add(
-                egui::TextEdit::singleline(&mut self.filter)
+                patina::dialog::text_edit(ui, &mut self.filter)
                     .hint_text("Filter by words")
                     .desired_width(220.0),
             );

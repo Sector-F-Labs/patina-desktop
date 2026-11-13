@@ -246,9 +246,13 @@ pub fn set_enabled(on: bool) {
 
 /// Windows that can't ask for a shadow themselves, so they get the default one
 /// here when they haven't asked (ADR-0138): a window that's a viewport of
-/// another's, as Files' Quick Look is, is made by the toolkit, which gives out
+/// another's, as Files' Quick Look and a process's window in the Process
+/// Manager are, is made by the toolkit, which gives out
 /// no handle to its surface for the app to ask with.
-const UNABLE_TO_ASK: &[&str] = &["com.sectorflabs.Files.QuickLook"];
+const UNABLE_TO_ASK: &[&str] = &[
+    "com.sectorflabs.Files.QuickLook",
+    "com.sectorflabs.ProcessManager.Process",
+];
 
 /// The shadow patina-ui gives a window that asks for the default one: the
 /// same eight tiles, made here.
