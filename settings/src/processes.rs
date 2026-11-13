@@ -137,8 +137,12 @@ impl ProcessesPage {
         };
 
         let mut follow = None;
+        // As tall as a button, which the cells without one are centred in.
+        let button =
+            ui.text_style_height(&egui::TextStyle::Button) + 2.0 * ui.spacing().button_padding.y;
         egui::Grid::new("processes")
             .num_columns(6)
+            .min_row_height(button)
             .spacing([16.0, 6.0])
             .striped(true)
             .show(ui, |ui| {
@@ -190,14 +194,17 @@ impl ProcessesPage {
     }
 
     fn row(&self, ui: &mut Ui, p: &Process, follow: &mut Option<u32>) {
+        let centred = egui::Layout::left_to_right(egui::Align::Center);
         let shown = self.log.as_ref().is_some_and(|l| l.id == p.id);
         let mut about = p.command.clone();
         if p.kept {
             about.push_str("\nStarted again whenever it exits.");
         }
         if ui
-            .selectable_label(shown, &p.name)
-            .on_hover_text(about)
+            .with_layout(centred, |ui| {
+                ui.selectable_label(shown, &p.name).on_hover_text(about)
+            })
+            .inner
             .clicked()
         {
             *follow = Some(p.id);
@@ -209,15 +216,19 @@ impl ProcessesPage {
         } else {
             ui.visuals().warn_fg_color
         };
-        ui.colored_label(colour, &p.status);
-        ui.label(p.pid.map(|pid| pid.to_string()).unwrap_or_default());
-        ui.label(if p.running() {
-            uptime(p.started)
-        } else {
-            String::new()
+        ui.with_layout(centred, |ui| ui.colored_label(colour, &p.status));
+        ui.with_layout(centred, |ui| {
+            ui.label(p.pid.map(|pid| pid.to_string()).unwrap_or_default())
         });
-        ui.label(p.restarts.to_string());
-        ui.horizontal(|ui| {
+        ui.with_layout(centred, |ui| {
+            ui.label(if p.running() {
+                uptime(p.started)
+            } else {
+                String::new()
+            })
+        });
+        ui.with_layout(centred, |ui| ui.label(p.restarts.to_string()));
+        ui.with_layout(centred, |ui| {
             let own = p.name == SELF;
             let restart = if p.running() { "Restart" } else { "Start" };
             let clicked = ui
