@@ -20,8 +20,8 @@ use smithay_client_toolkit::reexports::client::{
     Connection, Dispatch, QueueHandle, delegate_noop,
     globals::{GlobalListContents, registry_queue_init},
     protocol::{
-        wl_buffer::WlBuffer, wl_output::WlOutput, wl_registry::WlRegistry, wl_shm,
-        wl_shm::WlShm, wl_shm_pool::WlShmPool,
+        wl_buffer::WlBuffer, wl_output::WlOutput, wl_registry::WlRegistry, wl_shm, wl_shm::WlShm,
+        wl_shm_pool::WlShmPool,
     },
 };
 use smithay_client_toolkit::reexports::protocols::ext::{
@@ -55,7 +55,9 @@ struct App {
 
 fn main() -> Result<(), String> {
     let mut args = std::env::args().skip(1);
-    let path = args.next().ok_or("usage: capture OUT.png [--window APP] [--frames N]")?;
+    let path = args
+        .next()
+        .ok_or("usage: capture OUT.png [--window APP] [--frames N]")?;
     let (mut window, mut frames) = (None, 1usize);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -82,7 +84,9 @@ fn main() -> Result<(), String> {
 
     let source: ExtImageCaptureSourceV1 = match &window {
         None => {
-            let output: WlOutput = globals.bind(&qh, 1..=4, ()).map_err(bind_err("wl_output"))?;
+            let output: WlOutput = globals
+                .bind(&qh, 1..=4, ())
+                .map_err(bind_err("wl_output"))?;
             let manager: ExtOutputImageCaptureSourceManagerV1 = globals
                 .bind(&qh, 1..=1, ())
                 .map_err(bind_err("ext_output_image_capture_source_manager_v1"))?;
@@ -103,16 +107,19 @@ fn main() -> Result<(), String> {
                 .find(|(_, app_id)| app_id.contains(wanted.as_str()))
                 .map(|(h, _)| h.clone())
                 .ok_or(format!("no window with {wanted:?} in its app id"))?;
-            let manager: ExtForeignToplevelImageCaptureSourceManagerV1 = globals
-                .bind(&qh, 1..=1, ())
-                .map_err(bind_err("ext_foreign_toplevel_image_capture_source_manager_v1"))?;
+            let manager: ExtForeignToplevelImageCaptureSourceManagerV1 =
+                globals.bind(&qh, 1..=1, ()).map_err(bind_err(
+                    "ext_foreign_toplevel_image_capture_source_manager_v1",
+                ))?;
             manager.create_source(&handle, &qh, ())
         }
     };
 
     let session = copy.create_session(&source, Options::PaintCursors, &qh, ());
     while !app.constraints_done && !app.stopped {
-        queue.blocking_dispatch(&mut app).map_err(|e| e.to_string())?;
+        queue
+            .blocking_dispatch(&mut app)
+            .map_err(|e| e.to_string())?;
     }
     if app.stopped {
         return Err("the session was stopped".into());
@@ -138,7 +145,9 @@ fn main() -> Result<(), String> {
         frame.damage_buffer(0, 0, w as i32, h as i32);
         frame.capture();
         while app.outcome.is_none() {
-            queue.blocking_dispatch(&mut app).map_err(|e| e.to_string())?;
+            queue
+                .blocking_dispatch(&mut app)
+                .map_err(|e| e.to_string())?;
         }
         frame.destroy();
         if let Some(Err(e)) = &app.outcome {

@@ -115,8 +115,13 @@ mod tests {
 
     #[test]
     fn reads_maker_model_and_serial() {
-        let edid = parse(&block(GSM, 0x5bbf, 0x0001_02ab, &[(0xfc, "LG HDR WQHD"), (0xff, "812NTAB")]))
-            .unwrap();
+        let edid = parse(&block(
+            GSM,
+            0x5bbf,
+            0x0001_02ab,
+            &[(0xfc, "LG HDR WQHD"), (0xff, "812NTAB")],
+        ))
+        .unwrap();
         assert_eq!(edid.make, "GSM");
         assert_eq!(edid.name.as_deref(), Some("LG HDR WQHD"));
         assert_eq!(edid.id(), "GSM-5BBF-812NTAB");

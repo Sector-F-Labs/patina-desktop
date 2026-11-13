@@ -316,12 +316,7 @@ impl State {
     }
 
     /// As `place_as`, filling the monitor at `at` if it fills.
-    pub fn place_as_on(
-        &mut self,
-        window: &Window,
-        placement: Placement,
-        at: Point<f64, Logical>,
-    ) {
+    pub fn place_as_on(&mut self, window: &Window, placement: Placement, at: Point<f64, Logical>) {
         let on = self.output_under(at).clone();
         let area = self.work_area_on(&on);
         let rect = rect_for(placement, area, inset(area, self.config.gap()));

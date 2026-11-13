@@ -241,7 +241,15 @@ pub fn init(
             idle.push(monitor.clone());
             continue;
         }
-        match make_head(&mut drm, &gbm, render_node, &renderer, monitor, config, i == 0) {
+        match make_head(
+            &mut drm,
+            &gbm,
+            render_node,
+            &renderer,
+            monitor,
+            config,
+            i == 0,
+        ) {
             Ok((head, automatic)) => {
                 if i == 0 {
                     auto_scale = automatic;
@@ -405,7 +413,9 @@ impl UdevData {
         }
         if self.heads.is_empty() && !self.idle.is_empty() {
             let monitor = self.idle.remove(0);
-            change.appeared.retain(|(_, name)| *name != identity(&monitor).0);
+            change
+                .appeared
+                .retain(|(_, name)| *name != identity(&monitor).0);
             if let Some(output) = self.drive(&monitor, config, true) {
                 change.added.push(output);
             }
@@ -487,7 +497,10 @@ impl UdevData {
         let secondary: Vec<Head> = self.heads.drain(1.min(self.heads.len())..).collect();
         for head in secondary {
             removed.push(head.output.clone());
-            if let Some(m) = monitors.iter().find(|m| m.connector.handle() == head.connector) {
+            if let Some(m) = monitors
+                .iter()
+                .find(|m| m.connector.handle() == head.connector)
+            {
                 self.idle.push(m.clone());
             }
         }
@@ -528,7 +541,11 @@ impl UdevData {
 
     /// The outputs of the monitors after the primary.
     pub fn extra_outputs(&self) -> Vec<Output> {
-        self.heads.iter().skip(1).map(|h| h.output.clone()).collect()
+        self.heads
+            .iter()
+            .skip(1)
+            .map(|h| h.output.clone())
+            .collect()
     }
 
     /// Warms the monitors to `kelvin` (6500 for neutral), now if the session
@@ -563,7 +580,10 @@ impl UdevData {
         if self.active {
             for head in &mut self.heads {
                 if let Err(e) = head.compositor.clear() {
-                    eprintln!("patina-compositor: can't turn {} off: {e}", head.output.name());
+                    eprintln!(
+                        "patina-compositor: can't turn {} off: {e}",
+                        head.output.name()
+                    );
                 }
             }
         }
@@ -754,15 +774,16 @@ fn pick_mode(
 
 /// The connector's name, as the kernel names it: eDP-1, DP-3.
 fn connector_name(connector: &connector::Info) -> String {
-    format!("{}-{}", connector.interface().as_str(), connector.interface_id())
+    format!(
+        "{}-{}",
+        connector.interface().as_str(),
+        connector.interface_id()
+    )
 }
 
 /// The panel's size in millimetres: what the connector says, else the EDID's
 /// (a virtual connector says none), else none.
-fn size_mm(
-    connector: &connector::Info,
-    edid: Option<&crate::edid::Edid>,
-) -> Option<(u32, u32)> {
+fn size_mm(connector: &connector::Info, edid: Option<&crate::edid::Edid>) -> Option<(u32, u32)> {
     connector
         .size()
         .filter(|(w, h)| *w > 0 && *h > 0)
@@ -998,7 +1019,10 @@ fn hotplug(state: &mut State) {
         eprintln!("patina-compositor: {} was unplugged", output.name());
     }
     for output in &added {
-        eprintln!("patina-compositor: {} was plugged in and is the primary", output.name());
+        eprintln!(
+            "patina-compositor: {} was plugged in and is the primary",
+            output.name()
+        );
     }
     for (_, name) in &appeared {
         eprintln!("patina-compositor: {name} was plugged in; it stays off until chosen");
@@ -1094,7 +1118,9 @@ fn render(state: &mut State) {
             pointer - origin.to_f64(),
             scale,
         ));
-        let dnd_here = dnd_icon.as_ref().map(|(s, at)| (s.clone(), *at - origin.to_f64()));
+        let dnd_here = dnd_icon
+            .as_ref()
+            .map(|(s, at)| (s.clone(), *at - origin.to_f64()));
         elements.extend(
             crate::dnd::elements(&mut u.renderer, dnd_here.as_ref(), scale)
                 .into_iter()
@@ -1168,9 +1194,9 @@ fn render(state: &mut State) {
         if !queued {
             // No vblank is coming; hold the next frame back a little instead.
             let crtc = head.crtc;
-            let _ = u
-                .loop_handle
-                .insert_source(Timer::from_duration(IDLE_FRAME), move |_, _, state| {
+            let _ = u.loop_handle.insert_source(
+                Timer::from_duration(IDLE_FRAME),
+                move |_, _, state| {
                     if let Some(h) = state
                         .udev
                         .as_mut()
@@ -1179,7 +1205,8 @@ fn render(state: &mut State) {
                         h.frame_pending = false;
                     }
                     TimeoutAction::Drop
-                });
+                },
+            );
         }
 
         for window in state.space.elements() {
@@ -1228,8 +1255,16 @@ mod tests {
     fn a_warmed_ramp_is_not_straight() {
         let straight: Vec<u16> = (0..256).map(|i| (i * 0xffff / 255) as u16).collect();
         let warm_blue: Vec<u16> = straight.iter().map(|&v| (v as f64 * 0.4) as u16).collect();
-        assert!(is_straight(&[straight.clone(), straight.clone(), straight.clone()]));
-        assert!(!is_straight(&[straight.clone(), straight.clone(), warm_blue]));
+        assert!(is_straight(&[
+            straight.clone(),
+            straight.clone(),
+            straight.clone()
+        ]));
+        assert!(!is_straight(&[
+            straight.clone(),
+            straight.clone(),
+            warm_blue
+        ]));
         assert!(!is_straight(&[vec![0; 256], vec![0; 256], vec![0; 256]]));
     }
 

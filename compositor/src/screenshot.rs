@@ -8,8 +8,8 @@
 pub mod menu;
 pub mod select;
 
-use std::path::{Path, PathBuf};
 use crate::layout::View;
+use std::path::{Path, PathBuf};
 
 use smithay::{
     backend::{

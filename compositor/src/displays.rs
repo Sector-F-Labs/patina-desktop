@@ -284,7 +284,11 @@ impl Displays {
     /// isn't known goes where it was put before any other of the model.
     pub fn set(&mut self, id: &str, name: &str, place: Option<Place>) {
         // Placing it again keeps whether it asks.
-        let ask = self.saved.iter().find(|s| s.id == id).is_some_and(|s| s.ask);
+        let ask = self
+            .saved
+            .iter()
+            .find(|s| s.id == id)
+            .is_some_and(|s| s.ask);
         self.saved.retain(|s| s.id != id);
         self.saved.push(Saved {
             id: id.into(),
@@ -335,7 +339,11 @@ impl State {
 
     /// The ids of the monitors connected: those driven, then those idle.
     pub fn monitor_ids(&self) -> Vec<String> {
-        let idle = self.udev.as_ref().map(|u| u.idle_monitors()).unwrap_or_default();
+        let idle = self
+            .udev
+            .as_ref()
+            .map(|u| u.idle_monitors())
+            .unwrap_or_default();
         self.outputs
             .iter()
             .map(id_of)
@@ -388,7 +396,11 @@ impl State {
                 }
             })
             .collect();
-        let idle = self.udev.as_ref().map(|u| u.idle_monitors()).unwrap_or_default();
+        let idle = self
+            .udev
+            .as_ref()
+            .map(|u| u.idle_monitors())
+            .unwrap_or_default();
         for (j, m) in idle.into_iter().enumerate() {
             let i = self.outputs.len() + j;
             list.push(dbus::Monitor {
@@ -450,7 +462,11 @@ impl State {
                     in_use: by.contains(&Some(e)),
                     ask: s.ask,
                     to: s.to.clone(),
-                    to_name: if s.to.is_empty() { String::new() } else { to_name },
+                    to_name: if s.to.is_empty() {
+                        String::new()
+                    } else {
+                        to_name
+                    },
                     side: s.side.clone(),
                     offset: s.offset,
                 }
@@ -685,7 +701,11 @@ mod tests {
         let now = ids(&[LAPTOP, "GSM-772E-AAA"]);
         assert_eq!(d.resolve(&now), vec![None, None]);
         assert_eq!(d.places(&now), vec![None, None]);
-        d.set("GSM-772E-AAA", "LG HDR WQHD", place(LAPTOP, Side::Above, 40));
+        d.set(
+            "GSM-772E-AAA",
+            "LG HDR WQHD",
+            place(LAPTOP, Side::Above, 40),
+        );
         assert_eq!(d.resolve(&now), vec![None, Some(0)]);
         let places = d.places(&now);
         assert_eq!(places[0], None);
@@ -697,7 +717,11 @@ mod tests {
     fn another_of_the_model_goes_where_one_was_put() {
         // A hot desk: a Dell with a serial never seen goes where a Dell went.
         let mut d = Displays::default();
-        d.set("DEL-A0D3-HOME1", "DELL U2720Q", place(LAPTOP, Side::RightOf, 0));
+        d.set(
+            "DEL-A0D3-HOME1",
+            "DELL U2720Q",
+            place(LAPTOP, Side::RightOf, 0),
+        );
         let desk = ids(&[LAPTOP, "DEL-A0D3-DESK9"]);
         assert_eq!(d.resolve(&desk), vec![None, Some(0)]);
         let p = d.places(&desk)[1].clone().unwrap();
@@ -751,7 +775,11 @@ mod tests {
     #[test]
     fn a_neighbour_that_isnt_connected_leaves_it_with_no_place() {
         let mut d = Displays::default();
-        d.set("DEL-A0D3-B", "DELL", place("GSM-772E-GONE", Side::RightOf, 0));
+        d.set(
+            "DEL-A0D3-B",
+            "DELL",
+            place("GSM-772E-GONE", Side::RightOf, 0),
+        );
         let now = ids(&[LAPTOP, "DEL-A0D3-B"]);
         assert_eq!(d.resolve(&now)[1], Some(0));
         assert_eq!(d.places(&now)[1], None);
@@ -794,7 +822,11 @@ mod tests {
             mode: Mode::Mirror,
             ..Displays::default()
         };
-        d.set("GSM-772E-AAA", "LG HDR WQHD", place(LAPTOP, Side::LeftOf, -8));
+        d.set(
+            "GSM-772E-AAA",
+            "LG HDR WQHD",
+            place(LAPTOP, Side::LeftOf, -8),
+        );
         let back: File = toml::from_str(&d.file()).unwrap();
         assert_eq!(Mode::from_name(&back.mode), Some(Mode::Mirror));
         assert_eq!(back.monitor, d.saved);

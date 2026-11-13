@@ -752,9 +752,10 @@ impl App {
                 editor.select_all();
                 editor.focus(ctx);
             }
-            Action::CopySkins => match skin::app_dir("notebook").ok_or("No config folder".to_string()).and_then(|dir| {
-                skin::export_built_ins(&dir, skin::BUILT_IN)
-            }) {
+            Action::CopySkins => match skin::app_dir("notebook")
+                .ok_or("No config folder".to_string())
+                .and_then(|dir| skin::export_built_ins(&dir, skin::BUILT_IN))
+            {
                 Ok(export) => {
                     // The copies share the built-ins' names, so after a reload they're the
                     // versions in use.
@@ -1019,7 +1020,8 @@ impl App {
                 let current = self.tab().note.as_ref().is_some_and(|n| &n.path == path);
                 // One widget that both clicks and drags: a drag-source wrapper
                 // around the label would sit on top of it and eat its clicks.
-                let resp = ui.add(egui::Button::selectable(current, format!("📄 {name}")).sense(egui::Sense::click_and_drag()));
+                let resp = ui
+                    .add(egui::Button::selectable(current, format!("📄 {name}")).sense(egui::Sense::click_and_drag()));
                 resp.dnd_set_drag_payload(path.clone());
                 if resp.clicked() {
                     self.open_note(path.clone());
@@ -1041,7 +1043,8 @@ impl App {
                 });
                 let row = header.inner;
                 if row.clicked() {
-                    let mut state = egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false);
+                    let mut state =
+                        egui::collapsing_header::CollapsingState::load_with_default_open(ui.ctx(), id, false);
                     state.toggle(ui);
                     state.store(ui.ctx());
                 }
@@ -1156,7 +1159,9 @@ impl App {
                     Some(Dialog::Rename { path, name }) => {
                         self.tab_mut().rename(&path, &name).map_err(|e| (Dialog::Rename { path, name }, e))
                     }
-                    Some(Dialog::Delete { path }) => self.tab_mut().delete(&path).map_err(|e| (Dialog::Delete { path }, e)),
+                    Some(Dialog::Delete { path }) => {
+                        self.tab_mut().delete(&path).map_err(|e| (Dialog::Delete { path }, e))
+                    }
                     None => Ok(()),
                 };
                 match result {
@@ -1230,7 +1235,6 @@ impl Status {
 fn load_skins() -> (Vec<Skin>, Vec<String>) {
     skin::load_all(skin::BUILT_IN, &skin::app_dir("notebook").into_iter().collect::<Vec<_>>())
 }
-
 
 impl eframe::App for App {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -1309,49 +1313,47 @@ impl eframe::App for App {
             .show(ui, |ui| self.sidebar(ui));
 
         let tab = &mut self.tabs[self.shown];
-        egui::CentralPanel::default()
-            .frame(egui::Frame::central_panel(ui.style()).inner_margin(0))
-            .show(ui, |ui| {
-                if tab.note.is_none() {
-                    if tab.folder.is_some() {
-                        ui.centered_and_justified(|ui| ui.label(RichText::new("No note open").weak()));
-                    } else {
-                        Self::welcome(ui);
-                    }
-                    return;
+        egui::CentralPanel::default().frame(egui::Frame::central_panel(ui.style()).inner_margin(0)).show(ui, |ui| {
+            if tab.note.is_none() {
+                if tab.folder.is_some() {
+                    ui.centered_and_justified(|ui| ui.label(RichText::new("No note open").weak()));
+                } else {
+                    Self::welcome(ui);
                 }
-                let now = ui.input(|i| i.time);
-                egui::ScrollArea::vertical().id_salt(("note", tab.id)).auto_shrink(false).show(ui, |ui| {
-                    // A readable line length, centred.
-                    let width = ui.available_width().min(760.0);
-                    let margin = ((ui.available_width() - width) / 2.0).max(24.0);
-                    egui::Frame::NONE.inner_margin(egui::Margin::symmetric(margin as i8, 20)).show(ui, |ui| {
-                        let changed = match &mut tab.source {
-                            Some(source) => ui
-                                .add(
-                                    egui::TextEdit::multiline(source)
-                                        .id_salt(("source", tab.id))
-                                        .code_editor()
-                                        .frame(egui::Frame::NONE)
-                                        .desired_width(f32::INFINITY),
-                                )
-                                .changed(),
-                            None => tab.editor.show(ui),
-                        };
-                        if changed {
-                            if tab.source.is_some() {
-                                // The source has no edit count of its own.
-                                if let Some(note) = &mut tab.note {
-                                    note.saved_edits = u64::MAX;
-                                }
-                            }
+                return;
+            }
+            let now = ui.input(|i| i.time);
+            egui::ScrollArea::vertical().id_salt(("note", tab.id)).auto_shrink(false).show(ui, |ui| {
+                // A readable line length, centred.
+                let width = ui.available_width().min(760.0);
+                let margin = ((ui.available_width() - width) / 2.0).max(24.0);
+                egui::Frame::NONE.inner_margin(egui::Margin::symmetric(margin as i8, 20)).show(ui, |ui| {
+                    let changed = match &mut tab.source {
+                        Some(source) => ui
+                            .add(
+                                egui::TextEdit::multiline(source)
+                                    .id_salt(("source", tab.id))
+                                    .code_editor()
+                                    .frame(egui::Frame::NONE)
+                                    .desired_width(f32::INFINITY),
+                            )
+                            .changed(),
+                        None => tab.editor.show(ui),
+                    };
+                    if changed {
+                        if tab.source.is_some() {
+                            // The source has no edit count of its own.
                             if let Some(note) = &mut tab.note {
-                                note.edited_at = now;
+                                note.saved_edits = u64::MAX;
                             }
                         }
-                    });
+                        if let Some(note) = &mut tab.note {
+                            note.edited_at = now;
+                        }
+                    }
                 });
             });
+        });
 
         // After the editor has drawn: the sidebar click that opened the note
         // counts as a click outside the editor, which would drop a focus

@@ -83,7 +83,10 @@ pub struct State {
     /// Extend or mirror, and where each monitor goes (ADR-0121).
     pub displays: crate::displays::Displays,
     /// The globals advertising `outputs`, to take back when one goes.
-    output_globals: Vec<(Output, smithay::reexports::wayland_server::backend::GlobalId)>,
+    output_globals: Vec<(
+        Output,
+        smithay::reexports::wayland_server::backend::GlobalId,
+    )>,
     /// Something changed on screen since the last frame.
     pub needs_redraw: bool,
     /// Quitting so patina-session starts the compositor again.
@@ -1032,9 +1035,10 @@ impl State {
             return;
         };
         let (Some(output_geo), Some(window_geo)) = (
-            self.space
-                .element_geometry(&window)
-                .and_then(|g| self.space.output_geometry(self.output_under(g.loc.to_f64()))),
+            self.space.element_geometry(&window).and_then(|g| {
+                self.space
+                    .output_geometry(self.output_under(g.loc.to_f64()))
+            }),
             self.space.element_geometry(&window),
         ) else {
             return;

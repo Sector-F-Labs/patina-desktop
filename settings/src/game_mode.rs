@@ -54,7 +54,11 @@ pub fn parse(text: &str) -> GameMode {
     let list = |key: &str| -> Vec<String> {
         doc.get(key)
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect()
+            })
             .unwrap_or_default()
     };
     if let Some(on) = doc.get("enabled").and_then(|v| v.as_bool()) {
@@ -158,7 +162,10 @@ impl GameModePage {
         self.state(ui, message);
         ui.add_space(8.0);
 
-        ui.checkbox(&mut self.settings.enabled, "Turn on automatically when a window goes fullscreen");
+        ui.checkbox(
+            &mut self.settings.enabled,
+            "Turn on automatically when a window goes fullscreen",
+        );
         ui.label(
             RichText::new(
                 "A fullscreen film or presentation counts too. Nothing below happens while \
@@ -178,11 +185,12 @@ impl GameModePage {
             ui.label("before it counts, and before it ends.");
         });
         ui.label(
-            RichText::new("So that switching away from the game and back doesn't run everything each time.")
-                .small()
-                .weak(),
+            RichText::new(
+                "So that switching away from the game and back doesn't run everything each time.",
+            )
+            .small()
+            .weak(),
         );
-
 
         section(ui, "Programs to quit");
         ui.label(
@@ -195,7 +203,13 @@ impl GameModePage {
             .small()
             .weak(),
         );
-        list(ui, "kill", &mut self.settings.kill, &mut self.typing[0], "rust-analyzer");
+        list(
+            ui,
+            "kill",
+            &mut self.settings.kill,
+            &mut self.typing[0],
+            "rust-analyzer",
+        );
 
         section(ui, "Commands");
         ui.label(
@@ -210,10 +224,22 @@ impl GameModePage {
         );
         ui.add_space(4.0);
         ui.label(RichText::new("When game mode starts").strong());
-        list(ui, "enter", &mut self.settings.on_enter, &mut self.typing[1], "docker stop $(docker ps -q)");
+        list(
+            ui,
+            "enter",
+            &mut self.settings.on_enter,
+            &mut self.typing[1],
+            "docker stop $(docker ps -q)",
+        );
         ui.add_space(6.0);
         ui.label(RichText::new("When it ends").strong());
-        list(ui, "exit", &mut self.settings.on_exit, &mut self.typing[2], "systemctl --user start syncthing");
+        list(
+            ui,
+            "exit",
+            &mut self.settings.on_exit,
+            &mut self.typing[2],
+            "systemctl --user start syncthing",
+        );
 
         ui.add_space(12.0);
         ui.label(
@@ -236,25 +262,35 @@ impl GameModePage {
     fn state(&mut self, ui: &mut Ui, message: &mut Option<Message>) {
         ui.horizontal(|ui| {
             ui.label(if self.on { "On now." } else { "Off now." });
-            let label = if self.on { "Turn off now" } else { "Turn on now" };
+            let label = if self.on {
+                "Turn off now"
+            } else {
+                "Turn on now"
+            };
             if ui.button(label).clicked() {
-                let made = runtime_file("game-mode.toggle").ok_or("no runtime folder".to_string()).and_then(|p| {
-                    if let Some(dir) = p.parent() {
-                        std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-                    }
-                    std::fs::write(&p, "").map_err(|e| e.to_string())
-                });
+                let made = runtime_file("game-mode.toggle")
+                    .ok_or("no runtime folder".to_string())
+                    .and_then(|p| {
+                        if let Some(dir) = p.parent() {
+                            std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+                        }
+                        std::fs::write(&p, "").map_err(|e| e.to_string())
+                    });
                 match made {
                     Ok(()) => {}
-                    Err(e) => *message = Some(Message::error(format!("Couldn't reach game mode: {e}"))),
+                    Err(e) => {
+                        *message = Some(Message::error(format!("Couldn't reach game mode: {e}")))
+                    }
                 }
             }
         });
         if !self.on {
             ui.label(
-                RichText::new("Needs patina-game-mode running; the compositor starts it with the session.")
-                    .small()
-                    .weak(),
+                RichText::new(
+                    "Needs patina-game-mode running; the compositor starts it with the session.",
+                )
+                .small()
+                .weak(),
             );
         }
     }
@@ -340,7 +376,10 @@ mod tests {
             on_exit: vec!["echo out".into()],
         };
         let text = with_settings("# my notes\nextra = 1\n", &game).unwrap();
-        assert!(text.contains("# my notes") && text.contains("extra = 1"), "{text}");
+        assert!(
+            text.contains("# my notes") && text.contains("extra = 1"),
+            "{text}"
+        );
         assert_eq!(parse(&text), game);
         let text = with_settings(&text, &GameMode::default()).unwrap();
         assert_eq!(parse(&text), GameMode::default());
@@ -348,7 +387,10 @@ mod tests {
 
     #[test]
     fn a_broken_config_is_the_defaults() {
-        assert_eq!(parse("delay = 9999\nkill = \"nope\"\n"), GameMode::default());
+        assert_eq!(
+            parse("delay = 9999\nkill = \"nope\"\n"),
+            GameMode::default()
+        );
         assert_eq!(parse("garbage ="), GameMode::default());
     }
 }

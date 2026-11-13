@@ -337,11 +337,7 @@ where
     // The rectangle the shadow fills, around the window.
     let outer = Rectangle::<i32, Logical>::new(
         (location.x - left, location.y - top).into(),
-        (
-            size.w + left + right,
-            size.h + top + bottom,
-        )
-            .into(),
+        (size.w + left + right, size.h + top + bottom).into(),
     );
     let tile = |i: usize| shadow.tiles[i].as_ref();
     let width = |i: usize| tile(i).map_or(0, |t| t.size.w);
