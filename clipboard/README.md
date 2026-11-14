@@ -9,8 +9,10 @@ clear.
 
 From the bar's clipboard icon, at the bar's right end: a header with Pause and Clear all, then the
 copies, newest first, each with how long ago. A click copies it again, so Ctrl+V pastes it, and
-closes the menu; the cross deletes it. An image shows as a thumbnail. Escape, a click elsewhere or
-the icon again closes it.
+closes the menu; the cross deletes it. Drag a row out to drop it into an app (ADR-0140): text into
+an editor, an image into an app that takes one; the menu closes when you let go. An image shows
+as a thumbnail. Escape, a click elsewhere or the icon again closes it; Pin keeps it open through
+clicks elsewhere, picks and drops, until Escape or the icon.
 
 `PATINA_CLIPBOARD_PREVIEW=/tmp/p cargo test -p patina-clipboard preview -- --ignored` draws it in every
 built-in skin, without a desktop.
@@ -20,7 +22,7 @@ built-in skin, without a desktop.
 - **The compositor keeps the history** (`compositor/src/clipboard.rs`), so it's there while this is
   closed, and a copy outlives the app it came from. This only shows it and sends it requests.
 - **Talks to** `com.sectorflabs.Patina.Clipboard` on the session bus through patina-system's
-  `clipboard.rs`: `List`, `Pick`, `Delete`, `Clear`, the `Paused` property, and the `Changed`
+  `clipboard.rs`: `List`, `Pick`, `Delete`, `Clear`, `Types` and `Content` for drags, the `Paused` property, and the `Changed`
   signal, which the list follows. Nothing serves it under another desktop, and the bar then shows
   no icon.
 - **Thumbnails** are small PNG files the compositor writes under

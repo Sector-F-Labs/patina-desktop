@@ -181,6 +181,7 @@ mechanics of adding one.
 | [0137](0137-the-launcher-searches-files-with-fd-and-ripgrep.md) | The launcher searches files with fd and ripgrep, in folders Settings' Search page chooses | Accepted |
 | [0138](0138-viewport-windows-get-the-default-shadow-from-the-compositor.md) | Windows that are viewports of another's get the default shadow from the compositor | Accepted |
 | [0139](0139-a-native-keyring-prompter-in-front-of-gnome-keyring.md) | A native prompter asks for the keyring's password, in front of gnome-keyring | Accepted |
+| [0140](0140-clipboard-entries-can-be-dragged-out-of-the-menu.md) | Clipboard entries are dragged out of the menu, and the bus serves their content | Accepted |
 
 ## Decision Relationship
 

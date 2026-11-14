@@ -23,7 +23,7 @@ use smithay_client_toolkit::{
         calloop::{EventLoop, LoopHandle},
         calloop_wayland_source::WaylandSource,
         client::{
-            Connection, QueueHandle,
+            Connection, Proxy, QueueHandle,
             globals::registry_queue_init,
             protocol::{wl_keyboard, wl_output, wl_pointer, wl_seat, wl_shm, wl_surface, wl_touch},
         },
@@ -62,6 +62,7 @@ pub use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity
 /// wallpaper.
 const MAX_TEXTURE_SIDE: usize = 8192;
 
+use crate::drag::{Drag, Dragger};
 use crate::raster::Painter;
 use crate::scale::{FractionalData, NoEvents};
 use crate::shadow::{self, Style as ShadowStyle};
@@ -120,6 +121,13 @@ pub trait Shell: 'static {
     fn wanted_margin(&self) -> Option<(i32, i32, i32, i32)> {
         None
     }
+    /// A drag to start from the press that's held, if the shell wants one (ADR-0140): checked
+    /// after every frame, and taken when it's asked for.
+    fn take_drag(&mut self) -> Option<Drag> {
+        None
+    }
+    /// The drag it started is over: dropped somewhere, or called off.
+    fn drag_ended(&mut self) {}
     /// The exclusive zone the surfaces should have, if the shell changes it
     /// (the HUD giving its space back); checked after every frame.
     fn wanted_exclusive_zone(&self) -> Option<i32> {
@@ -272,6 +280,16 @@ pub struct Host<S: Shell> {
     pool: SlotPool,
     cursor_shape: Option<CursorShapeManager>,
     pointer: Option<(wl_pointer::WlPointer, Option<WpCursorShapeDeviceV1>)>,
+    /// The surface and serial of the press the pointer is held down from, which a drag
+    /// continues.
+    press: Option<(wl_surface::WlSurface, u32)>,
+    /// What drags out, made when the first drag starts; `Err` if it couldn't be.
+    dragger: Option<Result<Dragger, ()>>,
+    /// The last drag's icon, until the next replaces it.
+    drag_icon: Option<(
+        wl_surface::WlSurface,
+        smithay_client_toolkit::shm::slot::Buffer,
+    )>,
     keyboard: Option<wl_keyboard::WlKeyboard>,
     touch: Option<wl_touch::WlTouch>,
     /// The fingers down: each one's id, the surface it went down on and
@@ -350,6 +368,9 @@ impl<S: Shell> Host<S> {
             pool,
             cursor_shape: CursorShapeManager::bind(&globals, &qh).ok(),
             pointer: None,
+            press: None,
+            dragger: None,
+            drag_icon: None,
             keyboard: None,
             touch: None,
             touches: Vec::new(),
@@ -422,6 +443,9 @@ impl<S: Shell> Host<S> {
                 self.apply_shadow();
             }
             self.send_toplevel_requests();
+            if let Some(drag) = self.shell.take_drag() {
+                self.start_drag(&drag);
+            }
             if self.shell.finished() || self.dismissed {
                 self.unlock();
                 return Ok(());
@@ -429,6 +453,62 @@ impl<S: Shell> Host<S> {
             if let Some(ended) = self.lock_ended.take() {
                 return ended;
             }
+        }
+    }
+
+    /// Continues the press that's held as a drag of `drag`. Nothing happens if no press is
+    /// held (a touch, or already let go) or the compositor can't drag.
+    fn start_drag(&mut self, drag: &Drag) {
+        let Some((origin, serial)) = self.press.clone() else {
+            return;
+        };
+        if self.dragger.is_none() {
+            let seat = self.seat_state.seats().next();
+            let (ended, over) = smithay_client_toolkit::reexports::calloop::channel::channel();
+            let sourced = self.loop_handle.insert_source(over, |event, _, host| {
+                if let smithay_client_toolkit::reexports::calloop::channel::Event::Msg(()) = event {
+                    host.shell.drag_ended();
+                    host.redraw_all();
+                }
+            });
+            let made = seat
+                .filter(|_| sourced.is_ok())
+                .and_then(|seat| Dragger::new(&self.conn, &seat, ended));
+            self.dragger = Some(made.ok_or(()));
+        }
+        let Some(Ok(dragger)) = &self.dragger else {
+            return;
+        };
+        let mut icon = None;
+        if let Some(i) = &drag.icon {
+            let surface = self.compositor.create_surface(&self.qh);
+            let (w, h) = (i.size.0 as i32, i.size.1 as i32);
+            if let Ok((buffer, canvas)) =
+                self.pool
+                    .create_buffer(w, h, w * 4, wl_shm::Format::Argb8888)
+            {
+                for (out, px) in canvas.chunks_exact_mut(4).zip(&i.pixels) {
+                    out.copy_from_slice(&px.to_le_bytes());
+                }
+                surface.set_buffer_scale(i.scale.max(1));
+                // The pointer is `hotspot` pixels in: the buffer sits that far up and left.
+                let (dx, dy) = (-i.hotspot.0, -i.hotspot.1);
+                if surface.version() >= 5 {
+                    surface.attach(Some(buffer.wl_buffer()), 0, 0);
+                    surface.offset(dx, dy);
+                } else {
+                    surface.attach(Some(buffer.wl_buffer()), dx, dy);
+                }
+                surface.damage_buffer(0, 0, w, h);
+                surface.commit();
+                icon = Some((surface, buffer));
+            } else {
+                surface.destroy();
+            }
+        }
+        dragger.start(drag, &origin, icon.as_ref().map(|(s, _)| s), serial);
+        if let Some((old, _)) = std::mem::replace(&mut self.drag_icon, icon) {
+            old.destroy();
         }
     }
 
@@ -1270,6 +1350,12 @@ impl<S: Shell> PointerHandler for Host<S> {
                 PointerEventKind::Motion { .. } => egui::Event::PointerMoved(pos),
                 PointerEventKind::Press { button, .. }
                 | PointerEventKind::Release { button, .. } => {
+                    match event.kind {
+                        PointerEventKind::Press { serial, .. } => {
+                            self.press = Some((event.surface.clone(), serial));
+                        }
+                        _ => self.press = None,
+                    }
                     let Some(button) = egui_button(button) else {
                         continue;
                     };

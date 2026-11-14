@@ -102,6 +102,39 @@ impl Entry {
 /// What the bus says of an entry: id, kind, preview, thumbnail path (empty if none), time.
 pub type Row = (u64, String, String, String, u32);
 
+/// What the entries hold, as the bus serves it (`Types`, `Content`): each id's types with
+/// their bytes, shared with the history rather than copied. Two are equal when they hold the
+/// same entries' own data, so publishing it again announces nothing.
+#[derive(Debug, Clone, Default)]
+pub struct Contents(Vec<(u64, Held)>);
+
+/// An entry's types with their bytes.
+type Held = Arc<Vec<(String, Vec<u8>)>>;
+
+impl Contents {
+    pub fn from_entries(entries: impl IntoIterator<Item = (u64, Held)>) -> Self {
+        Self(entries.into_iter().collect())
+    }
+
+    pub fn get(&self, id: u64) -> Option<&[(String, Vec<u8>)]> {
+        self.0
+            .iter()
+            .find(|(i, _)| *i == id)
+            .map(|(_, types)| types.as_slice())
+    }
+}
+
+impl PartialEq for Contents {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.len() == other.0.len()
+            && self
+                .0
+                .iter()
+                .zip(&other.0)
+                .all(|((a, x), (b, y))| a == b && Arc::ptr_eq(x, y))
+    }
+}
+
 #[derive(Debug)]
 pub struct History {
     /// Newest first.
@@ -242,6 +275,10 @@ impl History {
 
     pub fn ids(&self) -> Vec<u64> {
         self.entries.iter().map(|e| e.id).collect()
+    }
+
+    pub fn contents(&self) -> Contents {
+        Contents::from_entries(self.entries.iter().map(|e| (e.id, e.types.clone())))
     }
 
     pub fn rows(&self) -> Vec<Row> {
@@ -714,6 +751,7 @@ impl State {
         if let Some(service) = &self.clipboard.service {
             service.publish(dbus::Status {
                 rows: self.clipboard.history.rows(),
+                contents: self.clipboard.history.contents(),
                 enabled: self.clipboard.history.enabled,
                 paused: self.clipboard.history.paused,
             });
@@ -1009,6 +1047,20 @@ mod tests {
         let e = h.latest().unwrap();
         assert_eq!(e.types.len(), 1);
         assert_eq!(e.types[0].0, "text/plain");
+    }
+
+    #[test]
+    fn contents_give_each_entrys_bytes_and_compare_by_what_they_share() {
+        let mut h = History::default();
+        let a = h.add(text("one"), 1).unwrap();
+        let b = h.add(text("two"), 2).unwrap();
+        let contents = h.contents();
+        assert_eq!(contents.get(a).unwrap()[0].1, b"one");
+        assert_eq!(contents.get(b).unwrap()[0].1, b"two");
+        assert!(contents.get(99).is_none());
+        assert_eq!(contents, h.contents(), "nothing changed");
+        h.delete(a);
+        assert_ne!(contents, h.contents());
     }
 
     #[test]
