@@ -265,7 +265,7 @@ minimise = "Super+M"
 ## What it does, and what it doesn't yet
 
 [docs/FEATURES.md](docs/FEATURES.md) lists what works, by area. [docs/ROADMAP.md](docs/ROADMAP.md) lists
-what doesn't: an **autostart** list, a **keyring**, **portals of its own** for
+what doesn't: an **autostart** list, a **keyring manager**, **portals of its own** for
 Flatpak apps (screen sharing goes through xdg-desktop-portal-wlr, ADR-0092, and files through Files'
 chooser), **lid** handling beyond locking before sleep, and per-monitor scale and resolution.
 

@@ -172,11 +172,10 @@ file dialogs, `xdg-desktop-portal-wlr` for screen sharing and `xdg-desktop-porta
 ([ADR-0092](adr/0092-screen-capture-for-apps-and-recording.md)). A portal backend of Patina's own
 isn't there.
 
-Still to do, so these don't work in the session yet:
+gnome-keyring stores passwords as on GNOME: Ubuntu's PAM setup unlocks it at login, and
+patina-keyring asks for its password where that can't.
 
-- **gnome-keyring**, if you want passwords stored as on GNOME (Ubuntu's PAM setup unlocks it
-  at login; patina-keyring asks for its password where that can't);
-- an autostart list for apps to open at login.
+Still to do, so this doesn't work in the session yet: an autostart list for apps to open at login.
 
 ### Which app opens a file
 

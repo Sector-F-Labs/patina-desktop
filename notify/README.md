@@ -41,7 +41,7 @@ Try it with `notify-send -u critical -A open=Open "Updates" "15 updates can be a
   out of the column into an app, which gets the file (`text/uri-list`, and its own type for a PNG or
   JPEG). The card goes once an app takes the drop. Other cards can't be dragged. `screenshots = false` in the config (a checkbox in Settings) turns
   these cards off.
-- **Not yet**: icons and images, history, and do-not-disturb.
+- **Not yet**: icons and images, and history. The bell is the do-not-disturb.
 
 ## Code
 
