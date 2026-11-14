@@ -9,7 +9,8 @@ are used (ADR-0021, ADR-0033).
 
 - **As a menu**, from the bar's speaker: a mute button, a slider and the level, at the bar's
   right end, with a card for each media player playing or paused: its track and previous, play or
-  pause and next (ADR-0117). It stays until Escape, a click elsewhere or the speaker again.
+  pause and next (ADR-0117), and the album art when the player has a cover as a file, a 64-pixel picture
+  at the card's left (ADR-0144; covers from a web address aren't fetched yet). It stays until Escape, a click elsewhere or the speaker again.
 - **As a flash**, after a volume or brightness key: it fades in without taking the keyboard,
   shows what the key changed, holds while the keys keep coming, and fades out on its own.
 

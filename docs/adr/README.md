@@ -273,3 +273,4 @@ flowchart TD
 | [0141](0141-notifications-are-a-column-at-the-right-edge-that-keeps-its-space.md) | Notifications are a column at the right edge that keeps its space | Accepted |
 | [0142](0142-clicking-a-notification-raises-its-app-and-it-goes-only-if-something-happened.md) | Clicking a notification raises its app, and a card goes only if something happened | Accepted |
 | [0143](0143-screenshots-are-notifications-you-can-drag-out-not-clipboard-entries.md) | Screenshots are notifications you can drag out, not clipboard entries | Accepted |
+| [0144](0144-album-art-on-the-players-cards-from-files-first.md) | Album art on the players' cards, from files first | Accepted |

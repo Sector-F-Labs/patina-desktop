@@ -1822,6 +1822,7 @@ mod tests {
                 status: patina_system::mpris::Status::Playing,
                 title: "Song".into(),
                 artist: String::new(),
+                art: None,
                 can_previous: true,
                 can_next: true,
             });

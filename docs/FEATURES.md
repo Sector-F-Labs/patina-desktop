@@ -40,7 +40,8 @@ Last checked against the code: 2026-11-09.
 - **A system tray** by StatusNotifierItem ([0064](adr/0064-system-tray.md)); media controls from MPRIS
   ([0101](adr/0101-media-controls-in-the-bar.md)); the keyboard layout in use.
 - **Menus for**: volume and the media players ([0021](adr/0021-tray-volume-menu-and-super-key.md),
-  [0117](adr/0117-the-volume-menu-lists-the-players.md)), Wi-Fi with captive-portal sign-in
+  [0117](adr/0117-the-volume-menu-lists-the-players.md), with album art from files,
+  [0144](adr/0144-album-art-on-the-players-cards-from-files-first.md)), Wi-Fi with captive-portal sign-in
   ([0022](adr/0022-wifi-menu.md), [0098](adr/0098-wifi-menu-signs-in-to-captive-portals.md)), the
   clipboard history ([0114](adr/0114-the-compositor-keeps-the-clipboard-history.md)), the clock with a
   month and the day's events ([0082](adr/0082-the-clock-opens-a-month-with-calendars-events.md)), the

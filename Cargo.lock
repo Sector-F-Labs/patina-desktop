@@ -4472,6 +4472,7 @@ name = "patina-volume"
 version = "0.1.0"
 dependencies = [
  "egui",
+ "image",
  "patina-shell",
  "patina-system",
  "patina-ui",

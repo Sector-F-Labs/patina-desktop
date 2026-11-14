@@ -19,6 +19,9 @@ const MARGIN: f32 = 12.0;
 /// The slider's part of the menu, and each player's card under it (ADR-0117).
 const TOP: f32 = 56.0;
 const CARD: f32 = 48.0;
+/// A card with a cover (ADR-0144): the picture's side, and the card is that and a margin round it.
+const ART: f32 = 64.0;
+const ART_MARGIN: f32 = 6.0;
 const CARD_GAP: f32 = 6.0;
 /// Players shown before the list scrolls.
 const MAX_CARDS: usize = 4;
@@ -49,19 +52,33 @@ pub enum Change {
     Brightness(f32),
 }
 
-/// How tall the menu is with `players` of them listed: the slider, and a card each.
-pub fn height(players: usize) -> u32 {
-    let shown = players.min(MAX_CARDS) as f32;
-    if shown == 0.0 {
+/// A player's card: tall enough for its cover when it has one, else the plain card.
+fn card_height(player: &Player) -> f32 {
+    if player.art.is_some() {
+        ART + 2.0 * ART_MARGIN
+    } else {
+        CARD
+    }
+}
+
+/// How tall the menu is with `players` listed: the slider, and a card each, up to the
+/// few shown before it scrolls.
+pub fn height(players: &[Player]) -> u32 {
+    let shown = &players[..players.len().min(MAX_CARDS)];
+    if shown.is_empty() {
         return TOP as u32;
     }
-    (TOP - 2.0 + shown * CARD + (shown - 1.0) * CARD_GAP + MARGIN).round() as u32
+    let cards: f32 = shown.iter().map(card_height).sum();
+    (TOP - 2.0 + cards + (shown.len() as f32 - 1.0) * CARD_GAP + MARGIN).round() as u32
 }
 
 pub struct VolumeMenu {
     pub volume: Option<Volume>,
     /// The players with something to control, playing first; listed in the menu, not the flash.
     pub players: Vec<Player>,
+    /// The covers read, and the textures made from them when a card first draws one.
+    thumbs: std::collections::HashMap<std::path::PathBuf, std::sync::Arc<crate::art::Thumb>>,
+    textures: std::collections::HashMap<std::path::PathBuf, egui::TextureHandle>,
     /// What the cards ask of a player, to the thread that sends it.
     commands: std::sync::mpsc::Sender<(String, Command)>,
     /// The backlight, 0 to 1; `None` without one.
@@ -90,6 +107,8 @@ impl VolumeMenu {
         Self {
             volume: None,
             players: Vec::new(),
+            thumbs: Default::default(),
+            textures: Default::default(),
             commands,
             brightness: None,
             mode,
@@ -101,6 +120,23 @@ impl VolumeMenu {
             skin,
             changes,
         }
+    }
+
+    /// The players to list, and the covers read since the last call (a cover read again
+    /// replaces the picture under its name).
+    pub fn set_players(
+        &mut self,
+        players: Vec<Player>,
+        fresh: Vec<(std::path::PathBuf, std::sync::Arc<crate::art::Thumb>)>,
+    ) {
+        for (path, thumb) in fresh {
+            self.textures.remove(&path);
+            self.thumbs.insert(path, thumb);
+        }
+        self.players = players;
+        let wanted: Vec<_> = self.players.iter().filter_map(|p| p.art.clone()).collect();
+        self.thumbs.retain(|path, _| wanted.contains(path));
+        self.textures.retain(|path, _| wanted.contains(path));
     }
 
     pub fn mode(&self) -> Mode {
@@ -152,13 +188,33 @@ impl VolumeMenu {
     /// A card for `player`: what it's playing, and its controls.
     fn card(&mut self, ui: &mut Ui, index: usize) {
         let v = ui.visuals().clone();
-        let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), CARD), Sense::hover());
+        let height = card_height(&self.players[index]);
+        let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::hover());
         ui.painter().rect_filled(
             rect,
             v.widgets.noninteractive.corner_radius,
             v.faint_bg_color,
         );
         let player = self.players[index].clone();
+        // The cover at the left, when there is one, and the text after it.
+        let mut left = rect.left() + 10.0;
+        if let Some(path) = &player.art
+            && let Some(thumb) = self.thumbs.get(path)
+        {
+            let texture = self.textures.entry(path.clone()).or_insert_with(|| {
+                let image = egui::ColorImage::from_rgba_unmultiplied(thumb.size, &thumb.rgba);
+                ui.ctx()
+                    .load_texture("album-art", image, egui::TextureOptions::LINEAR)
+            });
+            let at = egui::Rect::from_min_size(
+                pos2(rect.left() + ART_MARGIN, rect.center().y - ART / 2.0),
+                vec2(ART, ART),
+            );
+            egui::Image::new(&*texture)
+                .corner_radius(v.widgets.noninteractive.corner_radius)
+                .paint_at(ui, at);
+            left = at.right() + 10.0;
+        }
         // The buttons at the right, the text in what's left.
         let mut right = rect.right() - 6.0;
         let mut clicked = None;
@@ -206,10 +262,8 @@ impl VolumeMenu {
                 clicked = Some(command);
             }
         }
-        let text = egui::Rect::from_min_max(
-            pos2(rect.left() + 10.0, rect.top()),
-            pos2(right - 4.0, rect.bottom()),
-        );
+        let text =
+            egui::Rect::from_min_max(pos2(left, rect.top()), pos2(right - 4.0, rect.bottom()));
         let by = if player.artist.is_empty() {
             player.identity.clone()
         } else {
@@ -222,7 +276,8 @@ impl VolumeMenu {
                 .max_rect(text)
                 .layout(Layout::top_down(Align::Min)),
         );
-        label.add_space(7.0);
+        // Two lines, about 34 tall, in the middle of the card (7 from the top of the plain one).
+        label.add_space(((rect.height() - 34.0) / 2.0).max(0.0));
         label.add(egui::Label::new(egui::RichText::new(&player.title).strong()).truncate());
         label.add(egui::Label::new(egui::RichText::new(by).weak().small()).truncate());
         if let Some(command) = clicked {
@@ -411,12 +466,37 @@ fn command_name(command: Command) -> &'static str {
 mod tests {
     use super::*;
 
+    fn player(art: bool) -> Player {
+        Player {
+            bus_name: "org.mpris.MediaPlayer2.t".into(),
+            identity: "T".into(),
+            status: Status::Playing,
+            title: "Song".into(),
+            artist: String::new(),
+            art: art.then(|| "/tmp/cover.png".into()),
+            can_previous: true,
+            can_next: true,
+        }
+    }
+
     #[test]
     fn the_menu_grows_with_its_players_up_to_a_few() {
-        assert_eq!(height(0), 56, "no players: just the slider, as before");
-        assert!(height(1) > height(0));
-        assert!(height(2) > height(1));
-        assert_eq!(height(MAX_CARDS + 3), height(MAX_CARDS), "then it scrolls");
+        let plain = |n: usize| vec![player(false); n];
+        assert_eq!(height(&[]), 56, "no players: just the slider, as before");
+        assert!(height(&plain(1)) > height(&[]));
+        assert!(height(&plain(2)) > height(&plain(1)));
+        assert_eq!(
+            height(&plain(MAX_CARDS + 3)),
+            height(&plain(MAX_CARDS)),
+            "then it scrolls"
+        );
+    }
+
+    #[test]
+    fn a_card_with_a_cover_is_taller_by_the_difference() {
+        let extra = (ART + 2.0 * ART_MARGIN - CARD).round() as u32;
+        assert_eq!(height(&[player(true)]), height(&[player(false)]) + extra);
+        assert!(extra > 0);
     }
 
     #[test]

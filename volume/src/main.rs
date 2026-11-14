@@ -7,10 +7,12 @@
 //! keeps an open menu up, and `--brightness` the brightness; the compositor
 //! runs them after a key. Keys pressed again keep the one flash up.
 
+mod art;
 mod ui;
 
+use std::path::PathBuf;
 use std::process::ExitCode;
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
 use patina_shell::calloop::channel::{self, Event};
@@ -41,8 +43,8 @@ const POLL: Duration = Duration::from_millis(400);
 enum Message {
     Volume(patina_system::audio::Volume),
     Brightness(Option<f32>),
-    /// The players with something to control, playing first.
-    Players(Vec<Player>),
+    /// The players with something to control, playing first, and the covers read since the last.
+    Players(Vec<Player>, Vec<(PathBuf, Arc<art::Thumb>)>),
     Toggle,
     Flash(Showing),
 }
@@ -103,13 +105,15 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
         .name("poll".into())
         .spawn(move || {
             let mut bus = None;
+            let mut covers = art::Covers::default();
             loop {
                 if bus.is_none() {
                     bus = mpris::connect().ok();
                 }
                 if let Some(b) = &bus {
-                    let all = mpris::players(b).map(mpris::active).unwrap_or_default();
-                    if send.send(Message::Players(all)).is_err() {
+                    let mut all = mpris::players(b).map(mpris::active).unwrap_or_default();
+                    let fresh = covers.resolve(&mut all);
+                    if send.send(Message::Players(all, fresh)).is_err() {
                         return;
                     }
                 }
@@ -175,12 +179,14 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
     );
     // Read once now, so the menu opens as tall as it'll be, not growing a moment later.
     if mode == Mode::Menu {
-        menu.players = mpris::connect()
+        let mut players = mpris::connect()
             .and_then(|bus| mpris::players(&bus))
             .map(mpris::active)
             .unwrap_or_default();
+        let fresh = art::Covers::default().resolve(&mut players);
+        menu.set_players(players, fresh);
     }
-    let size = (WIDTH, height(menu.players.len()));
+    let size = (WIDTH, height(&menu.players));
     // At the button that opened it, or on the bar's edge (ADR-0063).
     let (anchor, margin, exclusive_zone) = piece::opening(size, GAP, Anchor::RIGHT);
     let options = Options {
@@ -192,7 +198,7 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
             if mode == Mode::Menu {
                 size.1
             } else {
-                height(0)
+                height(&[])
             },
         ),
         exclusive_zone,
@@ -224,12 +230,12 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
                     }
                     return;
                 }
-                Event::Msg(Message::Players(players)) => {
-                    if host.shell.players != players {
-                        host.shell.players = players;
+                Event::Msg(Message::Players(players, fresh)) => {
+                    if host.shell.players != players || !fresh.is_empty() {
+                        host.shell.set_players(players, fresh);
                         // Only the menu lists them; a flash is the slider alone.
                         if host.shell.mode() == Mode::Menu {
-                            host.set_size((WIDTH, height(host.shell.players.len())));
+                            host.set_size((WIDTH, height(&host.shell.players)));
                         }
                         host.redraw_all();
                     }
@@ -243,7 +249,7 @@ fn run(mode: Mode, showing: Showing) -> Result<(), String> {
                     Mode::Menu => host.shell.close(),
                     Mode::Flash => {
                         host.shell.open();
-                        host.set_size((WIDTH, height(host.shell.players.len())));
+                        host.set_size((WIDTH, height(&host.shell.players)));
                         host.set_keyboard(keyboard_for(Mode::Menu));
                     }
                 },

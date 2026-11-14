@@ -61,6 +61,13 @@ From [screenshot/HOW-IT-WORKS.md](../screenshot/HOW-IT-WORKS.md).
   reader or one-time code ([polkit/HOW-IT-WORKS.md](../polkit/HOW-IT-WORKS.md)).
 - **The app's icon in that dialog**, which polkit sends.
 
+## Media players
+
+- **Album art from a web address.** Cards show a cover only when `mpris:artUrl` is a `file://` URL;
+  players that send `http(s)` (Spotify's) get a card without one. Fetching needs an HTTP client and a
+  size and time limit ([ADR-0144](adr/0144-album-art-on-the-players-cards-from-files-first.md)).
+- **A seek bar and a volume for each player**, which the cards still don't have.
+
 ## Dictation and typing
 
 - **X11 windows.** Text can't be typed into one; it's dropped and a line is logged. X11 support is kept

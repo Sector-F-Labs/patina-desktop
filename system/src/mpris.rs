@@ -44,6 +44,9 @@ pub struct Player {
     /// The track's title, or the player's name when it gives none.
     pub title: String,
     pub artist: String,
+    /// The track's cover, when the player publishes one as a file that exists
+    /// (`mpris:artUrl` with a `file://` URL; other kinds are not read, ADR-0144).
+    pub art: Option<std::path::PathBuf>,
     pub can_previous: bool,
     pub can_next: bool,
 }
@@ -131,6 +134,36 @@ fn text(metadata: &HashMap<String, OwnedValue>, key: &str) -> String {
     String::new()
 }
 
+/// The file a `mpris:artUrl` names, when it is a `file://` URL to a file that exists.
+/// `http(s)` and the rest give `None`: a player's cover from the web isn't fetched (ADR-0144).
+pub fn art_path(url: &str) -> Option<std::path::PathBuf> {
+    let rest = url.strip_prefix("file://")?;
+    // `file://host/path` is rare and `file:///path` the rule; take a path that starts at a slash.
+    let rest = rest.strip_prefix("localhost").unwrap_or(rest);
+    if !rest.starts_with('/') {
+        return None;
+    }
+    let bytes = rest.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%'
+            && i + 2 < bytes.len()
+            && let Ok(byte) = u8::from_str_radix(&rest[i + 1..i + 3], 16)
+        {
+            out.push(byte);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    let path = std::path::PathBuf::from(
+        <std::ffi::OsString as std::os::unix::ffi::OsStringExt>::from_vec(out),
+    );
+    path.is_file().then_some(path)
+}
+
 fn read(bus: &Connection, name: &str) -> Result<Player, String> {
     let proxy = |interface: &'static str| {
         Builder::<zbus::blocking::Proxy>::new(bus)
@@ -159,6 +192,7 @@ fn read(bus: &Connection, name: &str) -> Result<Player, String> {
         identity,
         status: Status::parse(&status),
         artist: text(&metadata, "xesam:artist"),
+        art: art_path(&text(&metadata, "mpris:artUrl")),
         can_previous: player.get_property("CanGoPrevious").unwrap_or(true),
         can_next: player.get_property("CanGoNext").unwrap_or(true),
     })
@@ -209,9 +243,28 @@ mod tests {
             status,
             title: "Song".into(),
             artist: String::new(),
+            art: None,
             can_previous: true,
             can_next: true,
         }
+    }
+
+    #[test]
+    fn only_a_file_url_to_a_file_that_exists_is_art() {
+        let dir = std::env::temp_dir().join(format!("patina-art-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("My Cover.jpg");
+        std::fs::write(&file, b"x").unwrap();
+        let url = format!("file://{}", dir.join("My%20Cover.jpg").display());
+        assert_eq!(art_path(&url), Some(file));
+        assert_eq!(
+            art_path(&format!("file://{}/missing.jpg", dir.display())),
+            None
+        );
+        assert_eq!(art_path("https://example.com/cover.jpg"), None);
+        assert_eq!(art_path(""), None);
+        assert_eq!(art_path("file://host/etc/passwd"), None);
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
