@@ -209,7 +209,12 @@ impl ClipboardMenu {
 /// it's dropped on wants them, and a picture of the row to show under the pointer.
 fn drag_of(ctx: &egui::Context, skin: &Skin, entry: &Entry) -> Option<Drag> {
     let types = match clipboard::types(entry.id) {
-        Ok(types) if !types.is_empty() => types,
+        // A type can be listed twice (an app offers it under two atoms): offered once.
+        Ok(mut types) if !types.is_empty() => {
+            let mut seen = std::collections::HashSet::new();
+            types.retain(|t| seen.insert(t.clone()));
+            types
+        }
         Ok(_) => return None,
         Err(e) => {
             eprintln!("patina-clipboard: {e}");
