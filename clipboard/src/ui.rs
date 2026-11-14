@@ -448,6 +448,10 @@ impl Shell for ClipboardMenu {
             });
     }
 
+    fn drags(&self) -> bool {
+        true
+    }
+
     fn take_drag(&mut self) -> Option<Drag> {
         let drag = self.drag.take();
         self.dragging |= drag.is_some();

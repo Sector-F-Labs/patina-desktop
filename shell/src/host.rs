@@ -121,6 +121,10 @@ pub trait Shell: 'static {
     fn wanted_margin(&self) -> Option<(i32, i32, i32, i32)> {
         None
     }
+    /// Whether the shell ever starts drags, so what they need is ready before the first one.
+    fn drags(&self) -> bool {
+        false
+    }
     /// A drag to start from the press that's held, if the shell wants one (ADR-0140): checked
     /// after every frame, and taken when it's asked for.
     fn take_drag(&mut self) -> Option<Drag> {
@@ -404,6 +408,9 @@ impl<S: Shell> Host<S> {
     /// Runs until the shell is [`Shell::finished`], or an error such as the
     /// compositor going away.
     pub fn run(mut self, mut event_loop: EventLoop<'static, Self>) -> Result<(), String> {
+        if self.shell.drags() {
+            self.ensure_dragger();
+        }
         loop {
             let timeout = self
                 .next_repaint()
@@ -459,32 +466,37 @@ impl<S: Shell> Host<S> {
         }
     }
 
+    /// Makes what drags out, once. Making it takes a round trip to the compositor, so a shell
+    /// that drags has it made before the first press: made after the pointer has moved, the
+    /// button could be let go before the drag reached the compositor, which then refuses it.
+    fn ensure_dragger(&mut self) {
+        if self.dragger.is_some() {
+            return;
+        }
+        let seat = self.seat_state.seats().next();
+        let (ended, over) = smithay_client_toolkit::reexports::calloop::channel::channel::<bool>();
+        let sourced = self.loop_handle.insert_source(over, |event, _, host| {
+            if let smithay_client_toolkit::reexports::calloop::channel::Event::Msg(taken) = event {
+                if taken {
+                    host.shell.drag_dropped();
+                }
+                host.shell.drag_ended();
+                host.redraw_all();
+            }
+        });
+        let made = seat
+            .filter(|_| sourced.is_ok())
+            .and_then(|seat| Dragger::new(&self.conn, &seat, ended));
+        self.dragger = Some(made.ok_or(()));
+    }
+
     /// Continues the press that's held as a drag of `drag`. Nothing happens if no press is
     /// held (a touch, or already let go) or the compositor can't drag.
     fn start_drag(&mut self, drag: &Drag) {
         let Some((origin, serial)) = self.press.clone() else {
             return;
         };
-        if self.dragger.is_none() {
-            let seat = self.seat_state.seats().next();
-            let (ended, over) =
-                smithay_client_toolkit::reexports::calloop::channel::channel::<bool>();
-            let sourced = self.loop_handle.insert_source(over, |event, _, host| {
-                if let smithay_client_toolkit::reexports::calloop::channel::Event::Msg(taken) =
-                    event
-                {
-                    if taken {
-                        host.shell.drag_dropped();
-                    }
-                    host.shell.drag_ended();
-                    host.redraw_all();
-                }
-            });
-            let made = seat
-                .filter(|_| sourced.is_ok())
-                .and_then(|seat| Dragger::new(&self.conn, &seat, ended));
-            self.dragger = Some(made.ok_or(()));
-        }
+        self.ensure_dragger();
         let Some(Ok(dragger)) = &self.dragger else {
             return;
         };

@@ -211,6 +211,10 @@ impl Shell for Column {
         }
     }
 
+    fn drags(&self) -> bool {
+        true
+    }
+
     fn take_drag(&mut self) -> Option<Drag> {
         self.drag.take()
     }
