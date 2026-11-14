@@ -16,6 +16,8 @@ use patina::skin::Skin;
 use patina_shell::{Drag, Icon, Shell};
 use patina_system::clipboard::{self, Entry, Kind, Status};
 
+/// The type a file is dropped as.
+const URI_LIST: &str = "text/uri-list";
 const MARGIN: f32 = 12.0;
 const ROW: f32 = 36.0;
 const IMAGE_ROW: f32 = 72.0;
@@ -222,9 +224,30 @@ fn drag_of(ctx: &egui::Context, skin: &Skin, entry: &Entry) -> Option<Drag> {
         }
     };
     let id = entry.id;
+    // A web page only gets a dropped picture as a file, which it's given by a `file://` URI;
+    // native apps take the picture's own type. So a picture is also offered as a file, last.
+    let image = types.iter().find(|t| t.starts_with("image/")).cloned();
+    let mut types = types;
+    if image.is_some() && !types.iter().any(|t| t == URI_LIST) {
+        types.push(URI_LIST.to_string());
+    }
     Some(Drag {
         types,
-        data: std::sync::Arc::new(move |mime| clipboard::content(id, mime).ok()),
+        data: std::sync::Arc::new(move |mime| {
+            if mime == URI_LIST {
+                let bytes = clipboard::content(id, image.as_deref()?).ok()?;
+                let ext = image.as_deref()?.strip_prefix("image/")?.split('+').next()?;
+                let dir = std::env::var_os("XDG_RUNTIME_DIR")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_else(std::env::temp_dir)
+                    .join("patina-clipboard");
+                std::fs::create_dir_all(&dir).ok()?;
+                let path = dir.join(format!("clipboard-{id}.{ext}"));
+                std::fs::write(&path, bytes).ok()?;
+                return Some(format!("file://{}\r\n", path.display()).into_bytes());
+            }
+            clipboard::content(id, mime).ok()
+        }),
         icon: drag_icon(skin, entry, ctx.pixels_per_point()),
     })
 }
