@@ -1,5 +1,7 @@
 //! The clipboard menu: a header with Clear all, then the copies, newest first. A click on a
-//! row copies it again and closes the menu; × deletes it. Images show a thumbnail.
+//! row copies it again and closes the menu; × deletes it; dragging a row out drops the copy
+//! into the app it's let go on, and the menu closes when the button's let go, not before
+//! (ADR-0140); Pin keeps it open. Images show a thumbnail.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -11,8 +13,8 @@ use egui::{
     UiBuilder, pos2, vec2,
 };
 use patina::skin::Skin;
-use patina_shell::Shell;
-use patina_system::clipboard::{Entry, Kind, Status};
+use patina_shell::{Drag, Icon, Shell};
+use patina_system::clipboard::{self, Entry, Kind, Status};
 
 const MARGIN: f32 = 12.0;
 const ROW: f32 = 36.0;
@@ -34,6 +36,13 @@ pub struct ClipboardMenu {
     pub status: Option<Status>,
     /// Thumbnails read so far; `None` for a file that wouldn't load.
     thumbnails: HashMap<PathBuf, Option<TextureHandle>>,
+    /// A drag the host is to start from the press that's held.
+    drag: Option<Drag>,
+    /// A drag from here is under way: the menu is left alone until it ends.
+    dragging: bool,
+    /// Pinned: it stays open when focus moves away, after a drop and after a pick, until
+    /// Escape or the bar's icon.
+    pinned: bool,
     had_focus: bool,
     done: bool,
     skin: Skin,
@@ -45,6 +54,9 @@ impl ClipboardMenu {
         Self {
             status: None,
             thumbnails: HashMap::new(),
+            drag: None,
+            dragging: false,
+            pinned: false,
             had_focus: false,
             done: false,
             skin,
@@ -63,7 +75,7 @@ impl ClipboardMenu {
     /// A click on entry `id`: it's copied again, and the menu is done.
     fn picked(&mut self, id: u64) {
         self.send(Command::Pick(id));
-        self.done = true;
+        self.done = !self.pinned;
     }
 
     /// The ×: the entry goes at once from the list, and from the compositor's.
@@ -101,7 +113,7 @@ impl ClipboardMenu {
             ROW
         };
         let (rect, response) =
-            ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
+            ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click_and_drag());
         let cross = Rect::from_center_size(
             rect.right_center() - vec2(CROSS / 2.0 + 4.0, 0.0),
             vec2(CROSS, CROSS),
@@ -182,12 +194,130 @@ impl ClipboardMenu {
         ui.painter()
             .line_segment([c + vec2(-d, d), c + vec2(d, -d)], stroke);
         cross_response.clone().on_hover_text("Delete");
+        if response.drag_started() && !cross_response.is_pointer_button_down_on() {
+            self.drag = drag_of(ui.ctx(), &self.skin, entry);
+        }
         if cross_response.clicked() {
             self.deleted(entry.id);
         } else if response.clicked() {
             self.picked(entry.id);
         }
     }
+}
+
+/// A drag of `entry`: the types it holds, their bytes asked of the compositor when the app
+/// it's dropped on wants them, and a picture of the row to show under the pointer.
+fn drag_of(ctx: &egui::Context, skin: &Skin, entry: &Entry) -> Option<Drag> {
+    let types = match clipboard::types(entry.id) {
+        Ok(types) if !types.is_empty() => types,
+        Ok(_) => return None,
+        Err(e) => {
+            eprintln!("patina-clipboard: {e}");
+            return None;
+        }
+    };
+    let id = entry.id;
+    Some(Drag {
+        types,
+        data: std::sync::Arc::new(move |mime| clipboard::content(id, mime).ok()),
+        icon: drag_icon(skin, entry, ctx.pixels_per_point()),
+    })
+}
+
+/// The logical width of the picture under the pointer while dragging.
+const ICON_WIDTH: f32 = 240.0;
+
+/// `entry`'s row as a small card, drawn here and now at `ppp` pixels to the point, in the
+/// menu's skin.
+fn drag_icon(skin: &Skin, entry: &Entry, ppp: f32) -> Option<Icon> {
+    let height = if entry.thumbnail.is_some() {
+        IMAGE_ROW
+    } else {
+        ROW
+    };
+    let scale = ppp.ceil().max(1.0);
+    let ctx = egui::Context::default();
+    skin.apply(&ctx);
+    ctx.set_pixels_per_point(scale);
+    let image = entry
+        .thumbnail
+        .as_deref()
+        .and_then(|path| image::open(path).ok())
+        .map(|img| {
+            let img = img.to_rgba8();
+            let size = [img.width() as usize, img.height() as usize];
+            let colours = ColorImage::from_rgba_unmultiplied(size, img.as_raw());
+            ctx.load_texture("drag-icon", colours, Default::default())
+        });
+    let (w, h) = ((ICON_WIDTH * scale) as usize, (height * scale) as usize);
+    let mut painter = patina_shell::raster::Painter::default();
+    let mut pixels = vec![0u32; w * h];
+    // The first frame loads the fonts and the picture; the last is the one that's right.
+    for _ in 0..3 {
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(
+                pos2(0.0, 0.0),
+                vec2(ICON_WIDTH, height),
+            )),
+            focused: true,
+            max_texture_side: Some(8192),
+            ..Default::default()
+        };
+        let out = ctx.run_ui(input, |ui| {
+            let rect = ui.max_rect().shrink(1.0);
+            let v = ui.visuals().clone();
+            ui.painter().rect(
+                rect,
+                v.widgets.hovered.corner_radius,
+                v.panel_fill,
+                v.window_stroke,
+                StrokeKind::Inside,
+            );
+            let mut left = rect.left() + 10.0;
+            if let Some(texture) = &image {
+                let size = texture.size_vec2();
+                let k = ((height - 14.0) / size.y).min(1.0).min(96.0 / size.x);
+                let shown =
+                    Rect::from_min_size(pos2(left, rect.center().y - size.y * k / 2.0), size * k);
+                ui.painter().image(
+                    texture.id(),
+                    shown,
+                    Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                    egui::Color32::WHITE,
+                );
+                left = shown.right() + 10.0;
+            }
+            let mut job = egui::text::LayoutJob::simple_singleline(
+                entry.preview.clone(),
+                egui::TextStyle::Body.resolve(ui.style()),
+                v.text_color(),
+            );
+            job.wrap =
+                egui::text::TextWrapping::truncate_at_width((rect.right() - 10.0 - left).max(20.0));
+            let galley = ui.painter().layout_job(job);
+            ui.painter().galley(
+                pos2(left, rect.center().y - galley.size().y / 2.0),
+                galley,
+                v.text_color(),
+            );
+        });
+        let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+        pixels.fill(0);
+        painter.paint(
+            &mut pixels,
+            w,
+            h,
+            out.pixels_per_point,
+            &primitives,
+            &out.textures_delta,
+        );
+    }
+    Some(Icon {
+        size: (w as u32, h as u32),
+        scale: scale as i32,
+        pixels,
+        hotspot: ((20.0 * scale) as i32, (height / 2.0 * scale) as i32),
+    })
 }
 
 /// How long before `now` an entry from `at` was: "now", "5m", "3h", "2d".
@@ -219,7 +349,7 @@ impl Shell for ClipboardMenu {
     fn ui(&mut self, ui: &mut Ui, _: &str) {
         if ui.input(|i| i.focused) {
             self.had_focus = true;
-        } else if self.had_focus {
+        } else if self.had_focus && !self.pinned && !self.dragging && self.drag.is_none() {
             self.done = true;
             return;
         }
@@ -258,6 +388,8 @@ impl Shell for ClipboardMenu {
                 {
                     self.cleared();
                 }
+                ui.checkbox(&mut self.pinned, "Pin")
+                    .on_hover_text("Keep the menu open until Escape or the bar's icon");
                 let mut paused = status.paused;
                 if ui.checkbox(&mut paused, "Pause").changed() {
                     self.send(Command::Paused(paused));
@@ -286,6 +418,18 @@ impl Shell for ClipboardMenu {
                     self.row(ui, entry, now);
                 }
             });
+    }
+
+    fn take_drag(&mut self) -> Option<Drag> {
+        let drag = self.drag.take();
+        self.dragging |= drag.is_some();
+        drag
+    }
+
+    /// Let go, wherever: the menu has done what it was opened for.
+    fn drag_ended(&mut self) {
+        self.dragging = false;
+        self.done = !self.pinned;
     }
 
     fn finished(&self) -> bool {
@@ -328,6 +472,20 @@ mod tests {
     }
 
     #[test]
+    fn pinned_it_stays_open_after_a_pick_and_a_drop() {
+        let (mut m, _commands) = menu();
+        m.pinned = true;
+        m.picked(1);
+        assert!(!m.finished());
+        m.dragging = true;
+        m.drag_ended();
+        assert!(!m.finished());
+        m.pinned = false;
+        m.drag_ended();
+        assert!(m.finished(), "unpinned, the drop closes it");
+    }
+
+    #[test]
     fn deleting_and_clearing_empty_the_list_at_once() {
         let (mut m, commands) = menu();
         m.deleted(2);
@@ -337,6 +495,19 @@ mod tests {
         m.cleared();
         assert_eq!(commands.try_recv(), Ok(Command::Clear));
         assert!(m.status.as_ref().unwrap().entries.is_empty());
+    }
+
+    #[test]
+    fn a_drag_icon_is_a_card_with_the_copy_on_it() {
+        let icon = drag_icon(&Skin::default_skin(), &entry(1), 2.0).unwrap();
+        assert_eq!(icon.size, (480, 72));
+        assert_eq!(icon.scale, 2);
+        assert_eq!(icon.pixels.len(), 480 * 72);
+        assert!(
+            icon.pixels.iter().any(|p| p >> 24 != 0),
+            "something is drawn"
+        );
+        assert_eq!(icon.pixels[0] >> 24, 0, "the corner is clear");
     }
 
     #[test]

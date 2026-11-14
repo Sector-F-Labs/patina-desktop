@@ -1,7 +1,7 @@
 //! The compositor's clipboard history (ADR-0114), through its
 //! `com.sectorflabs.Patina.Clipboard` on the session bus: the copies it
-//! keeps, picking one, deleting one, clearing them, and pausing the
-//! history. For the bar's tray icon and its applet, patina-clipboard.
+//! keeps, picking one, deleting one, clearing them, pausing the
+//! history, and the content of an entry for a drag (ADR-0140). For the bar's tray icon and its applet, patina-clipboard.
 
 use std::path::PathBuf;
 
@@ -102,6 +102,22 @@ pub fn status() -> Result<Option<Status>, String> {
 /// Makes entry `id` the clipboard, and the newest.
 pub fn pick(id: u64) -> Result<(), String> {
     with(|p| p.call::<_, _, ()>("Pick", &(id,)))
+}
+
+/// The MIME types entry `id` holds, to say what a drag of it offers.
+pub fn types(id: u64) -> Result<Vec<String>, String> {
+    let bus = session()?;
+    proxy(&bus)?
+        .call("Types", &(id,))
+        .map_err(|e| e.to_string())
+}
+
+/// Entry `id`'s bytes as `mime`, for a drag to give the app it's dropped on.
+pub fn content(id: u64, mime: &str) -> Result<Vec<u8>, String> {
+    let bus = session()?;
+    proxy(&bus)?
+        .call("Content", &(id, mime))
+        .map_err(|e| e.to_string())
 }
 
 /// Removes entry `id`.

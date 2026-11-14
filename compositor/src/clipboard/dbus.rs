@@ -6,16 +6,18 @@
 //! request reaches the event loop over a calloop channel, and what the history holds comes
 //! back as a `Status` that `List` and the properties read and `Changed` announces.
 //!
-//! `List` gives each entry's preview, cut short, and never its content: that reaches a
-//! program only by being picked, and goes on to the clipboard, not to the caller. The bus is
-//! open to every program the user runs, so this keeps what it hands out small.
+//! `List` gives each entry's preview, cut short, and never its content. The content is
+//! `Content`'s, which drags need (ADR-0140): an entry's bytes in one of its types, to a caller
+//! that asks for an id it knows from `List`. The bus is open to every program the user runs,
+//! so `List` keeps what it hands out small, and `Content` is what the history's privacy
+//! rests on (ADR-0140).
 
 use std::sync::{Arc, Mutex, mpsc};
 
 use smithay::reexports::calloop::{LoopHandle, channel};
 use zbus::object_server::SignalEmitter;
 
-use super::Row;
+use super::{Contents, Row};
 use crate::state::State;
 
 pub const NAME: &str = "com.sectorflabs.Patina.Clipboard";
@@ -25,6 +27,8 @@ pub const PATH: &str = "/com/sectorflabs/Patina/Clipboard";
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Status {
     pub rows: Vec<Row>,
+    /// What each row holds, for `Types` and `Content`.
+    pub contents: Contents,
     pub enabled: bool,
     pub paused: bool,
 }
@@ -122,6 +126,10 @@ fn announce_changes(connection: &zbus::blocking::Connection, changed: &mpsc::Rec
     }
 }
 
+fn no_entry(id: u64) -> zbus::fdo::Error {
+    zbus::fdo::Error::InvalidArgs(format!("no entry {id} in the history"))
+}
+
 struct Interface {
     requests: channel::Sender<Request>,
     status: Arc<Mutex<Status>>,
@@ -142,9 +150,7 @@ impl Interface {
         if self.status().rows.iter().any(|r| r.0 == id) {
             Ok(())
         } else {
-            Err(zbus::fdo::Error::InvalidArgs(format!(
-                "no entry {id} in the history"
-            )))
+            Err(no_entry(id))
         }
     }
 }
@@ -156,6 +162,27 @@ impl Interface {
     /// copied, in seconds since 1970.
     fn list(&self) -> Vec<Row> {
         self.status().rows
+    }
+
+    /// The types an entry holds, as MIME types (`text/plain;charset=utf-8`, `image/png`), to
+    /// say what a drag of it offers.
+    fn types(&self, id: u64) -> zbus::fdo::Result<Vec<String>> {
+        let status = self.status();
+        let types = status.contents.get(id).ok_or_else(|| no_entry(id))?;
+        Ok(types.iter().map(|(mime, _)| mime.clone()).collect())
+    }
+
+    /// An entry's bytes in one of its types, for a drag to hand to the app it's dropped on.
+    fn content(&self, id: u64, mime: &str) -> zbus::fdo::Result<Vec<u8>> {
+        let status = self.status();
+        let types = status.contents.get(id).ok_or_else(|| no_entry(id))?;
+        types
+            .iter()
+            .find(|(m, _)| m == mime)
+            .map(|(_, bytes)| bytes.clone())
+            .ok_or_else(|| {
+                zbus::fdo::Error::InvalidArgs(format!("entry {id} has nothing as {mime}"))
+            })
     }
 
     /// Puts an entry on the clipboard, as the newest.
@@ -234,7 +261,15 @@ mod tests {
             })
             .unwrap();
         let service = Service::serve(send).expect("the name is free on a bus of our own");
+        let held: Contents = Contents::from_entries([(
+            2,
+            Arc::new(vec![(
+                "text/plain;charset=utf-8".to_string(),
+                b"second".to_vec(),
+            )]),
+        )]);
         service.publish(Status {
+            contents: held,
             rows: vec![
                 (2, "text".into(), "second".into(), String::new(), 20),
                 (
@@ -253,6 +288,27 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].2, "second");
         assert_eq!(rows[1].1, "image");
+
+        let types: Vec<String> = call("Types", &(2u64,))
+            .unwrap()
+            .body()
+            .deserialize()
+            .unwrap();
+        assert_eq!(types, ["text/plain;charset=utf-8"]);
+        let bytes: Vec<u8> = call("Content", &(2u64, "text/plain;charset=utf-8"))
+            .unwrap()
+            .body()
+            .deserialize()
+            .unwrap();
+        assert_eq!(bytes, b"second");
+        assert!(
+            call("Content", &(2u64, "image/png")).is_err(),
+            "not in that type"
+        );
+        assert!(
+            call("Content", &(99u64, "text/plain")).is_err(),
+            "there's no entry 99"
+        );
 
         call("Pick", &(2u64,)).unwrap();
         call("Delete", &(1u64,)).unwrap();
