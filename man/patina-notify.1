@@ -16,6 +16,8 @@ Each card has the app's name, a close button in its top right corner, a summary,
 a body and a button for each action the app offered; clicking the card itself
 sends the app its default action and brings the app's window forward; the card
 closes only if a window came forward.
+A card for a screenshot can be dragged into an app, which gets the file, and
+the card goes once the app takes it.
 Cards stay until they are dismissed, unless the app gave the notification a
 timeout; critical ones never expire.
 .Pp
@@ -50,6 +52,8 @@ Looked at once a second; the bell in the tray and Settings' Notifications page w
 .It Li enabled = false
 turns notifications off: nothing is shown and no space is kept, though the
 calls apps make still succeed.
+.It Li screenshots = false
+shows no card for a screenshot; they are still saved.
 .It Li hide_in_fullscreen = false
 shows notifications while a fullscreen window has the keyboard; by default they
 wait until it is left.

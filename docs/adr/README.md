@@ -157,7 +157,7 @@ mechanics of adding one.
 | [0113](0113-the-huds-parts-ask-for-shadows.md) | The HUD's parts ask the compositor for shadows, and `shadows` in the HUD config turns them off | Accepted |
 | [0114](0114-the-compositor-keeps-the-clipboard-history.md) | The compositor keeps the clipboard history and serves it on the session bus; a tray icon opens an applet | Accepted |
 | [0115](0115-dbug-watches-the-bus-as-a-monitor.md) | Dbug watches the session bus as a monitor, and sends from a connection of its own | Proposed |
-| [0116](0116-screenshots-go-to-the-clipboard-and-clipboard-settings.md) | Screenshots always go to the clipboard, and `[clipboard]` in the compositor config with a Settings page | Accepted; builds on [0114](0114-the-compositor-keeps-the-clipboard-history.md) |
+| [0116](0116-screenshots-go-to-the-clipboard-and-clipboard-settings.md) | Screenshots always go to the clipboard, and `[clipboard]` in the compositor config with a Settings page | Accepted; builds on [0114](0114-the-compositor-keeps-the-clipboard-history.md); the screenshots-to-clipboard part superseded by [0143](0143-screenshots-are-notifications-you-can-drag-out-not-clipboard-entries.md) |
 | [0117](0117-the-volume-menu-lists-the-players.md) | The volume menu lists the media players, and the bar counts them | Accepted; builds on [0101](0101-media-controls-in-the-bar.md) |
 | [0118](0118-skin-builder.md) | Skin Builder makes skins and applies them to the apps in ~/.config | Accepted; builds on Patina's ADR-0004 |
 | [0119](0119-dictation-settings-and-models.md) | Dictation's model, language and accuracy are settings, and models download from Settings | Accepted |
@@ -272,3 +272,4 @@ flowchart TD
 - Running on real hardware: a DRM/KMS backend ([ADR-0008](0008-nested-software-backend.md)).
 | [0141](0141-notifications-are-a-column-at-the-right-edge-that-keeps-its-space.md) | Notifications are a column at the right edge that keeps its space | Accepted |
 | [0142](0142-clicking-a-notification-raises-its-app-and-it-goes-only-if-something-happened.md) | Clicking a notification raises its app, and a card goes only if something happened | Accepted |
+| [0143](0143-screenshots-are-notifications-you-can-drag-out-not-clipboard-entries.md) | Screenshots are notifications you can drag out, not clipboard entries | Accepted |

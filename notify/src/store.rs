@@ -1,6 +1,7 @@
 //! The notifications on show, as plain data with no bus or surface in it
 //! (ADR-0141): what came in, what replaced what, and what has run out of time.
 
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 /// Why a notification closed, as the specification numbers them.
@@ -31,6 +32,11 @@ pub struct Note {
     pub app: String,
     /// The `desktop-entry` hint: the app's desktop file, without `.desktop`.
     pub desktop_entry: String,
+    /// A picture to show on the card: the `image-path` hint.
+    pub image: Option<PathBuf>,
+    /// A file the card stands for, which can be dragged out of it into an app: the
+    /// `x-patina-file` hint, which a screenshot sends (ADR-0143).
+    pub file: Option<PathBuf>,
     pub summary: String,
     pub body: String,
     /// (key, label) of each action; "default" is the card being clicked.
@@ -150,6 +156,53 @@ pub fn plain(text: &str) -> String {
         .replace("&amp;", "&")
 }
 
+/// A path from a hint: a plain path, or a `file://` URI of one.
+pub fn hint_path(text: &str) -> Option<PathBuf> {
+    let text = text.trim();
+    match text.strip_prefix("file://") {
+        Some(rest) => Some(PathBuf::from(unescape(rest))).filter(|p| p.is_absolute()),
+        None => Some(PathBuf::from(text)).filter(|p| p.is_absolute()),
+    }
+}
+
+fn unescape(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = (bytes[i] == b'%' && i + 2 < bytes.len())
+            .then(|| std::str::from_utf8(&bytes[i + 1..i + 3]).ok())
+            .flatten()
+            .and_then(|h| u8::from_str_radix(h, 16).ok());
+        match hex {
+            Some(b) => {
+                out.push(b);
+                i += 3;
+            }
+            None => {
+                out.push(bytes[i]);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// `path` as a `file://` URI, the way a file manager offers a dragged file: anything but
+/// letters, digits, `-._~` and `/` is percent-encoded, so spaces in a name are safe.
+pub fn file_uri(path: &std::path::Path) -> String {
+    use std::os::unix::ffi::OsStrExt;
+    let mut uri = String::from("file://");
+    for &b in path.as_os_str().as_bytes() {
+        if b.is_ascii_alphanumeric() || b"-._~/".contains(&b) {
+            uri.push(b as char);
+        } else {
+            uri.push_str(&format!("%{b:02X}"));
+        }
+    }
+    uri
+}
+
 /// Pairs the flat list an app sends (`key, label, key, label`) up.
 pub fn action_pairs(flat: &[String]) -> Vec<(String, String)> {
     flat.chunks_exact(2)
@@ -166,6 +219,8 @@ mod tests {
             id: 0,
             app: "app".into(),
             desktop_entry: String::new(),
+            image: None,
+            file: None,
             summary: summary.into(),
             body: String::new(),
             actions: Vec::new(),
@@ -267,6 +322,33 @@ mod tests {
         assert_eq!(window_for(&n, &windows), None);
         n.app = "me".into();
         assert_eq!(window_for(&n, &windows), None, "too short to go by");
+    }
+
+    #[test]
+    fn a_dragged_file_is_a_uri_with_its_odd_characters_encoded() {
+        let path = std::path::Path::new(
+            "/home/me/Pictures/Screenshots/Screenshot 2026-11-14 at 17.04.55.png",
+        );
+        assert_eq!(
+            file_uri(path),
+            "file:///home/me/Pictures/Screenshots/Screenshot%202026-11-14%20at%2017.04.55.png"
+        );
+        assert_eq!(hint_path(&file_uri(path)).as_deref(), Some(path));
+    }
+
+    #[test]
+    fn a_hint_path_is_a_path_or_a_uri_and_must_be_absolute() {
+        assert_eq!(hint_path("/tmp/a.png"), Some(PathBuf::from("/tmp/a.png")));
+        assert_eq!(
+            hint_path("file:///tmp/a%20b.png"),
+            Some(PathBuf::from("/tmp/a b.png"))
+        );
+        assert_eq!(hint_path("relative.png"), None);
+        assert_eq!(
+            hint_path("dialog-information"),
+            None,
+            "an icon name isn't a file"
+        );
     }
 
     #[test]

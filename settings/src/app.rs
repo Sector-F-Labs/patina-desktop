@@ -46,22 +46,23 @@ pub enum Page {
 }
 
 impl Page {
+    /// The sidebar's order: alphabetical by title (`pages_are_in_alphabetical_order`).
     const ALL: [Page; 16] = [
-        Page::Appearance,
-        Page::Bar,
-        Page::Wallpaper,
         Page::Account,
-        Page::Defaults,
-        Page::Keyboard,
-        Page::Dictation,
+        Page::Appearance,
         Page::Clipboard,
-        Page::Notifications,
-        Page::Search,
+        Page::Defaults,
+        Page::Dictation,
         Page::Displays,
-        Page::NightLight,
         Page::GameMode,
+        Page::Bar,
+        Page::Keyboard,
+        Page::NightLight,
+        Page::Notifications,
         Page::Power,
         Page::Processes,
+        Page::Search,
+        Page::Wallpaper,
         Page::WebApps,
     ];
 
@@ -746,6 +747,18 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pages_are_in_alphabetical_order() {
+        let titles: Vec<_> = Page::ALL.iter().map(|p| p.title().to_lowercase()).collect();
+        let mut sorted = titles.clone();
+        sorted.sort();
+        assert_eq!(titles, sorted);
+        // Every page is listed once.
+        let mut seen = titles.clone();
+        seen.dedup();
+        assert_eq!(seen.len(), titles.len());
+    }
 
     /// Draws each page in software, as PNGs in the folder
     /// PATINA_SETTINGS_PREVIEW names, to look at. It reads the real

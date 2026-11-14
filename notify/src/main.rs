@@ -8,6 +8,7 @@ mod config;
 mod daemon;
 mod fullscreen;
 mod store;
+mod thumbs;
 
 use std::process::ExitCode;
 

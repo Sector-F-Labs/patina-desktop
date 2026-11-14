@@ -3,7 +3,8 @@
 //! Super+Shift+5) offers the choice, a selection too (ADR-0091, `menu.rs`,
 //! `select.rs`). The compositor draws what it would show into an image of
 //! its own, with whichever renderer it's using, and a thread saves it as a
-//! PNG in ~/Pictures/Screenshots, named as macOS names them.
+//! PNG in ~/Pictures/Screenshots, named as macOS names them, and tells the
+//! notification daemon, which shows it as a card to drag into an app (ADR-0143).
 
 pub mod menu;
 pub mod select;
@@ -151,13 +152,6 @@ impl State {
                     self.flash = Some(Flash::new(area));
                     self.needs_redraw = true;
                 }
-                // On the clipboard too, whether or not a history is kept (ADR-0116).
-                let pictures = self
-                    .config
-                    .clipboard
-                    .screenshots
-                    .then(|| self.clipboard_pictures())
-                    .flatten();
                 let _ = std::thread::Builder::new()
                     .name("screenshot".into())
                     .spawn(move || {
@@ -166,11 +160,11 @@ impl State {
                             Err(e) => return eprintln!("patina-compositor: screenshot: {e}"),
                         };
                         match save(&png) {
-                            Ok(path) => eprintln!("patina-compositor: saved {}", path.display()),
+                            Ok(path) => {
+                                eprintln!("patina-compositor: saved {}", path.display());
+                                announce(&path);
+                            }
                             Err(e) => eprintln!("patina-compositor: screenshot: {e}"),
-                        }
-                        if let Some(pictures) = pictures {
-                            pictures.send(png);
                         }
                     });
             }
@@ -458,6 +452,46 @@ fn unpremultiply(rgba: &mut [u8]) {
 }
 
 /// Writes the PNG `png` into the screenshots folder; returns where.
+/// The hints of the notification for a saved screenshot (ADR-0143): `image-path` is the
+/// freedesktop thumbnail, and `x-patina-file` marks the card as a file that can be dragged out.
+fn announce_hints(path: &Path) -> Vec<(&'static str, String)> {
+    let file = path.to_string_lossy().into_owned();
+    vec![("image-path", file.clone()), ("x-patina-file", file)]
+}
+
+/// Tells the notification daemon about a saved screenshot, so it shows as a card to drag into
+/// an app. Nothing happens, and the file is where it was saved, if nothing answers.
+fn announce(path: &Path) {
+    use zbus::zvariant::Value;
+    let Ok(bus) = zbus::blocking::Connection::session() else {
+        return;
+    };
+    let hints: std::collections::HashMap<&str, Value> = announce_hints(path)
+        .into_iter()
+        .map(|(k, v)| (k, Value::from(v)))
+        .collect();
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
+    let sent = bus.call_method(
+        Some("org.freedesktop.Notifications"),
+        "/org/freedesktop/Notifications",
+        Some("org.freedesktop.Notifications"),
+        "Notify",
+        &(
+            "Screenshot",
+            0u32,
+            "",
+            "Screenshot saved",
+            name.unwrap_or_default(),
+            Vec::<&str>::new(),
+            hints,
+            -1i32,
+        ),
+    );
+    if let Err(e) = sent {
+        eprintln!("patina-compositor: the screenshot isn't announced: {e}");
+    }
+}
+
 fn save(png: &[u8]) -> Result<PathBuf, String> {
     let folder = folder().ok_or("no home folder")?;
     std::fs::create_dir_all(&folder).map_err(|e| format!("{}: {e}", folder.display()))?;
@@ -514,6 +548,16 @@ mod tests {
             .with_ymd_and_hms(2026, 10, 15, 9, 4, 33)
             .unwrap();
         assert_eq!(name(time), "Screenshot 2026-10-15 at 09.04.33");
+    }
+
+    #[test]
+    fn a_screenshot_is_announced_as_a_file_to_drag() {
+        let hints = announce_hints(Path::new("/home/me/Pictures/Screenshots/a.png"));
+        assert!(hints.contains(&(
+            "x-patina-file",
+            "/home/me/Pictures/Screenshots/a.png".into()
+        )));
+        assert!(hints.iter().any(|(k, _)| *k == "image-path"));
     }
 
     #[test]

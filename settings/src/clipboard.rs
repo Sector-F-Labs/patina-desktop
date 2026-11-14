@@ -1,5 +1,5 @@
-//! The Clipboard page (ADR-0114, ADR-0116): whether the compositor keeps a history of what's
-//! copied, whether screenshots go on the clipboard, and how many copies are kept, as
+//! The Clipboard page (ADR-0114): whether the compositor keeps a history of what's
+//! copied and how many copies are kept, as
 //! `[clipboard]` in the compositor's config, which it follows within a second; and Clear
 //! history, which asks it over the session bus.
 
@@ -101,22 +101,6 @@ impl ClipboardPage {
             RichText::new(
                 "Older copies are dropped, so something that slipped past the password \
                  check doesn't stay. One the desktop is holding as the clipboard stops pasting too; an app still holding its own isn't touched.",
-            )
-            .small()
-            .weak(),
-        );
-
-        ui.add_space(12.0);
-        changed |= ui
-            .checkbox(
-                &mut self.clipboard.screenshots,
-                "Put screenshots on the clipboard",
-            )
-            .changed();
-        ui.label(
-            RichText::new(
-                "A screenshot is saved as a file, and also copied, so it pastes straight \
-                 away. This works with the history off too, and replaces what was copied.",
             )
             .small()
             .weak(),

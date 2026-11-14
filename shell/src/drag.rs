@@ -7,7 +7,7 @@
 //! this opens a queue of its own on the host's connection, as Files does for its drags
 //! (`files/src/dnd.rs`): a data device, and a thread that answers the sources' `send`s, so the
 //! data goes out however idle the surface is, and tells the host when a drag is over
-//! ([`Shell::drag_ended`](crate::Shell::drag_ended)). The queue is made when the first drag starts.
+//! ([`Shell::drag_ended`](crate::Shell::drag_ended), and [`Shell::drag_dropped`](crate::Shell::drag_dropped) first when the app took it). The queue is made when the first drag starts.
 
 use std::io::Write;
 use std::sync::Arc;
@@ -57,12 +57,14 @@ pub(crate) struct Dragger {
 
 /// The thread's side: where to say a drag is over.
 struct State {
-    ended: Sender<()>,
+    /// Says a drag is over: true if the app it was dropped on took it (`dnd_finished`), false
+    /// if it was called off or refused.
+    ended: Sender<bool>,
 }
 
 impl Dragger {
     /// `None` if the compositor has no data device manager.
-    pub fn new(conn: &Connection, seat: &WlSeat, ended: Sender<()>) -> Option<Self> {
+    pub fn new(conn: &Connection, seat: &WlSeat, ended: Sender<bool>) -> Option<Self> {
         let (globals, mut queue) = registry_queue_init::<State>(conn).ok()?;
         let qh = queue.handle();
         let manager: WlDataDeviceManager = globals.bind(&qh, 3..=3, ()).ok()?;
@@ -175,9 +177,13 @@ impl Dispatch<WlDataSource, Data> for State {
                         }
                     });
             }
-            wl_data_source::Event::Cancelled | wl_data_source::Event::DndFinished => {
+            wl_data_source::Event::Cancelled => {
                 source.destroy();
-                let _ = state.ended.send(());
+                let _ = state.ended.send(false);
+            }
+            wl_data_source::Event::DndFinished => {
+                source.destroy();
+                let _ = state.ended.send(true);
             }
             _ => {}
         }

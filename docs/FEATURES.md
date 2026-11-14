@@ -105,9 +105,10 @@ Last checked against the code: 2026-11-09.
 ## Screenshots and recording
 
 - **Print** offers the screen, a window or a selection, or recording one; Super+Shift+3/4/5 as on a Mac;
-  every screenshot also goes to the clipboard ([0034](adr/0034-screenshots-with-the-mac-keys.md),
+  every screenshot is saved, and shows as a notification card you can drag into an app as the file
+  ([0034](adr/0034-screenshots-with-the-mac-keys.md),
   [0091](adr/0091-print-offers-the-screen-a-window-or-a-selection.md),
-  [0116](adr/0116-screenshots-go-to-the-clipboard-and-clipboard-settings.md)).
+  [0143](adr/0143-screenshots-are-notifications-you-can-drag-out-not-clipboard-entries.md)).
 - **Screen sharing** for OBS and browsers, through xdg-desktop-portal-wlr and the compositor's
   ext-image-copy-capture ([0092](adr/0092-screen-capture-for-apps-and-recording.md)).
 

@@ -1,5 +1,5 @@
-//! The Notifications page (ADR-0141): whether notifications are shown at all and whether
-//! they wait while a fullscreen window has the keyboard, written to
+//! The Notifications page (ADR-0141, ADR-0143): whether notifications are shown at all, whether
+//! they wait while a fullscreen window has the keyboard, and whether screenshots get a card, written to
 //! `~/.config/patina-notify/config.toml`, which patina-notify follows within a second. The
 //! HUD's bell switches the first one too.
 
@@ -54,6 +54,25 @@ impl NotificationsPage {
                  kept; what arrived meanwhile shows when you leave it. Off, they show \
                  on top of the screen's edge as usual, though the fullscreen window \
                  still covers them.",
+            )
+            .small()
+            .weak(),
+        );
+
+        ui.add_space(12.0);
+        ui.add_enabled_ui(self.config.enabled, |ui| {
+            changed |= ui
+                .checkbox(
+                    &mut self.config.screenshots,
+                    "Show screenshots as notifications",
+                )
+                .changed();
+        });
+        ui.label(
+            RichText::new(
+                "Each screenshot you take shows as a card with its picture, which you can \
+                 drag into an app as the file. It's saved in Pictures/Screenshots either \
+                 way; off, there's no card to drag.",
             )
             .small()
             .weak(),

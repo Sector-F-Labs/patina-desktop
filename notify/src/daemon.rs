@@ -20,6 +20,8 @@ pub const PATH: &str = "/org/freedesktop/Notifications";
 pub struct Shared {
     pub store: Mutex<Store>,
     pub enabled: AtomicBool,
+    /// Whether a card for a file (a screenshot, ADR-0143) is shown.
+    pub screenshots: AtomicBool,
 }
 
 impl Shared {
@@ -27,6 +29,7 @@ impl Shared {
         Arc::new(Shared {
             store: Mutex::new(Store::default()),
             enabled: AtomicBool::new(true),
+            screenshots: AtomicBool::new(true),
         })
     }
 
@@ -67,10 +70,20 @@ impl Interface {
             .unwrap_or_default()
             .trim_end_matches(".desktop")
             .to_string();
+        let path = |keys: &[&str]| {
+            keys.iter()
+                .find_map(|k| hints.get(*k)?.downcast_ref::<&str>().ok())
+                .and_then(store::hint_path)
+        };
+        let image = path(&["image-path", "image_path"]);
+        let file = path(&["x-patina-file"]);
+        let is_file = file.is_some();
         let note = Note {
             id: 0,
             app: app_name,
             desktop_entry,
+            image,
+            file,
             summary,
             body: store::plain(&body),
             actions: store::action_pairs(&actions),
@@ -79,8 +92,11 @@ impl Interface {
         };
         let mut notes = self.shared.store();
         let id = notes.notify(replaces_id, note, expire_timeout, Instant::now());
-        // Switched off: the app still gets an answer, and nothing shows.
-        if self.shared.enabled.load(Ordering::Relaxed) {
+        // Switched off, or a screenshot's card while those are off: the app still gets an
+        // answer, and nothing shows.
+        let shown = self.shared.enabled.load(Ordering::Relaxed)
+            && (!is_file || self.shared.screenshots.load(Ordering::Relaxed));
+        if shown {
             let _ = self.wake.send(());
         } else {
             notes.close(id);

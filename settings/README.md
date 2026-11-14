@@ -43,9 +43,9 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
   searched by name (fd), by contents (ripgrep) or both, in `~/.config/patina-search/config.toml`
   (`search.rs`; the config and the runs are in `patina-search`).
 - **Notifications** (ADR-0141): whether notifications are shown, and whether they wait while a window is
-  fullscreen, written to patina-notify's `config.toml` (`notifications.rs`, `patina_system::notifications`).
+  fullscreen, whether screenshots get a card to drag, written to patina-notify's `config.toml` (`notifications.rs`, `patina_system::notifications`).
 - **Clipboard** (ADR-0114, ADR-0116): whether the compositor keeps a history of what's copied,
-  how many copies, for how long, and whether screenshots go on the clipboard, written to `[clipboard]` in the
+  how many copies and for how long, written to `[clipboard]` in the
   compositor's config (`clipboard.rs`); Clear history asks the compositor over the session bus.
 - **Displays** (ADR-0121): the monitors drawn to scale (`displays.rs`), the others dragged to a
   side of one (`display_layout.rs` is the snapping, tested), or chosen from menus; extend, mirror

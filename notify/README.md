@@ -36,6 +36,11 @@ Try it with `notify-send -u critical -A open=Open "Updates" "15 updates can be a
 - **Switched** from the HUD's bell in the tray (struck through while off; there while patina-notify
   is the daemon) and from Settings' Notifications page, which both write the config file
   (`patina_system::notifications`, where the daemon's reading of it is too).
+- **Screenshots** arrive as cards (ADR-0143): the compositor announces each saved file with the
+  hints `image-path` and `x-patina-file`. A card with the latter shows the picture and can be pulled
+  out of the column into an app, which gets the file (`text/uri-list`, and its own type for a PNG or
+  JPEG). The card goes once an app takes the drop. Other cards can't be dragged. `screenshots = false` in the config (a checkbox in Settings) turns
+  these cards off.
 - **Not yet**: icons and images, history, and do-not-disturb.
 
 ## Code

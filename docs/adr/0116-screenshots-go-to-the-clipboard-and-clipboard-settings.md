@@ -4,7 +4,8 @@ Date: 2026-11-07
 
 ## Status
 
-Accepted. The user wanted Super+Shift+3 and Super+Shift+4 screenshots to reach the clipboard, and
+Accepted. The part that put screenshots on the clipboard is superseded by
+[0143](0143-screenshots-are-notifications-you-can-drag-out-not-clipboard-entries.md). The user wanted Super+Shift+3 and Super+Shift+4 screenshots to reach the clipboard, and
 a setting so people can turn the clipboard history off. They chose that screenshots always go
 there, and still do with the history off.
 

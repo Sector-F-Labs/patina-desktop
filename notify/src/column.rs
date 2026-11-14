@@ -15,11 +15,13 @@ use egui::{
 use patina::skin::Skin;
 use patina_shell::calloop::channel;
 use patina_shell::{
-    Anchor, Host, KeyboardInteractivity, Layer, Options, Shell, Toplevel, ToplevelRequest, piece,
+    Anchor, Drag, Host, Icon, KeyboardInteractivity, Layer, Options, Shell, Toplevel,
+    ToplevelRequest, piece,
 };
 
 use crate::daemon::{Daemon, Shared};
 use crate::store::{self, Note, Urgency};
+use crate::thumbs::{Thumb, Thumbs};
 use crate::{config, fullscreen};
 
 /// A card's width, and the space around the cards, in logical pixels.
@@ -40,6 +42,8 @@ enum Outcome {
     Action(String),
     /// The card itself: its default action, if it has one, and its app's window.
     Open,
+    /// Pulled away from its file card: a drag into an app starts.
+    Drag,
 }
 
 struct Column {
@@ -49,6 +53,11 @@ struct Column {
     /// The open windows (id, app id), to bring an app's forward from its card.
     windows: Vec<(u64, String)>,
     requests: Vec<ToplevelRequest>,
+    /// The pictures on cards, and a drag the host is to start from the press that's held.
+    thumbs: Thumbs,
+    drag: Option<Drag>,
+    /// The card a drag in progress came from, which goes if an app takes it.
+    dragged: Option<u32>,
     enabled: bool,
     /// Held back while a fullscreen window has the keyboard.
     hide_in_fullscreen: bool,
@@ -80,6 +89,9 @@ impl Column {
                 self.enabled = config.enabled;
                 self.hide_in_fullscreen = config.hide_in_fullscreen;
                 self.shared.enabled.store(config.enabled, Ordering::Relaxed);
+                self.shared
+                    .screenshots
+                    .store(config.screenshots, Ordering::Relaxed);
                 if !config.enabled {
                     let ids: Vec<u32> = self.shared.store().notes().iter().map(|n| n.id).collect();
                     for id in ids {
@@ -111,6 +123,7 @@ impl Shell for Column {
 
     fn ui(&mut self, ui: &mut Ui, _output: &str) {
         self.tick(ui.ctx());
+        self.thumbs.poll(ui.ctx());
         let rect = ui.max_rect();
         self.surface_h = rect.height();
         let notes = if self.showing() {
@@ -132,7 +145,12 @@ impl Shell for Column {
             .auto_shrink([false, true])
             .show(&mut inner, |ui| {
                 for note in &notes {
-                    let outcome = card(ui, note);
+                    let thumb = note
+                        .image
+                        .as_deref()
+                        .or(note.file.as_deref())
+                        .and_then(|p| self.thumbs.get(p));
+                    let outcome = card(ui, note, thumb);
                     if outcome != Outcome::Nothing {
                         done.push((note.id, outcome));
                     }
@@ -140,12 +158,28 @@ impl Shell for Column {
                 }
             });
         self.content_h = out.inner_rect.height() + 2.0 * PAD;
+        let shown: Vec<&std::path::Path> = notes
+            .iter()
+            .filter_map(|n| n.image.as_deref().or(n.file.as_deref()))
+            .collect();
+        self.thumbs.keep(&shown);
         for (id, outcome) in done {
+            if outcome == Outcome::Drag {
+                let note = notes.iter().find(|n| n.id == id);
+                if let Some(file) = note.and_then(|n| n.file.as_deref()) {
+                    let thumb = note
+                        .and_then(|n| n.image.as_deref().or(n.file.as_deref()))
+                        .and_then(|p| self.thumbs.get(p));
+                    self.drag = Some(drag_of(file, thumb, ui.ctx().pixels_per_point()));
+                    self.dragged = Some(id);
+                }
+                continue;
+            }
             // A card goes when something happened: it was dismissed, a button
             // ran, or its app's window came forward. A click that did nothing
             // leaves it where it is.
             let gone = match &outcome {
-                Outcome::Nothing => false,
+                Outcome::Nothing | Outcome::Drag => false,
                 Outcome::Dismiss => true,
                 Outcome::Action(key) => {
                     self.daemon.action(id, key);
@@ -177,6 +211,24 @@ impl Shell for Column {
         }
     }
 
+    fn take_drag(&mut self) -> Option<Drag> {
+        self.drag.take()
+    }
+
+    /// An app took the file: its card has done its job, so it goes (ADR-0143). One that was
+    /// refused, or called off, stays.
+    fn drag_dropped(&mut self) {
+        if let Some(id) = self.dragged.take()
+            && self.shared.store().close(id).is_some()
+        {
+            self.daemon.closed(id, store::DISMISSED);
+        }
+    }
+
+    fn drag_ended(&mut self) {
+        self.dragged = None;
+    }
+
     fn toplevels_changed(&mut self, toplevels: &[Toplevel]) {
         self.windows = toplevels.iter().map(|t| (t.id, t.app_id.clone())).collect();
     }
@@ -199,15 +251,25 @@ impl Shell for Column {
     }
 }
 
-/// One card; what was done to it, if anything.
-fn card(ui: &mut Ui, note: &Note) -> Outcome {
+/// The most of a card's width, and the most height, a picture takes.
+const PICTURE: (f32, f32) = (CARD - 24.0, 190.0);
+
+/// One card; what was done to it, if anything. A card with a file can be dragged out.
+fn card(ui: &mut Ui, note: &Note, thumb: Option<&Thumb>) -> Outcome {
     let mut outcome = Outcome::Nothing;
+    // Pressed on one of its own buttons, which a drag must not start from.
+    let mut on_button = false;
+    let sense = if note.file.is_some() {
+        Sense::click_and_drag()
+    } else {
+        Sense::click()
+    };
     let visuals = ui.visuals().clone();
     let edge = match note.urgency {
         Urgency::Critical => visuals.error_fg_color,
         _ => visuals.widgets.noninteractive.bg_stroke.color,
     };
-    let card = ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
+    let card = ui.scope_builder(UiBuilder::new().sense(sense), |ui| {
         Frame::new()
             .fill(visuals.panel_fill)
             .stroke(Stroke::new(1.0, edge))
@@ -222,7 +284,9 @@ fn card(ui: &mut Ui, note: &Note) -> Outcome {
                             .color(visuals.weak_text_color()),
                     );
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if close_button(ui) {
+                        let cross = close_button(ui);
+                        on_button |= cross.is_pointer_button_down_on();
+                        if cross.clicked() {
                             outcome = Outcome::Dismiss;
                         }
                     });
@@ -235,6 +299,12 @@ fn card(ui: &mut Ui, note: &Note) -> Outcome {
                 if !note.body.is_empty() {
                     ui.add(egui::Label::new(RichText::new(&note.body).size(13.0)).wrap());
                 }
+                if let Some(thumb) = thumb {
+                    let size = thumb.texture.size_vec2();
+                    let k = (PICTURE.0 / size.x).min(PICTURE.1 / size.y).min(1.0);
+                    ui.add_space(4.0);
+                    ui.add(egui::Image::new((thumb.texture.id(), size * k)).corner_radius(6));
+                }
                 let buttons: Vec<_> = note
                     .actions
                     .iter()
@@ -244,7 +314,9 @@ fn card(ui: &mut Ui, note: &Note) -> Outcome {
                     ui.add_space(4.0);
                     ui.horizontal_wrapped(|ui| {
                         for (key, label) in buttons {
-                            if ui.button(label).clicked() {
+                            let button = ui.button(label);
+                            on_button |= button.is_pointer_button_down_on();
+                            if button.clicked() {
                                 outcome = Outcome::Action(key.clone());
                             }
                         }
@@ -256,16 +328,80 @@ fn card(ui: &mut Ui, note: &Note) -> Outcome {
         if card.response.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
         }
-        if card.response.clicked() {
+        if card.response.drag_started() && !on_button && note.file.is_some() {
+            outcome = Outcome::Drag;
+        } else if card.response.clicked() {
             outcome = Outcome::Open;
         }
     }
     outcome
 }
 
+/// The drag of a file card (ADR-0143): the file as a `file://` URI, which is how a file manager
+/// offers one, so an app treats it as a file (a web page gets it as an upload), and, when it's
+/// a picture, its own type too; with the thumbnail under the pointer.
+fn drag_of(file: &std::path::Path, thumb: Option<&Thumb>, ppp: f32) -> Drag {
+    const URI_LIST: &str = "text/uri-list";
+    let picture = match file.extension().and_then(|e| e.to_str()) {
+        Some(e) if e.eq_ignore_ascii_case("png") => Some("image/png"),
+        Some(e) if e.eq_ignore_ascii_case("jpg") || e.eq_ignore_ascii_case("jpeg") => {
+            Some("image/jpeg")
+        }
+        _ => None,
+    };
+    let mut types = vec![URI_LIST.to_string()];
+    types.extend(picture.map(String::from));
+    let path = file.to_path_buf();
+    Drag {
+        types,
+        data: std::sync::Arc::new(move |mime| {
+            if mime == URI_LIST {
+                Some(format!("{}\r\n", store::file_uri(&path)).into_bytes())
+            } else if Some(mime) == picture {
+                std::fs::read(&path).ok()
+            } else {
+                None
+            }
+        }),
+        icon: thumb.map(|t| drag_icon(&t.rgba, ppp)),
+    }
+}
+
+/// The most, in logical pixels, the picture under the pointer takes.
+const ICON: (u32, u32) = (200, 140);
+
+/// `image` cut down to a picture for under the pointer at `ppp` pixels to the point, as
+/// premultiplied ARGB, held by its middle.
+fn drag_icon(image: &image::RgbaImage, ppp: f32) -> Icon {
+    let scale = ppp.ceil().max(1.0) as u32;
+    let k = (ICON.0 * scale) as f32 / image.width() as f32;
+    let k = k
+        .min((ICON.1 * scale) as f32 / image.height() as f32)
+        .min(1.0);
+    let (w, h) = (
+        ((image.width() as f32 * k).round() as u32).max(1),
+        ((image.height() as f32 * k).round() as u32).max(1),
+    );
+    let small = image::imageops::resize(image, w, h, image::imageops::FilterType::Triangle);
+    let pixels = small
+        .pixels()
+        .map(|p| {
+            let [r, g, b, a] = p.0.map(u32::from);
+            let premultiplied = |c: u32| c * a / 255;
+            a << 24 | premultiplied(r) << 16 | premultiplied(g) << 8 | premultiplied(b)
+        })
+        .collect();
+    Icon {
+        size: (w, h),
+        scale: scale as i32,
+        pixels,
+        hotspot: ((w / 2) as i32, (h / 2) as i32),
+    }
+}
+
 /// The ✕ in a card's top right: two strokes, as the dialogs draw theirs, so no
 /// font has to have the glyph.
-fn close_button(ui: &mut Ui) -> bool {
+fn close_button(ui: &mut Ui) -> egui::Response {
     let (rect, response) = ui.allocate_exact_size(vec2(18.0, 18.0), Sense::click());
     let colour = if response.hovered() {
         ui.visuals().text_color()
@@ -278,7 +414,7 @@ fn close_button(ui: &mut Ui) -> bool {
         .line_segment([centre + vec2(-d, -d), centre + vec2(d, d)], stroke);
     ui.painter()
         .line_segment([centre + vec2(-d, d), centre + vec2(d, -d)], stroke);
-    response.clicked()
+    response
 }
 
 pub fn run() -> Result<(), String> {
@@ -286,6 +422,7 @@ pub fn run() -> Result<(), String> {
     let (wake, woken) = channel::channel::<()>();
     let fullscreen = Arc::new(AtomicBool::new(false));
     fullscreen::watch(fullscreen.clone(), wake.clone());
+    let thumbs = Thumbs::new(wake.clone());
     let daemon = Daemon::serve(shared.clone(), wake)?;
     let column = Column {
         skin: piece::skin("patina-notify"),
@@ -293,6 +430,9 @@ pub fn run() -> Result<(), String> {
         daemon,
         windows: Vec::new(),
         requests: Vec::new(),
+        thumbs,
+        drag: None,
+        dragged: None,
         enabled: true,
         hide_in_fullscreen: true,
         fullscreen,
@@ -325,4 +465,39 @@ pub fn run() -> Result<(), String> {
         })
         .map_err(|e| e.to_string())?;
     host.run(event_loop)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_picture_under_the_pointer_is_cut_down_and_premultiplied() {
+        let image = image::RgbaImage::from_pixel(1000, 500, image::Rgba([200, 100, 50, 255]));
+        let icon = drag_icon(&image, 2.0);
+        assert_eq!(icon.scale, 2);
+        assert_eq!(icon.size, (400, 200), "200 by 100 points at 2x");
+        assert_eq!(icon.pixels.len(), 400 * 200);
+        assert_eq!(icon.pixels[0], 0xFFC8_6432);
+        assert_eq!(icon.hotspot, (200, 100));
+        let clear = image::RgbaImage::from_pixel(10, 10, image::Rgba([255, 255, 255, 0]));
+        assert_eq!(drag_icon(&clear, 1.0).pixels[0], 0, "clear stays clear");
+        let small = image::RgbaImage::from_pixel(20, 10, image::Rgba([0, 0, 0, 255]));
+        assert_eq!(
+            drag_icon(&small, 1.0).size,
+            (20, 10),
+            "a small one isn't blown up"
+        );
+    }
+
+    #[test]
+    fn a_dragged_picture_is_offered_as_a_file_first_and_as_itself() {
+        let drag = drag_of(std::path::Path::new("/tmp/a b.png"), None, 1.0);
+        assert_eq!(drag.types, ["text/uri-list", "image/png"]);
+        let uri = (drag.data)("text/uri-list").unwrap();
+        assert_eq!(uri, b"file:///tmp/a%20b.png\r\n");
+        assert!((drag.data)("text/plain").is_none());
+        let other = drag_of(std::path::Path::new("/tmp/notes.txt"), None, 1.0);
+        assert_eq!(other.types, ["text/uri-list"]);
+    }
 }

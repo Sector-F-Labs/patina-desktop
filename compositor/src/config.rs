@@ -251,13 +251,15 @@ impl Default for Shadows {
     }
 }
 
-/// The clipboard history (ADR-0114) and screenshots on the clipboard (ADR-0116).
+/// The clipboard history (ADR-0114).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct Clipboard {
     /// Keep a history; turned off, nothing is kept and what was is dropped.
     pub enabled: bool,
-    /// Put every screenshot on the clipboard, whether or not a history is kept.
+    /// Screenshots on the clipboard (ADR-0116) are gone (ADR-0143): they are notifications. The
+    /// key is still read, and ignored, as Settings wrote it into files that have it.
+    #[allow(dead_code)]
     pub screenshots: bool,
     /// The most copies kept.
     pub max_entries: usize,
@@ -984,18 +986,17 @@ mod tests {
     }
 
     #[test]
-    fn the_clipboard_is_kept_and_screenshots_copied_unless_the_config_says_not() {
+    fn the_clipboard_is_kept_unless_the_config_says_not() {
         let (c, w) = parse("").unwrap();
-        assert!(
-            c.clipboard.enabled && c.clipboard.screenshots && w.is_empty(),
-            "{w:?}"
-        );
+        assert!(c.clipboard.enabled && w.is_empty(), "{w:?}");
+        let (_, w) = parse("[clipboard]\nscreenshots = false\n").unwrap();
+        assert!(w.is_empty(), "the old key is still known: {w:?}");
         assert_eq!(c.clipboard.max_entries, 50);
         assert_eq!(c.clipboard.expire_after, 604800, "a week");
         let (c, _) = parse("[clipboard]\nexpire_after = 0\n").unwrap();
         assert_eq!(c.clipboard.expire_after, 0);
         let (c, _) = parse("[clipboard]\nenabled = false\nmax_entries = 10\n").unwrap();
-        assert!(!c.clipboard.enabled && c.clipboard.screenshots);
+        assert!(!c.clipboard.enabled);
         assert_eq!(c.clipboard.max_entries, 10);
         let (c, w) = parse("[clipboard]\nmax_entries = 0\n").unwrap();
         assert_eq!(c.clipboard.max_entries, 50);

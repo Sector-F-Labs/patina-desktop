@@ -21,6 +21,8 @@ pub struct Config {
     /// Hold notifications back while a fullscreen window has the keyboard, and
     /// show them when it's left.
     pub hide_in_fullscreen: bool,
+    /// Show a card, to drag into an app, for each screenshot taken (ADR-0143).
+    pub screenshots: bool,
 }
 
 impl Default for Config {
@@ -28,6 +30,7 @@ impl Default for Config {
         Config {
             enabled: true,
             hide_in_fullscreen: true,
+            screenshots: true,
         }
     }
 }
@@ -48,6 +51,7 @@ pub fn parse(text: &str) -> Config {
     Config {
         enabled: flag("enabled").unwrap_or(true),
         hide_in_fullscreen: flag("hide_in_fullscreen").unwrap_or(true),
+        screenshots: flag("screenshots").unwrap_or(true),
     }
 }
 
@@ -64,6 +68,7 @@ pub fn render(text: &str, config: Config) -> String {
     let mut doc = text.parse::<DocumentMut>().unwrap_or_default();
     doc["enabled"] = value(config.enabled);
     doc["hide_in_fullscreen"] = value(config.hide_in_fullscreen);
+    doc["screenshots"] = value(config.screenshots);
     doc.to_string()
 }
 
@@ -128,10 +133,18 @@ mod tests {
     }
 
     #[test]
+    fn screenshot_cards_are_shown_unless_the_file_says_otherwise() {
+        assert!(parse("").screenshots);
+        assert!(!parse("screenshots = false").screenshots);
+        assert!(parse("screenshots = \"no\"").screenshots);
+    }
+
+    #[test]
     fn what_is_written_is_read_back_and_the_rest_is_kept() {
         let config = Config {
             enabled: false,
             hide_in_fullscreen: false,
+            screenshots: false,
         };
         let text = render("# mine\nextra = 1\n", config);
         assert_eq!(parse(&text), config);

@@ -287,11 +287,10 @@ pub fn with_shadows(text: &str, shadows: &Shadows) -> Result<String, String> {
     Ok(doc.to_string())
 }
 
-/// The clipboard history and screenshots on the clipboard (ADR-0114, ADR-0116).
+/// The clipboard history (ADR-0114).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Clipboard {
     pub enabled: bool,
-    pub screenshots: bool,
     pub max_entries: u32,
     /// Seconds a copy is kept for; 0 for as long as there's room.
     pub expire_after: u64,
@@ -304,7 +303,6 @@ impl Default for Clipboard {
     fn default() -> Self {
         Self {
             enabled: true,
-            screenshots: true,
             max_entries: 50,
             expire_after: 7 * 24 * 3600,
         }
@@ -323,7 +321,6 @@ pub fn parse_clipboard(text: &str) -> Clipboard {
     };
     let flag = |key: &str| table.get(key).and_then(|v| v.as_bool());
     clipboard.enabled = flag("enabled").unwrap_or(clipboard.enabled);
-    clipboard.screenshots = flag("screenshots").unwrap_or(clipboard.screenshots);
     if let Some(n) = table
         .get("max_entries")
         .and_then(|v| v.as_integer())
@@ -351,7 +348,6 @@ pub fn with_clipboard(text: &str, clipboard: &Clipboard) -> Result<String, Strin
         .as_table_mut()
         .ok_or("clipboard in the compositor's config isn't a section")?;
     table["enabled"] = value(clipboard.enabled);
-    table["screenshots"] = value(clipboard.screenshots);
     table["max_entries"] = value(i64::from(clipboard.max_entries));
     table["expire_after"] = value(i64::try_from(clipboard.expire_after).unwrap_or(i64::MAX));
     Ok(doc.to_string())
@@ -675,7 +671,6 @@ mod tests {
         assert_eq!(parse_clipboard(STARTER), Clipboard::default());
         let set = Clipboard {
             enabled: false,
-            screenshots: true,
             max_entries: 20,
             expire_after: 3600,
         };

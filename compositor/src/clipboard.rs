@@ -396,17 +396,7 @@ type Copied = Vec<(String, Vec<u8>)>;
 /// What reaches the loop from the threads: a copy's data, or a thumbnail written.
 enum Message {
     Copied(Copied),
-    Picture(Vec<u8>),
     Thumbnail(u64),
-}
-
-/// Where a screenshot's PNG is handed to the loop, to go on the clipboard.
-pub struct Pictures(channel::Sender<Message>);
-
-impl Pictures {
-    pub fn send(&self, png: Vec<u8>) {
-        let _ = self.0.send(Message::Picture(png));
-    }
 }
 
 /// The history and what serves it, kept by the state.
@@ -434,7 +424,6 @@ impl State {
             .loop_handle
             .insert_source(incoming, |event, _, state| match event {
                 channel::Event::Msg(Message::Copied(read)) => state.clipboard_read(read),
-                channel::Event::Msg(Message::Picture(png)) => state.clipboard_picture(png),
                 channel::Event::Msg(Message::Thumbnail(id)) => state.clipboard_thumbnailed(id),
                 channel::Event::Closed => {}
             });
@@ -716,28 +705,6 @@ impl State {
             clear_data_device_selection(&self.display_handle, &self.seat);
         }
         self.clipboard_changed();
-    }
-
-    /// A screenshot's PNG goes on the clipboard, and into the history when one is kept.
-    fn clipboard_picture(&mut self, png: Vec<u8>) {
-        let types = vec![("image/png".to_string(), png)];
-        let kept = self.clipboard.history.add(types.clone(), now());
-        let served = match kept.and_then(|id| self.clipboard.history.get(id)) {
-            Some(entry) => Served::Saved(entry.types.clone()),
-            None => Served::Saved(Arc::new(types)),
-        };
-        self.clipboard.clearing = false;
-        self.clipboard.owner = None;
-        set_data_device_selection(&self.display_handle, &self.seat, served.types(), served);
-        if let Some(id) = kept {
-            self.clipboard_thumbnail(id);
-        }
-        self.clipboard_changed();
-    }
-
-    /// Where a thread hands over a screenshot's PNG, or `None` before the clipboard starts.
-    pub fn clipboard_pictures(&self) -> Option<Pictures> {
-        self.clipboard.reads.clone().map(Pictures)
     }
 
     pub fn clipboard_pause(&mut self, paused: bool) {

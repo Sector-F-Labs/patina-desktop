@@ -157,9 +157,9 @@ Save a screenshot of the desktop in
 .Pa ~/Pictures/Screenshots .
 .It Super+Shift+4
 Save a screenshot of the focused window.
-Every screenshot is also put on the clipboard, unless
-.Ic [clipboard]
-turns that off.
+Each saved screenshot shows as a notification in
+.Xr patina-notify 1 ,
+a card with its picture that can be dragged into an app as the file.
 .It Print , Super+Shift+5
 Offer the desktop, the focused window or a selection dragged out with the
 pointer, or recording the desktop or a selection, with
@@ -390,7 +390,7 @@ The clipboard history.
 .Ic enabled
 true, the default, keeps what is copied; false keeps nothing and drops what was kept.
 .Ic screenshots
-true, the default, puts every screenshot on the clipboard, whether or not a history is kept.
+is ignored: screenshots are notifications, not clipboard entries.
 .Ic max_entries
 is how many copies are kept, 50 by default, up to 200.
 .Ic expire_after

@@ -126,6 +126,9 @@ pub trait Shell: 'static {
     fn take_drag(&mut self) -> Option<Drag> {
         None
     }
+    /// The drag it started was dropped on an app that took it (ADR-0143); called just before
+    /// [`Shell::drag_ended`], and not at all if it was called off or refused.
+    fn drag_dropped(&mut self) {}
     /// The drag it started is over: dropped somewhere, or called off.
     fn drag_ended(&mut self) {}
     /// The exclusive zone the surfaces should have, if the shell changes it
@@ -464,9 +467,15 @@ impl<S: Shell> Host<S> {
         };
         if self.dragger.is_none() {
             let seat = self.seat_state.seats().next();
-            let (ended, over) = smithay_client_toolkit::reexports::calloop::channel::channel();
+            let (ended, over) =
+                smithay_client_toolkit::reexports::calloop::channel::channel::<bool>();
             let sourced = self.loop_handle.insert_source(over, |event, _, host| {
-                if let smithay_client_toolkit::reexports::calloop::channel::Event::Msg(()) = event {
+                if let smithay_client_toolkit::reexports::calloop::channel::Event::Msg(taken) =
+                    event
+                {
+                    if taken {
+                        host.shell.drag_dropped();
+                    }
                     host.shell.drag_ended();
                     host.redraw_all();
                 }
