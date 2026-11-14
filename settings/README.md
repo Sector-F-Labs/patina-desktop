@@ -42,6 +42,8 @@ A sidebar of pages, the page beside it, and a status bar for what an action did:
 - **Search** (ADR-0137): whether the launcher searches files, which folders, and whether each is
   searched by name (fd), by contents (ripgrep) or both, in `~/.config/patina-search/config.toml`
   (`search.rs`; the config and the runs are in `patina-search`).
+- **Notifications** (ADR-0141): whether notifications are shown, and whether they wait while a window is
+  fullscreen, written to patina-notify's `config.toml` (`notifications.rs`, `patina_system::notifications`).
 - **Clipboard** (ADR-0114, ADR-0116): whether the compositor keeps a history of what's copied,
   how many copies, for how long, and whether screenshots go on the clipboard, written to `[clipboard]` in the
   compositor's config (`clipboard.rs`); Clear history asks the compositor over the session bus.
@@ -72,7 +74,7 @@ It wears the shell's skin and follows it when the desktop's menu changes it.
 ## How it fits in
 
 - **Started by** patina-menu: its Wallpaper… item runs `patina-settings --page wallpaper`, and
-  Settings… runs it at Appearance; and by the bar's battery, at Power and Battery (its `battery` command). `--page appearance|bar|wallpaper|defaults|keyboard|dictation|clipboard|displays|night-light|power|processes`.
+  Settings… runs it at Appearance; and by the bar's battery, at Power and Battery (its `battery` command). `--page appearance|bar|wallpaper|defaults|keyboard|dictation|clipboard|notifications|displays|night-light|power|processes`.
 - **Writes the files the settings live in**, keeping the rest of each: the bar's config
   (`skin`, `wallpaper`) through patina-shell, and `[night_light]` in the compositor's config with
   `toml_edit`. The bar, patina-wallpaper and the compositor watch those files and change at once.

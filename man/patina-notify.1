@@ -1,0 +1,63 @@
+.Dd November 14, 2026
+.Dt PATINA-NOTIFY 1
+.Os
+.Sh NAME
+.Nm patina-notify
+.Nd the Patina desktop's notification daemon
+.Sh SYNOPSIS
+.Nm
+.Nm
+.Fl h | V
+.Sh DESCRIPTION
+.Nm
+shows apps' notifications as cards down the right edge of the screen, one under
+another, newest last.
+Each card has the app's name, a close button in its top right corner, a summary,
+a body and a button for each action the app offered; clicking the card itself
+sends the app its default action and brings the app's window forward; the card
+closes only if a window came forward.
+Cards stay until they are dismissed, unless the app gave the notification a
+timeout; critical ones never expire.
+.Pp
+While any card is showing the column keeps its space, as the bar does, and tiled
+and maximised windows make room for it.
+While a fullscreen window has the keyboard, a game or a video, they wait and
+show again when it is left.
+.Pp
+It takes the name
+.Li org.freedesktop.Notifications
+on the session bus, so it stops with an error where another notification daemon
+already has it, as GNOME's does.
+.Xr patina-compositor 1
+keeps it running in the session.
+.Sh OPTIONS
+.Bl -tag -width Ds
+.It Fl h , -help
+Print a short usage message.
+.It Fl V , -version
+Print the version.
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev PATINA_SKIN
+The skin to wear, as the bar sets it; otherwise the bar's config's.
+.El
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ~/.config/patina-notify/config.toml
+Looked at once a second; the bell in the tray and Settings' Notifications page write it.
+.Bl -tag -width Ds
+.It Li enabled = false
+turns notifications off: nothing is shown and no space is kept, though the
+calls apps make still succeed.
+.It Li hide_in_fullscreen = false
+shows notifications while a fullscreen window has the keyboard; by default they
+wait until it is left.
+.El
+.El
+.Sh EXAMPLES
+.Dl notify-send -u critical -A open=Open Updates \&"15 updates can be applied\&"
+.Sh SEE ALSO
+.Xr notify-send 1 ,
+.Xr patina-compositor 1 ,
+.Xr patina-desktop 7

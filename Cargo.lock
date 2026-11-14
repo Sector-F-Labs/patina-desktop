@@ -4287,6 +4287,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "patina-notify"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "patina-shell",
+ "patina-system",
+ "patina-ui",
+ "zbus",
+]
+
+[[package]]
 name = "patina-polkit"
 version = "0.1.0"
 dependencies = [

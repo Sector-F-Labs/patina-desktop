@@ -164,6 +164,9 @@ fn run(commands: &[String], session: bool) -> Result<bool, String> {
         // The keyring's password prompt (ADR-0139), for the same reason: the
         // parent desktop's prompter has the names when nested.
         state.keep_client("patina-keyring");
+        // The notifications (ADR-0141): the parent desktop's daemon has the
+        // name when nested.
+        state.keep_client("patina-notify");
     }
     state.start_displays();
     state.start_night_light();

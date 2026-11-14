@@ -547,6 +547,35 @@ fn run(
             .map_err(|e| e.to_string())?;
     }
 
+    // The tray's bell, there while patina-notify is the notification daemon (ADR-0141).
+    if uses_tray {
+        let (settings, notifications) =
+            channel::channel::<Option<patina_system::notifications::Config>>();
+        std::thread::Builder::new()
+            .name("notifications".into())
+            .spawn(move || {
+                let mut last = None;
+                patina_system::notifications::watch(|s| {
+                    if last == Some(s) {
+                        return true;
+                    }
+                    last = Some(s);
+                    settings.send(s).is_ok()
+                })
+            })
+            .map_err(|e| e.to_string())?;
+        handle
+            .insert_source(notifications, |event, _, host| {
+                if let Event::Msg(s) = event
+                    && host.shell.notifications.get() != s
+                {
+                    host.shell.notifications.set(s);
+                    host.redraw_all();
+                }
+            })
+            .map_err(|e| e.to_string())?;
+    }
+
     // The tray's keyboard layout (ADR-0068), as the compositor announces it.
     if uses_tray {
         let (statuses, keyboard) = channel::channel::<Option<patina_system::keyboard::Status>>();

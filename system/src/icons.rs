@@ -139,11 +139,43 @@ pub fn coffee(painter: &Painter, rect: Rect, on: bool, colour: Color32) {
             let wave: Vec<_> = (0..=8)
                 .map(|i| {
                     let t = i as f32 / 8.0;
-                    at(x + 0.04 * (t * std::f32::consts::TAU).sin(), 0.34 - 0.26 * t)
+                    at(
+                        x + 0.04 * (t * std::f32::consts::TAU).sin(),
+                        0.34 - 0.26 * t,
+                    )
                 })
                 .collect();
             painter.add(Shape::line(wave, stroke));
         }
+    }
+}
+
+/// A bell in `rect`: a dome flaring to a lip, a clapper under it and a knob on
+/// top; filled when `on`, outlined and struck through when notifications are off.
+pub fn bell(painter: &Painter, rect: Rect, on: bool, colour: Color32) {
+    let s = rect.height().min(rect.width());
+    let r = Rect::from_center_size(rect.center(), vec2(s, s));
+    let at = |x: f32, y: f32| pos2(r.left() + x * s, r.top() + y * s);
+    let stroke = Stroke::new((s * 0.08).max(1.0), colour);
+    // The dome's top half-circle, then down the flare to the lip and back.
+    let mut outline: Vec<Pos2> = (0..=12)
+        .map(|i| {
+            let a = std::f32::consts::PI * (1.0 + i as f32 / 12.0);
+            at(0.5 + 0.28 * a.cos(), 0.42 + 0.28 * a.sin())
+        })
+        .collect();
+    outline.extend([
+        at(0.78, 0.66),
+        at(0.88, 0.74),
+        at(0.12, 0.74),
+        at(0.22, 0.66),
+    ]);
+    let fill = if on { colour } else { Color32::TRANSPARENT };
+    painter.add(Shape::convex_polygon(outline, fill, stroke));
+    painter.circle_filled(at(0.5, 0.86), s * 0.07, colour);
+    painter.circle_filled(at(0.5, 0.11), s * 0.05, colour);
+    if !on {
+        painter.line_segment([at(0.14, 0.14), at(0.86, 0.90)], stroke);
     }
 }
 

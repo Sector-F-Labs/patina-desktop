@@ -12,8 +12,8 @@ done, move it to FEATURES.md and delete it here. A decision worth a record gets 
 
 The things a desktop usually brings that the session still leaves to the system.
 
-- **A notification daemon.** Nothing shows `org.freedesktop.Notifications`, so apps' notifications go
-  nowhere. The tray (StatusNotifierItem) is there; notifications are not.
+- **Notifications' loose ends.** The daemon is there (ADR-0141); still to do are icons and images,
+  and a history.
 - **Autostart.** There is no list of apps to open at login.
 - **A keyring manager.** gnome-keyring stores the passwords and logging in unlocks it (Ubuntu's PAM
   setup), and the password prompt is Patina's ([ADR-0139](adr/0139-a-native-keyring-prompter-in-front-of-gnome-keyring.md)),

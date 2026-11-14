@@ -164,6 +164,7 @@ keys work, with an on-screen flash.
 - **[patina-clipboard](clipboard/README.md)** (`clipboard/`): the clipboard menu, opened by the bar's clipboard icon: what was copied lately, with image thumbnails, to copy again, delete or clear; the compositor keeps the history (ADR-0114).
 - **[patina-clock](clock/README.md)** (`clock/`): the clock's menu: a month and the day's events from the Calendar app.
 - **[patina-polkit](polkit/README.md)** (`polkit/`): the password prompt when an app needs administrator rights (`pkexec`, GParted, Disks).
+- **[patina-notify](notify/README.md)** (`notify/`): the notification daemon: cards down the right edge that keep their space.
 - **[patina-keyring](keyring/README.md)** (`keyring/`): the keyring's password prompt, when logging in couldn't unlock it (gnome-keyring stays the keyring).
 - **[patina-power](power/README.md)** (`power/`): the power menu after the clock: Lock, Log Out, Restart and Shut Down, each but Lock asking first.
 - **[patina-lock](lock/README.md)** (`lock/`): the lock screen, in the bar's skin, with the password checked through PAM. The compositor runs it on Ctrl+Super+Q, Super+Escape, when the screen turns off and before sleep.
@@ -264,7 +265,7 @@ minimise = "Super+M"
 ## What it does, and what it doesn't yet
 
 [docs/FEATURES.md](docs/FEATURES.md) lists what works, by area. [docs/ROADMAP.md](docs/ROADMAP.md) lists
-what doesn't: a **notification daemon**, an **autostart** list, a **keyring**, **portals of its own** for
+what doesn't: an **autostart** list, a **keyring**, **portals of its own** for
 Flatpak apps (screen sharing goes through xdg-desktop-portal-wlr, ADR-0092, and files through Files'
 chooser), **lid** handling beyond locking before sleep, and per-monitor scale and resolution.
 

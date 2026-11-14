@@ -269,6 +269,31 @@ pub fn clipboard(
     }
 }
 
+/// The notifications' bell: filled while they're shown, struck through while
+/// they're off (ADR-0141); clicking it switches them. True when it was clicked.
+pub fn notifications(ui: &mut Ui, on: bool) -> bool {
+    let side = side(ui);
+    let (rect, response) = ui.allocate_exact_size(vec2(side, side), Sense::click());
+    let v = ui.visuals();
+    if response.hovered() {
+        ui.painter()
+            .rect_filled(rect, 0.0, v.widgets.hovered.weak_bg_fill);
+    }
+    let colour = if response.hovered() {
+        v.strong_text_color()
+    } else {
+        v.text_color()
+    };
+    patina_system::icons::bell(ui.painter(), rect.shrink(padding(rect.width())), on, colour);
+    let tip = if on {
+        "Notifications on\nClick to turn them off"
+    } else {
+        "Notifications off\nClick to turn them on"
+    };
+    crate::tooltip::hover(ui, &response, tip);
+    response.clicked()
+}
+
 /// The coffee cup: steaming while the screen is held on; clicking it
 /// holds the screen on or lets go. True when it was clicked.
 pub fn caffeine(ui: &mut Ui, on: bool) -> bool {

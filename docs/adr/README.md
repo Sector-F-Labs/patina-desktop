@@ -270,3 +270,5 @@ flowchart TD
 - A surface that is large or animated draws too slowly on the CPU
   ([ADR-0002](0002-software-rendering.md)).
 - Running on real hardware: a DRM/KMS backend ([ADR-0008](0008-nested-software-backend.md)).
+| [0141](0141-notifications-are-a-column-at-the-right-edge-that-keeps-its-space.md) | Notifications are a column at the right edge that keeps its space | Accepted |
+| [0142](0142-clicking-a-notification-raises-its-app-and-it-goes-only-if-something-happened.md) | Clicking a notification raises its app, and a card goes only if something happened | Accepted |

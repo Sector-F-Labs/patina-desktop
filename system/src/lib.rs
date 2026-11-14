@@ -4,7 +4,7 @@
 //! (`power`) and its history (`battery_history`, UPower), the backlight (`backlight`, which the compositor uses too),
 //! the tray's icons (`icons`), the Sector F flask and lettering (`logo`),
 //! Night Light's controls on the compositor (`night_light`), the monitors and where they sit (`displays`), keyboard layouts
-//! (`keyboard`), the clipboard's history (`clipboard`), holding the screen on (`caffeine`), the media players playing (`mpris`), default apps (`defaults`), and power modes
+//! (`keyboard`), the clipboard's history (`clipboard`), holding the screen on (`caffeine`), the notification daemon's settings (`notifications`), the media players playing (`mpris`), default apps (`defaults`), and power modes
 //! through power-profiles-daemon (`power_profiles`), the processes the
 //! compositor starts (`processes`), locking, logging out, restarting and
 //! shutting down (`session`), the compositor's tiling (`tiling`), and the
@@ -28,6 +28,7 @@ pub mod logo;
 pub mod mpris;
 pub mod network;
 pub mod night_light;
+pub mod notifications;
 pub mod pins;
 pub mod power;
 pub mod power_profiles;

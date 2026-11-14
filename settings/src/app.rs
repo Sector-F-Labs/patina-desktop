@@ -35,6 +35,7 @@ pub enum Page {
     Keyboard,
     Dictation,
     Clipboard,
+    Notifications,
     Search,
     Displays,
     NightLight,
@@ -45,7 +46,7 @@ pub enum Page {
 }
 
 impl Page {
-    const ALL: [Page; 15] = [
+    const ALL: [Page; 16] = [
         Page::Appearance,
         Page::Bar,
         Page::Wallpaper,
@@ -54,6 +55,7 @@ impl Page {
         Page::Keyboard,
         Page::Dictation,
         Page::Clipboard,
+        Page::Notifications,
         Page::Search,
         Page::Displays,
         Page::NightLight,
@@ -73,6 +75,7 @@ impl Page {
             "keyboard" => Some(Page::Keyboard),
             "dictation" => Some(Page::Dictation),
             "clipboard" => Some(Page::Clipboard),
+            "notifications" => Some(Page::Notifications),
             "search" => Some(Page::Search),
             "displays" => Some(Page::Displays),
             "night-light" => Some(Page::NightLight),
@@ -94,6 +97,7 @@ impl Page {
             Page::Keyboard => "Keyboard",
             Page::Dictation => "Dictation",
             Page::Clipboard => "Clipboard",
+            Page::Notifications => "Notifications",
             Page::Search => "Search",
             Page::Displays => "Displays",
             Page::NightLight => "Night Light",
@@ -157,6 +161,7 @@ pub struct App {
     keyboard: crate::keyboard::KeyboardPage,
     dictation: crate::dictation::DictationPage,
     clipboard: crate::clipboard::ClipboardPage,
+    notifications: crate::notifications::NotificationsPage,
     search: crate::search::SearchPage,
     webapps: crate::webapps::WebAppsPage,
     displays: crate::displays::DisplaysPage,
@@ -194,6 +199,7 @@ impl App {
             keyboard: crate::keyboard::KeyboardPage::new(ctx),
             dictation: crate::dictation::DictationPage::new(),
             clipboard: crate::clipboard::ClipboardPage::new(),
+            notifications: crate::notifications::NotificationsPage::new(),
             search: crate::search::SearchPage::new(),
             webapps: crate::webapps::WebAppsPage::new(),
             displays: crate::displays::DisplaysPage::new(ctx),
@@ -696,6 +702,10 @@ impl App {
                 Page::Clipboard => {
                     egui::ScrollArea::vertical()
                         .show(ui, |ui| self.clipboard.ui(ui, &mut self.message));
+                }
+                Page::Notifications => {
+                    egui::ScrollArea::vertical()
+                        .show(ui, |ui| self.notifications.ui(ui, &mut self.message));
                 }
                 Page::Search => {
                     egui::ScrollArea::vertical()

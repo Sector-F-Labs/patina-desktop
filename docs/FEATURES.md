@@ -131,6 +131,8 @@ Last checked against the code: 2026-11-09.
   ([0104](adr/0104-your-picture-is-dot-face.md)).
 - **A polkit agent**, so GParted, Disks and `pkexec` can ask for the password
   ([0128](adr/0128-a-native-polkit-agent.md)).
+- **Notifications**, as cards down the right edge that keep their space and stay until dismissed; a bell in the tray and Settings' Notifications page switch them off
+  ([0141](adr/0141-notifications-are-a-column-at-the-right-edge-that-keeps-its-space.md)).
 - **A keyring password prompt**, for when logging in couldn't unlock gnome-keyring
   ([0139](adr/0139-a-native-keyring-prompter-in-front-of-gnome-keyring.md)).
 - **A session supervisor** that restarts the compositor after a crash or on Ctrl+Alt+Shift+Backspace,

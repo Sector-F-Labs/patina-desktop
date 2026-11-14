@@ -119,6 +119,9 @@ pub struct Bar {
     /// Whether the compositor keeps a clipboard history here (ADR-0114), for the tray's
     /// clipboard icon.
     pub clipboard: bool,
+    /// The notification daemon's settings while patina-notify is serving (ADR-0141), for the
+    /// tray's bell; `None` where it isn't.
+    pub notifications: std::cell::Cell<Option<patina_system::notifications::Config>>,
     /// Holding the screen on, for the tray's coffee cup.
     pub caffeine: patina_system::caffeine::Caffeine,
     /// The battery, for the tray; `None` without one.
@@ -202,6 +205,7 @@ impl Bar {
                 volume: None,
                 wifi: None,
                 clipboard: false,
+                notifications: Default::default(),
                 caffeine: Default::default(),
                 battery: None,
                 keyboard: None,
@@ -527,6 +531,16 @@ impl Bar {
                             &self.skin.name,
                             &opening,
                         );
+                    }
+                    if let Some(mut config) = self.notifications.get()
+                        && crate::tray::notifications(ui, config.enabled)
+                    {
+                        config.enabled = !config.enabled;
+                        self.notifications.set(Some(config));
+                        if let Err(e) = patina_system::notifications::write(config) {
+                            eprintln!("patina-hud: the notification settings aren't saved: {e}");
+                        }
+                        ui.ctx().request_repaint();
                     }
                     if crate::tray::caffeine(ui, self.caffeine.is_on()) {
                         self.caffeine.toggle();
@@ -1579,6 +1593,7 @@ mod tests {
             volume: None,
             wifi: None,
             clipboard: false,
+            notifications: Default::default(),
             caffeine: Default::default(),
             battery: None,
             keyboard: None,
