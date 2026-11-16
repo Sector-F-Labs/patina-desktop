@@ -275,3 +275,4 @@ flowchart TD
 | [0143](0143-screenshots-are-notifications-you-can-drag-out-not-clipboard-entries.md) | Screenshots are notifications you can drag out, not clipboard entries | Accepted |
 | [0144](0144-album-art-on-the-players-cards-from-files-first.md) | Album art on the players' cards, from files first | Accepted |
 | [0145](0145-the-launcher-works-out-arithmetic.md) | The launcher works out arithmetic | Accepted |
+| [0146](0146-dragging-with-super-tiles-to-the-half-the-pointer-is-in.md) | Dragging with Super held tiles to the half the pointer is in | Accepted |

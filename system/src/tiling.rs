@@ -35,6 +35,9 @@ pub enum Event {
     DragStarted(u64),
     /// The pointer, dragging a window, in logical pixels.
     DragMotion(u64, f64, f64),
+    /// Super is held while the window is dragged, as the drag starts or when it's pressed or
+    /// let go during it.
+    DragSuper(u64, bool),
     DragEnded(u64, f64, f64),
     /// Super with an arrow: "up", "down", "left" or "right"; only to a tiler.
     SnapRequested(u64, String),
@@ -145,6 +148,10 @@ fn event(message: &zbus::Message) -> Option<Event> {
         "DragMotion" => {
             let (id, x, y) = body.deserialize().ok()?;
             Event::DragMotion(id, x, y)
+        }
+        "DragSuper" => {
+            let (id, held) = body.deserialize().ok()?;
+            Event::DragSuper(id, held)
         }
         "DragEnded" => {
             let (id, x, y) = body.deserialize().ok()?;

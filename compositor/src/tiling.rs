@@ -39,6 +39,8 @@ pub struct Tiling {
     preview: Option<(Rectangle<i32, Logical>, SolidColorBuffer)>,
     /// The work area tilers were last told of.
     announced: Option<Rectangle<i32, Logical>>,
+    /// Whether Super was held at the last drag event, so a change is announced once.
+    super_held: bool,
 }
 
 impl Tiling {
@@ -125,6 +127,20 @@ impl State {
     /// A window started moving with the pointer.
     pub fn drag_started(&mut self, window: &Window) {
         self.tiling.emit(Event::DragStarted(id(window)));
+        self.tiling.super_held = false;
+        self.announce_super(window);
+    }
+
+    /// Tells tilers when Super is pressed or let go during a drag, and at its start if held.
+    fn announce_super(&mut self, window: &Window) {
+        let held = self
+            .seat
+            .get_keyboard()
+            .is_some_and(|k| k.modifier_state().logo);
+        if held != self.tiling.super_held {
+            self.tiling.super_held = held;
+            self.tiling.emit(Event::DragSuper(id(window), held));
+        }
     }
 
     /// The pointer moved to `pointer`, dragging `window`.
@@ -134,6 +150,7 @@ impl State {
         // lock, so the location can't be read from the handle here.
         let area = self.work_area_on(&self.output_under(pointer).clone());
         self.announce_work_area(inset(area, self.config.gap()));
+        self.announce_super(window);
         self.tiling
             .emit(Event::DragMotion(id(window), pointer.x, pointer.y));
     }

@@ -73,6 +73,10 @@ struct Tiler<'a> {
     /// The window being dragged, if it can be tiled, and where a drop
     /// would put it.
     dragging: Option<(u64, Option<Tile>)>,
+    /// Super is held in the drag, so it tiles to the half the pointer is in (`policy::zone_held`).
+    super_held: bool,
+    /// Where the pointer last was in the drag.
+    pointer: (f64, f64),
     /// Where each app's window was last.
     positions: Positions,
 }
@@ -102,6 +106,8 @@ fn run() -> zbus::Result<()> {
         tiled: HashMap::new(),
         split: policy::HALVES,
         dragging: None,
+        super_held: false,
+        pointer: (0.0, 0.0),
         positions: Positions::load(),
     };
     for event in events {
@@ -140,12 +146,34 @@ fn exit_with_compositor(bus: &zbus::blocking::Connection) -> zbus::Result<()> {
 }
 
 impl Tiler<'_> {
+    /// Where a drop would tile `id` with the pointer where it is, and the preview to show it.
+    fn drag_zone(&mut self, id: u64) -> zbus::Result<()> {
+        let Some((dragged, zone)) = &mut self.dragging else {
+            return Ok(());
+        };
+        let now = if self.super_held {
+            policy::zone_held(self.pointer, self.screen)
+        } else {
+            policy::zone(self.pointer, self.screen)
+        };
+        if *dragged != id || now == *zone {
+            return Ok(());
+        }
+        *zone = now;
+        match now {
+            Some(tile) => self.tiling.show_preview(self.rect_for(id, tile)?)?,
+            None => self.tiling.hide_preview()?,
+        }
+        Ok(())
+    }
+
     fn handle(&mut self, event: Event) -> zbus::Result<()> {
         match event {
             Event::DragStarted(id) => {
                 // A dragged window is restored by the compositor.
                 self.tiled.remove(&id);
                 self.dragging = None;
+                self.super_held = false;
                 // Only windows the compositor lists can be tiled (not X11
                 // ones yet).
                 if tiling::deciding(self.bus) && self.listed(id)? {
@@ -153,18 +181,12 @@ impl Tiler<'_> {
                 }
             }
             Event::DragMotion(id, x, y) => {
-                let Some((dragged, zone)) = &mut self.dragging else {
-                    return Ok(());
-                };
-                let now = policy::zone((x, y), self.screen);
-                if *dragged != id || now == *zone {
-                    return Ok(());
-                }
-                *zone = now;
-                match now {
-                    Some(tile) => self.tiling.show_preview(self.rect_for(id, tile)?)?,
-                    None => self.tiling.hide_preview()?,
-                }
+                self.pointer = (x, y);
+                self.drag_zone(id)?;
+            }
+            Event::DragSuper(id, held) => {
+                self.super_held = held;
+                self.drag_zone(id)?;
             }
             Event::DragEnded(id, ..) => {
                 if let Some((dragged, Some(tile))) = self.dragging.take()

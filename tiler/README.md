@@ -14,7 +14,8 @@ desktop.
   and closing in; `Place`, `Move`, `Restore` and the preview out.
 - **What it does:** a window dragged so the pointer meets the left or right edge takes that half,
   and the top fills the screen (tiled, not maximised; ADR-0052), with the preview while it's
-  held there. Super+Left/Right tile, or restore from the other half; Up fills, Down restores.
+  held there. With Super held, the half of the screen the pointer is in tiles, however far from
+  the edge, and the top edge still fills (ADR-0146). Super+Left/Right tile, or restore from the other half; Up fills, Down restores.
   Gaps (ADR-0051) come from `WorkArea()` (inside the outer gaps) and `Gap()`. When the line
   between tiled windows is dragged (the compositor's `Resized`, ADR-0054), it keeps the split,
   and a window tiled to the other side takes the rest. A window opens where its app's window was

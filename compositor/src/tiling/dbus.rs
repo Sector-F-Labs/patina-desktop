@@ -3,7 +3,8 @@
 //!
 //! Signals say what the pointer and keys do: `DragStarted(id)`,
 //! `DragMotion(id, x, y)`, `DragEnded(id, x, y)` with the pointer in the
-//! desktop's logical pixels, `SnapRequested(id, direction)` for Super with
+//! desktop's logical pixels, `DragSuper(id, held)` when Super is held at the
+//! start of a drag or pressed or let go during one, `SnapRequested(id, direction)` for Super with
 //! an arrow, `WorkAreaChanged(x, y, w, h)`, and `Resized(id, x, y, w, h)`
 //! for each tiled window after the line between tiled windows is dragged.
 //! `WindowOpened(id, app_id, placement, x, y, w, h)` when a window first
@@ -75,6 +76,9 @@ pub enum Request {
 pub enum Event {
     DragStarted(u64),
     DragMotion(u64, f64, f64),
+    /// Whether Super is held while window `id` is dragged: sent when a drag starts with it
+    /// held, and when it's pressed or let go during one.
+    DragSuper(u64, bool),
     DragEnded(u64, f64, f64),
     Snap(u64, &'static str),
     WorkArea(Rect),
@@ -192,6 +196,7 @@ fn send_events(connection: &zbus::blocking::Connection, events: &mpsc::Receiver<
                 match event {
                     Event::DragStarted(id) => Interface::drag_started(emitter, id).await,
                     Event::DragMotion(id, x, y) => Interface::drag_motion(emitter, id, x, y).await,
+                    Event::DragSuper(id, held) => Interface::drag_super(emitter, id, held).await,
                     Event::DragEnded(id, x, y) => Interface::drag_ended(emitter, id, x, y).await,
                     Event::Snap(id, direction) => {
                         Interface::snap_requested(emitter, id, direction).await
@@ -316,6 +321,15 @@ impl Interface {
         id: u64,
         x: f64,
         y: f64,
+    ) -> zbus::Result<()>;
+
+    /// Super was pressed (`held`) or let go while window `id` is dragged, and is held when the
+    /// drag starts if it is.
+    #[zbus(signal)]
+    async fn drag_super(
+        emitter: &zbus::object_server::SignalEmitter<'_>,
+        id: u64,
+        held: bool,
     ) -> zbus::Result<()>;
 
     #[zbus(signal)]
@@ -488,12 +502,14 @@ mod tests {
 
         service.emit(Event::DragStarted(7));
         service.emit(Event::DragMotion(7, 0.0, 300.0));
+        service.emit(Event::DragSuper(7, true));
         service.emit(Event::DragEnded(7, 0.0, 300.0));
         assert_eq!(events.next(), Some(client::Event::DragStarted(7)));
         assert_eq!(
             events.next(),
             Some(client::Event::DragMotion(7, 0.0, 300.0))
         );
+        assert_eq!(events.next(), Some(client::Event::DragSuper(7, true)));
         assert_eq!(events.next(), Some(client::Event::DragEnded(7, 0.0, 300.0)));
 
         service.emit(Event::Opened(

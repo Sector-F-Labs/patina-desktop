@@ -4,8 +4,8 @@
 //! when nested). The compositor drops what a name held when it leaves the
 //! bus, so a bar that quits or crashes never leaves the screen held.
 
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use zbus::blocking::{Connection, Proxy};
 

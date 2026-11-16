@@ -33,6 +33,19 @@ pub fn zone((x, y): (f64, f64), screen: Rect) -> Option<Tile> {
     }
 }
 
+/// Where a window tiles with Super held: the half of the screen the pointer is in, whatever
+/// its distance from the edge, and filling at the top edge.
+pub fn zone_held((x, y): (f64, f64), screen: Rect) -> Option<Tile> {
+    let (left, top) = (screen.0 as f64, screen.1 as f64);
+    if y < top + EDGE {
+        Some(Tile::Fill)
+    } else if x < left + screen.2 as f64 / 2.0 {
+        Some(Tile::Left)
+    } else {
+        Some(Tile::Right)
+    }
+}
+
 /// Where the left column ends, as a share of the room beside the gap:
 /// halves, until the line between tiled windows is dragged (ADR-0054).
 pub const HALVES: f64 = 0.5;
@@ -204,6 +217,20 @@ mod tests {
         assert_eq!(centred((48, 48, 800, 600), area), Opening::Move(240, 120));
         assert_eq!(centred((240, 120, 800, 600), area), Opening::Stay);
         assert_eq!(centred((0, 0, 1300, 500), area), Opening::Fill, "too wide");
+    }
+
+    #[test]
+    fn with_super_held_the_half_the_pointer_is_in_tiles() {
+        assert_eq!(zone((300.0, 400.0), SCREEN), None, "not at an edge");
+        assert_eq!(zone_held((300.0, 400.0), SCREEN), Some(Tile::Left));
+        assert_eq!(zone_held((639.0, 400.0), SCREEN), Some(Tile::Left));
+        assert_eq!(zone_held((640.0, 400.0), SCREEN), Some(Tile::Right));
+        assert_eq!(zone_held((900.0, 700.0), SCREEN), Some(Tile::Right));
+        assert_eq!(
+            zone_held((300.0, 1.0), SCREEN),
+            Some(Tile::Fill),
+            "the top edge fills"
+        );
     }
 
     #[test]
