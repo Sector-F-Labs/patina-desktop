@@ -276,3 +276,4 @@ flowchart TD
 | [0144](0144-album-art-on-the-players-cards-from-files-first.md) | Album art on the players' cards, from files first | Accepted |
 | [0145](0145-the-launcher-works-out-arithmetic.md) | The launcher works out arithmetic | Accepted |
 | [0146](0146-dragging-with-super-tiles-to-the-half-the-pointer-is-in.md) | Dragging with Super held tiles to the half the pointer is in | Accepted |
+| [0147](0147-ultrawide-screens-tile-in-thirds-with-super.md) | Ultrawide screens tile in thirds with Super held | Accepted |

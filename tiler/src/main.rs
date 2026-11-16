@@ -295,6 +295,10 @@ impl Tiler<'_> {
     }
 
     fn split_for(&self, id: u64, tile: Tile) -> zbus::Result<f64> {
+        // Thirds stand alone: no split to keep.
+        if !tile.is_column() {
+            return Ok(self.split);
+        }
         if self.beside(id) {
             return Ok(self.split);
         }
@@ -312,13 +316,13 @@ impl Tiler<'_> {
     fn beside(&self, id: u64) -> bool {
         self.tiled
             .iter()
-            .any(|(other, t)| *other != id && *t != Tile::Fill)
+            .any(|(other, t)| *other != id && t.is_column())
     }
 
     fn place(&mut self, id: u64, tile: Tile) -> zbus::Result<()> {
         let split = self.split_for(id, tile)?;
         let rect = policy::rect_for(tile, self.area, self.gap, split);
-        if !self.beside(id) {
+        if tile.is_column() && !self.beside(id) {
             self.split = split;
         }
         self.tiled.insert(id, tile);
@@ -356,7 +360,7 @@ impl Tiler<'_> {
                 w.id == *id
                     && match tile {
                         Tile::Fill => w.placement == "fill",
-                        Tile::Left | Tile::Right => w.placement == "rect",
+                        _ => w.placement == "rect",
                     }
             })
         });

@@ -12,6 +12,12 @@ pub const EDGE: f64 = 4.0;
 pub enum Tile {
     Left,
     Right,
+    /// The left or right third of the area, on ultrawide screens (ADR-0147).
+    LeftThird,
+    RightThird,
+    /// The left or right two thirds of it.
+    LeftTwo,
+    RightTwo,
     /// All of the tiling area: filled, not maximised (ADR-0052).
     Fill,
 }
@@ -33,13 +39,53 @@ pub fn zone((x, y): (f64, f64), screen: Rect) -> Option<Tile> {
     }
 }
 
+impl Tile {
+    /// Whether the tile is one of the two columns of halves, which share a split the line
+    /// between them can move (ADR-0054); thirds stand alone.
+    pub fn is_column(self) -> bool {
+        matches!(self, Tile::Left | Tile::Right)
+    }
+
+    /// Whether the tile is against the left side of the area.
+    fn is_left(self) -> bool {
+        matches!(self, Tile::Left | Tile::LeftThird | Tile::LeftTwo)
+    }
+
+    /// Whether the tile is against the right side of the area.
+    fn is_right(self) -> bool {
+        matches!(self, Tile::Right | Tile::RightThird | Tile::RightTwo)
+    }
+}
+
+/// How wide a screen is, against its height, for it to count as ultrawide and tile in thirds
+/// (a 21:9 screen is 2.33, 16:9 is 1.78).
+pub const ULTRAWIDE: f64 = 2.0;
+
+/// Whether `screen` is ultrawide.
+pub fn ultrawide((_, _, w, h): Rect) -> bool {
+    h > 0 && w as f64 / h as f64 >= ULTRAWIDE
+}
+
 /// Where a window tiles with Super held: the half of the screen the pointer is in, whatever
-/// its distance from the edge, and filling at the top edge.
+/// its distance from the edge, and filling at the top edge. On an ultrawide screen it's
+/// thirds: the left and right thirds tile to the third, and the middle third to two thirds,
+/// the left two when the pointer is left of the middle and the right two when it's right.
 pub fn zone_held((x, y): (f64, f64), screen: Rect) -> Option<Tile> {
     let (left, top) = (screen.0 as f64, screen.1 as f64);
+    let across = (x - left) / screen.2.max(1) as f64;
     if y < top + EDGE {
         Some(Tile::Fill)
-    } else if x < left + screen.2 as f64 / 2.0 {
+    } else if ultrawide(screen) {
+        Some(if across < 1.0 / 3.0 {
+            Tile::LeftThird
+        } else if across >= 2.0 / 3.0 {
+            Tile::RightThird
+        } else if across < 0.5 {
+            Tile::LeftTwo
+        } else {
+            Tile::RightTwo
+        })
+    } else if across < 0.5 {
         Some(Tile::Left)
     } else {
         Some(Tile::Right)
@@ -56,10 +102,16 @@ pub const HALVES: f64 = 0.5;
 pub fn rect_for(tile: Tile, (x, y, w, h): Rect, gap: i32, split: f64) -> Rect {
     let room = (w - gap).max(0);
     let left = ((room as f64 * split).round() as i32).clamp(0, room);
+    // A third, with the gaps between three; two thirds are what a third leaves.
+    let third = ((w - 2 * gap) / 3).max(0);
     match tile {
         Tile::Fill => (x, y, w, h),
         Tile::Left => (x, y, left, h),
         Tile::Right => (x + left + gap, y, w - left - gap, h),
+        Tile::LeftThird => (x, y, third, h),
+        Tile::RightThird => (x + w - third, y, third, h),
+        Tile::LeftTwo => (x, y, w - gap - third, h),
+        Tile::RightTwo => (x + third + gap, y, w - gap - third, h),
     }
 }
 
@@ -70,7 +122,7 @@ pub fn split_of(tile: Tile, (_, _, w, _): Rect, area: Rect, gap: i32) -> Option<
     match tile {
         Tile::Left => Some(w as f64 / room),
         Tile::Right => Some((room - w as f64) / room),
-        Tile::Fill => None,
+        _ => None,
     }
     .map(|s| s.clamp(0.0, 1.0))
 }
@@ -95,7 +147,7 @@ pub fn split_beside(tile: Tile, area: Rect, gap: i32, others: &[Rect]) -> Option
                 && match tile {
                     Tile::Right => near(x, ax),
                     Tile::Left => near(x + w, ax + aw),
-                    Tile::Fill => false,
+                    _ => false,
                 }
                 && w as f64 > room / 2.0
                 && (w as f64) < room
@@ -138,7 +190,8 @@ pub fn after_snap(now: Option<Tile>, snap: Snap) -> Option<Tile> {
     match (snap, now) {
         (Snap::Up, _) => Some(Fill),
         (Snap::Down, _) => None,
-        (Snap::Left, Some(Right)) | (Snap::Right, Some(Left)) => None,
+        (Snap::Left, Some(t)) if t.is_right() => None,
+        (Snap::Right, Some(t)) if t.is_left() => None,
         (Snap::Left, _) => Some(Left),
         (Snap::Right, _) => Some(Right),
     }
@@ -230,6 +283,78 @@ mod tests {
             zone_held((300.0, 1.0), SCREEN),
             Some(Tile::Fill),
             "the top edge fills"
+        );
+    }
+
+    const ULTRA: Rect = (0, 0, 3440, 1440);
+
+    #[test]
+    fn only_wide_screens_are_ultrawide() {
+        assert!(ultrawide(ULTRA));
+        assert!(ultrawide((0, 0, 5120, 1440)));
+        assert!(!ultrawide(SCREEN));
+        assert!(!ultrawide((0, 0, 1920, 1080)));
+        assert!(!ultrawide((0, 0, 0, 0)));
+    }
+
+    #[test]
+    fn with_super_held_an_ultrawide_screen_tiles_in_thirds() {
+        let held = |x| zone_held((x, 700.0), ULTRA);
+        assert_eq!(held(10.0), Some(Tile::LeftThird));
+        assert_eq!(held(1100.0), Some(Tile::LeftThird));
+        assert_eq!(
+            held(1200.0),
+            Some(Tile::LeftTwo),
+            "the middle, left of centre"
+        );
+        assert_eq!(held(1719.0), Some(Tile::LeftTwo));
+        assert_eq!(
+            held(1720.0),
+            Some(Tile::RightTwo),
+            "the middle, right of centre"
+        );
+        assert_eq!(held(2200.0), Some(Tile::RightTwo));
+        assert_eq!(held(2300.0), Some(Tile::RightThird));
+        assert_eq!(
+            zone_held((1700.0, 1.0), ULTRA),
+            Some(Tile::Fill),
+            "the top edge fills"
+        );
+        // Without Super, the edges, as on any screen.
+        assert_eq!(zone((1200.0, 700.0), ULTRA), None);
+        assert_eq!(zone((0.0, 700.0), ULTRA), Some(Tile::Left));
+    }
+
+    #[test]
+    fn thirds_and_two_thirds_fill_the_area_with_gaps_between() {
+        let area = (10, 40, 3000, 1000);
+        let gap = 10;
+        let third = (3000 - 20) / 3;
+        let left = rect_for(Tile::LeftThird, area, gap, HALVES);
+        let right_two = rect_for(Tile::RightTwo, area, gap, HALVES);
+        assert_eq!(left, (10, 40, third, 1000));
+        // A third and the two thirds beside it fill the area, a gap apart.
+        assert_eq!(right_two.0, left.0 + left.2 + gap);
+        assert_eq!(right_two.0 + right_two.2, 10 + 3000);
+        let left_two = rect_for(Tile::LeftTwo, area, gap, HALVES);
+        let right = rect_for(Tile::RightThird, area, gap, HALVES);
+        assert_eq!(left_two.0 + left_two.2 + gap, right.0);
+        assert_eq!(right.0 + right.2, 10 + 3000);
+        assert_eq!(right.2, third);
+    }
+
+    #[test]
+    fn thirds_are_not_columns_and_snap_away_like_halves() {
+        assert!(Tile::Left.is_column() && !Tile::LeftThird.is_column());
+        assert_eq!(
+            split_of(Tile::RightTwo, (0, 0, 100, 100), (0, 0, 300, 100), 0),
+            None
+        );
+        assert_eq!(after_snap(Some(Tile::RightThird), Snap::Left), None);
+        assert_eq!(after_snap(Some(Tile::LeftTwo), Snap::Right), None);
+        assert_eq!(
+            after_snap(Some(Tile::LeftThird), Snap::Left),
+            Some(Tile::Left)
         );
     }
 
