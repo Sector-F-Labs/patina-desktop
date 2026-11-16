@@ -786,6 +786,11 @@ impl<S: Shell> Host<S> {
             });
         });
 
+        for command in &out.platform_output.commands {
+            if let egui::OutputCommand::CopyText(text) = command {
+                copy_text(text);
+            }
+        }
         if let Some(v) = out.viewport_output.get(&egui::ViewportId::ROOT) {
             if v.repaint_delay.is_zero() {
                 s.dirty = true;
@@ -953,6 +958,9 @@ impl<S: Shell> Host<S> {
                 modifiers,
             });
         }
+        if pressed && let Some(event) = clipboard_shortcut(event.keysym, modifiers) {
+            s.events.push(event);
+        }
         // Text, but not control characters or shortcuts.
         if pressed
             && !modifiers.ctrl
@@ -965,6 +973,57 @@ impl<S: Shell> Host<S> {
             s.events.push(egui::Event::Text(text.clone()));
         }
         s.dirty = true;
+    }
+}
+
+/// Ctrl+C, Ctrl+X and Ctrl+V (and Ctrl+Insert, Shift+Insert, Shift+Delete) as the event egui's
+/// text widgets act on; a paste carries the clipboard's text, which egui can't fetch itself.
+fn clipboard_shortcut(sym: Keysym, modifiers: egui::Modifiers) -> Option<egui::Event> {
+    if modifiers.alt {
+        return None;
+    }
+    let letter = sym.key_char().map(|c| c.to_ascii_lowercase());
+    let copy = modifiers.ctrl && (letter == Some('c') || sym == Keysym::Insert);
+    let cut = (modifiers.ctrl && letter == Some('x')) || (modifiers.shift && sym == Keysym::Delete);
+    let paste =
+        (modifiers.ctrl && letter == Some('v')) || (modifiers.shift && sym == Keysym::Insert);
+    if copy && !modifiers.shift {
+        Some(egui::Event::Copy)
+    } else if cut {
+        Some(egui::Event::Cut)
+    } else if paste {
+        Some(egui::Event::Paste(paste_text()))
+    } else {
+        None
+    }
+}
+
+/// The clipboard's text, through wl-paste (the compositor serves data-control); empty if it
+/// holds none or there's no wl-paste.
+fn paste_text() -> String {
+    std::process::Command::new("wl-paste")
+        .args(["--no-newline", "--type", "text"])
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .unwrap_or_default()
+}
+
+/// Puts text on the clipboard with wl-copy, which stays behind to serve it, so a piece that
+/// closes straight after (a launcher, a menu) doesn't take it with it.
+fn copy_text(text: &str) {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    match Command::new("wl-copy").stdin(Stdio::piped()).spawn() {
+        Ok(mut child) => {
+            if let Some(mut stdin) = child.stdin.take() {
+                let _ = stdin.write_all(text.as_bytes());
+            }
+            let _ = child.wait();
+        }
+        Err(e) => eprintln!("patina-shell: can't copy, wl-copy: {e}"),
     }
 }
 
@@ -1591,5 +1650,29 @@ mod tests {
         assert_eq!(egui_key(Keysym::_1), Some(egui::Key::Num1));
         assert_eq!(egui_key(Keysym::Escape), Some(egui::Key::Escape));
         assert_eq!(egui_key(Keysym::odiaeresis), None);
+    }
+
+    #[test]
+    fn the_clipboard_shortcuts_become_egui_events() {
+        let ctrl = egui::Modifiers::CTRL;
+        let shift = egui::Modifiers::SHIFT;
+        assert!(matches!(
+            clipboard_shortcut(Keysym::c, ctrl),
+            Some(egui::Event::Copy)
+        ));
+        assert!(matches!(
+            clipboard_shortcut(Keysym::x, ctrl),
+            Some(egui::Event::Cut)
+        ));
+        assert!(matches!(
+            clipboard_shortcut(Keysym::v, ctrl),
+            Some(egui::Event::Paste(_))
+        ));
+        assert!(matches!(
+            clipboard_shortcut(Keysym::Insert, shift),
+            Some(egui::Event::Paste(_))
+        ));
+        assert!(clipboard_shortcut(Keysym::v, egui::Modifiers::NONE).is_none());
+        assert!(clipboard_shortcut(Keysym::c, egui::Modifiers::ALT | ctrl).is_none());
     }
 }
