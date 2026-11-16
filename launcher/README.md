@@ -34,6 +34,12 @@ Two options change where it opens and where the search box sits:
 So `patina-launcher --position center --search top` is a Spotlight-style launcher, and a bar's
 button can run `patina-launcher --search top` for a top bar.
 
+## Sums
+
+Typing arithmetic, such as `1 + 5`, `(2 + 3) * 4` or `sqrt(2) * pi`, puts the answer at the top of
+the list; Enter copies it (with wl-copy) and closes
+([ADR-0145](../docs/adr/0145-the-launcher-works-out-arithmetic.md)).
+
 ## Files
 
 Typing also lists matching files under the apps, from the folders Settings' Search page turns on

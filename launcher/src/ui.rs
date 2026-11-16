@@ -10,6 +10,7 @@ use patina::skin::Skin;
 use patina_shell::Shell;
 
 use crate::apps::{self, App};
+use crate::calc;
 use crate::files::Finder;
 use patina_search::engine::Hit;
 
@@ -49,8 +50,27 @@ pub struct Launcher {
 /// What a row of the list is.
 #[derive(Clone, Copy)]
 enum Entry {
+    /// The answer to the arithmetic typed.
+    Answer,
     App(usize),
     File(usize),
+}
+
+/// Puts text on the clipboard. wl-copy stays behind to serve it, which the
+/// launcher closing wouldn't let us do ourselves.
+fn copy(text: &str) {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    let child = Command::new("wl-copy").stdin(Stdio::piped()).spawn();
+    match child {
+        Ok(mut child) => {
+            if let Some(mut stdin) = child.stdin.take() {
+                let _ = stdin.write_all(text.as_bytes());
+            }
+            let _ = child.wait();
+        }
+        Err(e) => eprintln!("patina-launcher: can't copy the answer, wl-copy: {e}"),
+    }
 }
 
 impl Launcher {
@@ -89,6 +109,12 @@ impl Launcher {
 
     fn open(&mut self, entry: Entry, files: &[Hit]) {
         match entry {
+            Entry::Answer => {
+                if let Some(answer) = calc::answer(&self.query) {
+                    copy(&answer);
+                }
+                self.done = true;
+            }
             Entry::App(index) => self.launch(index),
             Entry::File(index) => {
                 if let Err(e) = patina::open::path(&files[index].path) {
@@ -220,6 +246,28 @@ impl Launcher {
             icon,
             &app.name,
             detail.map(String::as_str),
+            (name_colour, detail_colour),
+        );
+        response
+    }
+
+    /// The answer to the sum typed: the answer large, the sum under it.
+    fn answer_row(&self, ui: &mut Ui, sum: &str, answer: &str, selected: bool) -> egui::Response {
+        let (rect, response, name_colour, detail_colour) = self.row_frame(ui, selected);
+        let icon = Self::icon_rect(rect);
+        ui.painter().text(
+            icon.center(),
+            Align2::CENTER_CENTER,
+            "=",
+            FontId::proportional(20.0),
+            detail_colour,
+        );
+        Self::row_text(
+            ui,
+            rect,
+            icon,
+            answer,
+            Some(&format!("{} · Enter copies", sum.trim())),
             (name_colour, detail_colour),
         );
         response
@@ -361,9 +409,11 @@ impl Shell for Launcher {
             .as_ref()
             .map_or_else(Vec::new, |f| f.hits.clone());
         // The apps, then the files.
-        let entries: Vec<Entry> = apps_found
+        let answer = calc::answer(&self.query);
+        let entries: Vec<Entry> = answer
             .iter()
-            .map(|&i| Entry::App(i))
+            .map(|_| Entry::Answer)
+            .chain(apps_found.iter().map(|&i| Entry::App(i)))
             .chain((0..files.len()).map(Entry::File))
             .collect();
         if up {
@@ -395,17 +445,24 @@ impl Shell for Launcher {
         let pointer_moved = ui.input(|i| i.pointer.delta() != egui::Vec2::ZERO);
         let mut clicked = None;
         // With both, each kind has a small heading.
+        let lead = usize::from(answer.is_some());
         let headings = !apps_found.is_empty() && !files.is_empty();
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(&mut ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 2.0;
                 for (row, &entry) in entries.iter().enumerate() {
-                    if headings && (row == 0 || row == apps_found.len()) {
-                        let heading = if row == 0 { "Apps" } else { "Files" };
+                    if headings && (row == lead || row == lead + apps_found.len()) {
+                        let heading = if row == lead { "Apps" } else { "Files" };
                         ui.label(egui::RichText::new(heading).small().weak());
                     }
                     let response = match entry {
+                        Entry::Answer => self.answer_row(
+                            ui,
+                            &self.query,
+                            answer.as_deref().unwrap_or_default(),
+                            row == self.selected,
+                        ),
                         Entry::App(index) => self.row(ui, index, row == self.selected),
                         Entry::File(index) => {
                             self.file_row(ui, &files[index], row == self.selected)

@@ -274,3 +274,4 @@ flowchart TD
 | [0142](0142-clicking-a-notification-raises-its-app-and-it-goes-only-if-something-happened.md) | Clicking a notification raises its app, and a card goes only if something happened | Accepted |
 | [0143](0143-screenshots-are-notifications-you-can-drag-out-not-clipboard-entries.md) | Screenshots are notifications you can drag out, not clipboard entries | Accepted |
 | [0144](0144-album-art-on-the-players-cards-from-files-first.md) | Album art on the players' cards, from files first | Accepted |
+| [0145](0145-the-launcher-works-out-arithmetic.md) | The launcher works out arithmetic | Accepted |
