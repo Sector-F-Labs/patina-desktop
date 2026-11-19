@@ -330,8 +330,21 @@ impl<S: Shell> Host<S> {
         let (globals, queue) = registry_queue_init(&conn).map_err(|e| e.to_string())?;
         let qh = queue.handle();
         let event_loop = EventLoop::try_new().map_err(|e| e.to_string())?;
-        WaylandSource::new(conn.clone(), queue)
-            .insert(event_loop.handle())
+        // A shell that drags has its drag machinery made here, before the first press (see
+        // `ensure_dragger`), inside the source's callback: making it reads from the shared
+        // connection, and the events that read takes in for this queue (the surface's first
+        // configure) are dispatched right after, since nothing would wake the loop for them.
+        event_loop
+            .handle()
+            .insert_source(
+                WaylandSource::new(conn.clone(), queue),
+                |_, queue, host: &mut Self| {
+                    if host.shell.drags() {
+                        host.ensure_dragger();
+                    }
+                    queue.dispatch_pending(host)
+                },
+            )
             .map_err(|e| e.to_string())?;
 
         let compositor =
@@ -408,9 +421,6 @@ impl<S: Shell> Host<S> {
     /// Runs until the shell is [`Shell::finished`], or an error such as the
     /// compositor going away.
     pub fn run(mut self, mut event_loop: EventLoop<'static, Self>) -> Result<(), String> {
-        if self.shell.drags() {
-            self.ensure_dragger();
-        }
         loop {
             let timeout = self
                 .next_repaint()
