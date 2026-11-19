@@ -1,0 +1,26 @@
+[package]
+name = "text-editor"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "A Patina text editor: tabs, find and replace, syntax highlighting, and drafts kept across restarts"
+repository = "https://github.com/Sector-F-Labs/editor"
+
+[dependencies]
+dirs = "7"
+eframe = { version = "0.35", features = ["persistence"] }
+egui = "0.35"
+image = { version = "0.25", default-features = false, features = ["png"] }
+notify = "8"
+# Patina's develop branch, with its highlighter (Patina's ADR-0027, ADR-0010 here).
+patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop", features = ["highlight"] }
+regex = "1"
+rfd = "0.17"
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+resvg = "0.48.1"
