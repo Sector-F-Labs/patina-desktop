@@ -2,6 +2,7 @@
 
 mod app;
 mod bitmap;
+mod colour;
 mod config;
 mod document;
 mod file;

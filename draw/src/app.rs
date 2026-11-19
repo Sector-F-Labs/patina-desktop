@@ -539,13 +539,22 @@ impl App {
         } else {
             ui.label(if tool == Tool::Eraser { "Erases to" } else { "Colour" });
         }
-        let mut colour = to_color32(if slot == Slot::Foreground { self.pen.fg } else { self.pen.bg });
+        let now = if slot == Slot::Foreground { self.pen.fg } else { self.pen.bg };
+        let mut colour = to_color32(now);
         // The picker is as wide as the slider is: the panel takes its width from it.
         ui.spacing_mut().slider_width = 180.0;
-        if egui::color_picker::color_picker_color32(ui, &mut colour, egui::color_picker::Alpha::Opaque) {
+        let mut changed =
+            egui::color_picker::color_picker_color32(ui, &mut colour, egui::color_picker::Alpha::Opaque);
+        let mut next = from_color32(colour);
+        // Hex as well as the picker's numbers, which egui offers only as bytes or fractions.
+        if let Some(typed) = hex_field(ui, now) {
+            next = typed;
+            changed = true;
+        }
+        if changed {
             match slot {
-                Slot::Foreground => self.pen.fg = from_color32(colour),
-                Slot::Background => self.pen.bg = from_color32(colour),
+                Slot::Foreground => self.pen.fg = next,
+                Slot::Background => self.pen.bg = next,
             }
         }
     }
@@ -971,6 +980,32 @@ fn item(ui: &mut egui::Ui, actions: &mut Vec<Action>, label: &str, keys: &str, e
         actions.push(action);
         ui.close();
     }
+}
+
+/// A field for the colour as hex. It shows `colour` until it's clicked into; what's typed is taken
+/// as soon as it's a colour (`#RRGGBB` or `RGB`), and a half-typed one changes nothing.
+fn hex_field(ui: &mut egui::Ui, colour: Rgba) -> Option<Rgba> {
+    let id = egui::Id::new("draw-hex");
+    let mut taken = None;
+    ui.horizontal(|ui| {
+        ui.label("Hex");
+        let editing = ui.memory(|m| m.has_focus(id));
+        let mut text = if editing {
+            ui.data(|d| d.get_temp::<String>(id)).unwrap_or_else(|| crate::colour::hex(colour))
+        } else {
+            crate::colour::hex(colour)
+        };
+        let response = ui.add(egui::TextEdit::singleline(&mut text).id(id).desired_width(90.0).hint_text("#RRGGBB"));
+        if response.changed() {
+            taken = crate::colour::parse_hex(&text).filter(|c| *c != colour);
+        }
+        if response.has_focus() {
+            ui.data_mut(|d| d.insert_temp(id, text));
+        } else {
+            ui.data_mut(|d| d.remove_temp::<String>(id));
+        }
+    });
+    taken
 }
 
 fn to_color32(c: Rgba) -> Color32 {

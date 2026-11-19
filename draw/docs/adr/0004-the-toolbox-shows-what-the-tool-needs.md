@@ -25,7 +25,9 @@ value, a hue slider and the numbers.
   window is short. The spectrum and the bottom panel go.
 - **The picker is egui's inline one**, opaque only, 180 px wide. It edits one colour: the
   foreground for most tools; the background for the eraser, which paints it; and for a shape set
-  to Both, Outline or Fill, chosen by two tabs above it. **A Filled shape is now the chosen colour
+  to Both, Outline or Fill, chosen by two tabs above it. egui's numbers are bytes or fractions
+  only, so a **hex field** under the picker shows the colour as `#RRGGBB` and takes `#RRGGBB` or
+  `RGB`, as soon as what's typed is a colour (`colour.rs`). **A Filled shape is now the chosen colour
   all through** (it was the background colour, as in Paint, which is not what anyone choosing a
   colour for a rectangle expects); only Both has two.
 - **Tools are five to a row**, now twelve: rectangle, ellipse, arrow, line, text; highlighter,
