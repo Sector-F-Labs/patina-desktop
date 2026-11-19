@@ -726,7 +726,7 @@ impl App {
                 if resp.clicked() {
                     actions.push(Do::Select(url.clone()));
                 }
-                resp.context_menu(|ui| {
+                patina::menu::context(&resp, |ui| {
                     if ui.button("Refresh").clicked() {
                         actions.push(Do::RefreshShow(url.clone()));
                         ui.close();
@@ -918,7 +918,7 @@ impl App {
         if resp.double_clicked() {
             actions.push(Do::Play(show.to_string(), e.id.clone()));
         }
-        resp.context_menu(|ui| {
+        patina::menu::context(&resp, |ui| {
             let mut item = |ui: &mut egui::Ui, label: &str, action: Do| {
                 if ui.button(label).clicked() {
                     actions.push(action);
@@ -1260,7 +1260,10 @@ impl eframe::App for App {
         }
     }
 
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        if !self.config.system_title_bar {
+            patina::frame::shadow::request(frame);
+        }
         self.draw(ui);
     }
 
