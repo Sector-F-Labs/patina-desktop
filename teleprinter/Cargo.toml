@@ -5,6 +5,7 @@ edition = "2024"
 description = "A terminal emulator on egui and Patina, with alacritty_terminal doing the emulation"
 license = "BSD-3-Clause"
 publish = false
+repository = "https://github.com/Sector-F-Labs/patina-desktop"
 
 [dependencies]
 alacritty_terminal = "0.26.0"
@@ -17,7 +18,7 @@ flate2 = "1"
 polling = "3"
 libc = "0.2.190"
 raw-window-handle = "0.6"
-patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+patina-ui = { workspace = true }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 toml = "1.1.8"

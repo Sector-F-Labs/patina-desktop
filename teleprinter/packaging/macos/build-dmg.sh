@@ -3,24 +3,26 @@
 # drag-to-Applications .dmg, as Photograph does. Runs on macOS, by hand: `make dmg`. The app is
 # ad-hoc signed only, not notarised, so Gatekeeper asks to allow it on first launch.
 #
-# Output: target/dmg/Teleprinter-<version>.dmg
+# Output: ../target/dmg/ (the workspace's target, beside teleprinter/)
+#
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 version="$(awk -F\" '/^version = / { print $2; exit }' Cargo.toml)"
-out=target/dmg
+tgt="$(cd .. && pwd)/target"  # the workspace's, one up
+out="$tgt/dmg"
 app="$out/Teleprinter.app"
 targets=(aarch64-apple-darwin x86_64-apple-darwin)
 
 for t in "${targets[@]}"; do
   rustup target add "$t" >/dev/null
-  cargo build --release --locked --bin teleprinter --target "$t"
+  cargo build --release --locked -p teleprinter --bin teleprinter --target "$t"
 done
 
 rm -rf "$out"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 lipo -create -output "$app/Contents/MacOS/teleprinter" \
-  target/aarch64-apple-darwin/release/teleprinter target/x86_64-apple-darwin/release/teleprinter
+  "$tgt/aarch64-apple-darwin/release/teleprinter" "$tgt/x86_64-apple-darwin/release/teleprinter"
 sed "s/@VERSION@/$version/g" packaging/macos/Info.plist > "$app/Contents/Info.plist"
 
 # The icon: the SVG rendered at every size an .icns holds (with the repo's own renderer, so
@@ -28,8 +30,8 @@ sed "s/@VERSION@/$version/g" packaging/macos/Info.plist > "$app/Contents/Info.pl
 iconset="$out/teleprinter.iconset"
 mkdir -p "$iconset"
 for size in 16 32 128 256 512; do
-  cargo run -q --release --example render_icon -- "$size" "$iconset/icon_${size}x${size}.png"
-  cargo run -q --release --example render_icon -- $((size * 2)) "$iconset/icon_${size}x${size}@2x.png"
+  cargo run -q --release -p teleprinter --example render_icon -- "$size" "$iconset/icon_${size}x${size}.png"
+  cargo run -q --release -p teleprinter --example render_icon -- $((size * 2)) "$iconset/icon_${size}x${size}@2x.png"
 done
 iconutil -c icns "$iconset" -o "$app/Contents/Resources/teleprinter.icns"
 rm -rf "$iconset"

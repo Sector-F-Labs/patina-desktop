@@ -8,7 +8,8 @@ VERSION := $(shell awk -F\" '/^version = / { print $$2; exit }' Cargo.toml)
 
 # A throwaway config and data dir, so screenshots and test runs never touch
 # the settings of a copy the user is running.
-SCRATCH_ENV := XDG_CONFIG_HOME=$(CURDIR)/target/scratch-config XDG_DATA_HOME=$(CURDIR)/target/scratch-data
+TARGET := $(CURDIR)/../target
+SCRATCH_ENV := XDG_CONFIG_HOME=$(TARGET)/scratch-config XDG_DATA_HOME=$(TARGET)/scratch-data
 
 .DEFAULT_GOAL := help
 
@@ -20,34 +21,34 @@ help: ## Show this help
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  \033[1m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 run: ## Run the app
-	cargo run
+	cargo run -p teleprinter
 
 dev: ## Run with live reload (requires cargo-watch)
 	@command -v cargo-watch >/dev/null 2>&1 || { echo "cargo-watch is required: cargo install cargo-watch"; exit 1; }
-	cargo watch -x "run --bin $(APP_NAME)"
+	cargo watch -x "run -p teleprinter --bin $(APP_NAME)"
 
 build: ## Build a release binary
-	cargo build --release
+	cargo build --release -p teleprinter
 
 test: ## Run the tests
-	cargo test
+	cargo test -p teleprinter
 
 bench: ## Throughput of the event loop on cat of big files (release)
-	cargo test --release bench -- --ignored --nocapture --test-threads=1
+	cargo test -p teleprinter --release bench -- --ignored --nocapture --test-threads=1
 
 check: test ## Run the tests and clippy, as before a commit or release
-	cargo clippy --all-targets -- -D warnings
+	cargo clippy -p teleprinter --all-targets -- -D warnings
 
 screenshot: ## Regenerate docs/screenshot-*.png in a throwaway config dir
-	@rm -rf target/scratch-config target/scratch-data
-	@mkdir -p docs target/scratch-config target/scratch-data
-	$(SCRATCH_ENV) TELEPRINTER_COMMAND=$(CURDIR)/scripts/demo.sh TELEPRINTER_SCREENSHOT=docs/screenshot-notebook.png TELEPRINTER_SKIN=Notebook cargo run
-	$(SCRATCH_ENV) TELEPRINTER_COMMAND=$(CURDIR)/scripts/demo.sh TELEPRINTER_SCREENSHOT=docs/screenshot-dark-orange.png TELEPRINTER_SKIN="Dark Orange" cargo run
-	$(SCRATCH_ENV) TELEPRINTER_COMMAND=$(CURDIR)/scripts/demo.sh TELEPRINTER_SCREENSHOT=docs/screenshot-split-dark-orange.png TELEPRINTER_SKIN="Dark Orange" TELEPRINTER_SPLITS=right,down cargo run
-	$(SCRATCH_ENV) TELEPRINTER_COMMAND=$(CURDIR)/scripts/demo.sh TELEPRINTER_SCREENSHOT=docs/screenshot-collapsed-notebook.png TELEPRINTER_SKIN=Notebook TELEPRINTER_SPLITS=right,down,down TELEPRINTER_COLLAPSED=2,4 cargo run
+	@rm -rf $(TARGET)/scratch-config $(TARGET)/scratch-data
+	@mkdir -p docs $(TARGET)/scratch-config $(TARGET)/scratch-data
+	$(SCRATCH_ENV) TELEPRINTER_COMMAND=$(CURDIR)/scripts/demo.sh TELEPRINTER_SCREENSHOT=docs/screenshot-notebook.png TELEPRINTER_SKIN=Notebook cargo run -p teleprinter
+	$(SCRATCH_ENV) TELEPRINTER_COMMAND=$(CURDIR)/scripts/demo.sh TELEPRINTER_SCREENSHOT=docs/screenshot-dark-orange.png TELEPRINTER_SKIN="Dark Orange" cargo run -p teleprinter
+	$(SCRATCH_ENV) TELEPRINTER_COMMAND=$(CURDIR)/scripts/demo.sh TELEPRINTER_SCREENSHOT=docs/screenshot-split-dark-orange.png TELEPRINTER_SKIN="Dark Orange" TELEPRINTER_SPLITS=right,down cargo run -p teleprinter
+	$(SCRATCH_ENV) TELEPRINTER_COMMAND=$(CURDIR)/scripts/demo.sh TELEPRINTER_SCREENSHOT=docs/screenshot-collapsed-notebook.png TELEPRINTER_SKIN=Notebook TELEPRINTER_SPLITS=right,down,down TELEPRINTER_COLLAPSED=2,4 cargo run -p teleprinter
 
 icons: ## Render assets/teleprinter-icon-128.png from packaging/linux/teleprinter.svg
-	cargo run -q --example render_icon -- 128 assets/teleprinter-icon-128.png
+	cargo run -q -p teleprinter --example render_icon -- 128 assets/teleprinter-icon-128.png
 
 icon: ## docs/icon.png: the app icon at 120 px, for the README
 	scripts/icon.sh
@@ -56,7 +57,7 @@ icon: ## docs/icon.png: the app icon at 120 px, for the README
 # so it works even if $(BINDIR) isn't on the GNOME session's PATH. On
 # Wayland the window icon comes from this launcher, matched by app id.
 install: build ## Install Teleprinter and its launcher for the current user (PREFIX=~/.local; DESTDIR to stage it)
-	install -Dm755 target/release/teleprinter $(DESTDIR)$(BINDIR)/teleprinter
+	install -Dm755 $(TARGET)/release/teleprinter $(DESTDIR)$(BINDIR)/teleprinter
 	install -Dm644 packaging/linux/teleprinter.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(APP_ID).svg
 	install -Dm644 assets/teleprinter-icon-128.png $(DESTDIR)$(ICONDIR)/128x128/apps/$(APP_ID).png
 	install -d $(DESTDIR)$(APPSDIR)
@@ -74,9 +75,9 @@ uninstall: ## Remove what make install put in place
 	-update-desktop-database -q $(APPSDIR)
 	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
 
-dmg: ## Build a universal Teleprinter.app in a .dmg into target/dmg/ (macOS only)
+dmg: ## Build a universal Teleprinter.app in a .dmg into ../target/dmg/ (macOS only)
 	@test "$$(uname -s)" = Darwin || { echo "make dmg runs on macOS"; exit 1; }
 	packaging/macos/build-dmg.sh
 
 clean: ## Remove build output
-	cargo clean
+	cargo clean -p teleprinter
