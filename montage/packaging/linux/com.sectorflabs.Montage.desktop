@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Montage
+GenericName=Video Editor
+Comment=Put home videos together, with music and a voiceover
+Exec=montage %f
+Icon=com.sectorflabs.Montage
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;
+Keywords=video;movie;editor;film;voiceover;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.Montage

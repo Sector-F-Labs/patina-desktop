@@ -1,0 +1,23 @@
+[package]
+name = "montage"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "A simple home video editor: a library of clips, a timeline, music and a voiceover. A Patina app."
+repository = "https://github.com/Sector-F-Labs/montage"
+
+[dependencies]
+dirs = "7"
+eframe = { version = "0.35", features = ["persistence"] }
+egui = "0.35"
+image = { version = "0.25", default-features = false, features = ["png"] }
+patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+rfd = "0.17"
+# Only the output: ffmpeg decodes everything (ADR-0002).
+rodio = { version = "0.22.2", default-features = false, features = ["playback"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+
+[dev-dependencies]
+resvg = "0.48.1"
