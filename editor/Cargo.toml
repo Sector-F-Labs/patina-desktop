@@ -13,7 +13,7 @@ egui = "0.35"
 image = { version = "0.25", default-features = false, features = ["png"] }
 notify = "8"
 # Patina's develop branch, with its highlighter (Patina's ADR-0027, ADR-0010 here).
-patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop", features = ["highlight"] }
+patina-ui = { workspace = true, features = ["highlight"] }
 regex = "1"
 rfd = "0.17"
 serde = { version = "1", features = ["derive"] }
