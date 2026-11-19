@@ -1,3 +1,4 @@
+TARGET := $(CURDIR)/../target
 .DEFAULT_GOAL := help
 
 APP_ID := com.sectorflabs.Weather
@@ -7,8 +8,8 @@ APPSDIR := $(PREFIX)/share/applications
 ICONDIR := $(PREFIX)/share/icons/hicolor
 
 # Throwaway config, data and cache dirs, so test runs never touch yours.
-SCRATCH := target/scratch
-SCRATCH_ENV := XDG_CONFIG_HOME=$(CURDIR)/$(SCRATCH)/config XDG_DATA_HOME=$(CURDIR)/$(SCRATCH)/data XDG_CACHE_HOME=$(CURDIR)/$(SCRATCH)/cache
+SCRATCH := $(TARGET)/scratch
+SCRATCH_ENV := XDG_CONFIG_HOME=$(SCRATCH)/config XDG_DATA_HOME=$(SCRATCH)/data XDG_CACHE_HOME=$(SCRATCH)/cache
 
 .PHONY: help run dev build test check scratch screenshot icons icon install uninstall clean
 
@@ -18,19 +19,19 @@ help: ## Show this help
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  \033[1m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 run: ## Run Weather with your own settings
-	cargo run
+	cargo run -p weather
 
 dev: scratch ## Run in a scratch config with a few places in it
-	$(SCRATCH_ENV) cargo run
+	$(SCRATCH_ENV) cargo run -p weather
 
 build: ## Build a release binary
-	cargo build --release
+	cargo build -p weather --release
 
 test: ## Run the tests
-	cargo test
+	cargo test -p weather
 
 check: test ## Run the tests and clippy
-	cargo clippy --all-targets -- -D warnings
+	cargo clippy -p weather --all-targets -- -D warnings
 
 # A scratch config with a few places, for dev runs and screenshots.
 scratch:
@@ -39,12 +40,12 @@ scratch:
 
 screenshot: ## Regenerate docs/screenshot-*.png in a scratch config
 	@rm -rf $(SCRATCH) && $(MAKE) -s scratch && mkdir -p docs
-	$(SCRATCH_ENV) WEATHER_VIEW=overview WEATHER_SCREENSHOT=docs/screenshot-overview.png cargo run
-	$(SCRATCH_ENV) WEATHER_VIEW=week WEATHER_SKIN="Dark Orange" WEATHER_SCREENSHOT=docs/screenshot-week.png cargo run
-	$(SCRATCH_ENV) WEATHER_VIEW=day WEATHER_DAY=1 WEATHER_SCREENSHOT=docs/screenshot-day.png cargo run
+	$(SCRATCH_ENV) WEATHER_VIEW=overview WEATHER_SCREENSHOT=docs/screenshot-overview.png cargo run -p weather
+	$(SCRATCH_ENV) WEATHER_VIEW=week WEATHER_SKIN="Dark Orange" WEATHER_SCREENSHOT=docs/screenshot-week.png cargo run -p weather
+	$(SCRATCH_ENV) WEATHER_VIEW=day WEATHER_DAY=1 WEATHER_SCREENSHOT=docs/screenshot-day.png cargo run -p weather
 
 icons: ## Render assets/weather-icon-128.png from packaging/linux/weather.svg
-	cargo run -q --example render_icon -- 128 assets/weather-icon-128.png
+	cargo run -p weather -q --example render_icon -- 128 assets/weather-icon-128.png
 
 icon: ## docs/icon.png: the app icon at 120 px, for the README
 	scripts/icon.sh
@@ -53,7 +54,7 @@ icon: ## docs/icon.png: the app icon at 120 px, for the README
 # so it works even if $(BINDIR) isn't on the GNOME session's PATH. On
 # Wayland the window icon comes from this launcher, matched by app id.
 install: build ## Install Weather and its launcher for the current user (PREFIX=~/.local)
-	install -Dm755 target/release/weather $(BINDIR)/weather
+	install -Dm755 $(TARGET)/release/weather $(BINDIR)/weather
 	install -Dm644 packaging/linux/weather.svg $(ICONDIR)/scalable/apps/$(APP_ID).svg
 	install -Dm644 assets/weather-icon-128.png $(ICONDIR)/128x128/apps/$(APP_ID).png
 	install -d $(APPSDIR)
@@ -70,4 +71,4 @@ uninstall: ## Remove what make install put in place
 	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
 
 clean: ## Remove build output
-	cargo clean
+	cargo clean -p weather
