@@ -58,7 +58,6 @@ why = "Music: local folders and network shares"
 # doesn't install them: mail, editor, weather, home, podcasts and
 # ledger. To ship one, add its Makefile `stage` lines (as Draw's) and a
 # [[member]] here. From their own repositories, also left out:
-#   messenger (private; Telegram, its own repository)
 #   md-chat   72c6791
 #   mpc       a60fd6b
 
