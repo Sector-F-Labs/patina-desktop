@@ -55,7 +55,7 @@ VM_WAYLAND := XDG_RUNTIME_DIR=/tmp/bsdt-xdg WAYLAND_DISPLAY=wayland-0
 
 .DEFAULT_GOAL := help
 
-.PHONY: help deps run run-hud build test check install stage deploy deb install-full uninstall-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-screenshot vm-linux-gui test-vm test-vm-rc vm-displays test-vm-displays vm-linux-stop clean
+.PHONY: help deps run run-hud build test check install stage shadows deploy deb install-full uninstall-full uninstall vm vm-restart vm-gui screenshot vm-linux vm-linux-restart vm-linux-shot vm-linux-screenshot vm-linux-gui test-vm test-vm-rc vm-displays test-vm-displays vm-linux-stop clean
 
 help: ## Show this help
 	@echo "Usage: make <target>"
@@ -96,6 +96,7 @@ BINARIES := files notebook patina-hud calendar draw montage patina-clipboard pat
 ifeq ($(ROOT),)
 install: build ## Build, then install this repository for every user into /usr/local (PREFIX), with the login session; the apps from other repositories are install-full (asks doas or sudo)
 	$(AS_ROOT) $(MAKE) --no-print-directory install PREFIX=$(PREFIX) MANDIR=$(MANDIR) SESSIONDIR=$(SESSIONDIR) PAMDIR=$(PAMDIR) XDGCONFDIR=$(XDGCONFDIR)
+	@$(MAKE) --no-print-directory shadows
 else
 # As root it never builds, so nothing in target/ ends up root's.
 install:
@@ -107,6 +108,18 @@ install:
 	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
 	@echo "Installed into $(PREFIX), with $(SESSIONDIR)/patina.desktop and $(PAMDIR)/patina-lock."
 endif
+
+# A copy in your own ~/.local wins over the installed one: ~/.local/bin comes first in PATH, and a
+# launcher entry in ~/.local/share/applications hides the system's of the same name. Apps that were
+# once their own repositories installed there, so the old build keeps starting after an install.
+# Says which, and how to retire them.
+shadows:
+	@for b in $(BINARIES); do \
+		test -e "$$HOME/.local/bin/$$b" && echo "warning: $$HOME/.local/bin/$$b shadows the installed $(PREFIX)/bin/$$b; retire it with: mv $$HOME/.local/bin/$$b $$HOME/.local/bin/$$b.stale"; \
+	done; \
+	for id in $(SETTINGS_ID) $(PROCESSES_ID) $(SKINBUILDER_ID) $(FILES_ID) $(READER_ID) $(NOTEBOOK_ID) $(TELEPRINTER_ID) $(CALENDAR_ID) $(DRAW_ID) $(MONTAGE_ID); do \
+		test -e "$$HOME/.local/share/applications/$$id.desktop" && echo "warning: $$HOME/.local/share/applications/$$id.desktop hides the launcher entry installed in $(APPSDIR); retire it with: mv $$HOME/.local/share/applications/$$id.desktop $$HOME/.local/share/applications/$$id.desktop.stale"; \
+	done; true
 
 # What install puts in place, under $(DESTDIR) if set: deploy stages it
 # there for another machine. Built already.
