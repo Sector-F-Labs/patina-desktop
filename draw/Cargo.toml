@@ -11,7 +11,7 @@ dirs = "7"
 eframe = { version = "0.35", features = ["persistence"] }
 egui = "0.35"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "gif", "webp"] }
-patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+patina-ui = { workspace = true }
 rfd = "0.17"
 serde = { version = "1", features = ["derive"] }
 toml = "1"
