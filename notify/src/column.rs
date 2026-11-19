@@ -21,7 +21,7 @@ use patina_shell::{
 
 use crate::daemon::{Daemon, Shared};
 use crate::store::{self, Note, Urgency};
-use crate::thumbs::{Thumb, Thumbs};
+use crate::thumbs::{Stamps, Thumb, Thumbs};
 use crate::{config, fullscreen};
 
 /// A card's width, and the space around the cards, in logical pixels.
@@ -40,6 +40,8 @@ enum Outcome {
     Dismiss,
     /// One of its buttons.
     Action(String),
+    /// Its Edit button: the picture opens in Draw. The card stays.
+    Edit,
     /// The card itself: its default action, if it has one, and its app's window.
     Open,
     /// Pulled away from its file card: a drag into an app starts.
@@ -55,6 +57,10 @@ struct Column {
     requests: Vec<ToplevelRequest>,
     /// The pictures on cards, and a drag the host is to start from the press that's held.
     thumbs: Thumbs,
+    /// When the files on cards were last looked at, and what they were: an edited one is read
+    /// again for its card.
+    stamps: Stamps,
+    files_checked: Option<Instant>,
     drag: Option<Drag>,
     /// The card a drag in progress came from, which goes if an app takes it.
     dragged: Option<u32>,
@@ -99,6 +105,20 @@ impl Column {
                         self.daemon.closed(id, store::DISMISSED);
                     }
                 }
+            }
+        }
+        if self.files_checked.is_none_or(|t| t + HEARTBEAT <= now) {
+            self.files_checked = Some(now);
+            let files: Vec<std::path::PathBuf> = self
+                .shared
+                .store()
+                .notes()
+                .iter()
+                .filter_map(|n| n.image.clone().or_else(|| n.file.clone()))
+                .collect();
+            let files: Vec<&std::path::Path> = files.iter().map(|f| f.as_path()).collect();
+            for changed in self.stamps.changed(&files) {
+                self.thumbs.reload(&changed);
             }
         }
         let gone = self.shared.store().expire(now);
@@ -181,6 +201,12 @@ impl Shell for Column {
             // leaves it where it is.
             let gone = match &outcome {
                 Outcome::Nothing | Outcome::Drag => false,
+                Outcome::Edit => {
+                    if let Some(file) = notes.iter().find(|n| n.id == id).and_then(|n| n.file.as_deref()) {
+                        edit(file);
+                    }
+                    false
+                }
                 Outcome::Dismiss => true,
                 Outcome::Action(key) => {
                     self.daemon.action(id, key);
@@ -313,9 +339,18 @@ fn card(ui: &mut Ui, note: &Note, thumb: Option<&Thumb>) -> Outcome {
                     .iter()
                     .filter(|(k, _)| k != "default")
                     .collect();
-                if !buttons.is_empty() {
+                // A picture can be edited: Draw opens it, and the file it saves is the one dragged.
+                let editable = note.file.as_deref().is_some_and(editable);
+                if editable || !buttons.is_empty() {
                     ui.add_space(4.0);
                     ui.horizontal_wrapped(|ui| {
+                        if editable {
+                            let edit = ui.button("Edit").on_hover_text("Edit the picture in Draw");
+                            on_button |= edit.is_pointer_button_down_on();
+                            if edit.clicked() {
+                                outcome = Outcome::Edit;
+                            }
+                        }
                         for (key, label) in buttons {
                             let button = ui.button(label);
                             on_button |= button.is_pointer_button_down_on();
@@ -338,6 +373,30 @@ fn card(ui: &mut Ui, note: &Note, thumb: Option<&Thumb>) -> Outcome {
         }
     }
     outcome
+}
+
+/// Whether a card's file is a picture Draw edits and saves: what a screenshot is.
+fn editable(file: &std::path::Path) -> bool {
+    file.extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| ["png", "jpg", "jpeg", "bmp"].iter().any(|k| e.eq_ignore_ascii_case(k)))
+}
+
+/// Opens `file` in Draw, which saves over it, so the card shows the edit and the drag takes it.
+fn edit(file: &std::path::Path) {
+    use std::os::unix::process::CommandExt;
+    let started = std::process::Command::new("draw")
+        .arg(file)
+        .stdin(std::process::Stdio::null())
+        .process_group(0)
+        .spawn();
+    match started {
+        // Waited for on a thread, so it isn't left a zombie.
+        Ok(mut child) => {
+            std::thread::spawn(move || child.wait());
+        }
+        Err(e) => eprintln!("patina-notify: can't open Draw: {e}"),
+    }
 }
 
 /// The drag of a file card (ADR-0143): the file as a `file://` URI, which is how a file manager
@@ -434,6 +493,8 @@ pub fn run() -> Result<(), String> {
         windows: Vec::new(),
         requests: Vec::new(),
         thumbs,
+        stamps: Stamps::default(),
+        files_checked: None,
         drag: None,
         dragged: None,
         enabled: true,
@@ -502,5 +563,89 @@ mod tests {
         assert!((drag.data)("text/plain").is_none());
         let other = drag_of(std::path::Path::new("/tmp/notes.txt"), None, 1.0);
         assert_eq!(other.types, ["text/uri-list"]);
+    }
+
+    use std::path::Path;
+
+    fn note(file: Option<&str>, actions: &[(&str, &str)]) -> Note {
+        Note {
+            id: 1,
+            app: "Screenshot".into(),
+            desktop_entry: String::new(),
+            image: file.map(Into::into),
+            file: file.map(Into::into),
+            summary: "Screenshot saved".into(),
+            body: "Screenshot 2026-11-19 at 22.16.56.png".into(),
+            actions: actions.iter().map(|(k, l)| (k.to_string(), l.to_string())).collect(),
+            urgency: Urgency::Normal,
+            expires: None,
+        }
+    }
+
+    #[test]
+    fn the_pictures_draw_saves_can_be_edited_and_nothing_else() {
+        for yes in ["a.png", "A.PNG", "x.jpg", "x.jpeg", "x.bmp", "/home/me/Pictures/Screenshots/Shot 1.png"] {
+            assert!(editable(Path::new(yes)), "{yes}");
+        }
+        for no in ["a.gif", "a.webp", "a.svg", "a.txt", "a", "a.mp4"] {
+            assert!(!editable(Path::new(no)), "{no}");
+        }
+    }
+
+    /// Draws the cards, to see them: `PATINA_NOTIFY_PREVIEW=/tmp/p cargo test -p patina-notify
+    /// preview -- --ignored`.
+    #[test]
+    #[ignore]
+    fn preview_the_cards() {
+        let dir = std::path::PathBuf::from(std::env::var("PATINA_NOTIFY_PREVIEW").unwrap());
+        std::fs::create_dir_all(&dir).unwrap();
+        let (w, h) = (CARD as usize + 24, 520usize);
+        let ctx = egui::Context::default();
+        let skin = piece::skin("patina-notify");
+        skin.apply(&ctx);
+        patina::emoji::install(patina_emoji_font::FONT);
+        let picture = image::RgbaImage::from_fn(640, 360, |x, y| {
+            image::Rgba([(x / 3) as u8, (y / 2) as u8, 160, 255])
+        });
+        let colours = egui::ColorImage::from_rgba_unmultiplied([640, 360], picture.as_raw());
+        let thumb = Thumb {
+            texture: ctx.load_texture("preview", colours, Default::default()),
+            rgba: Arc::new(picture),
+        };
+        let cards = [
+            (note(Some("/home/me/Pictures/Screenshots/Screenshot 2026-11-19 at 22.16.56.png"), &[]), true),
+            (note(None, &[("default", ""), ("reply", "Reply")]), false),
+        ];
+        let mut painter = patina_shell::raster::Painter::default();
+        let mut pixels = vec![0u32; w * h];
+        for _ in 0..3 {
+            let input = egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(egui::pos2(0.0, 0.0), vec2(w as f32, h as f32))),
+                max_texture_side: Some(8192),
+                ..Default::default()
+            };
+            let out = ctx.run_ui(input, |ui| {
+                ui.add_space(12.0);
+                for (n, with_thumb) in &cards {
+                    ui.horizontal(|ui| {
+                        ui.add_space(12.0);
+                        ui.vertical(|ui| {
+                            card(ui, n, with_thumb.then_some(&thumb));
+                        });
+                    });
+                    ui.add_space(GAP);
+                }
+            });
+            let primitives = ctx.tessellate(out.shapes, out.pixels_per_point);
+            painter.paint(&mut pixels, w, h, out.pixels_per_point, &primitives, &out.textures_delta);
+        }
+        let rgba: Vec<u8> = pixels
+            .iter()
+            .flat_map(|p| {
+                let [b, g, r, a] = p.to_le_bytes();
+                [r, g, b, a]
+            })
+            .collect();
+        image::save_buffer(dir.join("cards.png"), &rgba, w as u32, h as u32, image::ColorType::Rgba8).unwrap();
     }
 }

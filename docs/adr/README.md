@@ -278,3 +278,4 @@ flowchart TD
 | [0146](0146-dragging-with-super-tiles-to-the-half-the-pointer-is-in.md) | Dragging with Super held tiles to the half the pointer is in | Accepted |
 | [0147](0147-ultrawide-screens-tile-in-thirds-with-super.md) | Ultrawide screens tile in thirds with Super held | Accepted |
 | [0148](0148-teleprinter-is-a-member-of-this-workspace.md) | Teleprinter is a member of this workspace | Accepted |
+| [0149](0149-screenshot-cards-have-an-edit-button-that-opens-draw.md) | A screenshot's card has an Edit button that opens Draw, and the card follows the file | Accepted |
