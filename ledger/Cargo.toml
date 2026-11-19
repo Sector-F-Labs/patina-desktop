@@ -1,0 +1,23 @@
+[package]
+name = "ledger"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "Bookkeeping in tabbed spreadsheets stored as SQLite databases, built with egui and Patina"
+repository = "https://github.com/Sector-F-Labs/ledger"
+
+[dependencies]
+dirs = "7"
+eframe = { version = "0.35", features = ["persistence"] }
+egui = "0.35"
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+libc = "0.2.191"
+patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+rfd = { version = "0.17.2", default-features = false, features = ["xdg-portal"] }
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1"
+
+[dev-dependencies]
+resvg = "0.49.0"
+tempfile = "3.27.0"

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Ledger
+GenericName=Bookkeeping
+Comment=Keep the books in tabbed spreadsheets stored as SQLite databases
+Exec=ledger %f
+Icon=com.sectorflabs.Ledger
+Terminal=false
+Categories=Office;Finance;Spreadsheet;
+Keywords=bookkeeping;accounting;spreadsheet;sqlite;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.Ledger
