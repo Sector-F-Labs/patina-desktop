@@ -5,7 +5,7 @@ ADRs in `docs/adr/` (use the `adr` skill). Sector F's `AGENTS.md` applies: `pati
 Patina's `develop` branch.
 
 Home is a member of the patina-desktop workspace (one `Cargo.lock` and `target/` for the
-repository; build it with `-p home`, which the Makefile does), and still its own app. It used to
+repository; build it with `-p home@<version>`, which the Makefile does: a crate named `home` is on crates.io too, so `-p home` is ambiguous), and still its own app. It used to
 be its own repository, Sector-F-Labs/home; the history up to the move is kept here.
 
 ## Commands

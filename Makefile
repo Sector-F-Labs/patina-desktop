@@ -20,6 +20,8 @@ READER_ID := com.sectorflabs.Reader
 NOTEBOOK_ID := com.sectorflabs.Notebook
 TELEPRINTER_ID := com.sectorflabs.Teleprinter
 CALENDAR_ID := com.sectorflabs.Calendar
+DRAW_ID := com.sectorflabs.Draw
+MONTAGE_ID := com.sectorflabs.Montage
 # The login screen's session entry and the lock screen's PAM service go
 # where the system looks: on FreeBSD under PREFIX, as ports put them; on
 # Linux, where every login manager reads sessions, and /etc/pam.d.
@@ -89,7 +91,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := files notebook patina-hud calendar patina-clipboard patina-clock patina-compositor patina-dictate patina-displays patina-emoji patina-game-mode patina-keyring patina-launcher patina-lock patina-menu patina-night-light patina-notify patina-polkit patina-power patina-processes patina-raise reader teleprinter patina-screenshot patina-session patina-settings patina-skin-builder patina-tiler patina-volume patina-wallpaper patina-webapp patina-webview patina-wifi
+BINARIES := files notebook patina-hud calendar draw montage patina-clipboard patina-clock patina-compositor patina-dictate patina-displays patina-emoji patina-game-mode patina-keyring patina-launcher patina-lock patina-menu patina-night-light patina-notify patina-polkit patina-power patina-processes patina-raise reader teleprinter patina-screenshot patina-session patina-settings patina-skin-builder patina-tiler patina-volume patina-wallpaper patina-webapp patina-webview patina-wifi
 
 ifeq ($(ROOT),)
 install: build ## Build, then install this repository for every user into /usr/local (PREFIX), with the login session; the apps from other repositories are install-full (asks doas or sudo)
@@ -138,6 +140,12 @@ stage:
 	install -m 644 calendar/packaging/linux/calendar.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(CALENDAR_ID).svg
 	install -m 644 calendar/assets/calendar-icon-128.png $(DESTDIR)$(ICONDIR)/128x128/apps/$(CALENDAR_ID).png
 	sed 's|^Exec=calendar|Exec=$(PREFIX)/bin/calendar|' calendar/packaging/linux/$(CALENDAR_ID).desktop > $(DESTDIR)$(APPSDIR)/$(CALENDAR_ID).desktop
+	install -m 644 draw/packaging/linux/draw.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(DRAW_ID).svg
+	install -m 644 draw/assets/draw-icon-128.png $(DESTDIR)$(ICONDIR)/128x128/apps/$(DRAW_ID).png
+	sed 's|^Exec=draw|Exec=$(PREFIX)/bin/draw|' draw/packaging/linux/$(DRAW_ID).desktop > $(DESTDIR)$(APPSDIR)/$(DRAW_ID).desktop
+	install -m 644 montage/packaging/linux/montage.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(MONTAGE_ID).svg
+	install -m 644 montage/assets/montage-icon-128.png $(DESTDIR)$(ICONDIR)/128x128/apps/$(MONTAGE_ID).png
+	sed 's|^Exec=montage|Exec=$(PREFIX)/bin/montage|' montage/packaging/linux/$(MONTAGE_ID).desktop > $(DESTDIR)$(APPSDIR)/$(MONTAGE_ID).desktop
 	install -m 644 packaging/patina-mimeapps.list $(DESTDIR)$(APPSDIR)/
 	sed 's|@BINDIR@|$(PREFIX)/bin|' packaging/linux/patina.desktop > $(DESTDIR)$(SESSIONDIR)/patina.desktop
 	install -m 644 packaging/linux/patina-lock.pam $(DESTDIR)$(PAMDIR)/patina-lock

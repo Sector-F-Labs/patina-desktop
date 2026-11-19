@@ -15,7 +15,7 @@ architecture = "amd64"
 # This repository goes in as make stage lays it out: every binary in the
 # Makefile's BINARIES, the man pages, the session entry, the lock screen's
 # PAM service, the portal config, the default apps list, and the Settings,
-# Process Manager, Files, Reader, Notebook, Teleprinter and Calendar entries and icons, with Files'
+# Process Manager, Files, Reader, Notebook, Teleprinter, Calendar, Draw and Montage entries and icons, with Files'
 # portal backend (the session's file chooser; ADR-0106, ADR-0107). patina-dictate is built
 # as it is by default, on the GPU through Vulkan (ADR-0074).
 
@@ -29,6 +29,14 @@ why = "The terminal: Alt+T"
 name = "calendar"
 why = "Calendar: the clock menu shows its events"
 
+[[member]]
+name = "draw"
+why = "Paint: a simple bitmap editor"
+
+[[member]]
+name = "montage"
+why = "Video: clips, a timeline, music and a voiceover"
+
 # Apps from other repositories. Each is built with `cargo build --release
 # --locked` at `commit`, from the checkout at `local` (default: ../<name>)
 # if it has the commit, else from `repo`. What goes in:
@@ -39,20 +47,6 @@ why = "Calendar: the clock menu shows its events"
 #   files     more files, { "/where" = "from" }, with @BINDIR@ as /usr/bin
 
 [[app]]
-name = "draw"
-repo = "https://github.com/Sector-F-Labs/draw"
-commit = "037a816"
-id = "com.sectorflabs.Draw"
-why = "Paint: a simple bitmap editor"
-
-[[app]]
-name = "montage"
-repo = "https://github.com/Sector-F-Labs/montage"
-commit = "352dbe7"
-id = "com.sectorflabs.Montage"
-why = "Video: clips, a timeline, music and a voiceover"
-
-[[app]]
 name = "unamp"
 repo = "https://github.com/divanvisagie/UnAmp"  # divanvisagie's, not Sector F's
 local = "../../github/divanvisagie/UnAmp"
@@ -60,12 +54,10 @@ commit = "b64e1d7"
 id = "unamp"
 why = "Music: local folders and network shares"
 
-# Other Patina apps, left out. Move one up to bundle it:
-#   mail      364dd0d
-#   editor    93026f5
-#   weather   05fd517
-#   podcasts  9fcf6db
-#   messenger c60a569
+# Other Patina apps, left out. In this repository, as members, but make stage
+# doesn't install them: mail, editor, weather, home, podcasts, messenger and
+# ledger. To ship one, add its Makefile `stage` lines (as Draw's) and a
+# [[member]] here. From their own repositories, also left out:
 #   md-chat   72c6791
 #   mpc       a60fd6b
 

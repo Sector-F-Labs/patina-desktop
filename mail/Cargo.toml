@@ -36,5 +36,3 @@ resvg = "0.48"
 
 # Stylo (CSS) and Vello (painting) are slow unoptimised, so dependencies are
 # optimised even in debug builds; Mail's own code stays debuggable.
-[profile.dev.package."*"]
-opt-level = 2

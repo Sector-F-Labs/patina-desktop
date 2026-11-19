@@ -1,10 +1,10 @@
 #!/bin/sh
 # Makes demo media with ffmpeg's test sources, and a project that uses them,
-# in target/demo (or $1): for trying Montage out, its screenshots and the
+# in ../target/demo (or $1): for trying Montage out, its screenshots and the
 # export test, without anyone's own videos.
 set -eu
 cd "$(dirname "$0")/.."
-dir=${1:-target/demo}
+dir=${1:-../target/demo}
 mkdir -p "$dir"
 ff() { ffmpeg -hide_banner -loglevel error -y "$@"; }
 ff -f lavfi -i "testsrc2=size=1280x720:rate=30:duration=8" -f lavfi -i "sine=frequency=330:duration=8" \

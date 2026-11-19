@@ -8,7 +8,12 @@ wallpaper beside it; `system/` (patina-system) is what they read and draw from t
 `launcher/` (patina-launcher) is the launcher the bar's Sector F button opens (ADR-0108; it ran
 from its own repository before, and still runs alone on GNOME). `files/` is Files, the file
 manager and the session's file chooser (ADR-0106), `reader/` is Reader and `notebook/` is
-Notebook (ADR-0107); each has its own ADRs, and `files/` and the others an `AGENTS.md`. The compositor
+Notebook (ADR-0107); each has its own ADRs, and `files/` and the others an `AGENTS.md`.
+The Sector F apps live here too (ADR-0148): `teleprinter/`, `calendar/`, `draw/`, `montage/`,
+`messenger/`, `mail/`, `editor/` (package text-editor), `weather/`, `home/` (build with
+`-p home@<version>`: a crate named home is on crates.io), `podcasts/` and `ledger/`. Each is its
+own app with its own Makefile and `AGENTS.md`; Programmer, Projects and md-chat are separate
+repositories. `make stage` installs Teleprinter, Calendar, Draw and Montage. The compositor
 puts its own folder first on its clients' PATH, so the pieces are found beside it.
 
 Smithay comes from the `patina-0.7` branch of Sector-F-Labs/smithay, a fork (ADR-0044): 0.7.0 with upstream's
@@ -36,8 +41,7 @@ Patina comes from its `develop` branch on GitHub (ADR-0013): change Patina there
   compositor gives clients `TERMINAL=teleprinter` where it's installed (`clients.rs`).
 - `make deb` (ADR-0099, `packaging/deb/build.py`) builds one `patina-desktop` .deb into
   `target/deb`: this repository's last commit, or its working tree with `WORKTREE=1` (which then
-  says `+dirty`), laid out by `make stage` under `/usr`, and the apps `packaging/bundle.toml` pins (Draw,
-  Montage, UnAmp), each from a clean export of its commit. Work is kept in
+  says `+dirty`), laid out by `make stage` under `/usr`, and the apps `packaging/bundle.toml` pins (UnAmp), each from a clean export of its commit. Work is kept in
   `~/.cache/patina-desktop/deb`. Changing what ships is a commit to `bundle.toml`.
 - `make run` opens the compositor as a window on the current desktop, on a session bus of its own
   (`dbus-run-session`) so it never takes a running Patina session's names (it pops up on the user's

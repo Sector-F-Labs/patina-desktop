@@ -29,7 +29,7 @@ dev: ## Run with live reload, in a scratch config (requires cargo-watch)
 	$(SCRATCH_ENV) cargo watch -x "run -p montage --bin montage"
 
 $(DEMO): scripts/demo.sh
-	scripts/demo.sh
+	scripts/demo.sh $(TARGET)/demo
 
 demo: $(DEMO) ## Open a demo project of generated clips, in a scratch config
 	@mkdir -p $(SCRATCH)/config $(SCRATCH)/data $(SCRATCH)/videos
