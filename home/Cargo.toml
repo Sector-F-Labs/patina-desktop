@@ -1,0 +1,24 @@
+[package]
+name = "home"
+version = "0.1.0"
+edition = "2024"
+description = "A Patina (egui) interface for Home Assistant"
+license = "BSD-3-Clause"
+publish = false
+
+[dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+dirs = "7"
+eframe = { version = "0.35", features = ["persistence"] }
+egui = "0.35"
+egui_plot = "0.36"
+image = { version = "0.25", default-features = false, features = ["png"] }
+patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+tungstenite = { version = "0.30.0", features = ["rustls-tls-webpki-roots"] }
+ureq = { version = "3", features = ["json"] }
+
+[dev-dependencies]
+resvg = "0.48.1"

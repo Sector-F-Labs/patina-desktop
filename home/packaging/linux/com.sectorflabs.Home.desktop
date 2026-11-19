@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Home
+GenericName=Home Automation
+Comment=Control your Home Assistant
+Exec=home
+Icon=com.sectorflabs.Home
+Terminal=false
+Categories=Utility;
+Keywords=home;assistant;automation;lights;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.Home

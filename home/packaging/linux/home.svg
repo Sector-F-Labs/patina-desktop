@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- A house with a lit window and a round door, on a deep teal tile. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f7f86"/>
+      <stop offset="1" stop-color="#1c5258"/>
+    </linearGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbfaf7"/>
+      <stop offset="1" stop-color="#e3dfd6"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#tile)"/>
+  <rect x="32" y="60" width="64" height="44" rx="3" fill="url(#wall)"/>
+  <path d="M24 64 L64 28 L104 64 Z" fill="#d8573c"/>
+  <rect x="78" y="34" width="8" height="18" fill="#a9422d"/>
+  <rect x="40" y="70" width="18" height="18" rx="2" fill="#f6c84c"/>
+  <path d="M70 104 V86 a8 8 0 0 1 16 0 V104 Z" fill="#2f7f86"/>
+</svg>
