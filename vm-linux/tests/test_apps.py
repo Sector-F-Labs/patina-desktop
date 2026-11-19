@@ -16,7 +16,7 @@ APPS = {
     "dev": {
         "settings": "/patina/target/release/patina-settings",
         "processes": "/patina/target/release/patina-processes",
-        "teleprinter": "/teleprinter/target/release/teleprinter",
+        "teleprinter": "/patina/target/release/teleprinter",
         "foot": "/usr/bin/foot",
     },
     "rc": {

@@ -66,7 +66,7 @@ sleep 3
 "$VM" ssh "pid=\$(pgrep -f 'release/patina-compositor' | head -1)
     export \$(tr '\\0' '\\n' < /proc/\$pid/environ | grep -E '^(DBUS_SESSION_BUS_ADDRESS|XDG_RUNTIME_DIR)=')
     export WAYLAND_DISPLAY=\$(ls \$XDG_RUNTIME_DIR | grep -E '^wayland-[0-9]+\$' | head -1)
-    nohup /teleprinter/target/release/teleprinter -e sh -c 'sleep 4; clear; fastfetch; exec bash' \
+    nohup /patina/target/release/teleprinter -e sh -c 'sleep 4; clear; fastfetch; exec bash' \
         >/tmp/screenshot-teleprinter.log 2>&1 </dev/null &"
 sleep 12
 "$VM" shot "$OUT"

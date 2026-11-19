@@ -18,6 +18,7 @@ PORTAL_SERVICE := org.freedesktop.impl.portal.desktop.patina
 # Reader and Notebook (ADR-0107): launcher entries and icons.
 READER_ID := com.sectorflabs.Reader
 NOTEBOOK_ID := com.sectorflabs.Notebook
+TELEPRINTER_ID := com.sectorflabs.Teleprinter
 # The login screen's session entry and the lock screen's PAM service go
 # where the system looks: on FreeBSD under PREFIX, as ports put them; on
 # Linux, where every login manager reads sessions, and /etc/pam.d.
@@ -87,11 +88,7 @@ check: test ## Run the tests and clippy, and lint the man pages, as before a com
 	@if command -v mandoc >/dev/null; then mandoc -Tlint -Wwarning man/*; \
 	else echo "mandoc isn't installed; the man pages weren't linted"; fi
 
-BINARIES := files notebook patina-hud patina-clipboard patina-clock patina-compositor patina-dictate patina-displays patina-emoji patina-game-mode patina-keyring patina-launcher patina-lock patina-menu patina-night-light patina-notify patina-polkit patina-power patina-processes patina-raise reader patina-screenshot patina-session patina-settings patina-skin-builder patina-tiler patina-volume patina-wallpaper patina-webapp patina-webview patina-wifi
-# The session's terminal, which deploy installs too: the checkout beside this
-# one, as it is, else GitHub's.
-TELEPRINTER ?= $(abspath ../teleprinter)
-TELEPRINTER_REPO := https://github.com/Sector-F-Labs/teleprinter
+BINARIES := files notebook patina-hud patina-clipboard patina-clock patina-compositor patina-dictate patina-displays patina-emoji patina-game-mode patina-keyring patina-launcher patina-lock patina-menu patina-night-light patina-notify patina-polkit patina-power patina-processes patina-raise reader teleprinter patina-screenshot patina-session patina-settings patina-skin-builder patina-tiler patina-volume patina-wallpaper patina-webapp patina-webview patina-wifi
 
 ifeq ($(ROOT),)
 install: build ## Build, then install this repository for every user into /usr/local (PREFIX), with the login session; the apps from other repositories are install-full (asks doas or sudo)
@@ -134,6 +131,9 @@ stage:
 	install -m 644 notebook/packaging/linux/notebook.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(NOTEBOOK_ID).svg
 	install -m 644 notebook/assets/notebook-icon-128.png $(DESTDIR)$(ICONDIR)/128x128/apps/$(NOTEBOOK_ID).png
 	sed 's|^Exec=notebook|Exec=$(PREFIX)/bin/notebook|' notebook/packaging/linux/$(NOTEBOOK_ID).desktop > $(DESTDIR)$(APPSDIR)/$(NOTEBOOK_ID).desktop
+	install -m 644 teleprinter/packaging/linux/teleprinter.svg $(DESTDIR)$(ICONDIR)/scalable/apps/$(TELEPRINTER_ID).svg
+	install -m 644 teleprinter/assets/teleprinter-icon-128.png $(DESTDIR)$(ICONDIR)/128x128/apps/$(TELEPRINTER_ID).png
+	sed 's|^Exec=teleprinter|Exec=$(PREFIX)/bin/teleprinter|' teleprinter/packaging/linux/$(TELEPRINTER_ID).desktop > $(DESTDIR)$(APPSDIR)/$(TELEPRINTER_ID).desktop
 	install -m 644 packaging/patina-mimeapps.list $(DESTDIR)$(APPSDIR)/
 	sed 's|@BINDIR@|$(PREFIX)/bin|' packaging/linux/patina.desktop > $(DESTDIR)$(SESSIONDIR)/patina.desktop
 	install -m 644 packaging/linux/patina-lock.pam $(DESTDIR)$(PAMDIR)/patina-lock
@@ -150,13 +150,10 @@ endif
 endif
 DEPLOY_DIR := target/deploy
 
-deploy: build ## Build here and install on another machine over ssh, Teleprinter too: make deploy <host> (doas there)
+deploy: build ## Build here and install on another machine over ssh: make deploy <host> (doas there)
 	@test -n "$(HOST)" || { echo "usage: make deploy <host>, an ssh host with rsync and doas"; exit 1; }
 	rm -rf $(DEPLOY_DIR)
 	$(MAKE) --no-print-directory stage DESTDIR=$(CURDIR)/$(DEPLOY_DIR)
-	src="$(TELEPRINTER)" && { test -f "$$src/Makefile" || { src=$(CURDIR)/target/teleprinter && \
-		rm -rf "$$src" && git clone -q --depth 1 $(TELEPRINTER_REPO) "$$src"; }; } && \
-	$(MAKE) --no-print-directory -C "$$src" install DESTDIR=$(CURDIR)/$(DEPLOY_DIR) PREFIX=$(PREFIX)
 	@# As root there, owned by root. Without -p, what's there already keeps
 	@# its permissions (with -p, / and /etc took the staged folders'); new
 	@# files get theirs less root's umask, and -E keeps what's executable.

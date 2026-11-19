@@ -18,11 +18,11 @@ for app in settings:com.sectorflabs.Settings processes:com.sectorflabs.ProcessMa
     fi
 done
 
-# Teleprinter, the session's terminal, when its checkout is shared too.
-tp=/teleprinter/packaging/linux
-if [ -f /teleprinter/target/release/teleprinter ]; then
+# Teleprinter, the session's terminal: a member of this workspace, so in the share too.
+tp=/patina/teleprinter/packaging/linux
+if [ -f "$BIN/teleprinter" ]; then
     cp "$tp/teleprinter.svg" "$icons/com.sectorflabs.Teleprinter.svg"
-    sed "s|^Exec=teleprinter|Exec=/teleprinter/target/release/teleprinter|" \
+    sed "s|^Exec=teleprinter|Exec=$BIN/teleprinter|" \
         "$tp/com.sectorflabs.Teleprinter.desktop" > "$apps/com.sectorflabs.Teleprinter.desktop"
 fi
 
@@ -31,7 +31,7 @@ fi
 cat > "$HOME/.profile" <<EOF
 # Written by /patina/vm-linux/guest-setup.sh.
 [ -f "\$HOME/.bashrc" ] && [ -n "\${BASH_VERSION:-}" ] && . "\$HOME/.bashrc"
-PATH=$BIN:/teleprinter/target/release:\$PATH
+PATH=$BIN:\$PATH
 export PATH
 ${PATINA_FAKE_EDID_DIR:+export PATINA_FAKE_EDID_DIR=$PATINA_FAKE_EDID_DIR}
 if [ "\$(tty)" = /dev/tty1 ] && [ -z "\${WAYLAND_DISPLAY:-}" ]; then

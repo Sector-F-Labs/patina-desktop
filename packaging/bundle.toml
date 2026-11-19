@@ -15,9 +15,15 @@ architecture = "amd64"
 # This repository goes in as make stage lays it out: every binary in the
 # Makefile's BINARIES, the man pages, the session entry, the lock screen's
 # PAM service, the portal config, the default apps list, and the Settings,
-# Process Manager, Files, Reader and Notebook entries and icons, with Files'
+# Process Manager, Files, Reader, Notebook and Teleprinter entries and icons, with Files'
 # portal backend (the session's file chooser; ADR-0106, ADR-0107). patina-dictate is built
 # as it is by default, on the GPU through Vulkan (ADR-0074).
+
+# Members of this repository that the package describes (their files come from
+# make stage, above).
+[[member]]
+name = "teleprinter"
+why = "The terminal: Alt+T"
 
 # Apps from other repositories. Each is built with `cargo build --release
 # --locked` at `commit`, from the checkout at `local` (default: ../<name>)
@@ -27,13 +33,6 @@ architecture = "amd64"
 #             its Exec made absolute; packaging/linux/<name>.svg and
 #             assets/<name>-icon-128.png as the <id> icon
 #   files     more files, { "/where" = "from" }, with @BINDIR@ as /usr/bin
-
-[[app]]
-name = "teleprinter"
-repo = "https://github.com/Sector-F-Labs/teleprinter"
-commit = "80f03e6"
-id = "com.sectorflabs.Teleprinter"
-why = "The terminal: Alt+T"
 
 [[app]]
 name = "draw"

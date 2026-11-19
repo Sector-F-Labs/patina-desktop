@@ -247,7 +247,7 @@ def main():
     depends = bundle.get("depends", {})
     replaces = ", ".join(depends.get("replaces", []))
     size = run("du", "-sk", "--apparent-size", str(stage), capture=True).split()[0]
-    apps = "".join(f"  {app['name']}: {app['why']}\n" for app in bundle.get("app", []))
+    apps = "".join(f"  {app['name']}: {app['why']}\n" for app in bundle.get("member", []) + bundle.get("app", []))
     control = {
         "Package": package["name"],
         "Version": version,

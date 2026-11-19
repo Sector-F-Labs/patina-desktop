@@ -45,7 +45,6 @@ packages:
 
 mounts:
   - [patina, /patina, 9p, "trans=virtio,version=9p2000.L,msize=262144,ro,nofail", "0", "0"]
-  - [teleprinter, /teleprinter, 9p, "trans=virtio,version=9p2000.L,msize=262144,ro,nofail", "0", "0"]
 
 write_files:
   # tty1 logs the session's user in, and their ~/.profile starts Patina there.

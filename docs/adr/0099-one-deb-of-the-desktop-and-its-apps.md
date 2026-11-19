@@ -4,7 +4,7 @@ Date: 2026-10-30
 
 ## Status
 
-Accepted
+Accepted. Teleprinter moved into this repository: [0148](0148-teleprinter-is-a-member-of-this-workspace.md).
 
 ## Context
 

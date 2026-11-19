@@ -55,8 +55,6 @@ fi
 MONITOR="$OUT/monitor.sock"
 PIDFILE="$OUT/qemu.pid"
 SERIAL_LOG="$OUT/serial.log"
-# Teleprinter, the session's terminal, from the checkout beside this one.
-TELEPRINTER="${TELEPRINTER:-$(dirname "$REPO")/teleprinter}"
 
 say() { printf '==> %s\n' "$*"; }
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -96,9 +94,6 @@ boot() {
   local shares=()
   if [[ "$INSTANCE" != rc ]]; then
     shares+=(-virtfs "local,path=$REPO,mount_tag=patina,security_model=none,readonly=on")
-    if [[ -d "$TELEPRINTER" ]]; then
-      shares+=(-virtfs "local,path=$TELEPRINTER,mount_tag=teleprinter,security_model=none,readonly=on")
-    fi
   fi
   # The virtio GPU, with a VNC server for its screen; the multi-monitor guest
   # has vkms instead, which QEMU knows nothing of, so no screen at all.
