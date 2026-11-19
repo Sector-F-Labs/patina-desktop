@@ -346,6 +346,8 @@ pub struct Files {
     /// Folders with their own icon: home, Apps, Documents and the rest.
     special: HashMap<PathBuf, Source>,
     watcher: Watcher,
+    /// Whether the window had the focus when last looked at.
+    was_focused: bool,
     listed_send: Sender<Listed>,
     listed: Receiver<Listed>,
     /// Listings being read, and ones that changed again while they were.
@@ -495,6 +497,7 @@ impl Files {
             disks: places::disks(),
             special,
             watcher: Watcher::new(ctx),
+            was_focused: true,
             listed_send,
             listed,
             reading: HashSet::new(),
@@ -684,7 +687,16 @@ impl Files {
             self.network_event(event, ctx);
         }
 
-        for changed in self.watcher.changed() {
+        // What the watch told of, and what it didn't: a window that was asleep (behind another,
+        // off the screen) is not always woken for a change, so coming back reads the folders again,
+        // and their times are looked at now and then.
+        let focused = ctx.input(|i| i.focused);
+        let regained = focused && !self.was_focused;
+        self.was_focused = focused;
+        let mut changed_folders = self.watcher.changed();
+        changed_folders.extend(self.watcher.missed(regained));
+        ctx.request_repaint_after(crate::watch::CHECK_EVERY);
+        for changed in changed_folders {
             if changed == listing::trash_files() || changed.ends_with("Trash/info") {
                 self.load(Location::Trash, ctx);
             } else if places::mount_dirs().contains(&changed) {
@@ -4077,13 +4089,13 @@ const OPTIONAL_COLUMNS: [(SortBy, &str); 5] = [
     (SortBy::Kind, "Kind"),
 ];
 
-/// `text` cut to fit `max_w` with an ellipsis in the middle, so the start and
-/// the end (the extension, a trailing number) both stay readable.
 /// Whether `name` has an emoji in it, to be drawn in colour.
 fn has_emoji(name: &str) -> bool {
     patina::emoji::runs(name).iter().any(|r| matches!(r, patina::emoji::Run::Emoji(..)))
 }
 
+/// `text` cut to fit `max_w` with an ellipsis in the middle, so the start and
+/// the end (the extension, a trailing number) both stay readable.
 fn middle_ellipsis(ui: &Ui, text: &str, font: &egui::FontId, max_w: f32) -> String {
     let width = |s: &str| ui.painter().layout_no_wrap(s.to_string(), font.clone(), egui::Color32::WHITE).size().x;
     if width(text) <= max_w {
