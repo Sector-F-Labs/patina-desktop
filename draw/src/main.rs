@@ -9,6 +9,7 @@ mod document;
 mod file;
 mod icons;
 mod text;
+mod view;
 
 fn main() -> eframe::Result {
     let config = config::Config::load();

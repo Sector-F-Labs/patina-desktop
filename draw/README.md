@@ -28,7 +28,11 @@ same name and ` (edit)`, so the original stays. `draw picture.png` opens a file.
 | Ctrl+Z / Ctrl+Shift+Z | Undo, Redo |
 | Ctrl+C | Copy the picture to the clipboard |
 | Ctrl+R / Ctrl+I | Rotate clockwise, invert colours |
-| Ctrl+wheel, Ctrl+ +/− | Zoom; Ctrl+0 actual size, Ctrl+9 fit |
+| Wheel (or Ctrl+wheel), pinch | Zoom in and out about the pointer |
+| Shift+wheel / Alt+wheel | Pan sideways / up and down |
+| Middle button drag, or Space and drag | Pan |
+| Touchpad swipe | Pan; with Ctrl, zoom |
+| Ctrl+ +/− | Zoom in or out a step; Ctrl+0 actual size, Ctrl+9 fit |
 
 The right mouse button draws with the background colour and swaps a shape's outline and fill.
 The Picker sets the foreground on the left button and the background on the right.

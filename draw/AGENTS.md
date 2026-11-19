@@ -25,6 +25,7 @@ Test and screenshot runs use `target/scratch-*` for config and data, never the r
 - `src/document.rs`: the open picture, tools, strokes (`begin`/`drag`/`end`) and undo; tested.
 - `src/file.rs`: open and save on a thread, dialogs included (rfd); `Done` comes back over a channel.
 - `src/icons.rs`: the toolbox's symbols, painted with shapes.
+- `src/view.rs`: what the wheel and touchpad do, and zooming about a point; tested. `App::look` applies it.
 - `src/crop.rs`: Crop's rectangle, its eight handles and the shapes it's held to: all the geometry, tested.
 - `src/colour.rs`: colours as hex text, for the picker's hex field; tested.
 - `src/text.rs`: letters rasterised into the bitmap (ab_glyph, egui's Ubuntu); tested.
@@ -33,7 +34,7 @@ Test and screenshot runs use `target/scratch-*` for config and data, never the r
 
 ## Gotchas
 
-- Ctrl+wheel arrives as egui's `zoom_delta`, not as scroll.
+- The wheel is read from the raw `MouseWheel` events (`App::look`), not egui's scroll or `zoom_delta`: a mouse wheel arrives in lines, a touchpad in points, and the canvas's scroll area has the wheel turned off.
 - The canvas reads raw pointer state rather than egui's drag events, which wait for movement and
   would drop the first pixel of a click (and Fill and Picker act on the press).
 - On Wayland the window icon comes from the installed launcher, so `cargo run` shows it only after

@@ -13,6 +13,7 @@ use crate::config::Config;
 use crate::document::{Button, Document, Pen, Tool};
 use crate::file::{self, Done};
 use crate::crop::{self, Aspect, Handle, Region};
+use crate::view::{self, Gesture};
 use crate::{icons, text};
 
 const APP: &str = "draw";
@@ -109,6 +110,16 @@ pub struct App {
     doc: Document,
     pen: Pen,
     zoom: f32,
+    /// How far the picture has scrolled, as the scroll area has it; and whether it's to be put
+    /// there (it was changed here) rather than left to the scroll area.
+    scroll: Vec2,
+    scroll_set: bool,
+    /// Where the canvas is in the window, as of the last frame.
+    window: Rect,
+    /// The picture is being dragged about: with the middle button, or Space and the left one.
+    panning: bool,
+    /// Whether the picture's texture is smoothed (zoomed out) or each pixel sharp.
+    smooth: bool,
     /// Fit the picture to the canvas on the next frame.
     fit: bool,
     texture: Option<TextureHandle>,
@@ -156,6 +167,11 @@ impl App {
             doc: Document::new(Bitmap::new(NEW_SIZE.0, NEW_SIZE.1, WHITE)),
             pen,
             zoom: 1.0,
+            scroll: Vec2::ZERO,
+            scroll_set: false,
+            window: Rect::ZERO,
+            panning: false,
+            smooth: false,
             fit: true,
             texture: None,
             texture_stale: true,
@@ -226,7 +242,7 @@ impl App {
                 self.status = Some("Copied the picture".into());
             }
             Action::Zoom(steps) => self.zoom_by(steps),
-            Action::ActualSize => self.zoom = 1.0,
+            Action::ActualSize => self.zoom_to(1.0),
             Action::Fit => self.fit = true,
             Action::Flip { horizontal } => {
                 self.edit(|b| if horizontal { b.flip_horizontal() } else { b.flip_vertical() });
@@ -276,9 +292,31 @@ impl App {
         }
     }
 
+    /// Zooms by `factor` about `anchor`, a point of the canvas from its top left, so what's under
+    /// it stays there.
+    fn zoom_at(&mut self, factor: f32, anchor: Vec2) {
+        let picture = Vec2::new(self.doc.bitmap.width as f32, self.doc.bitmap.height as f32);
+        let (zoom, scroll) = view::zoom_about(self.zoom, self.scroll, factor, anchor, self.window.size(), picture);
+        self.zoom = zoom;
+        self.scroll = scroll;
+        self.scroll_set = true;
+    }
+
+    /// Zooms to `target`, about the middle of the canvas: for the keys and the menu.
+    fn zoom_to(&mut self, target: f32) {
+        self.zoom_at(target / self.zoom, self.window.size() / 2.0);
+    }
+
+    /// The next of the usual zoom steps up or down from the zoom now, which the wheel may have
+    /// left between two.
     fn zoom_by(&mut self, steps: i32) {
-        let at = ZOOMS.iter().position(|z| *z >= self.zoom - 0.001).unwrap_or(3) as i32;
-        self.zoom = ZOOMS[(at + steps).clamp(0, ZOOMS.len() as i32 - 1) as usize];
+        let now = self.zoom;
+        let target = if steps > 0 {
+            ZOOMS.iter().copied().find(|z| *z > now * 1.001).unwrap_or(view::MAX_ZOOM.min(ZOOMS[ZOOMS.len() - 1]))
+        } else {
+            ZOOMS.iter().copied().rev().find(|z| *z < now / 1.001).unwrap_or(ZOOMS[0])
+        };
+        self.zoom_to(target);
     }
 
     /// Does `then` now, or asks first when there are unsaved changes. A New
@@ -639,7 +677,14 @@ impl App {
             self.preview = preview;
             self.texture_stale = true;
         }
+        // Zoomed out the picture is smoothed, or it would be a scatter of pixels; in, each is sharp.
+        let smooth = self.zoom < 1.0;
+        if smooth != self.smooth {
+            self.smooth = smooth;
+            self.texture_stale = true;
+        }
         if self.texture_stale || self.texture.is_none() {
+            let options = if smooth { TextureOptions::LINEAR } else { TextureOptions::NEAREST };
             let composed;
             let b = match &self.preview {
                 Some((at, content, size, colour)) => {
@@ -652,33 +697,36 @@ impl App {
             };
             let image = egui::ColorImage::from_rgba_unmultiplied([b.width, b.height], &b.to_bytes());
             match &mut self.texture {
-                Some(texture) => texture.set(image, TextureOptions::NEAREST),
-                None => self.texture = Some(ctx.load_texture("picture", image, TextureOptions::NEAREST)),
+                Some(texture) => texture.set(image, options),
+                None => self.texture = Some(ctx.load_texture("picture", image, options)),
             }
             self.texture_stale = false;
         }
         let picture = Vec2::new(self.doc.bitmap.width as f32, self.doc.bitmap.height as f32);
+        let viewport = ui.available_rect_before_wrap();
+        self.window = viewport;
         if self.fit {
-            let room = ui.available_size() - Vec2::splat(24.0);
+            let room = viewport.size() - Vec2::splat(24.0);
             self.zoom = (room.x / picture.x).min(room.y / picture.y).clamp(ZOOMS[0], 1.0);
+            self.scroll = Vec2::ZERO;
+            self.scroll_set = true;
             self.fit = false;
         }
-        // Ctrl and the wheel zoom, in steps; the plain wheel scrolls.
-        let pinch = ctx.input(|i| i.zoom_delta());
-        if pinch != 1.0 && ui.rect_contains_pointer(ui.max_rect()) {
-            self.zoom_by(if pinch > 1.0 { 1 } else { -1 });
-        }
+        self.look(&ctx, viewport);
 
         let size = picture * self.zoom;
         let (zoom, crop) = (self.zoom, self.crop);
         let mut painted = None;
-        egui::ScrollArea::both()
+        // The wheel and the touchpad are ours (`look`): the scroll area keeps its bars.
+        let mut scroller = egui::ScrollArea::both()
             .auto_shrink(false)
-            .scroll_source(egui::scroll_area::ScrollSource::SCROLL_BAR | egui::scroll_area::ScrollSource::MOUSE_WHEEL)
-            .show(ui, |ui| {
+            .scroll_source(egui::scroll_area::ScrollSource::SCROLL_BAR);
+        if self.scroll_set {
+            scroller = scroller.scroll_offset(self.scroll);
+        }
+        let output = scroller.show(ui, |ui| {
                 // Room around the picture, and it sits in the middle when it's small.
-                let margin = 12.0;
-                let area = (size + Vec2::splat(margin * 2.0)).max(ui.available_size());
+                let area = (size + Vec2::splat(view::MARGIN * 2.0)).max(ui.available_size());
                 let (outer, response) = ui.allocate_exact_size(area, Sense::click_and_drag());
                 let rect = Rect::from_center_size(outer.center(), size);
                 let painter = ui.painter_at(outer);
@@ -722,6 +770,8 @@ impl App {
                 }
                 painted = Some((rect, response));
             });
+        self.scroll = output.state.offset;
+        self.scroll_set = false;
         let Some((rect, response)) = painted else { return };
 
         let to_pixel = |p: Pos2| {
@@ -749,6 +799,10 @@ impl App {
             (pressed, i.pointer.primary_down() || i.pointer.secondary_down(), i.modifiers.shift)
         });
         self.typing_box(&ctx, rect);
+        if self.panning {
+            ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
+            return;
+        }
         let hovered = response.hovered() || response.is_pointer_button_down_on();
         match self.pen.tool {
             Tool::Crop => {
@@ -784,6 +838,47 @@ impl App {
         } else {
             self.doc.end();
             self.texture_stale = true;
+        }
+    }
+
+    /// Moving about the picture: the wheel zooms about the pointer (Ctrl and the wheel too, and a
+    /// pinch), Shift and the wheel pan sideways and Alt and the wheel up and down, a touchpad's
+    /// swipe pans, and the middle button, or Space and the left one, drags it about.
+    fn look(&mut self, ctx: &egui::Context, viewport: Rect) {
+        let pointer = ctx.input(|i| i.pointer.hover_pos().or(i.pointer.interact_pos()));
+        let over = pointer.is_some_and(|p| viewport.contains(p));
+        if over && let Some(p) = pointer {
+            let anchor = p - viewport.min;
+            for event in ctx.input(|i| i.events.clone()) {
+                match event {
+                    egui::Event::MouseWheel { unit, delta, modifiers, .. } => {
+                        let notched = unit != egui::MouseWheelUnit::Point;
+                        match view::gesture(notched, delta, modifiers) {
+                            Gesture::Zoom(factor) => self.zoom_at(factor, anchor),
+                            Gesture::Pan(by) => {
+                                self.scroll += by;
+                                self.scroll_set = true;
+                            }
+                        }
+                    }
+                    egui::Event::Zoom(factor) => self.zoom_at(factor, anchor),
+                    _ => {}
+                }
+            }
+        }
+        // Dragging it about, by the hand cursor's two ways.
+        let (middle, primary, delta) = ctx.input(|i| (i.pointer.middle_down(), i.pointer.primary_down(), i.pointer.delta()));
+        let space = !ctx.egui_wants_keyboard_input() && ctx.input(|i| i.key_down(Key::Space));
+        let dragging = middle || (space && primary);
+        if dragging && (over || self.panning) {
+            self.panning = true;
+            self.scroll -= delta;
+            self.scroll_set = true;
+        } else {
+            self.panning = false;
+            if over && space {
+                ctx.set_cursor_icon(egui::CursorIcon::Grab);
+            }
         }
     }
 
