@@ -13,7 +13,8 @@ eframe = { version = "0.35", features = ["persistence"] }
 egui = "0.35"
 egui_plot = "0.36"
 image = { version = "0.25", default-features = false, features = ["png"] }
-patina-ui = { workspace = true }
+patina-ui = { workspace = true, features = ["emoji"] }
+patina-emoji-font = { workspace = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1"

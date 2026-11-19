@@ -158,29 +158,15 @@ impl ClipboardMenu {
         let text_width = (ago_at.x - 8.0 - left).max(20.0);
         ui.painter().galley(ago_at, ago_galley, v.weak_text_color());
         let font = egui::TextStyle::Body.resolve(ui.style());
-        let galley = ui
-            .painter()
-            .layout(entry.preview.clone(), font, v.text_color(), text_width);
-        // One line, cut where it stops fitting.
-        let galley = if galley.rows.len() > 1 {
-            let mut job = egui::text::LayoutJob::simple_singleline(
-                entry.preview.clone(),
-                egui::TextStyle::Body.resolve(ui.style()),
-                v.text_color(),
-            );
-            job.wrap = egui::text::TextWrapping::truncate_at_width(text_width);
-            ui.painter().layout_job(job)
-        } else {
-            galley
-        };
         let kind_colour = match entry.kind {
             Kind::Image => v.weak_text_color(),
             _ => v.text_color(),
         };
-        ui.painter().galley(
-            pos2(left, rect.center().y - galley.size().y / 2.0),
-            galley,
-            kind_colour,
+        // One line, cut where it stops fitting, its emoji in colour.
+        let line = patina::emoji::line(ui.painter(), &entry.preview, font, kind_colour, text_width);
+        line.paint(
+            ui.painter(),
+            pos2(left, rect.center().y - line.size().y / 2.0),
         );
         // The ×, lit under the pointer.
         let cross_colour = if cross_response.hovered() {
@@ -236,7 +222,11 @@ fn drag_of(ctx: &egui::Context, skin: &Skin, entry: &Entry) -> Option<Drag> {
         data: std::sync::Arc::new(move |mime| {
             if mime == URI_LIST {
                 let bytes = clipboard::content(id, image.as_deref()?).ok()?;
-                let ext = image.as_deref()?.strip_prefix("image/")?.split('+').next()?;
+                let ext = image
+                    .as_deref()?
+                    .strip_prefix("image/")?
+                    .split('+')
+                    .next()?;
                 let dir = std::env::var_os("XDG_RUNTIME_DIR")
                     .map(std::path::PathBuf::from)
                     .unwrap_or_else(std::env::temp_dir)
@@ -369,6 +359,7 @@ fn now() -> u32 {
 impl Shell for ClipboardMenu {
     fn setup(&mut self, ctx: &egui::Context) {
         self.skin.apply(ctx);
+        patina::emoji::install(patina_emoji_font::FONT);
         if self.skin.follows_desktop() {
             patina::appearance::watch(ctx);
         }
@@ -570,6 +561,10 @@ mod tests {
                 900,
             ),
             ("fn bar_buttons(ui: &mut Ui)", 7200),
+            (
+                "Lunch 🐡 at noon 🇸🇪 with 👩\u{200d}👩\u{200d}👧 and a very long ending that is cut",
+                40,
+            ),
         ];
         for skin in skins {
             let name = skin.name.clone();

@@ -126,8 +126,15 @@ fn pill(
         painter.circle_filled(pos2(x + 3.0, rect.center().y), 3.5, color);
         x += 11.0;
     }
-    painter.text(pos2(x, rect.center().y), Align2::LEFT_CENTER, text, FontId::proportional(12.0), fg);
+    emoji_text(&painter, pos2(x, rect.center().y), Align2::LEFT_CENTER, text, FontId::proportional(12.0), fg);
     resp
+}
+
+/// `painter.text` for a left-aligned event title or name, its emoji in colour.
+pub fn emoji_text(painter: &egui::Painter, at: Pos2, align: Align2, text: &str, font: FontId, colour: Color32) {
+    let line = patina::emoji::line(painter, text, font, colour, f32::INFINITY);
+    let top = if align.y() == egui::Align::Center { at.y - line.size().y / 2.0 } else { at.y };
+    line.paint(painter, pos2(at.x, top));
 }
 
 // ---------------------------------------------------------------------------
@@ -426,7 +433,8 @@ pub fn time_grid(
                 );
                 let clip = ui.painter_at(r.shrink2(vec2(4.0, 1.0)));
                 let mut y = r.top() + 3.0;
-                clip.text(
+                emoji_text(
+                    &clip,
                     pos2(r.left() + 7.0, y),
                     Align2::LEFT_TOP,
                     scene.title(o),

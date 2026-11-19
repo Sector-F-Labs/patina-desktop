@@ -86,13 +86,8 @@ fn tile(ui: &mut egui::Ui, p: &Project, id: MediaId, look: &Look, actions: &mut 
         painter.galley(at, galley, v.text_color());
     }
     let name_at = pos2(rect.left() + 1.0, pic.bottom() + 3.0);
-    let name = painter.layout(media.name(), egui::FontId::proportional(12.0), v.text_color(), TILE);
-    let one_line = name.rows.first().map_or(0.0, |r| r.rect().height());
-    painter.with_clip_rect(Rect::from_min_size(name_at, vec2(TILE, one_line + 1.0))).galley(
-        name_at,
-        name,
-        v.text_color(),
-    );
+    let name = patina::emoji::line(painter, &media.name(), egui::FontId::proportional(12.0), v.text_color(), TILE);
+    name.paint(&painter.with_clip_rect(Rect::from_min_size(name_at, vec2(TILE, name.size().y + 1.0))), name_at);
     let note = match (error, &media.info) {
         (Some(e), _) => egui::RichText::new(e).color(v.error_fg_color),
         (None, None) => egui::RichText::new("Reading…").weak(),

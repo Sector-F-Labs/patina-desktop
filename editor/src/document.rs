@@ -54,6 +54,8 @@ pub struct Document {
     pub current: Option<usize>,
     /// The laid-out text, kept until something it shows changes.
     pub galley: Option<(u64, Arc<egui::Galley>)>,
+    /// The emoji in that galley, laid out invisibly to be painted in colour.
+    pub emoji: Vec<patina::emoji::Placed>,
     /// A cursor to put the editor at, in characters, once it's shown.
     pub place_cursor: Option<Range<usize>>,
 }
@@ -83,6 +85,7 @@ impl Document {
             found: Vec::new(),
             current: None,
             galley: None,
+            emoji: Vec::new(),
             place_cursor: None,
         }
     }

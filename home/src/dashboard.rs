@@ -132,7 +132,7 @@ fn card_ui(ui: &mut egui::Ui, card: &Value, scene: &mut Scene) {
                         ui.set_min_width(80.0);
                         match scene.states.get(id) {
                             Some(e) => {
-                                ui.label(name.unwrap_or_else(|| e.name()));
+                                crate::widgets::name_label(ui, name.unwrap_or_else(|| e.name()), false, false);
                                 ui.strong(e.display_state());
                             }
                             None => {
@@ -170,7 +170,7 @@ fn card_ui(ui: &mut egui::Ui, card: &Value, scene: &mut Scene) {
 /// A number with its unit, and its past day under it.
 fn sensor_card(ui: &mut egui::Ui, e: &Entity, name: Option<&str>, scene: &mut Scene) {
     ui.horizontal(|ui| {
-        let label = ui.add(egui::Label::new(name.unwrap_or_else(|| e.name())).sense(egui::Sense::click()));
+        let label = crate::widgets::name_label(ui, name.unwrap_or_else(|| e.name()), false, true);
         if label.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text("History").clicked() {
             scene.events.push(Event::Open(e.id.clone()));
         }

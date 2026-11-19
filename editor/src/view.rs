@@ -152,8 +152,9 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, focus: bool, scroll_to
     let (mark, strong) = (visuals.selection.bg_fill.gamma_multiply(0.35), visuals.selection.bg_fill);
     let wrap = look.wrap;
     let font = look.font.clone();
-    let Document { text, highlighter, galley: cache, found, current, read_only, .. } = doc;
+    let Document { text, highlighter, galley: cache, emoji, found, current, read_only, .. } = doc;
     let (found, current) = (&*found, *current);
+    let placed = std::cell::RefCell::new(std::mem::take(emoji));
     let mut layouter = |ui: &Ui, buf: &dyn egui::TextBuffer, width: f32| {
         highlighter.update(buf.as_str());
         highlighter.advance(COLOURING);
@@ -170,6 +171,7 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, focus: bool, scroll_to
         let mut job = highlighter.job(&font, plain);
         job.wrap.max_width = if wrap { width } else { f32::INFINITY };
         find::mark(&mut job, found, current, mark, strong);
+        *placed.borrow_mut() = patina::emoji::hide(&mut job);
         let galley = ui.fonts_mut(|f| f.layout_job(job));
         *cache = Some((key, galley.clone()));
         galley
@@ -204,6 +206,7 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, focus: bool, scroll_to
             let galley = &output.galley;
             let origin = output.galley_pos;
             let cursor = output.cursor_range.map(|r| r.primary);
+            patina::emoji::paint_placed(&ui.painter_at(response.rect), galley, origin, &placed.borrow());
             // The cursor's row, lit across the editor and its numbers.
             if look.highlight_line
                 && response.has_focus()
@@ -223,6 +226,7 @@ pub fn show(ui: &mut Ui, doc: &mut Document, look: &Look, focus: bool, scroll_to
             context_menu(response, id, read_only.is_some());
         });
     });
+    *emoji = placed.into_inner();
     if highlighter.pending() {
         ui.ctx().request_repaint();
     }

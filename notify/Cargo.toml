@@ -11,5 +11,6 @@ egui = "0.35"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 patina-shell = { workspace = true }
 patina-system = { path = "../system" }
-patina-ui = { workspace = true }
+patina-ui = { workspace = true, features = ["emoji"] }
+patina-emoji-font = { workspace = true }
 zbus = "5"

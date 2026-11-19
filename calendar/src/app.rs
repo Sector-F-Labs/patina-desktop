@@ -162,6 +162,7 @@ fn export_summary(copied: &[String], skipped: &[String]) -> String {
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>, opening: Opening) -> Self {
         patina::appearance::watch(&cc.egui_ctx);
+        patina::emoji::install(patina_emoji_font::FONT);
         let mut config = Config::load();
         if let Some(view) = std::env::var("CALENDAR_VIEW").ok().and_then(|v| match v.as_str() {
             "day" => Some(View::Day),
@@ -1033,7 +1034,8 @@ fn calendar_row(ui: &mut egui::Ui, name: &str, color: Color32, on: bool) -> egui
         ui.painter().rect_stroke(boxed, 3.0, egui::Stroke::new(1.5, color), egui::StrokeKind::Inside);
     }
     let fg = if on { v.text_color() } else { v.weak_text_color() };
-    ui.painter().text(
+    crate::views::emoji_text(
+        ui.painter(),
         egui::pos2(rect.left() + 30.0, rect.center().y),
         egui::Align2::LEFT_CENTER,
         name,

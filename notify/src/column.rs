@@ -116,6 +116,7 @@ impl Column {
 impl Shell for Column {
     fn setup(&mut self, ctx: &egui::Context) {
         self.skin.apply(ctx);
+        patina::emoji::install(patina_emoji_font::FONT);
         if self.skin.follows_desktop() {
             patina::appearance::watch(ctx);
         }
@@ -296,12 +297,10 @@ fn card(ui: &mut Ui, note: &Note, thumb: Option<&Thumb>) -> Outcome {
                     });
                 });
                 if !note.summary.is_empty() {
-                    ui.add(
-                        egui::Label::new(RichText::new(&note.summary).size(15.0).strong()).wrap(),
-                    );
+                    patina::emoji::label_with(ui, &note.summary, 15.0, RichText::strong);
                 }
                 if !note.body.is_empty() {
-                    ui.add(egui::Label::new(RichText::new(&note.body).size(13.0)).wrap());
+                    patina::emoji::label_with(ui, &note.body, 13.0, |t| t);
                 }
                 if let Some(thumb) = thumb {
                     let size = thumb.texture.size_vec2();

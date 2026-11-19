@@ -159,6 +159,7 @@ pub struct App {
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         patina::appearance::watch(&cc.egui_ctx);
+        patina::emoji::install(patina_emoji_font::FONT);
         let config = Config::load();
         // MAIL_DEMO=1 shows made-up mail; MAIL_DEMO=reply also opens a reply to it.
         let demo_mode = std::env::var("MAIL_DEMO").ok();
@@ -808,7 +809,8 @@ impl App {
         egui::Frame::new().inner_margin(egui::Margin { left: 18, right: 18, top: 14, bottom: 6 }).show(ui, |ui| {
             ui.horizontal(|ui| {
                 let subject = if body.subject.is_empty() { "(no subject)" } else { &body.subject };
-                ui.add(egui::Label::new(RichText::new(subject).heading()).wrap());
+                let heading = egui::TextStyle::Heading.resolve(ui.style()).size;
+                patina::emoji::label_with(ui, subject, heading, |t| t.heading());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let star = if flagged { "★" } else { "☆" };
                     if ui.button(star).on_hover_text("Star (S)").clicked() {
@@ -849,7 +851,12 @@ impl App {
             ui.separator();
             egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
                 egui::Frame::new().inner_margin(egui::Margin::symmetric(18, 6)).show(ui, |ui| {
-                    ui.add(egui::Label::new(body.text.trim_end()).wrap().selectable(true));
+                    let text = body.text.trim_end();
+                    if patina::emoji::runs(text).iter().any(|r| matches!(r, patina::emoji::Run::Emoji(..))) {
+                        patina::emoji::label(ui, text);
+                    } else {
+                        ui.add(egui::Label::new(text).wrap().selectable(true));
+                    }
                     ui.add_space(12.0);
                 });
             });
@@ -1452,13 +1459,13 @@ fn message_row(ui: &mut egui::Ui, m: &Summary, selected: bool, height: f32) -> e
         painter.text(egui::pos2(rect.right() - 12.0, top), egui::Align2::RIGHT_TOP, short_date(m.date), small, weak);
     let from = m.from.as_ref().map(|a| a.short().to_string()).unwrap_or_else(|| "(unknown)".into());
     let star = if m.flagged { "★ " } else { "" };
-    let galley = ui.fonts_mut(|f| f.layout_no_wrap(format!("{star}{from}"), body.clone(), text));
     let clip = egui::Rect::from_min_max(egui::pos2(left, top), egui::pos2(date.left() - 8.0, top + 20.0));
-    ui.painter_at(clip).galley(clip.min, galley, text);
+    let line = patina::emoji::line(ui.painter(), &format!("{star}{from}"), body.clone(), text, clip.width());
+    line.paint(&ui.painter_at(clip), clip.min);
     let subject = if m.subject.is_empty() { "(no subject)" } else { &m.subject };
     let clip = egui::Rect::from_min_max(egui::pos2(left, top + 20.0), egui::pos2(rect.right() - 12.0, rect.bottom()));
-    let galley = ui.fonts_mut(|f| f.layout_no_wrap(subject.to_string(), body, weak));
-    ui.painter_at(clip).galley(clip.min, galley, weak);
+    let line = patina::emoji::line(ui.painter(), subject, body, weak, clip.width());
+    line.paint(&ui.painter_at(clip), clip.min);
     let line = egui::Stroke::new(1.0, v.widgets.noninteractive.bg_stroke.color.gamma_multiply(0.5));
     ui.painter().hline(rect.x_range(), rect.bottom() - 0.5, line);
     resp

@@ -133,6 +133,7 @@ impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let ctx = &cc.egui_ctx;
         patina::appearance::watch(ctx);
+        patina::emoji::install(patina_emoji_font::FONT);
         egui_extras::install_image_loaders(ctx);
         let config = Config::load();
         let engine = Engine::new(config.volume);
@@ -776,7 +777,7 @@ impl App {
                 artwork(ui, self.art_path(show.artwork.as_deref()), 120.0);
                 ui.add_space(8.0);
                 ui.vertical(|ui| {
-                    ui.label(RichText::new(&show.title).size(22.0).strong());
+                    patina::emoji::label_with(ui, &show.title, 22.0, RichText::strong);
                     if !show.author.is_empty() {
                         ui.label(RichText::new(&show.author).weak());
                     }
@@ -863,13 +864,21 @@ impl App {
                 }
                 ui.vertical(|ui| {
                     ui.set_width(ui.available_width());
-                    let mut title = RichText::new(&e.title).strong();
-                    if progress.played && !current {
-                        title = title.weak();
-                    } else if current {
-                        title = title.color(ui.visuals().selection.bg_fill);
-                    }
-                    ui.add(egui::Label::new(title).wrap().selectable(false));
+                    let (weak, current_colour) = (progress.played && !current, current);
+                    let accent = ui.visuals().selection.bg_fill;
+                    let body = egui::TextStyle::Body.resolve(ui.style()).size;
+                    // Not selectable: the row under it takes the click.
+                    ui.style_mut().interaction.selectable_labels = false;
+                    patina::emoji::label_with(ui, &e.title, body, |t| {
+                        let t = t.strong();
+                        if weak {
+                            t.weak()
+                        } else if current_colour {
+                            t.color(accent)
+                        } else {
+                            t
+                        }
+                    });
                     let mut facts = Vec::new();
                     if let Some(d) = e.published {
                         facts.push(d.with_timezone(&chrono::Local).format("%-d %b %Y").to_string());
@@ -967,7 +976,7 @@ impl App {
             artwork(ui, self.art_path(show.artwork.as_deref()), 44.0);
             ui.vertical(|ui| {
                 ui.set_width(220.0);
-                ui.add(egui::Label::new(RichText::new(&episode.title).strong()).truncate());
+                emoji_line(ui, &episode.title, egui::TextStyle::Body, ui.visuals().strong_text_color());
                 ui.add(egui::Label::new(RichText::new(&show.title).small().weak()).truncate());
             });
             ui.add_space(8.0);
@@ -1151,6 +1160,14 @@ fn artwork(ui: &mut egui::Ui, path: Option<&PathBuf>, size: f32) {
 }
 
 /// A show in the sidebar, subscribed to or found.
+/// One line of `text` that stops where the room does, its emoji in colour: what a truncated
+/// label was, for a title that may hold emoji.
+fn emoji_line(ui: &mut egui::Ui, text: &str, style: egui::TextStyle, colour: egui::Color32) {
+    let line = patina::emoji::line(ui.painter(), text, style.resolve(ui.style()), colour, ui.available_width());
+    let (rect, _) = ui.allocate_exact_size(line.size(), egui::Sense::hover());
+    line.paint(ui.painter(), rect.min);
+}
+
 fn show_row(ui: &mut egui::Ui, art: Option<&PathBuf>, title: &str, sub: &str, selected: bool) -> egui::Response {
     let v = ui.visuals().clone();
     let fill = if selected { v.selection.bg_fill } else { egui::Color32::TRANSPARENT };
@@ -1161,7 +1178,7 @@ fn show_row(ui: &mut egui::Ui, art: Option<&PathBuf>, title: &str, sub: &str, se
             ui.horizontal(|ui| {
                 artwork(ui, art, 40.0);
                 ui.vertical(|ui| {
-                    ui.add(egui::Label::new(RichText::new(title).strong().color(text)).truncate());
+                    emoji_line(ui, title, egui::TextStyle::Body, text);
                     ui.add(egui::Label::new(RichText::new(sub).small().color(text)).truncate());
                 });
             });

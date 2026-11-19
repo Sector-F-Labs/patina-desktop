@@ -254,7 +254,9 @@ pub fn show(ui: &mut Ui, sheet: &mut Sheet, view: &mut View, keys: bool) -> Chan
                     Value::Number(_) => (Align2::RIGHT_CENTER, cr.right_center() - Vec2::new(PAD, 0.0)),
                     _ => (Align2::LEFT_CENTER, cr.left_center() + Vec2::new(PAD, 0.0)),
                 };
-                clipped.text(at, anchor, value.display(), font.clone(), color);
+                let line = patina::emoji::line(&clipped, &value.display(), font.clone(), color, f32::INFINITY);
+                let x = if anchor == Align2::RIGHT_CENTER { at.x - line.size().x } else { at.x };
+                line.paint(&clipped, Pos2::new(x, at.y - line.size().y / 2.0));
             }
         }
 

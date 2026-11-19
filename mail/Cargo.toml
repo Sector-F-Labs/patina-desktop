@@ -25,7 +25,8 @@ imap = "3.0.0-alpha.15"
 lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "native-tls", "builder", "hostname"] }
 lol_html = "2"
 mail-parser = "0.11"
-patina-ui = { workspace = true }
+patina-ui = { workspace = true, features = ["emoji"] }
+patina-emoji-font = { workspace = true }
 serde = { version = "1.0.229", features = ["derive"] }
 toml = "1"
 ureq = "3"

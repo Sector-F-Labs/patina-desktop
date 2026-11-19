@@ -407,6 +407,7 @@ pub struct Files {
 impl Files {
     pub fn new(cc: &eframe::CreationContext<'_>, start: Start) -> Self {
         patina::appearance::watch(&cc.egui_ctx);
+        patina::emoji::install(patina_emoji_font::FONT);
         let ctx = &cc.egui_ctx;
         let config = Config::load();
         let (skins, skin_errors) = load_skins();
@@ -2465,6 +2466,20 @@ impl Files {
             self.rename_field(ui, field, true);
         } else {
             let colour = if selected { v.selection.stroke.color } else { v.text_color() };
+            if has_emoji(&entry.name) {
+                // Emoji are images, which a wrapped galley can't hold: one cut line, centred.
+                let font = egui::TextStyle::Body.resolve(ui.style());
+                let line = patina::emoji::line(ui.painter(), &entry.name, font, colour, inner.width() - 4.0);
+                let at = pos2(inner.center().x - line.size().x / 2.0, label_top);
+                if selected {
+                    let back = Rect::from_min_size(at, line.size()).expand2(vec2(4.0, 1.0));
+                    ui.painter().rect_filled(back, CornerRadius::same(4), v.selection.bg_fill);
+                }
+                let painter = if selected { ui.painter().clone() } else { painter };
+                line.paint(&painter, at);
+                self.item_input(ui, &resp, &entry, selected, None);
+                return;
+            }
             let mut job = LayoutJob::single_section(
                 entry.name.clone(),
                 TextFormat { font_id: egui::TextStyle::Body.resolve(ui.style()), color: colour, ..Default::default() },
@@ -2612,8 +2627,8 @@ impl Files {
         } else {
             let max_w = name_w - (text_left - rect.left()) - 8.0;
             let shown = middle_ellipsis(ui, &entry.name, &font, max_w);
-            let galley = ui.painter().layout_no_wrap(shown, font.clone(), colour);
-            painter.galley(pos2(text_left, rect.center().y - galley.size().y / 2.0), galley, colour);
+            let line = patina::emoji::line(ui.painter(), &shown, font.clone(), colour, max_w);
+            line.paint(&painter, pos2(text_left, rect.center().y - line.size().y / 2.0));
         }
 
         let mut x = rect.left() + name_w;
@@ -2813,15 +2828,9 @@ impl Files {
                 Rect::from_min_max(pos2(text_left - 4.0, rect.top() + 1.0), pos2(arrow.left(), rect.bottom() - 1.0));
             self.rename_field(ui, field, false);
         } else {
-            let mut job = LayoutJob::single_section(
-                entry.name.clone(),
-                TextFormat { font_id: egui::TextStyle::Body.resolve(ui.style()), color: colour, ..Default::default() },
-            );
-            job.wrap.max_width = arrow.left() - text_left;
-            job.wrap.max_rows = 1;
-            job.wrap.break_anywhere = true;
-            let galley = ui.painter().layout_job(job);
-            painter.galley(pos2(text_left, rect.center().y - galley.size().y / 2.0), galley, colour);
+            let font = egui::TextStyle::Body.resolve(ui.style());
+            let line = patina::emoji::line(ui.painter(), &entry.name, font, colour, arrow.left() - text_left);
+            line.paint(&painter, pos2(text_left, rect.center().y - line.size().y / 2.0));
         }
         self.item_input(ui, &resp, entry, selected, elsewhere);
     }
@@ -2844,7 +2853,7 @@ impl Files {
                 ui.painter().image(icon, at, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), egui::Color32::WHITE);
             }
             ui.add_space(12.0);
-            ui.add(egui::Label::new(egui::RichText::new(&entry.name).strong()).wrap());
+            patina::emoji::label_with(ui, &entry.name, egui::TextStyle::Body.resolve(ui.style()).size, egui::RichText::strong);
             ui.add_space(4.0);
             for line in details {
                 ui.label(egui::RichText::new(line).weak().small());
@@ -4055,6 +4064,11 @@ const OPTIONAL_COLUMNS: [(SortBy, &str); 5] = [
 
 /// `text` cut to fit `max_w` with an ellipsis in the middle, so the start and
 /// the end (the extension, a trailing number) both stay readable.
+/// Whether `name` has an emoji in it, to be drawn in colour.
+fn has_emoji(name: &str) -> bool {
+    patina::emoji::runs(name).iter().any(|r| matches!(r, patina::emoji::Run::Emoji(..)))
+}
+
 fn middle_ellipsis(ui: &Ui, text: &str, font: &egui::FontId, max_w: f32) -> String {
     let width = |s: &str| ui.painter().layout_no_wrap(s.to_string(), font.clone(), egui::Color32::WHITE).size().x;
     if width(text) <= max_w {

@@ -70,6 +70,7 @@ pub struct App {
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         patina::appearance::watch(&cc.egui_ctx);
+        patina::emoji::install(patina_emoji_font::FONT);
         let dirs: Vec<_> = skin::app_dir("home").into_iter().collect();
         let (skins, skin_errors) = skin::load_all(skin::BUILT_IN, &dirs);
         let account = config::load_account();

@@ -56,11 +56,27 @@ pub enum Event {
     Open(String),
 }
 
+/// An entity's name, its emoji in colour (Home Assistant names often have one), weak when it
+/// is unavailable, and clickable if `clickable`.
+pub fn name_label(ui: &mut egui::Ui, name: &str, weak: bool, clickable: bool) -> egui::Response {
+    let colour = if weak { ui.visuals().weak_text_color() } else { ui.visuals().text_color() };
+    let line = patina::emoji::line(
+        ui.painter(),
+        name,
+        egui::TextStyle::Body.resolve(ui.style()),
+        colour,
+        f32::INFINITY,
+    );
+    let sense = if clickable { egui::Sense::click() } else { egui::Sense::hover() };
+    let (rect, response) = ui.allocate_exact_size(line.size(), sense);
+    line.paint(ui.painter(), rect.min);
+    response
+}
+
 /// One entity: its name, state and control. What the user does is pushed to `events`.
 pub fn entity_row(ui: &mut egui::Ui, e: &Entity, name: Option<&str>, events: &mut Vec<Event>) {
     ui.horizontal(|ui| {
-        let name = egui::RichText::new(name.unwrap_or_else(|| e.name()));
-        let name = if e.is_unavailable() { name.weak() } else { name };
+        let name = name.unwrap_or_else(|| e.name());
         let opens = if e.domain() == "light" && !e.is_unavailable() {
             Some("Light settings")
         } else {
@@ -68,12 +84,12 @@ pub fn entity_row(ui: &mut egui::Ui, e: &Entity, name: Option<&str>, events: &mu
         };
         if let Some(hint) = opens {
             // A light's name opens its settings, and a sensor's its graph.
-            let label = ui.add(egui::Label::new(name).sense(egui::Sense::click()));
+            let label = name_label(ui, name, e.is_unavailable(), true);
             if label.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text(hint).clicked() {
                 events.push(Event::Open(e.id.clone()));
             }
         } else {
-            ui.label(name);
+            name_label(ui, name, e.is_unavailable(), false);
         }
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| match e.control() {
             Control::Toggle(on) => {

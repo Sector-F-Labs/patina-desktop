@@ -102,6 +102,7 @@ pub struct App {
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>, files: Vec<PathBuf>) -> Self {
         patina::appearance::watch(&cc.egui_ctx);
+        patina::emoji::install(patina_emoji_font::FONT);
         let ctx = cc.egui_ctx.clone();
         let config = Config::load();
         let (skins, skin_errors) = load_skins();

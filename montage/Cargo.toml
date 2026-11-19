@@ -11,7 +11,8 @@ dirs = "7"
 eframe = { version = "0.35", features = ["persistence"] }
 egui = "0.35"
 image = { version = "0.25", default-features = false, features = ["png"] }
-patina-ui = { workspace = true }
+patina-ui = { workspace = true, features = ["emoji"] }
+patina-emoji-font = { workspace = true }
 rfd = "0.17"
 # Only the output: ffmpeg decodes everything (ADR-0002).
 rodio = { version = "0.22.2", default-features = false, features = ["playback"] }
