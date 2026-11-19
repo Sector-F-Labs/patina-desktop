@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- An artist's palette with a brush laid across it: paint dabs in the
+       primary colours, a thumb hole, and a brush with a loaded tip. -->
+  <defs>
+    <linearGradient id="board" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9c590"/>
+      <stop offset="1" stop-color="#cfa56a"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3d6fb0"/>
+      <stop offset="1" stop-color="#274b7d"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5"/></filter>
+  </defs>
+  <path d="M66 20 C34 18 12 40 14 66 C16 94 42 112 72 108 C86 106 88 94 80 88 C72 82 78 72 90 74 C110 78 118 62 112 46 C106 28 86 21 66 20 Z" transform="translate(2 4)" fill="#000" opacity="0.3" filter="url(#shadow)"/>
+  <path d="M66 20 C34 18 12 40 14 66 C16 94 42 112 72 108 C86 106 88 94 80 88 C72 82 78 72 90 74 C110 78 118 62 112 46 C106 28 86 21 66 20 Z" fill="url(#board)"/>
+  <path d="M66 20 C34 18 12 40 14 66 C16 94 42 112 72 108 C86 106 88 94 80 88 C72 82 78 72 90 74 C110 78 118 62 112 46 C106 28 86 21 66 20 Z" fill="none" stroke="#000" stroke-opacity="0.18" stroke-width="1"/>
+  <ellipse cx="40" cy="82" rx="7" ry="5.5" fill="#6d4a24" opacity="0.6"/>
+  <circle cx="34" cy="48" r="8.5" fill="#d8392f"/>
+  <circle cx="56" cy="36" r="8.5" fill="#f2c230"/>
+  <circle cx="80" cy="38" r="8.5" fill="#2f7fd6"/>
+  <circle cx="98" cy="54" r="8.5" fill="#3aa856"/>
+  <circle cx="31" cy="46" r="2.6" fill="#fff" opacity="0.35"/>
+  <circle cx="53" cy="34" r="2.6" fill="#fff" opacity="0.35"/>
+  <circle cx="77" cy="36" r="2.6" fill="#fff" opacity="0.35"/>
+  <circle cx="95" cy="52" r="2.6" fill="#fff" opacity="0.35"/>
+  <!-- the brush: handle, ferrule, bristles with red paint -->
+  <g transform="rotate(-38 64 64)">
+    <rect x="58" y="14" width="10" height="56" rx="5" fill="url(#handle)"/>
+    <rect x="58" y="66" width="10" height="14" fill="#c9ccd1"/>
+    <rect x="58" y="66" width="10" height="2" fill="#8d9097"/>
+    <rect x="58" y="72" width="10" height="2" fill="#8d9097"/>
+    <path d="M58 80 H68 C68 92 66 100 63 108 C60 100 58 92 58 80 Z" fill="#e9dcc4"/>
+    <path d="M59 92 H67 C66 98 65 103 63 108 C61 103 60 98 59 92 Z" fill="#d8392f"/>
+  </g>
+</svg>

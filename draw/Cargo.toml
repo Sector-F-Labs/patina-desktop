@@ -1,0 +1,20 @@
+[package]
+name = "draw"
+version = "0.1.0"
+edition = "2024"
+description = "Draw: a simple bitmap paint program, the Unix MS Paint. A Patina (egui) app."
+license = "BSD-3-Clause"
+repository = "https://github.com/Sector-F-Labs/draw"
+
+[dependencies]
+dirs = "7"
+eframe = { version = "0.35", features = ["persistence"] }
+egui = "0.35"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "gif", "webp"] }
+patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+rfd = "0.17"
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+
+[dev-dependencies]
+resvg = "0.48.1"
