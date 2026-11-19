@@ -1,0 +1,40 @@
+[package]
+name = "mail"
+version = "0.1.0"
+edition = "2024"
+license = "BSD-3-Clause"
+description = "A simple Patina mail client for Proton Mail through Proton Mail Bridge"
+
+[dependencies]
+anyrender = "0.14"
+anyrender_vello_cpu = "0.18"
+atomic_refcell = "0.1"
+blitz-dom = { version = "=0.3.0-beta.4", features = ["floats"] }
+blitz-html = "=0.3.0-beta.4"
+blitz-paint = "=0.3.0-beta.4"
+blitz-traits = "=0.3.0-beta.4"
+bytes = "1"
+chrono = "0.4"
+data-url = "0.3"
+dirs = "7"
+eframe = { version = "0.35", features = ["persistence"] }
+egui = "0.35"
+html2text = "0.17"
+image = { version = "0.25", default-features = false, features = ["png"] }
+imap = "3.0.0-alpha.15"
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "native-tls", "builder", "hostname"] }
+lol_html = "2"
+mail-parser = "0.11"
+patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1"
+ureq = "3"
+url = "2"
+
+[dev-dependencies]
+resvg = "0.48"
+
+# Stylo (CSS) and Vello (painting) are slow unoptimised, so dependencies are
+# optimised even in debug builds; Mail's own code stays debuggable.
+[profile.dev.package."*"]
+opt-level = 2
