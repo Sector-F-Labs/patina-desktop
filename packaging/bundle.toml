@@ -15,7 +15,7 @@ architecture = "amd64"
 # This repository goes in as make stage lays it out: every binary in the
 # Makefile's BINARIES, the man pages, the session entry, the lock screen's
 # PAM service, the portal config, the default apps list, and the Settings,
-# Process Manager, Files, Reader, Notebook and Teleprinter entries and icons, with Files'
+# Process Manager, Files, Reader, Notebook, Teleprinter and Calendar entries and icons, with Files'
 # portal backend (the session's file chooser; ADR-0106, ADR-0107). patina-dictate is built
 # as it is by default, on the GPU through Vulkan (ADR-0074).
 
@@ -24,6 +24,10 @@ architecture = "amd64"
 [[member]]
 name = "teleprinter"
 why = "The terminal: Alt+T"
+
+[[member]]
+name = "calendar"
+why = "Calendar: the clock menu shows its events"
 
 # Apps from other repositories. Each is built with `cargo build --release
 # --locked` at `commit`, from the checkout at `local` (default: ../<name>)
@@ -57,7 +61,6 @@ id = "unamp"
 why = "Music: local folders and network shares"
 
 # Other Patina apps, left out. Move one up to bundle it:
-#   calendar  (in this repository, calendar/; stage doesn't install it yet)  the clock menu shows its events
 #   mail      364dd0d
 #   editor    93026f5
 #   weather   05fd517
