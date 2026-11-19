@@ -254,6 +254,8 @@ enum Action {
     Terminal(PathBuf),
     /// A script opened in the text editor (ADR-0011).
     Edit(PathBuf),
+    /// A picture opened in Draw, from Quick Look's Edit (ADR-0012).
+    EditPicture(PathBuf),
     /// A file opened with a chosen app: the file, and the command line.
     OpenWith(PathBuf, Vec<String>),
     /// The list of every app, to open a file with one that isn't offered.
@@ -1010,6 +1012,14 @@ impl Files {
                 });
                 if let Err(e) = started {
                     self.message = Some(Message::error(format!("Can't edit {}: {e}", places::name(&path))));
+                }
+            }
+            Action::EditPicture(path) => {
+                self.looking = false;
+                let line = editor::picture_command(&path);
+                let dir = path.parent().unwrap_or(Path::new("/"));
+                if let Err(e) = spawn_in(&line[0], &line[1..], dir) {
+                    self.message = Some(Message::error(format!("Can't edit {}: {}: {e}", places::name(&path), line[0])));
                 }
             }
             Action::OpenWith(path, line) => {
@@ -3727,7 +3737,12 @@ impl Files {
                 ui,
                 |_| {},
                 |ui| {
-                    if ui.button("Open").on_hover_text("Enter").clicked() {
+                    // A picture Draw can edit offers Edit in place of Open; Enter still opens it.
+                    if entry.kind == Kind::File && entry.remote.is_none() && editor::is_picture(entry.mime.as_deref()) {
+                        if ui.button("Edit").on_hover_text("Edit in Draw").clicked() {
+                            a.push(Action::EditPicture(entry.path.clone()));
+                        }
+                    } else if ui.button("Open").on_hover_text("Enter").clicked() {
                         a.push(Action::Open(entry.path.clone()));
                     }
                 },

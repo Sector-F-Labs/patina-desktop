@@ -28,6 +28,29 @@ pub fn command(path: &Path) -> Result<Vec<String>, String> {
     Ok(in_terminal(line))
 }
 
+/// The pictures Draw opens and saves, as its desktop entry lists them.
+const DRAW_PICTURES: &[&str] = &["image/png", "image/jpeg", "image/bmp", "image/gif", "image/webp"];
+
+/// Whether Quick Look's Edit opens a file of this type in Draw (ADR-0012).
+pub fn is_picture(mime: Option<&str>) -> bool {
+    mime.is_some_and(|m| DRAW_PICTURES.contains(&m))
+}
+
+/// The command line that edits the picture `path` in Draw: its desktop entry's `Exec`, else
+/// `draw` from the path. Not the mimeapps lists, which name a viewer for pictures.
+pub fn picture_command(path: &Path) -> Vec<String> {
+    if let Some(entry) = find_entry("com.sectorflabs.Draw.desktop")
+        && let Ok(text) = std::fs::read_to_string(&entry)
+        && let Some((exec, _)) = desktop_exec(&text)
+    {
+        let line = expand(&exec, path);
+        if !line.is_empty() {
+            return line;
+        }
+    }
+    vec!["draw".into(), path.display().to_string()]
+}
+
 pub fn in_terminal(line: Vec<String>) -> Vec<String> {
     let mut out = vec![patina_apps::terminal(), "-e".into()];
     out.extend(line);
@@ -169,6 +192,14 @@ mod tests {
         let list = "[Added Associations]\ntext/plain=other.desktop;\n\n[Default Applications]\ntext/html=firefox.desktop\ntext/plain = nvim.desktop;gedit.desktop;\n";
         assert_eq!(defaults(list, "text/plain"), ["nvim.desktop", "gedit.desktop"]);
         assert!(defaults(list, "image/png").is_empty());
+    }
+
+    #[test]
+    fn draw_edits_the_pictures_it_can_save() {
+        assert!(is_picture(Some("image/png")) && is_picture(Some("image/webp")));
+        assert!(!is_picture(Some("image/svg+xml")) && !is_picture(Some("text/plain")) && !is_picture(None));
+        let line = picture_command(Path::new("/home/me/a b.png"));
+        assert_eq!(line.last().map(String::as_str), Some("/home/me/a b.png"));
     }
 
     #[test]
