@@ -23,10 +23,10 @@ Patina change Teleprinter needed meant a push, a `cargo update` and a new pin.
 - `make stage` installs it like Files, Reader and Notebook (binary, entry, icons), so `make
   install`, `make deploy`, `make install-full` and the .deb all carry it. `bundle.toml` no longer
   pins it; a `[[member]]` entry only lets the .deb's description list it.
-- Messenger, Montage, Editor, Mail, Home, Weather, Draw, Ledger and Podcasts joined the same way
+- Montage, Editor, Mail, Home, Weather, Draw, Ledger and Podcasts joined the same way
   (2026-11-19). Draw and Montage are installed by `stage` and no longer pinned in `bundle.toml`;
-  the rest are members that `stage` doesn't install. Programmer, Projects and md-chat stay in
-  their own repositories.
+  the rest are members that `stage` doesn't install. Programmer, Projects, md-chat and Messenger stay in
+  their own repositories (Messenger was imported, then taken out again at the owner's request).
 - Calendar joined the same way (`calendar/`), and `stage` installs it too, since the clock menu
   runs `calendar --agenda`.
 - The Linux VM no longer shares a second checkout: Teleprinter is at `/patina/target/release`

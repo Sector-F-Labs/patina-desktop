@@ -10,9 +10,9 @@ from its own repository before, and still runs alone on GNOME). `files/` is File
 manager and the session's file chooser (ADR-0106), `reader/` is Reader and `notebook/` is
 Notebook (ADR-0107); each has its own ADRs, and `files/` and the others an `AGENTS.md`.
 The Sector F apps live here too (ADR-0148): `teleprinter/`, `calendar/`, `draw/`, `montage/`,
-`messenger/`, `mail/`, `editor/` (package text-editor), `weather/`, `home/` (build with
+`mail/`, `editor/` (package text-editor), `weather/`, `home/` (build with
 `-p home@<version>`: a crate named home is on crates.io), `podcasts/` and `ledger/`. Each is its
-own app with its own Makefile and `AGENTS.md`; Programmer, Projects and md-chat are separate
+own app with its own Makefile and `AGENTS.md`; Programmer, Projects, md-chat and Messenger are separate
 repositories. `make stage` installs Teleprinter, Calendar, Draw and Montage. The compositor
 puts its own folder first on its clients' PATH, so the pieces are found beside it.
 

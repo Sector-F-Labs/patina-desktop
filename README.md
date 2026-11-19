@@ -184,7 +184,7 @@ pieces, the keys, where settings are kept, and restarting and recovering.
 
 Files, the file manager and the session's file chooser (through the portal), is the `files/` crate
 here (ADR-0106), and so are Reader and Notebook (ADR-0107), Teleprinter, the terminal, Calendar,
-Draw and Montage (ADR-0148), which install with the desktop, and Messenger, Mail, Editor, Weather,
+Draw and Montage (ADR-0148), which install with the desktop, and Mail, Editor, Weather,
 Home, Podcasts and Ledger, which are here but not installed yet. The `.deb` and `make install-full`
 add UnAmp, from its own repository.
 
