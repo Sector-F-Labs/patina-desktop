@@ -2524,7 +2524,7 @@ impl Files {
 
     fn list_view(&mut self, ui: &mut Ui, visible: &[usize]) {
         let width = ui.available_width();
-        let columns = list_columns(width, &self.config.list_columns);
+        let columns = list_columns(width, &self.config.list_columns, &self.config.column_widths);
         self.columns = 1;
         // The header: click a column to sort by it, again to reverse.
         let (header, _) = ui.allocate_exact_size(vec2(width, ROW), Sense::hover());
@@ -2552,6 +2552,52 @@ impl Files {
                     colour,
                     egui::Stroke::NONE,
                 ));
+            }
+            if *by != SortBy::Name {
+                // Drag the left edge to resize; the edge stays under the
+                // pointer because Name takes what's left. Double-click resets.
+                let edge = Rect::from_min_size(pos2(rect.left() - 3.0, rect.top()), vec2(6.0, ROW));
+                let grip = ui.interact(edge, Id::new(("column edge", label)), Sense::click_and_drag());
+                // Always drawn, so the edges show; stronger when held.
+                let active = grip.hovered() || grip.dragged();
+                if active {
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeColumn);
+                }
+                let stroke = if active {
+                    ui.visuals().widgets.hovered.bg_stroke
+                } else {
+                    ui.visuals().widgets.noninteractive.bg_stroke
+                };
+                ui.painter().vline(rect.left(), header.shrink2(vec2(0.0, 4.0)).y_range(), stroke);
+                // From where the drag began, not frame by frame, so the width
+                // follows the pointer however the columns move meanwhile.
+                let start = Id::new(("column drag", label));
+                if grip.drag_started() {
+                    let at = grip.interact_pointer_pos().map_or(0.0, |p| p.x);
+                    ui.data_mut(|d| d.insert_temp(start, (at, *w)));
+                }
+                if grip.dragged() {
+                    let begun: Option<(f32, f32)> = ui.data(|d| d.get_temp(start));
+                    if let (Some((at, was)), Some(p)) = (begun, grip.interact_pointer_pos()) {
+                        // Never so wide that Name would be left under 180 with the
+                        // others as they are: past that `list_columns` drops
+                        // a column, and the layout would jump.
+                        let others = columns[1..].iter().map(|c| c.2).sum::<f32>() - *w;
+                        let w = (was + at - p.x).clamp(MIN_COLUMN, (width - 181.0 - others).max(MIN_COLUMN));
+                        self.config.column_widths.insert(label.to_string(), w);
+                    }
+                }
+                if grip.drag_stopped() {
+                    self.config.save();
+                }
+                if grip.double_clicked() {
+                    self.config.column_widths.remove(*label);
+                    self.config.save();
+                }
+                if grip.hovered() || grip.dragged() || grip.double_clicked() {
+                    x += w;
+                    continue;
+                }
             }
             if resp.clicked() {
                 let mut sort = self.config.sort;
@@ -2851,7 +2897,9 @@ impl Files {
             self.rename_field(ui, field, false);
         } else {
             let font = egui::TextStyle::Body.resolve(ui.style());
-            let line = patina::emoji::line(ui.painter(), &entry.name, font, colour, arrow.left() - text_left);
+            let max_w = arrow.left() - text_left;
+            let shown = middle_ellipsis(ui, &entry.name, &font, max_w);
+            let line = patina::emoji::line(ui.painter(), &shown, font, colour, max_w);
             line.paint(&painter, pos2(text_left, rect.center().y - line.size().y / 2.0));
         }
         self.item_input(ui, &resp, entry, selected, elsewhere);
@@ -4121,20 +4169,28 @@ fn middle_ellipsis(ui: &Ui, text: &str, font: &egui::FontId, max_w: f32) -> Stri
     build(lo)
 }
 
+/// The least a list column can be dragged to.
+const MIN_COLUMN: f32 = 50.0;
+
 /// The list's columns: what each sorts by, its heading, width and whether
 /// it's right-aligned. Name takes what the others leave; of those `wanted`,
 /// the last go first when the window is narrow.
-fn list_columns(width: f32, wanted: &[SortBy]) -> Vec<(SortBy, &'static str, f32, bool)> {
+fn list_columns(
+    width: f32,
+    wanted: &[SortBy],
+    custom: &std::collections::BTreeMap<String, f32>,
+) -> Vec<(SortBy, &'static str, f32, bool)> {
     let mut rest: Vec<(SortBy, &'static str, f32, bool)> = Vec::new();
     let mut used = 0.0;
     for (by, _) in OPTIONAL_COLUMNS.iter().filter(|(by, _)| wanted.contains(by)) {
         let (label, w, right) = match by {
-            SortBy::Size => ("Size", 90.0, true),
+            SortBy::Size => ("Size", 90.0, false),
             SortBy::Modified => ("Modified", 150.0, false),
             SortBy::Created => ("Created", 150.0, false),
             SortBy::Accessed => ("Last Opened", 150.0, false),
             _ => ("Kind", 200.0, false),
         };
+        let w = custom.get(label).map_or(w, |w| w.max(MIN_COLUMN));
         if width - used - w > 180.0 {
             rest.push((*by, label, w, right));
             used += w;
@@ -4576,10 +4632,20 @@ mod tests {
     #[test]
     fn list_columns_fill_the_width() {
         let wanted = Config::default().list_columns;
-        let columns = list_columns(900.0, &wanted);
+        let columns = list_columns(900.0, &wanted, &Default::default());
         assert_eq!(columns.iter().map(|c| c.2).sum::<f32>(), 900.0);
-        assert_eq!(list_columns(500.0, &wanted).len(), 3, "no Kind when narrow");
-        assert_eq!(list_columns(900.0, &[SortBy::Created]).len(), 2);
+        assert_eq!(list_columns(500.0, &wanted, &Default::default()).len(), 3, "no Kind when narrow");
+        assert_eq!(list_columns(900.0, &[SortBy::Created], &Default::default()).len(), 2);
+    }
+
+    #[test]
+    fn dragged_widths_are_kept_but_never_squeeze_name() {
+        let wanted = Config::default().list_columns;
+        let custom = [("Size".to_string(), 20.0), ("Modified".to_string(), 300.0)].into();
+        let columns = list_columns(900.0, &wanted, &custom);
+        assert_eq!(columns[1].2, MIN_COLUMN, "a column keeps a least width");
+        assert_eq!(columns[2].2, 300.0);
+        assert_eq!(columns.iter().map(|c| c.2).sum::<f32>(), 900.0);
     }
 
     /// Draws the confirmation and the name-taken question in each built-in

@@ -25,6 +25,9 @@ pub struct Config {
     pub favourites: Vec<PathBuf>,
     /// The list view's columns after Name (which is always there).
     pub list_columns: Vec<SortBy>,
+    /// Widths the user dragged the list's columns to, by heading; the rest
+    /// have their default.
+    pub column_widths: std::collections::BTreeMap<String, f32>,
     /// The desktop's title bar instead of Patina's.
     pub system_title_bar: bool,
     pub skin: String,
@@ -44,6 +47,7 @@ impl Default for Config {
             sort: Sort::default(),
             favourites: Vec::new(),
             list_columns: vec![SortBy::Size, SortBy::Modified, SortBy::Kind],
+            column_widths: Default::default(),
             system_title_bar: false,
             skin: patina::skin::DEFAULT_SKIN.into(),
             light_dark: "system".into(),
