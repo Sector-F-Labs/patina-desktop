@@ -8,9 +8,9 @@ follows the desktop's light/dark setting.
 
 Made for marking up a picture: take a screenshot, draw a rectangle, an arrow or a circle on it,
 highlight something, and send it on. Files' Quick Look opens a picture here with its Edit button.
-Rectangle, ellipse, arrow, line, highlighter, brush, pencil, eraser, fill and colour picker, as
-symbols in the toolbox; a spectrum to point at for any colour, the left button setting the
-foreground and the right the background; undo and redo; zoom; flip, rotate, invert and canvas
+Rectangle, ellipse, arrow, line, text, highlighter, brush, pencil, eraser, fill, colour picker and
+crop, as symbols in the toolbox, which shows a tool's colour (the skin builder's picker), size and
+shape only when it has any; undo and redo; zoom; flip, rotate, invert and canvas
 size; open PNG, JPEG, BMP, GIF and WebP, and save PNG, JPEG and BMP. Save As starts with the
 same name and ` (edit)`, so the original stays. `draw picture.png` opens a file.
 
@@ -18,8 +18,9 @@ same name and ` (edit)`, so the original stays. `draw picture.png` opens a file.
 
 | Key | |
 |---|---|
-| R O A L H | Rectangle, Ellipse (O), Arrow, Line, Highlighter |
-| B P E F K | Brush, Pencil, Eraser, Fill, Picker (K) |
+| R O A L T | Rectangle, Ellipse (O), Arrow, Line, Text |
+| H B P E F K C | Highlighter, Brush, Pencil, Eraser, Fill, Picker (K), Crop |
+| Enter / Esc | Keep the crop / drop it; write the text / drop it (Shift+Enter: new line) |
 | X | Swap the foreground and background colours |
 | Shift while dragging | Lines at 45° steps; squares and circles |
 | Esc | Cancel the stroke in progress |

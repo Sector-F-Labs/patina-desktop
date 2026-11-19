@@ -45,6 +45,7 @@ mechanics of adding one.
 | [0001](0001-build-on-patina.md) | Build Draw as a native egui app on Patina | Accepted |
 | [0002](0002-cpu-bitmap-and-snapshot-undo.md) | Draw on a CPU bitmap, undo by snapshots | Proposed |
 | [0003](0003-draw-is-for-marking-up-pictures.md) | Draw is for marking up a picture: annotation tools first, symbols, Save As, a spectrum | Accepted |
+| [0004](0004-the-toolbox-shows-what-the-tool-needs.md) | The toolbox shows only what the chosen tool needs; crop and text join it | Accepted |
 
 ## Decision Relationship
 

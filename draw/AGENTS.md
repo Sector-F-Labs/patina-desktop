@@ -17,7 +17,7 @@ make install       # per user; test with PREFIX=<scratch dir>
 ```
 
 Test and screenshot runs use `target/scratch-*` for config and data, never the real `~/.config/draw`.
-`DRAW_SCREENSHOT=path.png` saves the window and quits; `DRAW_SKIN=name` picks that run's skin.
+`DRAW_SCREENSHOT=path.png` saves the window and quits; `DRAW_SKIN=name` picks that run's skin and `DRAW_TOOL=eraser` its tool.
 
 ## Layout
 
@@ -25,8 +25,8 @@ Test and screenshot runs use `target/scratch-*` for config and data, never the r
 - `src/document.rs`: the open picture, tools, strokes (`begin`/`drag`/`end`) and undo; tested.
 - `src/file.rs`: open and save on a thread, dialogs included (rfd); `Done` comes back over a channel.
 - `src/icons.rs`: the toolbox's symbols, painted with shapes.
-- `src/spectrum.rs`: the colour strip: `colour(u, v)` is its layout, the image and a click both use it; tested.
-- `src/app.rs`: the window: menus, toolbox, canvas, spectrum, dialogs. Keep logic out of it.
+- `src/text.rs`: letters rasterised into the bitmap (ab_glyph, egui's Ubuntu); tested.
+- `src/app.rs`: the window: menus, toolbox (a tool's own colour, size and shape), canvas, crop selection, the text box, dialogs. Keep logic out of it.
 - `src/config.rs`: `~/.config/draw/config.toml`.
 
 ## Gotchas

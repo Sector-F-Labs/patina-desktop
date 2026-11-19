@@ -4,7 +4,7 @@ Date: 2026-11-19
 
 ## Status
 
-Accepted. The user said what Draw is mostly for: someone takes a screenshot, draws a rectangle,
+Accepted; the palette decision is superseded by [0004](0004-the-toolbox-shows-what-the-tool-needs.md). The user said what Draw is mostly for: someone takes a screenshot, draws a rectangle,
 an arrow or a circle on it, or highlights something, and sends it on; and Files' Quick Look now
 opens pictures in it (Files ADR-0012). The tools, their order, the highlighter's blend and the
 spectrum's layout are my design.

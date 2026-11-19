@@ -275,6 +275,23 @@ impl Bitmap {
         *self = next;
     }
 
+    /// Keeps the rectangle with corners `a` and `b`, both included, and drops the rest; the part of
+    /// it inside the picture. Does nothing if none of it is.
+    pub fn crop(&mut self, a: (i32, i32), b: (i32, i32)) {
+        let (x0, x1) = (a.0.min(b.0).max(0), a.0.max(b.0).min(self.width as i32 - 1));
+        let (y0, y1) = (a.1.min(b.1).max(0), a.1.max(b.1).min(self.height as i32 - 1));
+        if x0 > x1 || y0 > y1 {
+            return;
+        }
+        let (width, height) = ((x1 - x0 + 1) as usize, (y1 - y0 + 1) as usize);
+        let mut kept = Vec::with_capacity(width * height);
+        for y in y0..=y1 {
+            let row = y as usize * self.width;
+            kept.extend_from_slice(&self.pixels[row + x0 as usize..=row + x1 as usize]);
+        }
+        *self = Bitmap { width, height, pixels: kept };
+    }
+
     pub fn to_bytes(&self) -> Vec<u8> {
         self.pixels.iter().flatten().copied().collect()
     }
@@ -346,6 +363,24 @@ mod tests {
         let mut twice = blank(40, 20);
         twice.highlight(&[(2, 10), (30, 10), (2, 10), (30, 10)], 6, tint);
         assert_eq!(once, twice);
+    }
+
+    #[test]
+    fn cropping_keeps_the_rectangle_with_both_corners_in_it() {
+        let mut b = blank(10, 8);
+        b.put(3, 2, BLACK);
+        b.put(6, 5, RED);
+        // Any two opposite corners, and the rest of the rectangle that's outside is dropped.
+        b.crop((6, 5), (3, 2));
+        assert_eq!((b.width, b.height), (4, 4));
+        assert_eq!(b.get(0, 0), Some(BLACK));
+        assert_eq!(b.get(3, 3), Some(RED));
+        let mut out = blank(10, 8);
+        out.crop((-5, -5), (3, 2));
+        assert_eq!((out.width, out.height), (4, 3), "clamped to the picture");
+        let mut nothing = blank(10, 8);
+        nothing.crop((20, 20), (30, 30));
+        assert_eq!((nothing.width, nothing.height), (10, 8), "a rectangle off the picture changes nothing");
     }
 
     #[test]

@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
-use egui::{Color32, Key, KeyboardShortcut, Modifiers, Pos2, Rect, Sense, Stroke, TextureHandle, TextureOptions, Vec2};
+use egui::{Color32, Key, KeyboardShortcut, Modifiers, Pos2, Rect, Sense, TextureHandle, TextureOptions, Vec2};
 use patina::frame::{self, TitleBar};
 use patina::skin::{self, Skin};
 
@@ -12,7 +12,7 @@ use crate::bitmap::{Bitmap, Fill, Rgba, WHITE};
 use crate::config::Config;
 use crate::document::{Button, Document, Pen, Tool};
 use crate::file::{self, Done};
-use crate::{icons, spectrum};
+use crate::{icons, text};
 
 const APP: &str = "draw";
 
@@ -24,17 +24,29 @@ const ZOOMS: [f32; 12] = [0.125, 0.25, 0.5, 1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 
 
 const NEW_SIZE: (usize, usize) = (800, 600);
 
-/// Where on the spectrum the foreground starts: a red, the colour that marks something on a picture.
-const START: Mark = (0.012, 0.5);
+/// The foreground a picture starts with: a red, the colour that marks something on a picture.
+const MARKER_RED: Rgba = [235, 40, 40, 255];
 
-/// The spectrum's picture, in pixels: more than it's drawn at, so it's smooth.
-const SPECTRUM_PIXELS: (usize, usize) = (720, 96);
+/// Which of the pen's two colours the picker edits.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Slot {
+    Foreground,
+    Background,
+}
 
-/// How tall the spectrum is drawn.
-const SPECTRUM_HEIGHT: f32 = 44.0;
+/// Text being typed on the picture: where it goes, what's been typed, and whether its box
+/// still has to take the keyboard.
+struct Typing {
+    at: (i32, i32),
+    content: String,
+    fresh: bool,
+}
 
-/// A point on the spectrum, as (u, v): fractions of its width and height.
-type Mark = (f32, f32);
+/// What the picture's preview shows of the text being typed, to redraw it when that changes.
+type Preview = ((i32, i32), String, u32, Rgba);
+
+/// The corners of the part of the picture to keep, in its pixels.
+type Region = ((i32, i32), (i32, i32));
 
 /// What the header and menus ask for, handled after they're drawn.
 enum Action {
@@ -54,6 +66,7 @@ enum Action {
     Invert,
     Clear,
     ResizeCanvas,
+    ApplyCrop,
     SwapColours,
     SetSkin(String),
     SystemTitleBar(bool),
@@ -99,11 +112,14 @@ pub struct App {
     closing: bool,
     /// Screenshot mode: where to save it, and whether it was asked for.
     screenshot: Option<(PathBuf, bool)>,
-    /// The spectrum's picture, made when it's first drawn.
-    spectrum: Option<TextureHandle>,
-    /// Where the spectrum was last pointed at for the foreground and the background, as (u, v);
-    /// shown only while the colour is still the one it gave.
-    marks: (Option<Mark>, Option<Mark>),
+    /// Which colour the picker edits when a tool has two ([`Slot`]): a shape's outline or its fill.
+    slot: Slot,
+    /// Crop: the part chosen to keep, and whether the pointer is still choosing it.
+    crop: Option<Region>,
+    cropping: bool,
+    /// Text: what's being typed, and what the picture shows of it.
+    typing: Option<Typing>,
+    preview: Option<Preview>,
 }
 
 impl App {
@@ -113,7 +129,7 @@ impl App {
         let (skins, skin_errors) = skin::load_all(skin::BUILT_IN, &dirs);
         let (io_tx, io_rx) = channel();
         let screenshot = std::env::var_os("DRAW_SCREENSHOT").map(|p| (PathBuf::from(p), false));
-        let pen = Pen { tool: Tool::Rectangle, size: config.size, fill: config.fill, fg: spectrum::colour(START.0, START.1), bg: WHITE };
+        let pen = Pen { tool: Tool::Rectangle, size: config.size, fill: config.fill, fg: MARKER_RED, bg: WHITE };
         let mut app = Self {
             config,
             skins,
@@ -134,9 +150,15 @@ impl App {
             cursor: None,
             closing: false,
             screenshot,
-            spectrum: None,
-            marks: (Some(START), None),
+            slot: Slot::Foreground,
+            crop: None,
+            cropping: false,
+            typing: None,
+            preview: None,
         };
+        if let Some(tool) = std::env::var("DRAW_TOOL").ok().and_then(|n| Tool::ALL.into_iter().find(|t| t.name().eq_ignore_ascii_case(&n))) {
+            app.pen.tool = tool;
+        }
         app.apply_skin(&cc.egui_ctx);
         if let Some(path) = std::env::args_os().nth(1) {
             file::open(&cc.egui_ctx, app.io_tx.clone(), Some(PathBuf::from(path)));
@@ -198,6 +220,16 @@ impl App {
             Action::ResizeCanvas => {
                 let b = &self.doc.bitmap;
                 self.dialog = Some(Dialog::Resize { width: b.width, height: b.height });
+            }
+            Action::ApplyCrop => {
+                if let Some((a, b)) = self.crop.take() {
+                    let size = ((a.0 - b.0).abs() + 1, (a.1 - b.1).abs() + 1);
+                    if self.doc.crop(a, b) {
+                        self.status = Some(format!("Cropped to {} × {}", size.0, size.1));
+                    }
+                    self.texture_stale = true;
+                    self.fit = true;
+                }
             }
             Action::SwapColours => std::mem::swap(&mut self.pen.fg, &mut self.pen.bg),
             Action::SetSkin(name) => {
@@ -327,6 +359,7 @@ impl App {
             item(ui, actions, "Rotate Clockwise", "Ctrl+R", true, Action::Rotate);
             item(ui, actions, "Invert Colours", "Ctrl+I", true, Action::Invert);
             ui.separator();
+            item(ui, actions, "Crop to Selection", "Enter", self.crop.is_some(), Action::ApplyCrop);
             item(ui, actions, "Canvas Size…", "", true, Action::ResizeCanvas);
             item(ui, actions, "Clear", "", true, Action::Clear);
         });
@@ -390,123 +423,162 @@ impl App {
             if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::X)) {
                 actions.push(Action::SwapColours);
             }
+            if self.pen.tool == Tool::Crop
+                && self.crop.is_some()
+                && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter))
+            {
+                actions.push(Action::ApplyCrop);
+            }
             if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape)) {
+                self.crop = None;
+                self.cropping = false;
                 self.doc.cancel();
                 self.texture_stale = true;
             }
         }
     }
 
-    fn toolbox(&mut self, ui: &mut egui::Ui) {
-        ui.add_space(4.0);
-        egui::Grid::new("tools").spacing([4.0, 4.0]).show(ui, |ui| {
-            for (n, tool) in Tool::ALL.into_iter().enumerate() {
-                let on = self.pen.tool == tool;
-                let hint = format!("{} ({})", tool.name(), tool.key().name());
-                let response = ui.add_sized([40.0, 36.0], egui::Button::selectable(on, "")).on_hover_text(hint);
-                let ink = ui.style().interact_selectable(&response, on).fg_stroke.color;
-                icons::paint(ui.painter(), tool, response.rect.shrink(6.0), ink);
-                if response.clicked() {
-                    self.pen.tool = tool;
+    /// The tools, then what the chosen one needs: its colour, its width, its shape. A tool that
+    /// has no use for one doesn't show it.
+    fn toolbox(&mut self, ui: &mut egui::Ui, actions: &mut Vec<Action>) {
+        let tool = self.pen.tool;
+        egui::ScrollArea::vertical().auto_shrink([true, false]).show(ui, |ui| {
+            ui.add_space(4.0);
+            egui::Grid::new("tools").spacing([4.0, 4.0]).show(ui, |ui| {
+                for (n, t) in Tool::ALL.into_iter().enumerate() {
+                    let on = tool == t;
+                    let hint = format!("{} ({})", t.name(), t.key().name());
+                    let response = ui.add_sized([40.0, 36.0], egui::Button::selectable(on, "")).on_hover_text(hint);
+                    let ink = ui.style().interact_selectable(&response, on).fg_stroke.color;
+                    icons::paint(ui.painter(), t, response.rect.shrink(6.0), ink);
+                    if response.clicked() {
+                        self.pen.tool = t;
+                    }
+                    if n % 5 == 4 {
+                        ui.end_row();
+                    }
                 }
-                if n % 2 == 1 {
-                    ui.end_row();
-                }
+            });
+            if tool == Tool::Crop {
+                ui.separator();
+                self.crop_controls(ui, actions);
             }
-        });
-        ui.separator();
-        let sized = matches!(self.pen.tool, Tool::Brush | Tool::Eraser | Tool::Highlighter) || self.pen.tool.is_shape();
-        ui.add_enabled_ui(sized, |ui| {
-            ui.label("Size");
-            if ui.add(egui::Slider::new(&mut self.pen.size, 1..=64)).changed() {
-                self.config.size = self.pen.size;
-                self.config.save();
+            if tool == Tool::Text {
+                ui.separator();
+                ui.label(egui::RichText::new("Click the picture, type, then press Enter. Shift+Enter starts a new line.").weak());
             }
-        });
-        ui.add_enabled_ui(matches!(self.pen.tool, Tool::Rectangle | Tool::Ellipse), |ui| {
-            ui.label("Shape");
-            for (fill, label) in [(Fill::Outline, "Outline"), (Fill::Filled, "Filled"), (Fill::Both, "Both")] {
-                if ui.radio(self.pen.fill == fill, label).clicked() {
-                    self.pen.fill = fill;
-                    self.config.fill = fill;
+            if tool.uses_colour() {
+                ui.separator();
+                self.colour(ui);
+            }
+            if tool.uses_size() {
+                ui.separator();
+                ui.label("Size");
+                if ui.add(egui::Slider::new(&mut self.pen.size, 1..=64)).changed() {
+                    self.config.size = self.pen.size;
                     self.config.save();
+                }
+            }
+            if tool.has_fill() {
+                ui.separator();
+                ui.label("Shape");
+                for (fill, label) in [(Fill::Outline, "Outline"), (Fill::Filled, "Filled"), (Fill::Both, "Both")] {
+                    if ui.radio(self.pen.fill == fill, label).clicked() {
+                        self.pen.fill = fill;
+                        self.config.fill = fill;
+                        self.config.save();
+                    }
                 }
             }
         });
     }
 
-    /// The colours in use, and the spectrum to point at for a new one: the left button sets the
-    /// foreground, the right one the background.
-    fn palette(&mut self, ui: &mut egui::Ui) {
-        let texture = self
-            .spectrum
-            .get_or_insert_with(|| {
-                let (w, h) = SPECTRUM_PIXELS;
-                ui.ctx().load_texture("spectrum", spectrum::image(w, h), TextureOptions::LINEAR)
-            })
-            .id();
+    /// What Crop has chosen, and the ways to keep it or let it go.
+    fn crop_controls(&mut self, ui: &mut egui::Ui, actions: &mut Vec<Action>) {
+        ui.label("Crop");
+        let Some((a, b)) = self.crop else {
+            ui.label(egui::RichText::new("Drag on the picture to choose what to keep.").weak());
+            return;
+        };
+        ui.label(format!("{} × {} px", (a.0 - b.0).abs() + 1, (a.1 - b.1).abs() + 1));
         ui.horizontal(|ui| {
-            // Foreground over background, as in Paint; they open an editor for an exact colour.
-            let mut fg = to_color32(self.pen.fg);
-            let mut bg = to_color32(self.pen.bg);
-            ui.vertical(|ui| {
-                if ui.color_edit_button_srgba(&mut fg).on_hover_text("Foreground: left button").changed() {
-                    self.pen.fg = from_color32(fg);
-                }
-                if ui.color_edit_button_srgba(&mut bg).on_hover_text("Background: right button").changed() {
-                    self.pen.bg = from_color32(bg);
-                }
-            });
-            ui.separator();
-            let width = ui.available_width().max(120.0);
-            let (rect, response) = ui.allocate_exact_size(Vec2::new(width, SPECTRUM_HEIGHT), Sense::click_and_drag());
-            let corner = egui::CornerRadius::same(4);
-            ui.painter().add(
-                egui::epaint::RectShape::filled(rect, corner, Color32::WHITE).with_texture(
-                    texture,
-                    Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
-                ),
-            );
-            let outline = ui.visuals().widgets.noninteractive.bg_stroke;
-            ui.painter().rect_stroke(rect, corner, outline, egui::StrokeKind::Inside);
-            response.clone().on_hover_text("Colour: left button for the foreground, right for the background");
-
-            if response.is_pointer_button_down_on()
-                && let Some(p) = ui.input(|i| i.pointer.interact_pos())
-            {
-                let at = (
-                    ((p.x - rect.left()) / rect.width()).clamp(0.0, 1.0),
-                    ((p.y - rect.top()) / rect.height()).clamp(0.0, 1.0),
-                );
-                let colour = spectrum::colour(at.0, at.1);
-                let (primary, secondary) = ui.input(|i| (i.pointer.primary_down(), i.pointer.secondary_down()));
-                if primary {
-                    self.pen.fg = colour;
-                    self.marks.0 = Some(at);
-                } else if secondary {
-                    self.pen.bg = colour;
-                    self.marks.1 = Some(at);
-                }
+            if ui.button("Crop").on_hover_text("Keep this part (Enter)").clicked() {
+                actions.push(Action::ApplyCrop);
             }
-            // Where each colour was taken from, while it's still the colour in use.
-            let painter = ui.painter_at(rect);
-            for (mark, colour, radius) in [(self.marks.1, self.pen.bg, 5.0), (self.marks.0, self.pen.fg, 7.0)] {
-                if let Some((u, v)) = mark
-                    && spectrum::colour(u, v) == colour
-                {
-                    let centre = Pos2::new(rect.left() + u * rect.width(), rect.top() + v * rect.height());
-                    painter.circle(centre, radius, to_color32(colour), Stroke::new(2.0, Color32::WHITE));
-                    painter.circle_stroke(centre, radius + 1.0, Stroke::new(1.0, Color32::from_black_alpha(140)));
-                }
+            if ui.button("Clear").on_hover_text("Choose again (Esc)").clicked() {
+                self.crop = None;
             }
         });
+    }
+
+    /// The colour the tool paints with, in the picker the skin builder uses. Most tools have one
+    /// (the foreground); the eraser paints the background; a shape that's both outline and fill
+    /// has two, to choose between.
+    fn colour(&mut self, ui: &mut egui::Ui) {
+        let tool = self.pen.tool;
+        let two = tool.has_fill() && self.pen.fill == Fill::Both;
+        let slot = match (tool, two) {
+            (Tool::Eraser, _) => Slot::Background,
+            (_, true) => self.slot,
+            _ => Slot::Foreground,
+        };
+        if two {
+            ui.horizontal(|ui| {
+                for (which, label, colour) in
+                    [(Slot::Foreground, "Outline", self.pen.fg), (Slot::Background, "Fill", self.pen.bg)]
+                {
+                    let on = slot == which;
+                    let response = ui.add(egui::Button::selectable(on, label));
+                    let swatch = Rect::from_min_size(response.rect.left_bottom() - Vec2::new(0.0, 4.0), Vec2::new(response.rect.width(), 4.0));
+                    ui.painter().rect_filled(swatch, 0.0, to_color32(colour));
+                    if response.clicked() {
+                        self.slot = which;
+                    }
+                }
+            });
+        } else {
+            ui.label(if tool == Tool::Eraser { "Erases to" } else { "Colour" });
+        }
+        let mut colour = to_color32(if slot == Slot::Foreground { self.pen.fg } else { self.pen.bg });
+        // The picker is as wide as the slider is: the panel takes its width from it.
+        ui.spacing_mut().slider_width = 180.0;
+        if egui::color_picker::color_picker_color32(ui, &mut colour, egui::color_picker::Alpha::Opaque) {
+            match slot {
+                Slot::Foreground => self.pen.fg = from_color32(colour),
+                Slot::Background => self.pen.bg = from_color32(colour),
+            }
+        }
     }
 
     /// The picture, zoomed, and the pointer's strokes on it.
     fn canvas(&mut self, ui: &mut egui::Ui) {
         let ctx = ui.ctx().clone();
+        // What a tool left half done goes when another is picked: text is written, a crop dropped.
+        if self.pen.tool != Tool::Text {
+            self.place_text();
+        }
+        if self.pen.tool != Tool::Crop {
+            self.crop = None;
+            self.cropping = false;
+        }
+        // The text being typed shows in the picture as it's typed.
+        let preview =
+            self.typing.as_ref().map(|t| (t.at, t.content.clone(), self.pen.size, self.pen.fg)).filter(|p| !p.1.is_empty());
+        if preview != self.preview {
+            self.preview = preview;
+            self.texture_stale = true;
+        }
         if self.texture_stale || self.texture.is_none() {
-            let b = &self.doc.bitmap;
+            let composed;
+            let b = match &self.preview {
+                Some((at, content, size, colour)) => {
+                    let mut with = self.doc.bitmap.clone();
+                    text::draw(&mut with, *at, text::pixels(*size), content, *colour);
+                    composed = with;
+                    &composed
+                }
+                None => &self.doc.bitmap,
+            };
             let image = egui::ColorImage::from_rgba_unmultiplied([b.width, b.height], &b.to_bytes());
             match &mut self.texture {
                 Some(texture) => texture.set(image, TextureOptions::NEAREST),
@@ -527,6 +599,7 @@ impl App {
         }
 
         let size = picture * self.zoom;
+        let (zoom, crop) = (self.zoom, self.crop);
         let mut painted = None;
         egui::ScrollArea::both()
             .auto_shrink(false)
@@ -548,12 +621,27 @@ impl App {
                         Color32::WHITE,
                     );
                 }
+                if let Some(((ax, ay), (bx, by))) = crop {
+                    let corner = |x: i32, y: i32| rect.min + Vec2::new(x as f32, y as f32) * zoom;
+                    let kept = Rect::from_min_max(corner(ax.min(bx), ay.min(by)), corner(ax.max(bx) + 1, ay.max(by) + 1));
+                    let dim = Color32::from_black_alpha(130);
+                    for outside in [
+                        Rect::from_min_max(rect.min, Pos2::new(rect.max.x, kept.top())),
+                        Rect::from_min_max(Pos2::new(rect.min.x, kept.bottom()), rect.max),
+                        Rect::from_min_max(Pos2::new(rect.min.x, kept.top()), Pos2::new(kept.left(), kept.bottom())),
+                        Rect::from_min_max(Pos2::new(kept.right(), kept.top()), Pos2::new(rect.max.x, kept.bottom())),
+                    ] {
+                        painter.rect_filled(outside, 0.0, dim);
+                    }
+                    painter.rect_stroke(kept, 0.0, egui::Stroke::new(3.0, Color32::from_black_alpha(160)), egui::StrokeKind::Outside);
+                    painter.rect_stroke(kept, 0.0, egui::Stroke::new(1.5, Color32::WHITE), egui::StrokeKind::Outside);
+                }
                 painted = Some((rect, response));
             });
         let Some((rect, response)) = painted else { return };
 
         let to_pixel = |p: Pos2| {
-            let at = (p - rect.min) / self.zoom;
+            let at = (p - rect.min) / zoom;
             (at.x.floor() as i32, at.y.floor() as i32)
         };
         let pointer = ctx.input(|i| i.pointer.interact_pos());
@@ -576,6 +664,39 @@ impl App {
             };
             (pressed, i.pointer.primary_down() || i.pointer.secondary_down(), i.modifiers.shift)
         });
+        self.typing_box(&ctx, rect);
+        let hovered = response.hovered() || response.is_pointer_button_down_on();
+        match self.pen.tool {
+            Tool::Crop => {
+                let (w, h) = (self.doc.bitmap.width as i32 - 1, self.doc.bitmap.height as i32 - 1);
+                let clamp = |p: (i32, i32)| (p.0.clamp(0, w), p.1.clamp(0, h));
+                if let (Some(Button::Primary), Some(pos), true) = (pressed, self.cursor, hovered) {
+                    self.crop = Some((clamp(pos), clamp(pos)));
+                    self.cropping = true;
+                } else if self.cropping {
+                    if down {
+                        if let (Some(p), Some((a, _))) = (pointer, self.crop) {
+                            self.crop = Some((a, clamp(to_pixel(p))));
+                        }
+                    } else {
+                        self.cropping = false;
+                        // A click that went nowhere chooses nothing.
+                        if self.crop.is_some_and(|(a, b)| a == b) {
+                            self.crop = None;
+                        }
+                    }
+                }
+                return;
+            }
+            Tool::Text => {
+                if let (Some(Button::Primary), Some(pos), true) = (pressed, self.cursor, hovered) {
+                    self.place_text();
+                    self.typing = Some(Typing { at: pos, content: String::new(), fresh: true });
+                }
+                return;
+            }
+            _ => {}
+        }
         if !self.doc.drawing() {
             if let (Some(button), Some(pos), true) =
                 (pressed, self.cursor, response.hovered() || response.is_pointer_button_down_on())
@@ -595,6 +716,54 @@ impl App {
             }
         } else {
             self.doc.end();
+            self.texture_stale = true;
+        }
+    }
+
+    /// Writes the text that's been typed into the picture, if any, and closes its box.
+    fn place_text(&mut self) {
+        let Some(typing) = self.typing.take() else { return };
+        if !typing.content.trim().is_empty() {
+            self.doc.text(typing.at, text::pixels(self.pen.size), &typing.content, self.pen.fg);
+        }
+        self.preview = None;
+        self.texture_stale = true;
+    }
+
+    /// The box text is typed in, over the picture a little above where it will go: Enter writes it,
+    /// Esc drops it, Shift+Enter starts a line.
+    fn typing_box(&mut self, ctx: &egui::Context, picture: Rect) {
+        let Some(typing) = &mut self.typing else { return };
+        let at = picture.min + Vec2::new(typing.at.0 as f32, typing.at.1 as f32) * self.zoom;
+        let pos = Pos2::new(at.x, (at.y - 44.0).max(picture.top()));
+        let (mut enter, mut escape) = (false, false);
+        egui::Area::new(egui::Id::new("typing")).order(egui::Order::Foreground).fixed_pos(pos).show(ctx, |ui| {
+            egui::Frame::popup(ui.style()).show(ui, |ui| {
+                ui.set_width(260.0);
+                if ui.input(|i| i.key_pressed(Key::Escape)) {
+                    escape = true;
+                }
+                if ui.input(|i| i.key_pressed(Key::Enter) && !i.modifiers.shift) {
+                    ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter));
+                    enter = true;
+                }
+                let edit = ui.add(
+                    egui::TextEdit::multiline(&mut typing.content)
+                        .desired_rows(1)
+                        .desired_width(f32::INFINITY)
+                        .hint_text("Type, then Enter"),
+                );
+                if typing.fresh {
+                    edit.request_focus();
+                    typing.fresh = false;
+                }
+            });
+        });
+        if enter {
+            self.place_text();
+        } else if escape {
+            self.typing = None;
+            self.preview = None;
             self.texture_stale = true;
         }
     }
@@ -773,8 +942,7 @@ impl eframe::App for App {
                 ..Default::default()
             }))
             .show(ui, |ui| self.status_bar(ui));
-        egui::Panel::bottom("palette").show(ui, |ui| self.palette(ui));
-        egui::Panel::left("tools").resizable(false).show(ui, |ui| self.toolbox(ui));
+        egui::Panel::left("tools").resizable(false).exact_size(256.0).show(ui, |ui| self.toolbox(ui, &mut actions));
         egui::CentralPanel::default()
             .frame(egui::Frame::central_panel(ui.style()).inner_margin(0.0))
             .show(ui, |ui| self.canvas(ui));

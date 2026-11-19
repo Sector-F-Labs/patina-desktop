@@ -18,27 +18,31 @@ pub enum Tool {
     Ellipse,
     Arrow,
     Line,
+    Text,
     Highlighter,
     Brush,
     Pencil,
     Eraser,
     Fill,
     Picker,
+    Crop,
 }
 
 impl Tool {
-    /// In the toolbox's order, two to a row: what marking up a picture takes first.
-    pub const ALL: [Tool; 10] = [
+    /// In the toolbox's order, five to a row: what marking up a picture takes first.
+    pub const ALL: [Tool; 12] = [
         Tool::Rectangle,
         Tool::Ellipse,
         Tool::Arrow,
         Tool::Line,
+        Tool::Text,
         Tool::Highlighter,
         Tool::Brush,
         Tool::Pencil,
         Tool::Eraser,
         Tool::Fill,
         Tool::Picker,
+        Tool::Crop,
     ];
 
     pub fn name(self) -> &'static str {
@@ -50,6 +54,8 @@ impl Tool {
             Tool::Eraser => "Eraser",
             Tool::Fill => "Fill",
             Tool::Picker => "Picker",
+            Tool::Crop => "Crop",
+            Tool::Text => "Text",
             Tool::Line => "Line",
             Tool::Rectangle => "Rectangle",
             Tool::Ellipse => "Ellipse",
@@ -65,14 +71,28 @@ impl Tool {
             Tool::Eraser => egui::Key::E,
             Tool::Fill => egui::Key::F,
             Tool::Picker => egui::Key::K,
+            Tool::Crop => egui::Key::C,
+            Tool::Text => egui::Key::T,
             Tool::Line => egui::Key::L,
             Tool::Rectangle => egui::Key::R,
             Tool::Ellipse => egui::Key::O,
         }
     }
 
-    pub fn is_shape(self) -> bool {
-        matches!(self, Tool::Line | Tool::Arrow | Tool::Rectangle | Tool::Ellipse)
+    /// Whether the tool paints with a colour the user chooses: not the Picker, which takes one,
+    /// nor Crop, which doesn't paint.
+    pub fn uses_colour(self) -> bool {
+        !matches!(self, Tool::Picker | Tool::Crop)
+    }
+
+    /// Whether the tool has a width: the pencil is one pixel, the fill and picker have none.
+    pub fn uses_size(self) -> bool {
+        !matches!(self, Tool::Pencil | Tool::Fill | Tool::Picker | Tool::Crop)
+    }
+
+    /// Whether the tool draws a closed shape that can be an outline, filled, or both.
+    pub fn has_fill(self) -> bool {
+        matches!(self, Tool::Rectangle | Tool::Ellipse)
     }
 }
 
@@ -170,6 +190,8 @@ impl Document {
                 self.bitmap = stroke.before.clone();
                 let (a, size) = (stroke.start, pen.size);
                 let (outline, inside) = stroke.colours;
+                // A filled shape is the chosen colour all through; only Both has a second one.
+                let inside = if pen.fill == Fill::Filled { outline } else { inside };
                 match stroke.tool {
                     Tool::Line => self.bitmap.line(a, end, size, outline),
                     Tool::Arrow => self.bitmap.arrow(a, end, size, outline),
@@ -177,7 +199,7 @@ impl Document {
                     _ => self.bitmap.ellipse(a, end, size, pen.fill, outline, inside),
                 }
             }
-            Tool::Fill | Tool::Picker => {}
+            Tool::Fill | Tool::Picker | Tool::Crop | Tool::Text => {}
         }
         stroke.last = pos;
     }
@@ -205,6 +227,18 @@ impl Document {
         if self.bitmap != before {
             self.push_undo(before);
         }
+    }
+
+    /// Writes `text` with its top left at `at`, as one undo step.
+    pub fn text(&mut self, at: (i32, i32), px: f32, text: &str, colour: Rgba) {
+        self.edit(|bitmap| crate::text::draw(bitmap, at, px, text, colour));
+    }
+
+    /// Keeps the rectangle between corners `a` and `b`, as one undo step. False if that changed
+    /// nothing: the whole picture, or none of it.
+    pub fn crop(&mut self, a: (i32, i32), b: (i32, i32)) -> bool {
+        self.edit(|bitmap| bitmap.crop(a, b));
+        self.modified
     }
 
     pub fn undo(&mut self) -> bool {
@@ -280,6 +314,56 @@ mod tests {
         d.begin(p, button, from);
         d.drag(p, to, false);
         d.end();
+    }
+
+    #[test]
+    fn a_filled_shape_is_the_chosen_colour_all_through_and_both_has_two() {
+        let mut d = doc();
+        let mut p = pen(Tool::Rectangle);
+        p.fill = Fill::Filled;
+        stroke(&mut d, &p, Button::Primary, (2, 2), (12, 12));
+        assert_eq!((d.bitmap.get(2, 2), d.bitmap.get(7, 7)), (Some(BLACK), Some(BLACK)));
+        let mut d = doc();
+        p.fill = Fill::Both;
+        stroke(&mut d, &p, Button::Primary, (2, 2), (12, 12));
+        assert_eq!((d.bitmap.get(2, 2), d.bitmap.get(7, 7)), (Some(BLACK), Some(RED)));
+    }
+
+    #[test]
+    fn text_is_one_undo_step() {
+        let mut d = Document::new(Bitmap::new(120, 40, WHITE));
+        d.text((4, 4), 20.0, "Look", RED);
+        assert!(d.bitmap.pixels.contains(&RED));
+        assert!(d.modified);
+        assert!(d.undo());
+        assert!(d.bitmap.pixels.iter().all(|p| *p == WHITE));
+        let mut empty = Document::new(Bitmap::new(20, 20, WHITE));
+        empty.text((0, 0), 20.0, "", RED);
+        assert!(!empty.can_undo(), "nothing typed, nothing to undo");
+    }
+
+    #[test]
+    fn cropping_is_one_undo_step() {
+        let mut d = Document::new(Bitmap::new(20, 10, WHITE));
+        d.bitmap.put(5, 5, BLACK);
+        assert!(d.crop((4, 4), (9, 8)));
+        assert_eq!((d.bitmap.width, d.bitmap.height), (6, 5));
+        assert_eq!(d.bitmap.get(1, 1), Some(BLACK));
+        assert!(d.undo());
+        assert_eq!((d.bitmap.width, d.bitmap.height), (20, 10));
+        assert!(d.redo());
+        assert_eq!((d.bitmap.width, d.bitmap.height), (6, 5));
+        let mut whole = Document::new(Bitmap::new(8, 8, WHITE));
+        assert!(!whole.crop((0, 0), (7, 7)), "keeping all of it is no change");
+        assert!(!whole.can_undo());
+    }
+
+    #[test]
+    fn what_each_tool_needs() {
+        assert!(!Tool::Picker.uses_colour() && !Tool::Crop.uses_colour() && Tool::Fill.uses_colour() && Tool::Eraser.uses_colour());
+        assert!(!Tool::Pencil.uses_size() && !Tool::Fill.uses_size() && Tool::Highlighter.uses_size());
+        assert!(Tool::Text.uses_colour() && Tool::Text.uses_size());
+        assert!(Tool::Rectangle.has_fill() && Tool::Ellipse.has_fill() && !Tool::Arrow.has_fill());
     }
 
     #[test]

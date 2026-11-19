@@ -6,7 +6,7 @@ mod config;
 mod document;
 mod file;
 mod icons;
-mod spectrum;
+mod text;
 
 fn main() -> eframe::Result {
     let config = config::Config::load();

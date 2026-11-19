@@ -7,9 +7,11 @@ license = "BSD-3-Clause"
 repository = "https://github.com/Sector-F-Labs/draw"
 
 [dependencies]
+ab_glyph = "0.2"
 dirs = "7"
 eframe = { version = "0.35", features = ["persistence"] }
 egui = "0.35"
+epaint_default_fonts = "0.35"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "gif", "webp"] }
 patina-ui = { workspace = true }
 rfd = "0.17"

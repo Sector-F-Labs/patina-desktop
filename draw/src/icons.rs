@@ -84,6 +84,16 @@ pub fn paint(painter: &Painter, tool: Tool, rect: Rect, ink: Color32) {
             painter.circle_filled(at(0.84, 0.76), side * 0.09, ink);
             painter.add(fill(vec![at(0.84, 0.52), at(0.92, 0.7), at(0.76, 0.7)]));
         }
+        Tool::Crop => {
+            // Two corner marks, crossing: what's inside them is kept.
+            painter.add(round(vec![at(0.3, 0.08), at(0.3, 0.7), at(0.92, 0.7)], thick(0.1)));
+            painter.add(round(vec![at(0.08, 0.3), at(0.7, 0.3), at(0.7, 0.92)], thick(0.1)));
+        }
+        Tool::Text => {
+            painter.add(round(vec![at(0.2, 0.2), at(0.8, 0.2)], thick(0.1)));
+            painter.add(round(vec![at(0.5, 0.2), at(0.5, 0.84)], thick(0.1)));
+            painter.add(round(vec![at(0.36, 0.84), at(0.64, 0.84)], thick(0.08)));
+        }
         Tool::Picker => {
             // A dropper: bulb, barrel and tip.
             painter.add(round(vec![at(0.74, 0.26), at(0.4, 0.6)], thick(0.13)));
