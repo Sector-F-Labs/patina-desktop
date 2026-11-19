@@ -1,3 +1,4 @@
+TARGET := $(CURDIR)/../target
 .DEFAULT_GOAL := help
 
 APP_ID := com.sectorflabs.Home
@@ -7,8 +8,8 @@ APPSDIR := $(PREFIX)/share/applications
 ICONDIR := $(PREFIX)/share/icons/hicolor
 
 # Throwaway config, data and cache dirs, so test runs never touch yours.
-SCRATCH := target/scratch
-SCRATCH_ENV := XDG_CONFIG_HOME=$(CURDIR)/$(SCRATCH)/config XDG_DATA_HOME=$(CURDIR)/$(SCRATCH)/data XDG_CACHE_HOME=$(CURDIR)/$(SCRATCH)/cache
+SCRATCH := $(TARGET)/scratch
+SCRATCH_ENV := XDG_CONFIG_HOME=$(SCRATCH)/config XDG_DATA_HOME=$(SCRATCH)/data XDG_CACHE_HOME=$(SCRATCH)/cache
 
 .PHONY: help run dev build test check screenshot icons install uninstall clean
 
@@ -18,34 +19,34 @@ help: ## Show this help
 	@awk 'BEGIN { FS = ":.*## " } /^[a-z-]+:.*## / { printf "  \033[1m%-14s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 run: ## Run Home with your own settings
-	cargo run
+	cargo run -p home
 
 dev: ## Run with live reload (requires cargo-watch), in a scratch config
 	@command -v cargo-watch >/dev/null 2>&1 || { echo "cargo-watch is required: cargo install cargo-watch"; exit 1; }
-	$(SCRATCH_ENV) cargo watch -x "run --bin home"
+	$(SCRATCH_ENV) cargo watch -x "run -p home --bin home"
 
 build: ## Build a release binary
-	cargo build --release
+	cargo build -p home --release
 
 test: ## Run the tests
-	cargo test
+	cargo test -p home
 
 check: test ## Run the tests and clippy, as before a commit or release
-	cargo clippy --all-targets -- -D warnings
+	cargo clippy -p home --all-targets -- -D warnings
 
 screenshot: ## Regenerate docs/screenshot-*.png from demo entities, in a scratch config
 	@rm -rf $(SCRATCH) && mkdir -p docs $(SCRATCH)/config $(SCRATCH)/data $(SCRATCH)/cache
-	$(SCRATCH_ENV) HOME_DEMO=1 HOME_SCREENSHOT=docs/screenshot-default.png cargo run
-	$(SCRATCH_ENV) HOME_DEMO=1 HOME_SKIN="Dark Orange" HOME_SCREENSHOT=docs/screenshot-dark-orange.png cargo run
-	$(SCRATCH_ENV) HOME_DEMO=1 HOME_OPEN=light.living_room HOME_SCREENSHOT=docs/screenshot-light.png cargo run
-	$(SCRATCH_ENV) HOME_DEMO=1 HOME_OPEN=sensor.living_room_temperature HOME_SCREENSHOT=docs/screenshot-graph.png cargo run
+	$(SCRATCH_ENV) HOME_DEMO=1 HOME_SCREENSHOT=docs/screenshot-default.png cargo run -p home
+	$(SCRATCH_ENV) HOME_DEMO=1 HOME_SKIN="Dark Orange" HOME_SCREENSHOT=docs/screenshot-dark-orange.png cargo run -p home
+	$(SCRATCH_ENV) HOME_DEMO=1 HOME_OPEN=light.living_room HOME_SCREENSHOT=docs/screenshot-light.png cargo run -p home
+	$(SCRATCH_ENV) HOME_DEMO=1 HOME_OPEN=sensor.living_room_temperature HOME_SCREENSHOT=docs/screenshot-graph.png cargo run -p home
 
 icons: ## Render assets/home-icon-128.png from packaging/linux/home.svg
-	cargo run -q --example render_icon -- 128 assets/home-icon-128.png
+	cargo run -p home -q --example render_icon -- 128 assets/home-icon-128.png
 
 # For the current user; no sudo. The launcher's Exec gets the absolute path.
 install: build ## Install Home and its launcher for the current user (PREFIX=~/.local)
-	install -Dm755 target/release/home $(BINDIR)/home
+	install -Dm755 $(TARGET)/release/home $(BINDIR)/home
 	install -Dm644 packaging/linux/home.svg $(ICONDIR)/scalable/apps/$(APP_ID).svg
 	install -Dm644 assets/home-icon-128.png $(ICONDIR)/128x128/apps/$(APP_ID).png
 	install -d $(APPSDIR)
@@ -61,4 +62,4 @@ uninstall: ## Remove what make install put in place
 	-@test ! -f $(ICONDIR)/icon-theme.cache || gtk-update-icon-cache -q -t -f $(ICONDIR)
 
 clean: ## Remove build output
-	cargo clean
+	cargo clean -p home
