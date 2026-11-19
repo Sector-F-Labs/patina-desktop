@@ -6,16 +6,20 @@ follows the desktop's light/dark setting.
 
 ![Draw](docs/screenshot-dark-orange.png)
 
-Pencil, brush, eraser, fill, colour picker, line, rectangle and ellipse; a palette with the
-foreground colour on the left button and the background on the right; undo and redo; zoom; flip,
-rotate, invert and canvas size; open and save PNG, JPEG, BMP, GIF (read) and WebP (read).
-`draw picture.png` opens a file.
+Made for marking up a picture: take a screenshot, draw a rectangle, an arrow or a circle on it,
+highlight something, and send it on. Files' Quick Look opens a picture here with its Edit button.
+Rectangle, ellipse, arrow, line, highlighter, brush, pencil, eraser, fill and colour picker, as
+symbols in the toolbox; a spectrum to point at for any colour, the left button setting the
+foreground and the right the background; undo and redo; zoom; flip, rotate, invert and canvas
+size; open PNG, JPEG, BMP, GIF and WebP, and save PNG, JPEG and BMP. Save As starts with the
+same name and ` (edit)`, so the original stays. `draw picture.png` opens a file.
 
 ## Keys
 
 | Key | |
 |---|---|
-| P B E F K L R O | Pencil, Brush, Eraser, Fill, Picker (K), Line, Rectangle, Ellipse (O) |
+| R O A L H | Rectangle, Ellipse (O), Arrow, Line, Highlighter |
+| B P E F K | Brush, Pencil, Eraser, Fill, Picker (K) |
 | X | Swap the foreground and background colours |
 | Shift while dragging | Lines at 45° steps; squares and circles |
 | Esc | Cancel the stroke in progress |

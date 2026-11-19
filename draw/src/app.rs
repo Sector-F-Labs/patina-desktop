@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
-use egui::{Color32, Key, KeyboardShortcut, Modifiers, Pos2, Rect, Sense, TextureHandle, TextureOptions, Vec2};
+use egui::{Color32, Key, KeyboardShortcut, Modifiers, Pos2, Rect, Sense, Stroke, TextureHandle, TextureOptions, Vec2};
 use patina::frame::{self, TitleBar};
 use patina::skin::{self, Skin};
 
@@ -12,6 +12,7 @@ use crate::bitmap::{Bitmap, Fill, Rgba, WHITE};
 use crate::config::Config;
 use crate::document::{Button, Document, Pen, Tool};
 use crate::file::{self, Done};
+use crate::{icons, spectrum};
 
 const APP: &str = "draw";
 
@@ -23,37 +24,17 @@ const ZOOMS: [f32; 12] = [0.125, 0.25, 0.5, 1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0, 
 
 const NEW_SIZE: (usize, usize) = (800, 600);
 
-/// Black and white, then colours as in Paint's palette.
-const PALETTE: [Rgba; 28] = [
-    [0, 0, 0, 255],
-    [128, 128, 128, 255],
-    [128, 0, 0, 255],
-    [128, 128, 0, 255],
-    [0, 128, 0, 255],
-    [0, 128, 128, 255],
-    [0, 0, 128, 255],
-    [128, 0, 128, 255],
-    [128, 128, 64, 255],
-    [0, 64, 64, 255],
-    [0, 128, 255, 255],
-    [0, 64, 128, 255],
-    [64, 0, 255, 255],
-    [128, 64, 0, 255],
-    [255, 255, 255, 255],
-    [192, 192, 192, 255],
-    [255, 0, 0, 255],
-    [255, 255, 0, 255],
-    [0, 255, 0, 255],
-    [0, 255, 255, 255],
-    [0, 0, 255, 255],
-    [255, 0, 255, 255],
-    [255, 255, 128, 255],
-    [0, 255, 128, 255],
-    [128, 255, 255, 255],
-    [128, 128, 255, 255],
-    [255, 0, 128, 255],
-    [255, 128, 64, 255],
-];
+/// Where on the spectrum the foreground starts: a red, the colour that marks something on a picture.
+const START: Mark = (0.012, 0.5);
+
+/// The spectrum's picture, in pixels: more than it's drawn at, so it's smooth.
+const SPECTRUM_PIXELS: (usize, usize) = (720, 96);
+
+/// How tall the spectrum is drawn.
+const SPECTRUM_HEIGHT: f32 = 44.0;
+
+/// A point on the spectrum, as (u, v): fractions of its width and height.
+type Mark = (f32, f32);
 
 /// What the header and menus ask for, handled after they're drawn.
 enum Action {
@@ -118,6 +99,11 @@ pub struct App {
     closing: bool,
     /// Screenshot mode: where to save it, and whether it was asked for.
     screenshot: Option<(PathBuf, bool)>,
+    /// The spectrum's picture, made when it's first drawn.
+    spectrum: Option<TextureHandle>,
+    /// Where the spectrum was last pointed at for the foreground and the background, as (u, v);
+    /// shown only while the colour is still the one it gave.
+    marks: (Option<Mark>, Option<Mark>),
 }
 
 impl App {
@@ -127,7 +113,7 @@ impl App {
         let (skins, skin_errors) = skin::load_all(skin::BUILT_IN, &dirs);
         let (io_tx, io_rx) = channel();
         let screenshot = std::env::var_os("DRAW_SCREENSHOT").map(|p| (PathBuf::from(p), false));
-        let pen = Pen { tool: Tool::Brush, size: config.size, fill: config.fill, fg: PALETTE[0], bg: WHITE };
+        let pen = Pen { tool: Tool::Rectangle, size: config.size, fill: config.fill, fg: spectrum::colour(START.0, START.1), bg: WHITE };
         let mut app = Self {
             config,
             skins,
@@ -148,6 +134,8 @@ impl App {
             cursor: None,
             closing: false,
             screenshot,
+            spectrum: None,
+            marks: (Some(START), None),
         };
         app.apply_skin(&cc.egui_ctx);
         if let Some(path) = std::env::args_os().nth(1) {
@@ -275,8 +263,10 @@ impl App {
         }
         self.saving = true;
         let path = if always_ask { None } else { self.doc.path.clone() };
-        let suggest = self.doc.path.as_deref().map(file::name).unwrap_or_else(|| "Untitled.png".into());
-        file::save(ctx, self.io_tx.clone(), self.doc.bitmap.clone(), path, &suggest);
+        // Save As starts from the picture's own folder, with its name and ` (edit)`.
+        let suggest = self.doc.path.as_deref().map(file::edit_name).unwrap_or_else(|| "Untitled.png".into());
+        let folder = self.doc.path.as_deref().and_then(|p| p.parent()).map(PathBuf::from);
+        file::save(ctx, self.io_tx.clone(), self.doc.bitmap.clone(), path, &suggest, folder);
     }
 
     /// Picks up what the file thread finished.
@@ -411,10 +401,12 @@ impl App {
         ui.add_space(4.0);
         egui::Grid::new("tools").spacing([4.0, 4.0]).show(ui, |ui| {
             for (n, tool) in Tool::ALL.into_iter().enumerate() {
-                let label = tool.name();
                 let on = self.pen.tool == tool;
-                let hint = format!("{label} ({})", tool.key().name());
-                if ui.add_sized([72.0, 24.0], egui::Button::selectable(on, label)).on_hover_text(hint).clicked() {
+                let hint = format!("{} ({})", tool.name(), tool.key().name());
+                let response = ui.add_sized([40.0, 36.0], egui::Button::selectable(on, "")).on_hover_text(hint);
+                let ink = ui.style().interact_selectable(&response, on).fg_stroke.color;
+                icons::paint(ui.painter(), tool, response.rect.shrink(6.0), ink);
+                if response.clicked() {
                     self.pen.tool = tool;
                 }
                 if n % 2 == 1 {
@@ -423,7 +415,7 @@ impl App {
             }
         });
         ui.separator();
-        let sized = matches!(self.pen.tool, Tool::Brush | Tool::Eraser) || self.pen.tool.is_shape();
+        let sized = matches!(self.pen.tool, Tool::Brush | Tool::Eraser | Tool::Highlighter) || self.pen.tool.is_shape();
         ui.add_enabled_ui(sized, |ui| {
             ui.label("Size");
             if ui.add(egui::Slider::new(&mut self.pen.size, 1..=64)).changed() {
@@ -443,41 +435,70 @@ impl App {
         });
     }
 
+    /// The colours in use, and the spectrum to point at for a new one: the left button sets the
+    /// foreground, the right one the background.
     fn palette(&mut self, ui: &mut egui::Ui) {
+        let texture = self
+            .spectrum
+            .get_or_insert_with(|| {
+                let (w, h) = SPECTRUM_PIXELS;
+                ui.ctx().load_texture("spectrum", spectrum::image(w, h), TextureOptions::LINEAR)
+            })
+            .id();
         ui.horizontal(|ui| {
-            // The colours in use, as in Paint: foreground over background.
+            // Foreground over background, as in Paint; they open an editor for an exact colour.
             let mut fg = to_color32(self.pen.fg);
             let mut bg = to_color32(self.pen.bg);
             ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    if ui.color_edit_button_srgba(&mut fg).on_hover_text("Foreground: left button").changed() {
-                        self.pen.fg = from_color32(fg);
-                    }
-                    if ui.color_edit_button_srgba(&mut bg).on_hover_text("Background: right button").changed() {
-                        self.pen.bg = from_color32(bg);
-                    }
-                });
-            });
-            ui.separator();
-            let swatch = Vec2::splat(18.0);
-            egui::Grid::new("palette").spacing([2.0, 2.0]).show(ui, |ui| {
-                for (n, colour) in PALETTE.iter().enumerate() {
-                    let (rect, response) = ui.allocate_exact_size(swatch, Sense::click());
-                    let c = to_color32(*colour);
-                    ui.painter().rect_filled(rect, 2.0, c);
-                    let outline = ui.visuals().widgets.noninteractive.bg_stroke;
-                    ui.painter().rect_stroke(rect, 2.0, outline, egui::StrokeKind::Inside);
-                    if response.clicked() {
-                        self.pen.fg = *colour;
-                    }
-                    if response.secondary_clicked() {
-                        self.pen.bg = *colour;
-                    }
-                    if n % 14 == 13 {
-                        ui.end_row();
-                    }
+                if ui.color_edit_button_srgba(&mut fg).on_hover_text("Foreground: left button").changed() {
+                    self.pen.fg = from_color32(fg);
+                }
+                if ui.color_edit_button_srgba(&mut bg).on_hover_text("Background: right button").changed() {
+                    self.pen.bg = from_color32(bg);
                 }
             });
+            ui.separator();
+            let width = ui.available_width().max(120.0);
+            let (rect, response) = ui.allocate_exact_size(Vec2::new(width, SPECTRUM_HEIGHT), Sense::click_and_drag());
+            let corner = egui::CornerRadius::same(4);
+            ui.painter().add(
+                egui::epaint::RectShape::filled(rect, corner, Color32::WHITE).with_texture(
+                    texture,
+                    Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)),
+                ),
+            );
+            let outline = ui.visuals().widgets.noninteractive.bg_stroke;
+            ui.painter().rect_stroke(rect, corner, outline, egui::StrokeKind::Inside);
+            response.clone().on_hover_text("Colour: left button for the foreground, right for the background");
+
+            if response.is_pointer_button_down_on()
+                && let Some(p) = ui.input(|i| i.pointer.interact_pos())
+            {
+                let at = (
+                    ((p.x - rect.left()) / rect.width()).clamp(0.0, 1.0),
+                    ((p.y - rect.top()) / rect.height()).clamp(0.0, 1.0),
+                );
+                let colour = spectrum::colour(at.0, at.1);
+                let (primary, secondary) = ui.input(|i| (i.pointer.primary_down(), i.pointer.secondary_down()));
+                if primary {
+                    self.pen.fg = colour;
+                    self.marks.0 = Some(at);
+                } else if secondary {
+                    self.pen.bg = colour;
+                    self.marks.1 = Some(at);
+                }
+            }
+            // Where each colour was taken from, while it's still the colour in use.
+            let painter = ui.painter_at(rect);
+            for (mark, colour, radius) in [(self.marks.1, self.pen.bg, 5.0), (self.marks.0, self.pen.fg, 7.0)] {
+                if let Some((u, v)) = mark
+                    && spectrum::colour(u, v) == colour
+                {
+                    let centre = Pos2::new(rect.left() + u * rect.width(), rect.top() + v * rect.height());
+                    painter.circle(centre, radius, to_color32(colour), Stroke::new(2.0, Color32::WHITE));
+                    painter.circle_stroke(centre, radius + 1.0, Stroke::new(1.0, Color32::from_black_alpha(140)));
+                }
+            }
         });
     }
 
@@ -732,9 +753,13 @@ impl eframe::App for App {
                 ui,
                 |ui| self.menus(ui, &mut actions),
                 |ui| {
-                    // What Draw makes is the picture: saving it is the main action.
+                    // What Draw makes is the picture: saving it is the main action, and Save As
+                    // keeps the original beside a new version.
                     if ui.button("Save").on_hover_text("Save the picture (Ctrl+S)").clicked() {
                         right.push(Action::Save);
+                    }
+                    if ui.button("Save As").on_hover_text("Save a new version (Ctrl+Shift+S)").clicked() {
+                        right.push(Action::SaveAs);
                     }
                 },
             );

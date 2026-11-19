@@ -14,22 +14,37 @@ const HISTORY: usize = 50;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Tool {
-    Pencil,
+    Rectangle,
+    Ellipse,
+    Arrow,
+    Line,
+    Highlighter,
     Brush,
+    Pencil,
     Eraser,
     Fill,
     Picker,
-    Line,
-    Rectangle,
-    Ellipse,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 8] =
-        [Tool::Pencil, Tool::Brush, Tool::Eraser, Tool::Fill, Tool::Picker, Tool::Line, Tool::Rectangle, Tool::Ellipse];
+    /// In the toolbox's order, two to a row: what marking up a picture takes first.
+    pub const ALL: [Tool; 10] = [
+        Tool::Rectangle,
+        Tool::Ellipse,
+        Tool::Arrow,
+        Tool::Line,
+        Tool::Highlighter,
+        Tool::Brush,
+        Tool::Pencil,
+        Tool::Eraser,
+        Tool::Fill,
+        Tool::Picker,
+    ];
 
     pub fn name(self) -> &'static str {
         match self {
+            Tool::Arrow => "Arrow",
+            Tool::Highlighter => "Highlighter",
             Tool::Pencil => "Pencil",
             Tool::Brush => "Brush",
             Tool::Eraser => "Eraser",
@@ -43,6 +58,8 @@ impl Tool {
 
     pub fn key(self) -> egui::Key {
         match self {
+            Tool::Arrow => egui::Key::A,
+            Tool::Highlighter => egui::Key::H,
             Tool::Pencil => egui::Key::P,
             Tool::Brush => egui::Key::B,
             Tool::Eraser => egui::Key::E,
@@ -55,7 +72,7 @@ impl Tool {
     }
 
     pub fn is_shape(self) -> bool {
-        matches!(self, Tool::Line | Tool::Rectangle | Tool::Ellipse)
+        matches!(self, Tool::Line | Tool::Arrow | Tool::Rectangle | Tool::Ellipse)
     }
 }
 
@@ -82,6 +99,13 @@ struct Stroke {
     last: (i32, i32),
     /// Outline, then inside: the pen's colours, swapped for the right button.
     colours: (Rgba, Rgba),
+    /// Where a highlighter stroke has been: it's drawn again from these on the untouched picture.
+    path: Vec<(i32, i32)>,
+}
+
+/// How wide a highlighter stroke is for a pen size: a marker is broader than a pen.
+pub fn marker_width(size: u32) -> u32 {
+    (size * 3).max(8)
 }
 
 pub struct Document {
@@ -116,9 +140,10 @@ impl Document {
             Tool::Pencil => self.bitmap.dab(pos.0, pos.1, 1, ink),
             Tool::Brush | Tool::Eraser => self.bitmap.dab(pos.0, pos.1, pen.size, ink),
             Tool::Fill => self.bitmap.flood(pos.0, pos.1, ink),
+            Tool::Highlighter => self.bitmap.highlight(&[pos], marker_width(pen.size), ink),
             _ => {}
         }
-        self.stroke = Some(Stroke { before, tool: pen.tool, start: pos, last: pos, colours });
+        self.stroke = Some(Stroke { before, tool: pen.tool, start: pos, last: pos, colours, path: vec![pos] });
         if pen.tool == Tool::Fill {
             self.end();
         }
@@ -133,13 +158,21 @@ impl Document {
         match stroke.tool {
             Tool::Pencil => self.bitmap.line(stroke.last, pos, 1, ink),
             Tool::Brush | Tool::Eraser => self.bitmap.line(stroke.last, pos, pen.size, ink),
-            Tool::Line | Tool::Rectangle | Tool::Ellipse => {
+            Tool::Highlighter => {
+                if pos != stroke.last {
+                    stroke.path.push(pos);
+                    self.bitmap = stroke.before.clone();
+                    self.bitmap.highlight(&stroke.path, marker_width(pen.size), ink);
+                }
+            }
+            Tool::Line | Tool::Arrow | Tool::Rectangle | Tool::Ellipse => {
                 let end = if constrain { constrained(stroke.tool, stroke.start, pos) } else { pos };
                 self.bitmap = stroke.before.clone();
                 let (a, size) = (stroke.start, pen.size);
                 let (outline, inside) = stroke.colours;
                 match stroke.tool {
                     Tool::Line => self.bitmap.line(a, end, size, outline),
+                    Tool::Arrow => self.bitmap.arrow(a, end, size, outline),
                     Tool::Rectangle => self.bitmap.rectangle(a, end, size, pen.fill, outline, inside),
                     _ => self.bitmap.ellipse(a, end, size, pen.fill, outline, inside),
                 }
@@ -210,7 +243,7 @@ impl Document {
 
 fn constrained(tool: Tool, start: (i32, i32), pos: (i32, i32)) -> (i32, i32) {
     let (dx, dy) = (pos.0 - start.0, pos.1 - start.1);
-    if tool == Tool::Line {
+    if matches!(tool, Tool::Line | Tool::Arrow) {
         let (ax, ay) = (dx.abs(), dy.abs());
         // Within 22.5° of an axis it runs along it, else it goes diagonally.
         if ay * 5 < ax * 2 {
@@ -247,6 +280,37 @@ mod tests {
         d.begin(p, button, from);
         d.drag(p, to, false);
         d.end();
+    }
+
+    #[test]
+    fn an_arrow_follows_the_pointer_and_is_one_undo_step() {
+        let mut d = doc();
+        let p = pen(Tool::Arrow);
+        let _ = d.begin(&p, Button::Primary, (2, 10));
+        d.drag(&p, (10, 10), false);
+        d.drag(&p, (17, 10), false);
+        d.end();
+        assert_eq!(d.bitmap.get(17, 10), Some(BLACK), "the tip is where it let go");
+        assert_eq!(d.bitmap.get(10, 3), Some(WHITE), "the way there left no trail");
+        assert!(d.undo());
+        assert_eq!(d.bitmap.get(17, 10), Some(WHITE));
+    }
+
+    #[test]
+    fn a_highlight_tints_and_a_stroke_back_and_forth_is_one_tint() {
+        let mut d = Document::new(Bitmap::new(60, 20, WHITE));
+        d.bitmap.put(30, 10, BLACK);
+        let mut p = pen(Tool::Highlighter);
+        p.fg = [255, 255, 0, 255];
+        let _ = d.begin(&p, Button::Primary, (5, 10));
+        d.drag(&p, (50, 10), false);
+        d.drag(&p, (5, 10), false);
+        d.drag(&p, (50, 10), false);
+        d.end();
+        assert_eq!(d.bitmap.get(20, 10), Some([255, 255, 0, 255]));
+        assert_eq!(d.bitmap.get(30, 10), Some(BLACK), "what's under it still shows");
+        assert!(d.undo());
+        assert_eq!(d.bitmap.get(20, 10), Some(WHITE));
     }
 
     #[test]

@@ -35,15 +35,42 @@ pub fn open(ctx: &egui::Context, tx: Sender<Done>, path: Option<PathBuf>) {
     });
 }
 
-/// Saves `bitmap` to `path`, or asks where when it's `None`.
-pub fn save(ctx: &egui::Context, tx: Sender<Done>, bitmap: Bitmap, path: Option<PathBuf>, suggest: &str) {
+/// The name Save As offers for a picture that came from `path`: the same name with ` (edit)` after
+/// it, before the extension, so the original is left as it was. A name that already ends so is
+/// kept, and a type Draw can't write (a GIF, a WebP) is offered as a PNG.
+pub fn edit_name(path: &Path) -> String {
+    let stem = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Untitled".into());
+    let extension = path
+        .extension()
+        .map(|e| e.to_string_lossy().to_lowercase())
+        .filter(|e| WRITABLE.contains(&e.as_str()))
+        .unwrap_or_else(|| "png".into());
+    let stem = if stem.ends_with(" (edit)") { stem } else { format!("{stem} (edit)") };
+    format!("{stem}.{extension}")
+}
+
+/// What Draw writes, by extension.
+const WRITABLE: &[&str] = &["png", "jpg", "jpeg", "bmp"];
+
+/// Saves `bitmap` to `path`, or asks where when it's `None`, starting in `folder` with the name
+/// `suggest`.
+pub fn save(
+    ctx: &egui::Context,
+    tx: Sender<Done>,
+    bitmap: Bitmap,
+    path: Option<PathBuf>,
+    suggest: &str,
+    folder: Option<PathBuf>,
+) {
     let ctx = ctx.clone();
     let suggest = suggest.to_string();
     std::thread::spawn(move || {
         let path = path.or_else(|| {
-            rfd::FileDialog::new()
-                .set_title("Save Image")
-                .set_file_name(suggest)
+            let mut dialog = rfd::FileDialog::new().set_title("Save Image").set_file_name(suggest);
+            if let Some(folder) = folder {
+                dialog = dialog.set_directory(folder);
+            }
+            dialog
                 .add_filter("PNG", &["png"])
                 .add_filter("JPEG", &["jpg", "jpeg"])
                 .add_filter("BMP", &["bmp"])
@@ -104,6 +131,17 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("draw-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         dir.join(name)
+    }
+
+    #[test]
+    fn save_as_offers_the_name_with_edit_after_it() {
+        assert_eq!(edit_name(Path::new("/home/me/Screenshot 2026.png")), "Screenshot 2026 (edit).png");
+        assert_eq!(edit_name(Path::new("photo.JPG")), "photo (edit).jpg");
+        assert_eq!(edit_name(Path::new("a.bmp")), "a (edit).bmp");
+        // Not twice, and a picture Draw can't write comes out as a PNG.
+        assert_eq!(edit_name(Path::new("a (edit).png")), "a (edit).png");
+        assert_eq!(edit_name(Path::new("loop.gif")), "loop (edit).png");
+        assert_eq!(edit_name(Path::new("noext")), "noext (edit).png");
     }
 
     #[test]

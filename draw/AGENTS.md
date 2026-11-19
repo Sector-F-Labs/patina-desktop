@@ -24,7 +24,9 @@ Test and screenshot runs use `target/scratch-*` for config and data, never the r
 - `src/bitmap.rs`: the pixels and every drawing operation, no egui; tested.
 - `src/document.rs`: the open picture, tools, strokes (`begin`/`drag`/`end`) and undo; tested.
 - `src/file.rs`: open and save on a thread, dialogs included (rfd); `Done` comes back over a channel.
-- `src/app.rs`: the window: menus, toolbox, canvas, palette, dialogs. Keep logic out of it.
+- `src/icons.rs`: the toolbox's symbols, painted with shapes.
+- `src/spectrum.rs`: the colour strip: `colour(u, v)` is its layout, the image and a click both use it; tested.
+- `src/app.rs`: the window: menus, toolbox, canvas, spectrum, dialogs. Keep logic out of it.
 - `src/config.rs`: `~/.config/draw/config.toml`.
 
 ## Gotchas

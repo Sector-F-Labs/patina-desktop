@@ -94,6 +94,69 @@ impl Bitmap {
         }
     }
 
+    /// An arrow from `a` to its head at `b`: a line `size` wide and a filled head, long enough to
+    /// read at any width, with its tip on `b`.
+    pub fn arrow(&mut self, a: (i32, i32), b: (i32, i32), size: u32, colour: Rgba) {
+        let (dx, dy) = ((b.0 - a.0) as f32, (b.1 - a.1) as f32);
+        let length = dx.hypot(dy);
+        if length < 1.0 {
+            self.dab(b.0, b.1, size, colour);
+            return;
+        }
+        let (ux, uy) = (dx / length, dy / length);
+        // The head is about a quarter of a long arrow and never more than half of a short one.
+        let head = (10.0 + size as f32 * 3.0).min(length * 0.5).max(3.0);
+        let half = head * 0.5;
+        let tip = (b.0 as f32 + 0.5, b.1 as f32 + 0.5);
+        let base = (tip.0 - ux * head, tip.1 - uy * head);
+        // The shaft stops inside the head, so a thick one doesn't poke out at the sides.
+        let neck = (b.0 as f32 - ux * head * 0.6, b.1 as f32 - uy * head * 0.6);
+        self.line(a, (neck.0.round() as i32, neck.1.round() as i32), size, colour);
+        let left = (base.0 - uy * half, base.1 + ux * half);
+        let right = (base.0 + uy * half, base.1 - ux * half);
+        self.triangle(left, right, tip, colour);
+    }
+
+    /// A filled triangle, its corners at pixel centres.
+    fn triangle(&mut self, p: (f32, f32), q: (f32, f32), r: (f32, f32), colour: Rgba) {
+        let edge = |a: (f32, f32), b: (f32, f32), x: f32, y: f32| (b.0 - a.0) * (y - a.1) - (b.1 - a.1) * (x - a.0);
+        let (x0, x1) = (p.0.min(q.0).min(r.0).floor() as i32, p.0.max(q.0).max(r.0).ceil() as i32);
+        let (y0, y1) = (p.1.min(q.1).min(r.1).floor() as i32, p.1.max(q.1).max(r.1).ceil() as i32);
+        for y in y0..=y1 {
+            for x in x0..=x1 {
+                let (fx, fy) = (x as f32 + 0.5, y as f32 + 0.5);
+                let (w0, w1, w2) = (edge(p, q, fx, fy), edge(q, r, fx, fy), edge(r, p, fx, fy));
+                if (w0 >= 0.0 && w1 >= 0.0 && w2 >= 0.0) || (w0 <= 0.0 && w1 <= 0.0 && w2 <= 0.0) {
+                    self.put(x, y, colour);
+                }
+            }
+        }
+    }
+
+    /// A marker stroke through `points`, `size` wide: the pixels it covers take the colour like ink
+    /// on paper (each channel multiplied), so what's under it still shows, and going over a pixel
+    /// twice in one stroke doesn't darken it.
+    pub fn highlight(&mut self, points: &[(i32, i32)], size: u32, colour: Rgba) {
+        let mut covered = Bitmap::new(self.width, self.height, [0, 0, 0, 0]);
+        let mark = [255, 255, 255, 255];
+        match points {
+            [] => return,
+            [only] => covered.dab(only.0, only.1, size, mark),
+            _ => {
+                for pair in points.windows(2) {
+                    covered.line(pair[0], pair[1], size, mark);
+                }
+            }
+        }
+        for (pixel, hit) in self.pixels.iter_mut().zip(&covered.pixels) {
+            if hit[3] != 0 {
+                for c in 0..3 {
+                    pixel[c] = (pixel[c] as u32 * colour[c] as u32 / 255) as u8;
+                }
+            }
+        }
+    }
+
     /// A rectangle with corners `a` and `b`, both included.
     pub fn rectangle(&mut self, a: (i32, i32), b: (i32, i32), size: u32, fill: Fill, stroke: Rgba, inside: Rgba) {
         let (x0, x1) = (a.0.min(b.0), a.0.max(b.0));
@@ -239,6 +302,50 @@ mod tests {
 
     fn count(b: &Bitmap, c: Rgba) -> usize {
         b.pixels.iter().filter(|p| **p == c).count()
+    }
+
+    #[test]
+    fn an_arrow_has_a_shaft_and_a_head_with_its_tip_on_the_end() {
+        let mut b = blank(80, 40);
+        b.arrow((5, 20), (70, 20), 3, BLACK);
+        assert_eq!(b.get(5, 20), Some(BLACK), "the tail");
+        assert_eq!(b.get(40, 20), Some(BLACK), "the shaft");
+        assert_eq!(b.get(70, 20), Some(BLACK), "the tip");
+        // The head is wider than the shaft, just behind the tip.
+        let width_at = |x| (0..40).filter(|y| b.get(x, *y) == Some(BLACK)).count();
+        assert!(width_at(60) > width_at(30) + 4, "{} vs {}", width_at(60), width_at(30));
+        assert_eq!(b.get(75, 20), Some(WHITE), "nothing beyond the tip");
+    }
+
+    #[test]
+    fn a_short_arrow_is_still_an_arrow_and_no_arrow_is_a_dot() {
+        let mut b = blank(30, 30);
+        b.arrow((10, 10), (16, 10), 2, BLACK);
+        assert!(count(&b, BLACK) > 6);
+        let mut dot = blank(30, 30);
+        dot.arrow((10, 10), (10, 10), 3, BLACK);
+        assert!(count(&dot, BLACK) >= 5);
+    }
+
+    #[test]
+    fn a_highlight_tints_and_keeps_what_is_under_it() {
+        let yellow = [255, 255, 0, 255];
+        let mut b = blank(40, 20);
+        b.put(10, 10, BLACK);
+        b.highlight(&[(2, 10), (30, 10)], 8, yellow);
+        assert_eq!(b.get(20, 10), Some(yellow), "white under it takes the colour");
+        assert_eq!(b.get(10, 10), Some(BLACK), "black under it stays black");
+        assert_eq!(b.get(20, 0), Some(WHITE), "outside it is left alone");
+    }
+
+    #[test]
+    fn a_highlight_going_back_over_itself_does_not_darken() {
+        let tint = [200, 200, 100, 255];
+        let mut once = blank(40, 20);
+        once.highlight(&[(2, 10), (30, 10)], 6, tint);
+        let mut twice = blank(40, 20);
+        twice.highlight(&[(2, 10), (30, 10), (2, 10), (30, 10)], 6, tint);
+        assert_eq!(once, twice);
     }
 
     #[test]

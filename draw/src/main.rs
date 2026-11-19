@@ -5,6 +5,8 @@ mod bitmap;
 mod config;
 mod document;
 mod file;
+mod icons;
+mod spectrum;
 
 fn main() -> eframe::Result {
     let config = config::Config::load();
