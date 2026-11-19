@@ -14,7 +14,7 @@ egui = "0.35"
 egui_extras = { version = "0.35", features = ["file", "image"] }
 html2text = "0.17"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
-patina-ui = { git = "https://github.com/Sector-F-Labs/patina", branch = "develop" }
+patina-ui = { workspace = true }
 rodio = { version = "0.22.2", features = ["symphonia-all"] }
 rss = { version = "2.1.2", default-features = false }
 serde = { version = "1.0.229", features = ["derive"] }
