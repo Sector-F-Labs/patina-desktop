@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Weather
+GenericName=Weather
+Comment=The weather now, the week ahead and each day in detail
+Exec=weather
+Icon=com.sectorflabs.Weather
+Terminal=false
+Categories=Utility;
+Keywords=weather;forecast;temperature;rain;
+StartupNotify=true
+StartupWMClass=com.sectorflabs.Weather

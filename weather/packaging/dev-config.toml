@@ -1,0 +1,21 @@
+# The scratch config `make dev` and `make screenshot` start from.
+selected = 0
+days = 7
+
+[[places]]
+name = "Stockholm"
+region = "Stockholm County, Sweden"
+latitude = 59.32938
+longitude = 18.06871
+
+[[places]]
+name = "Cape Town"
+region = "Western Cape, South Africa"
+latitude = -33.92584
+longitude = 18.42322
+
+[[places]]
+name = "Bergen"
+region = "Vestland, Norway"
+latitude = 60.39299
+longitude = 5.32415
