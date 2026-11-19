@@ -2,7 +2,7 @@
 
 ![Calendar's icon](docs/icon.png)
 
-Calendar is a desktop calendar for a CalDAV server, made for [plan](../plan) on urd. It's built
+Calendar is a desktop calendar for a CalDAV server, made for [plan](../../plan) on urd. It's built
 with [egui](https://github.com/emilk/egui) on [Patina](https://github.com/Sector-F-Labs/patina), so
 it shares a window frame and skins with Notebook, Photograph and UnAmp.
 
@@ -73,7 +73,7 @@ make check        # tests and clippy
 make install      # install for your user, with icon and launcher
 ```
 
-`make dev`, `make live-test` and `make screenshot` start `plan serve` from `../plan` on port 5299,
+`make dev`, `make live-test` and `make screenshot` start `plan serve` from `../../plan` on port 5299,
 seeded by `scripts/seed-dev-calendars.py`, and use a scratch config. They never touch your settings
 or the real server.
 

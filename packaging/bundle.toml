@@ -57,7 +57,7 @@ id = "unamp"
 why = "Music: local folders and network shares"
 
 # Other Patina apps, left out. Move one up to bundle it:
-#   calendar  78d0d3d  the clock menu shows its events
+#   calendar  (in this repository, calendar/; stage doesn't install it yet)  the clock menu shows its events
 #   mail      364dd0d
 #   editor    93026f5
 #   weather   05fd517

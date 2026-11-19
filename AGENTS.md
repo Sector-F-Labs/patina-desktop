@@ -256,7 +256,7 @@ puts them in `$(PREFIX)/share/man`.
   reads the compositor's history over `com.sectorflabs.Patina.Clipboard`; thumbnails are files the
   compositor writes under `$XDG_RUNTIME_DIR/patina/clipboard/`.
 - `clock/`: patina-clock, the clock's menu (ADR-0082): a month and the day's events, which the
-  Calendar app (`../calendar`) prints with `calendar --agenda` (`agenda.rs`); a click runs
+  Calendar app (`calendar/`) prints with `calendar --agenda` (`agenda.rs`); a click runs
   `calendar --open DATE [--event UID]`. The menu draws, Calendar keeps the data.
 - `volume/`: patina-volume, the tray's volume menu, also flashed by the compositor after a
   volume key (`--flash`) or a brightness key (`--brightness`) (ADR-0021, ADR-0033).
