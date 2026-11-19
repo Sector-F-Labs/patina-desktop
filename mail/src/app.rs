@@ -1135,7 +1135,7 @@ Flags help spot trackers, but an image without flags can still track you.",
                                 state.store(ui.ctx(), body.id);
                             }
                         }
-                        body.context_menu(|ui| {
+                        patina::menu::context(&body, |ui| {
                             for (label, keys, action) in [
                                 ("Cut", "Ctrl+X", Do::Cut),
                                 ("Copy", "Ctrl+C", Do::Copy),
@@ -1289,7 +1289,10 @@ Flags help spot trackers, but an image without flags can still track you.",
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        if !self.config.system_title_bar {
+            patina::frame::shadow::request(frame);
+        }
         let ctx = ui.ctx().clone();
         self.poll();
         let now = ctx.input(|i| i.time);
