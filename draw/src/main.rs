@@ -3,6 +3,7 @@
 mod app;
 mod bitmap;
 mod colour;
+mod crop;
 mod config;
 mod document;
 mod file;

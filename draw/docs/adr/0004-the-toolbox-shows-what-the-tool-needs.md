@@ -32,9 +32,17 @@ value, a hue slider and the numbers.
   colour for a rectangle expects); only Both has two.
 - **Tools are five to a row**, now twelve: rectangle, ellipse, arrow, line, text; highlighter,
   brush, pencil, eraser, fill; picker, crop.
-- **Crop** (C): drag a rectangle on the picture, the rest dimmed, with its size shown; Enter or
-  the Crop button (or Image, Crop to Selection) keeps it, as one undo step, and Esc or Clear lets
-  it go. Choosing another tool drops it.
+- **Crop** (C): drag a rectangle on the picture, the rest dimmed, with a rule-of-thirds grid and
+  its size in the panel. It has eight handles (corners and the middles of the sides) to pull,
+  and dragging inside carries it, both kept inside the picture (`crop.rs`). Enter or the Crop
+  button (or Image, Crop to Selection) keeps it, as one undo step, and Esc or Clear lets it go.
+  Choosing another tool drops it.
+- **Crop's shape** is chosen in the panel: Free, Original (the picture's own), 1:1, 4:3, 3:2,
+  16:9 or a Custom W:H, with a Portrait toggle that turns a ratio on its side. Choosing one fits
+  the largest such rectangle into what's selected (or into the middle of the picture, with room
+  round it). Then a new drag and every handle hold it: a corner keeps the opposite corner where
+  it is, a side moves and the other way follows about the middle, and where the picture's edge is
+  met the shape is kept by giving way on the other side.
 - **Text** (T): click where it goes, type in a small box over the picture, Enter writes it
   (Shift+Enter starts a line, Esc drops it); the picture shows the text as it's typed. It is
   rasterised anti-aliased with `ab_glyph` in the Ubuntu font egui ships (`text.rs`), drawn twice
@@ -47,9 +55,9 @@ value, a hue slider and the numbers.
   the background colour, which a tool that shows only the foreground gives no sight of.
 - Text is placed and then fixed: it can't be moved or edited afterwards, only undone. One font,
   one weight, no bold or italics.
-- Crop selects by drag only: no handles to adjust it and no numbers to type.
+- Crop has no numbers to type for its position or size, and no nudging with the keys.
 
 ## Revisit when
 
 - Text needs moving, a choice of font or weight, or a background behind it.
-- Crop needs handles, a fixed aspect ratio or typed numbers.
+- Crop needs typed numbers or nudging with the arrow keys.

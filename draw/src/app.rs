@@ -12,6 +12,7 @@ use crate::bitmap::{Bitmap, Fill, Rgba, WHITE};
 use crate::config::Config;
 use crate::document::{Button, Document, Pen, Tool};
 use crate::file::{self, Done};
+use crate::crop::{self, Aspect, Handle, Region};
 use crate::{icons, text};
 
 const APP: &str = "draw";
@@ -45,8 +46,22 @@ struct Typing {
 /// What the picture's preview shows of the text being typed, to redraw it when that changes.
 type Preview = ((i32, i32), String, u32, Rgba);
 
-/// The corners of the part of the picture to keep, in its pixels.
-type Region = ((i32, i32), (i32, i32));
+/// What the pointer is doing to the crop selection, from where it was pressed.
+#[derive(Clone, Copy)]
+enum CropDrag {
+    /// Drawing a new one from this corner.
+    New((i32, i32)),
+    /// Carrying it: where in it (from its top left) it was taken hold of.
+    Move((i32, i32)),
+    /// Pulling a handle, from how the selection was when it was taken.
+    Resize(Handle, Region),
+}
+
+/// How near a handle the pointer has to be to take it, in screen pixels.
+const HANDLE_GRAB: f32 = 10.0;
+
+/// The handles' size on screen.
+const HANDLE_SIZE: f32 = 9.0;
 
 /// What the header and menus ask for, handled after they're drawn.
 enum Action {
@@ -116,7 +131,10 @@ pub struct App {
     slot: Slot,
     /// Crop: the part chosen to keep, and whether the pointer is still choosing it.
     crop: Option<Region>,
-    cropping: bool,
+    crop_drag: Option<CropDrag>,
+    /// The shape the selection is held to, and whether it's turned on its side.
+    aspect: Aspect,
+    portrait: bool,
     /// Text: what's being typed, and what the picture shows of it.
     typing: Option<Typing>,
     preview: Option<Preview>,
@@ -152,7 +170,9 @@ impl App {
             screenshot,
             slot: Slot::Foreground,
             crop: None,
-            cropping: false,
+            crop_drag: None,
+            aspect: Aspect::Free,
+            portrait: false,
             typing: None,
             preview: None,
         };
@@ -222,11 +242,11 @@ impl App {
                 self.dialog = Some(Dialog::Resize { width: b.width, height: b.height });
             }
             Action::ApplyCrop => {
-                if let Some((a, b)) = self.crop.take() {
-                    let size = ((a.0 - b.0).abs() + 1, (a.1 - b.1).abs() + 1);
-                    if self.doc.crop(a, b) {
-                        self.status = Some(format!("Cropped to {} × {}", size.0, size.1));
+                if let Some(r) = self.crop.take() {
+                    if self.doc.crop((r.x0, r.y0), (r.x1, r.y1)) {
+                        self.status = Some(format!("Cropped to {} × {}", r.width(), r.height()));
                     }
+                    self.crop_drag = None;
                     self.texture_stale = true;
                     self.fit = true;
                 }
@@ -431,7 +451,7 @@ impl App {
             }
             if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape)) {
                 self.crop = None;
-                self.cropping = false;
+                self.crop_drag = None;
                 self.doc.cancel();
                 self.texture_stale = true;
             }
@@ -493,19 +513,61 @@ impl App {
         });
     }
 
-    /// What Crop has chosen, and the ways to keep it or let it go.
+    /// What Crop has chosen, the shape to hold it to, and the ways to keep it or let it go.
     fn crop_controls(&mut self, ui: &mut egui::Ui, actions: &mut Vec<Action>) {
         ui.label("Crop");
-        let Some((a, b)) = self.crop else {
-            ui.label(egui::RichText::new("Drag on the picture to choose what to keep.").weak());
-            return;
+        let size = (self.doc.bitmap.width as i32, self.doc.bitmap.height as i32);
+        match self.crop {
+            Some(r) => ui.label(format!("{} × {} px", r.width(), r.height())),
+            None => ui.label(egui::RichText::new("Drag on the picture to choose what to keep.").weak()),
         };
-        ui.label(format!("{} × {} px", (a.0 - b.0).abs() + 1, (a.1 - b.1).abs() + 1));
+        ui.add_space(4.0);
+        ui.label("Shape");
+        let before = (self.aspect, self.portrait);
+        ui.horizontal_wrapped(|ui| {
+            let custom = matches!(self.aspect, Aspect::Custom(..));
+            let choices = [
+                (Aspect::Free, "Free"),
+                (Aspect::Original, "Original"),
+                (Aspect::Fixed(1, 1), "1:1"),
+                (Aspect::Fixed(4, 3), "4:3"),
+                (Aspect::Fixed(3, 2), "3:2"),
+                (Aspect::Fixed(16, 9), "16:9"),
+            ];
+            for (aspect, label) in choices {
+                if ui.add(egui::Button::selectable(self.aspect == aspect, label)).clicked() {
+                    self.aspect = aspect;
+                }
+            }
+            if ui.add(egui::Button::selectable(custom, "Custom")).clicked() && !custom {
+                self.aspect = Aspect::Custom(4, 5);
+            }
+        });
+        if let Aspect::Custom(w, h) = &mut self.aspect {
+            ui.horizontal(|ui| {
+                ui.add(egui::DragValue::new(w).range(1..=99));
+                ui.label(":");
+                ui.add(egui::DragValue::new(h).range(1..=99));
+            });
+        }
+        if !matches!(self.aspect, Aspect::Free | Aspect::Original | Aspect::Fixed(1, 1)) {
+            ui.checkbox(&mut self.portrait, "Portrait");
+        }
+        // A new shape applies to what's chosen, or chooses something in it.
+        if (self.aspect, self.portrait) != before
+            && let Some(ratio) = self.aspect.ratio(size, self.portrait)
+        {
+            self.crop = Some(match self.crop {
+                Some(r) => crop::fit_ratio(r, ratio),
+                None => crop::starting(ratio, size),
+            });
+        }
+        ui.add_space(4.0);
         ui.horizontal(|ui| {
-            if ui.button("Crop").on_hover_text("Keep this part (Enter)").clicked() {
+            if ui.add_enabled(self.crop.is_some(), egui::Button::new("Crop")).on_hover_text("Keep this part (Enter)").clicked() {
                 actions.push(Action::ApplyCrop);
             }
-            if ui.button("Clear").on_hover_text("Choose again (Esc)").clicked() {
+            if ui.add_enabled(self.crop.is_some(), egui::Button::new("Clear")).on_hover_text("Choose again (Esc)").clicked() {
                 self.crop = None;
             }
         });
@@ -568,7 +630,7 @@ impl App {
         }
         if self.pen.tool != Tool::Crop {
             self.crop = None;
-            self.cropping = false;
+            self.crop_drag = None;
         }
         // The text being typed shows in the picture as it's typed.
         let preview =
@@ -630,9 +692,8 @@ impl App {
                         Color32::WHITE,
                     );
                 }
-                if let Some(((ax, ay), (bx, by))) = crop {
-                    let corner = |x: i32, y: i32| rect.min + Vec2::new(x as f32, y as f32) * zoom;
-                    let kept = Rect::from_min_max(corner(ax.min(bx), ay.min(by)), corner(ax.max(bx) + 1, ay.max(by) + 1));
+                if let Some(region) = crop {
+                    let kept = region.on_screen(rect.min, zoom);
                     let dim = Color32::from_black_alpha(130);
                     for outside in [
                         Rect::from_min_max(rect.min, Pos2::new(rect.max.x, kept.top())),
@@ -644,6 +705,20 @@ impl App {
                     }
                     painter.rect_stroke(kept, 0.0, egui::Stroke::new(3.0, Color32::from_black_alpha(160)), egui::StrokeKind::Outside);
                     painter.rect_stroke(kept, 0.0, egui::Stroke::new(1.5, Color32::WHITE), egui::StrokeKind::Outside);
+                    // Rule-of-thirds lines inside, faint: where to put what matters.
+                    let faint = egui::Stroke::new(1.0, Color32::from_white_alpha(70));
+                    for i in 1..3 {
+                        let (x, y) = (kept.left() + kept.width() * i as f32 / 3.0, kept.top() + kept.height() * i as f32 / 3.0);
+                        painter.line_segment([Pos2::new(x, kept.top()), Pos2::new(x, kept.bottom())], faint);
+                        painter.line_segment([Pos2::new(kept.left(), y), Pos2::new(kept.right(), y)], faint);
+                    }
+                    // The handles to take hold of: white with a dark edge, over the picture's edge.
+                    let handles = ui.painter().clone();
+                    for handle in Handle::ALL {
+                        let at = Rect::from_center_size(handle.position(kept), Vec2::splat(HANDLE_SIZE));
+                        handles.rect_filled(at, 1.5, Color32::WHITE);
+                        handles.rect_stroke(at, 1.5, egui::Stroke::new(1.0, Color32::from_black_alpha(200)), egui::StrokeKind::Outside);
+                    }
                 }
                 painted = Some((rect, response));
             });
@@ -677,24 +752,7 @@ impl App {
         let hovered = response.hovered() || response.is_pointer_button_down_on();
         match self.pen.tool {
             Tool::Crop => {
-                let (w, h) = (self.doc.bitmap.width as i32 - 1, self.doc.bitmap.height as i32 - 1);
-                let clamp = |p: (i32, i32)| (p.0.clamp(0, w), p.1.clamp(0, h));
-                if let (Some(Button::Primary), Some(pos), true) = (pressed, self.cursor, hovered) {
-                    self.crop = Some((clamp(pos), clamp(pos)));
-                    self.cropping = true;
-                } else if self.cropping {
-                    if down {
-                        if let (Some(p), Some((a, _))) = (pointer, self.crop) {
-                            self.crop = Some((a, clamp(to_pixel(p))));
-                        }
-                    } else {
-                        self.cropping = false;
-                        // A click that went nowhere chooses nothing.
-                        if self.crop.is_some_and(|(a, b)| a == b) {
-                            self.crop = None;
-                        }
-                    }
-                }
+                self.crop_pointer(&ctx, rect, pointer, pressed == Some(Button::Primary) && hovered, down, to_pixel(pointer.unwrap_or(rect.min)));
                 return;
             }
             Tool::Text => {
@@ -726,6 +784,77 @@ impl App {
         } else {
             self.doc.end();
             self.texture_stale = true;
+        }
+    }
+
+    /// The pointer's part in Crop: pressing on a handle pulls it, inside the selection carries it,
+    /// elsewhere draws a new one; held to the chosen shape when there is one.
+    fn crop_pointer(
+        &mut self,
+        ctx: &egui::Context,
+        picture: Rect,
+        pointer: Option<Pos2>,
+        pressed: bool,
+        down: bool,
+        at: (i32, i32),
+    ) {
+        let size = (self.doc.bitmap.width as i32, self.doc.bitmap.height as i32);
+        let ratio = self.aspect.ratio(size, self.portrait);
+        let inside = |p: (i32, i32)| (p.0.clamp(0, size.0 - 1), p.1.clamp(0, size.1 - 1));
+        let on_handle = match (self.crop, pointer) {
+            (Some(r), Some(p)) => crop::hit(r.on_screen(picture.min, self.zoom), p, HANDLE_GRAB),
+            _ => None,
+        };
+        if self.crop_drag.is_none() {
+            // What a press here would do, said by the pointer.
+            if let Some(handle) = on_handle {
+                ctx.set_cursor_icon(handle.cursor());
+            } else if self.crop.is_some_and(|r| r.contains(at)) {
+                ctx.set_cursor_icon(egui::CursorIcon::Grab);
+            }
+            if pressed && pointer.is_some() {
+                self.crop_drag = Some(match (self.crop, on_handle) {
+                    (Some(r), Some(handle)) => CropDrag::Resize(handle, r),
+                    (Some(r), None) if r.contains(at) => CropDrag::Move((at.0 - r.x0, at.1 - r.y0)),
+                    _ => {
+                        let corner = inside(at);
+                        self.crop = Some(Region::between(corner, corner));
+                        CropDrag::New(corner)
+                    }
+                });
+            }
+            return;
+        }
+        let Some(drag) = self.crop_drag else { return };
+        if !down {
+            self.crop_drag = None;
+            // A click that went nowhere chooses nothing.
+            if matches!(drag, CropDrag::New(_)) && self.crop.is_some_and(|r| r.width() == 1 && r.height() == 1) {
+                self.crop = None;
+            }
+            return;
+        }
+        match drag {
+            CropDrag::New(corner) => {
+                self.crop = Some(match ratio {
+                    Some(ratio) => crop::from_corner(corner, at, ratio, size),
+                    None => Region::between(corner, inside(at)),
+                });
+            }
+            CropDrag::Move(grab) => {
+                ctx.set_cursor_icon(egui::CursorIcon::Grabbing);
+                if let Some(r) = self.crop {
+                    self.crop = Some(crop::moved(r, grab, at, size));
+                }
+            }
+            CropDrag::Resize(handle, start) => {
+                ctx.set_cursor_icon(handle.cursor());
+                self.crop = Some(match (ratio, crop::opposite_corner(start, handle)) {
+                    (Some(ratio), Some(corner)) => crop::from_corner(corner, at, ratio, size),
+                    (Some(ratio), None) => crop::from_side(start, handle, at, ratio, size),
+                    (None, _) => crop::resize(start, handle, at, size),
+                });
+            }
         }
     }
 

@@ -25,6 +25,7 @@ Test and screenshot runs use `target/scratch-*` for config and data, never the r
 - `src/document.rs`: the open picture, tools, strokes (`begin`/`drag`/`end`) and undo; tested.
 - `src/file.rs`: open and save on a thread, dialogs included (rfd); `Done` comes back over a channel.
 - `src/icons.rs`: the toolbox's symbols, painted with shapes.
+- `src/crop.rs`: Crop's rectangle, its eight handles and the shapes it's held to: all the geometry, tested.
 - `src/colour.rs`: colours as hex text, for the picker's hex field; tested.
 - `src/text.rs`: letters rasterised into the bitmap (ab_glyph, egui's Ubuntu); tested.
 - `src/app.rs`: the window: menus, toolbox (a tool's own colour, size and shape), canvas, crop selection, the text box, dialogs. Keep logic out of it.
